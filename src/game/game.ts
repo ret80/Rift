@@ -234,10 +234,6 @@ const MAX_GUNS = 5;
 const MAX_ALLY_DRONES = 8;
 const PLAYER_MAX_SPEED = 310;
 const ZONE_EXPAND_SPEED = PLAYER_MAX_SPEED * 1.2;
-/* wave-zone contours: inner dashed warning ring and outer energy wall.
-   The space between them is a reserve zone for maneuvering. */
-const ZONE_LINE = 0.96;
-const ZONE_WALL = 1.12;
 const GUN_OFFS = [0, 9, -9, 17, -17];
 const TAU = Math.PI * 2;
 
@@ -412,7 +408,6 @@ export class Game {
   private edgeOutT = 0;
   private edgeTickT = 0;
   private edgeWarned = false;
-  private edgeWarnT = 0;
 
   private cdT = 0;
   private cdLast = -1;
@@ -984,11 +979,9 @@ export class Game {
 
     this.invuln = Math.max(0, this.invuln - dt);
     const pObj = { x: this.px, y: this.py, vx: this.pvx, vy: this.pvy, r: 13 };
-    // the pilot may cross the outer wall — but only by a short leash, and
-    // every moment past the wall costs hull (see updateEdgeDanger). The
-    // reserve zone between the dashed line and the wall is safe to use.
-    const wallOver = this.zoneR * (ZONE_WALL - 1) + 34 + pObj.r;
-    this.clampToZone(pObj, wallOver);
+    // the pilot may overshoot the dashed edge line — the wall beyond it
+    // is what hurts, not the line itself
+    this.clampToZone(pObj, 56);
     this.px = pObj.x;
     this.py = pObj.y;
     this.pvx = pObj.vx;
@@ -1505,10 +1498,7 @@ export class Game {
       b.y += b.vy * dt;
       let dead = b.life <= 0;
       if (!dead && this.zoneOn && this.zoneAlpha > 0.4) {
-        // bullets reach the whole reserve zone up to the outer wall, so it
-        // never becomes a bullet-proof safe band
-        if (Math.hypot(b.x - this.zoneX, b.y - this.zoneY) > this.zoneR * ZONE_WALL + 12)
-          dead = true;
+        if (Math.hypot(b.x - this.zoneX, b.y - this.zoneY) > this.zoneR + 10) dead = true;
       }
       // ally drones can be shot down
       const aliveNow = this.state === "active" || this.state === "cleared";
@@ -1783,13 +1773,12 @@ export class Game {
       a.y += a.vy * dt;
       a.angle += a.spin * dt;
 
-      // the wave zone is sacred ground — shove rocks out past the outer
-      // wall and keep them there
+      // the wave zone is sacred ground — shove rocks out and keep them out
       if (this.zoneOn && this.zoneAlpha > 0.4 && this.zoneR > 60) {
         const zdx = a.x - this.zoneX;
         const zdy = a.y - this.zoneY;
         const zd = Math.hypot(zdx, zdy) || 1;
-        const lim = this.zoneR * ZONE_WALL + a.r + 18;
+        const lim = this.zoneR + a.r + 26;
         if (zd < lim) {
           const push = 260 * dt;
           a.vx += (zdx / zd) * push * 8;
@@ -2105,15 +2094,9 @@ export class Game {
   }
 
   /**
-   * Wave-zone edge hazard, built around two contours:
-   * - inner dashed line at ZONE_LINE·R — a warning border; the wall
-   *   darkens as the pilot approaches it;
-   * - the space between the dashed line and the outer wall is a reserve
-   *   zone the pilot may use to maneuver;
-   * - outer wavy wall at ZONE_WALL·R — crossing it deals hull damage
-   *   that doubles every 2.5s outside (1% → 2% → 4% … of max hull per
-   *   second), and the soft clamp stops the ship just past the wall, so
-   *   it is impossible to leave the zone without taking damage.
+   * The dashed edge line of the wave zone is a hazard:
+   * - crossing it deals hull damage that doubles every 2.5s the pilot
+   *   lingers outside (1% → 2% → 4% → 8% → 16% of max hull per second).
    */
   private updateEdgeDanger(dt: number) {
     if (
@@ -2127,26 +2110,18 @@ export class Game {
       this.edgeOutT = 0;
       this.edgeTickT = 0;
       this.edgeWarned = false;
-      this.edgeWarnT = Math.max(0, this.edgeWarnT - dt * 2);
       return;
     }
-    const line = this.zoneR * ZONE_LINE;
-    const wall = this.zoneR * ZONE_WALL;
+    const line = this.zoneR * 0.96; // the dashed edge line
     const pd = Math.hypot(this.px - this.zoneX, this.py - this.zoneY);
-
-    // warning intensity: ramps up over the last 150px before the dashed
-    // line, full blast once the ship is beyond the outer wall
-    const target = pd > wall ? 1 : clamp((pd - (line - 150)) / (wall - line + 150), 0, 1);
-    this.edgeWarnT += (target - this.edgeWarnT) * Math.min(1, dt * (target > this.edgeWarnT ? 7 : 2.2));
-
-    if (pd > wall) {
-      if (!this.edgeWarned) {
+    if (pd > line) {
+      if (this.edgeOutT === 0 && !this.edgeWarned) {
         this.edgeWarned = true;
         this.hooks.onToast({ text: t("game.zoneEdge"), color: "#ff3b52" });
       }
       this.edgeOutT += dt;
       // doubles every 2.5s outside, capped so it escalates but never one-shots
-      const stage = Math.min(5, Math.floor(this.edgeOutT / 2.5));
+      const stage = Math.min(4, Math.floor(this.edgeOutT / 2.5));
       const pct = Math.pow(2, stage); // % of max hull per second
       if (!this.debugGod) {
         this.hp -= this.maxHp * (pct / 100) * dt;
@@ -2161,7 +2136,7 @@ export class Game {
         }
       }
       if (this.hp <= 0) this.onPlayerDeath();
-    } else if (pd < wall - 30) {
+    } else if (pd < line - 26) {
       // back in safety (with hysteresis so the timer doesn't flicker)
       this.edgeOutT = 0;
       this.edgeTickT = 0;
@@ -2570,11 +2545,7 @@ export class Game {
     const R = this.renderer;
     const a = this.zoneAlpha;
     const zr = this.zoneR;
-    const warn = clamp(this.edgeWarnT, 0, 1); // 0 = calm, 1 = at/past the wall
-    const wallR = zr * ZONE_WALL;
-    const lineR = zr * ZONE_LINE;
-
-    // outer wavy "energy wall" — darkens red as the pilot approaches it
+    // outer wavy "energy wall"
     const segs = 90;
     let px = 0;
     let py = 0;
@@ -2584,33 +2555,15 @@ export class Game {
         Math.sin(ang * 6 + this.time * 2.2) * 4 +
         Math.sin(ang * 11 - this.time * 3.1) * 2.5 +
         Math.sin(ang * 3 + this.time * 1.3) * 3;
-      const rr = wallR + wob;
+      const rr = zr + wob;
       const x = this.zoneX + Math.cos(ang) * rr;
       const y = this.zoneY + Math.sin(ang) * rr;
-      if (i > 0) R.pushLine(px, py, x, y, rgba(C.zone, (0.34 + 0.4 * warn) * a));
+      if (i > 0) R.pushLine(px, py, x, y, rgba(C.zone, 0.5 * a));
       px = x;
       py = y;
     }
-
-    // inner dashed warning ring
-    R.dashedCircle(this.zoneX, this.zoneY, lineR, rgba(C.zone, 0.3 * a), 24, this.time * 0.8);
-
-    // reserve-zone band: a faint glow that brightens toward the wall as the
-    // pilot closes in, telegraphing the hazard ahead
-    if (warn > 0.03) {
-      const midR = (lineR + wallR) / 2;
-      const pulse = 0.5 + 0.5 * Math.sin(this.time * 6);
-      R.dashedCircle(
-        this.zoneX,
-        this.zoneY,
-        midR,
-        rgba(C.zone, (0.1 + 0.3 * warn + 0.1 * warn * pulse) * a),
-        40,
-        -this.time * 0.6
-      );
-      // tight hot arc hugging the wall where danger is highest
-      R.circle(this.zoneX, this.zoneY, wallR - 3, rgba(C.zone, 0.16 * warn * a), 64);
-    }
+    // inner dashed ring
+    R.dashedCircle(this.zoneX, this.zoneY, zr * 0.96, rgba(C.zone, 0.3 * a), 24, this.time * 0.8);
   }
 
   private drawRifts() {
