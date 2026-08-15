@@ -625,7 +625,7 @@ export class Game {
   }
 
   private beginCountdown() {
-    this.cdT = 5;
+    this.cdT = 15;
     this.cdLast = -1;
     this.audio.setCombatWave(this.wave);
   }
