@@ -201,7 +201,7 @@ function EnemyIcon(props: { kind: "drone" | "hunter" | "fighter" | "cruiser" | "
   );
 }
 
-function PickupIcon(props: { kind: "heal" | "rate" | "gun" | "drone" }) {
+function PickupIcon(props: { kind: "heal" | "rate" | "gun" | "drone" | "mineral" }) {
   const col =
     props.kind === "heal"
       ? "#7dffb8"
@@ -209,7 +209,9 @@ function PickupIcon(props: { kind: "heal" | "rate" | "gun" | "drone" }) {
         ? "#ff8c42"
         : props.kind === "gun"
           ? "#5ef2ff"
-          : "#9dffe8";
+          : props.kind === "mineral"
+            ? "#7dffb8"
+            : "#9dffe8";
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" className="shrink-0" fill="none" stroke={col} strokeWidth="1.6">
       {props.kind === "heal" && (
@@ -234,6 +236,12 @@ function PickupIcon(props: { kind: "heal" | "rate" | "gun" | "drone" }) {
           <circle cx="12" cy="12" r="9" strokeOpacity="0.4" />
         </>
       )}
+      {props.kind === "mineral" && (
+        <>
+          <polygon points="12,3 19,8 16,20 8,20 5,8" />
+          <line x1="12" y1="3" x2="12" y2="20" strokeOpacity="0.4" />
+        </>
+      )}
     </svg>
   );
 }
@@ -242,8 +250,9 @@ export function HelpScreen(props: { onBack: () => void }) {
   const t = useT();
   return (
     <div className="anim-overlay absolute inset-0 z-20 flex items-center justify-center p-4">
-      <div className="anim-fade-up max-h-[92vh] w-[min(560px,96vw)] overflow-y-auto">
-        <div className="hud-panel p-5 sm:p-7">
+      <div className="anim-fade-up flex max-h-[92vh] w-[min(560px,96vw)] flex-col">
+        <div className="hud-panel flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-7">
           <div className="hud-label mb-5 text-center">{t("help.title")}</div>
 
           <div className="mb-2 text-[11px] tracking-[0.25em] text-[#5ef2ff]">
@@ -321,10 +330,18 @@ export function HelpScreen(props: { onBack: () => void }) {
               <PickupIcon kind="drone" />
               <span>{t("help.allyDrone")}</span>
             </div>
+            <div className="flex items-center gap-3 text-[13px] text-[#9db4d6]">
+              <PickupIcon kind="mineral" />
+              <span>{t("help.asteroid")}</span>
+            </div>
+          </div>
           </div>
 
-          <div className="flex justify-center">
-            <GameButton onClick={props.onBack}>{t("help.back")}</GameButton>
+          {/* fixed footer — always visible, no scrolling needed to exit */}
+          <div className="shrink-0 border-t border-[#5ef2ff]/15 bg-[#060d1a]/60 p-4">
+            <div className="flex justify-center">
+              <GameButton onClick={props.onBack}>{t("help.back")}</GameButton>
+            </div>
           </div>
         </div>
       </div>
@@ -575,74 +592,67 @@ export function HudLayer(props: { r: HudRefs; godOn: boolean }) {
   const r = props.r;
   return (
     <div className="pointer-events-none absolute inset-0 z-20">
-      {/* top row: wave | hull | score */}
+      {/* single unified top bar: hull | wave | score */}
       <div
-        className="absolute left-2 right-2 top-0 flex items-start justify-between gap-2 sm:left-4 sm:right-4"
+        className="absolute left-2 right-2 top-0 sm:left-4 sm:right-4"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 10px)" }}
       >
-        {/* wave — top left */}
-        <div className="hud-panel w-[96px] px-3 py-2 sm:w-[136px]">
-          <div className="hud-label !text-[8px] sm:!text-[10px]">{t("hud.wave")}</div>
-          <div className="flex items-baseline gap-1.5">
-            <div ref={r.wave} className="font-display text-lg leading-none text-[#eaffff] sm:text-[22px]">
+        <div ref={r.hullPanel} className="hud-panel flex h-[46px] items-center gap-3 px-3 sm:h-[52px] sm:gap-4 sm:px-4">
+          {/* LEFT — hull + minerals */}
+          <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
+            <div className="flex items-center gap-2">
+              <span className="hud-label shrink-0 !text-[7px] sm:!text-[9px]">{t("hud.hull")}</span>
+              <div className="h-[7px] min-w-0 flex-1 bg-[#ff3b52]/15">
+                <div
+                  ref={r.hpFill}
+                  className="h-full w-full bg-[#5ef2ff] shadow-[0_0_7px_#5ef2ff] transition-[width] duration-200"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <div ref={r.minerals} className="flex items-center gap-1 text-[9px] font-bold tracking-[0.08em] text-[#7dffb8] sm:text-[10px]">
+                <MineralGlyph /> 0
+              </div>
+              <div ref={r.time} className="text-[8px] tracking-[0.14em] text-[#6f86a8] sm:text-[9px]">
+                T+0:00
+              </div>
+            </div>
+          </div>
+
+          {/* CENTER — wave */}
+          <div className="flex shrink-0 flex-col items-center leading-none">
+            <span className="hud-label !text-[7px] sm:!text-[9px]">{t("hud.wave")}</span>
+            <div ref={r.wave} className="font-display mt-0.5 text-xl text-[#eaffff] sm:text-[26px]">
               01
             </div>
-            <div ref={r.kills} className="text-[8px] tracking-[0.04em] text-[#9db4d6] sm:text-[9px]">
-              0/0
+            <div className="mt-1 h-[3px] w-[64px] bg-[#5ef2ff]/10 sm:w-[90px]">
+              <div ref={r.progress} className="h-full w-0 bg-[#5ef2ff] shadow-[0_0_5px_#5ef2ff]" />
             </div>
           </div>
-          <div className="mt-1 h-[3px] w-full bg-[#5ef2ff]/10">
-            <div ref={r.progress} className="h-full w-0 bg-[#5ef2ff] shadow-[0_0_5px_#5ef2ff]" />
-          </div>
-          <div ref={r.status} className="mt-1 text-[7px] tracking-[0.03em] text-[#6f86a8] sm:text-[8px]">
-            {t("hud.status", { g: 1, d: 0 })}
+
+          {/* RIGHT — score */}
+          <div className="flex min-w-0 flex-1 flex-col items-end justify-center gap-0.5 text-right">
+            <span className="hud-label !text-[7px] sm:!text-[9px]">{t("hud.scoreLabel")}</span>
+            <div ref={r.score} className="font-display text-lg leading-none text-[#eaffff] sm:text-[24px]">
+              000000
+            </div>
+            <div className="flex items-center gap-2">
+              <div
+                ref={r.combo}
+                className="font-display text-[11px] leading-none text-[#ffb84d] opacity-0 sm:text-xs"
+              >
+                ×1.0
+              </div>
+              <div ref={r.best} className="hidden text-[7px] tracking-[0.08em] text-[#ffb84d]/80 sm:block sm:text-[8px]">
+                {t("hud.best", { v: 0 })}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* hull — top center, always in view */}
-        <div ref={r.hullPanel} className="hud-panel w-[min(240px,38vw)] px-3 py-2 sm:px-4">
-          <div className="hud-label !text-[8px] sm:!text-[10px]">{t("hud.hull")}</div>
-          <div className="mt-1 h-[6px] w-full bg-[#ff3b52]/15">
-            <div
-              ref={r.hpFill}
-              className="h-full w-full bg-[#5ef2ff] shadow-[0_0_7px_#5ef2ff] transition-[width] duration-200"
-            />
-          </div>
-          <div ref={r.time} className="mt-1 text-center text-[8px] tracking-[0.16em] text-[#6f86a8] sm:text-[10px]">
-            T+0:00
-          </div>
-        </div>
-
-        {/* score — top right */}
-        <div className="hud-panel w-[96px] px-3 py-2 text-right sm:w-[136px]">
-          <div className="hud-label !text-[8px] sm:!text-[10px]">{t("hud.scoreLabel")}</div>
-          <div ref={r.score} className="font-display text-lg leading-none text-[#eaffff] sm:text-[22px]">
-            000000
-          </div>
-          <div ref={r.best} className="mt-0.5 hidden text-[7px] tracking-[0.08em] text-[#ffb84d] sm:block sm:text-[8px]">
-            {t("hud.best", { v: 0 })}
-          </div>
-          <div
-            ref={r.combo}
-            className="font-display h-[13px] text-[11px] leading-[13px] text-[#ffb84d] opacity-0 sm:h-[15px] sm:text-xs"
-          >
-            ×1.0
-          </div>
-        </div>
-      </div>
-
-      {/* fire-rate boost — slides out from below the wave panel */}
-      <div
-        className="absolute left-2 sm:left-4"
-        style={{ top: "calc(env(safe-area-inset-top) + 96px)" }}
-      >
-        <div ref={r.boostPanel} className="boost-panel hud-panel w-[110px] border-[#ff8c42]/40 px-3 py-1.5 sm:w-[150px]">
-          <div ref={r.boostText} className="font-mono text-[9px] font-bold tracking-[0.08em] text-[#ff8c42] sm:text-[10px]">
-            {t("hud.statusBoost", { p: 0, s: 20 })}
-          </div>
-          <div className="mt-1 h-[3px] w-full bg-[#ff8c42]/15">
-            <div ref={r.boostBar} className="h-full w-0 bg-[#ff8c42] shadow-[0_0_6px_#ff8c42]" />
-          </div>
+        {/* secondary status line under the bar */}
+        <div ref={r.status} className="mt-1 px-1 text-center text-[7px] tracking-[0.06em] text-[#6f86a8] sm:text-[8px]">
+          {t("hud.status", { g: 1, d: 0 })}
         </div>
       </div>
 
@@ -650,12 +660,21 @@ export function HudLayer(props: { r: HudRefs; godOn: boolean }) {
       {props.godOn && (
         <div
           className="absolute left-1/2 -translate-x-1/2 border border-[#ffb84d]/50 bg-[#ffb84d]/10 px-3 py-0.5 font-mono text-[9px] tracking-[0.25em] text-[#ffb84d]"
-          style={{ top: "calc(env(safe-area-inset-top) + 92px)" }}
+          style={{ top: "calc(env(safe-area-inset-top) + 108px)" }}
         >
           ◈ {t("hud.godChip")}
         </div>
       )}
     </div>
+  );
+}
+
+function MineralGlyph() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="#7dffb8" strokeWidth="1.2">
+      <polygon points="6,1 10,4.5 8.5,10.5 3.5,10.5 2,4.5" />
+      <line x1="6" y1="1" x2="6" y2="10.5" strokeOpacity="0.5" />
+    </svg>
   );
 }
 

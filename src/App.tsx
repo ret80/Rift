@@ -80,7 +80,6 @@ export default function App() {
 
   const hudRefs: HudRefs = {
     wave: useRef<HTMLDivElement | null>(null),
-    kills: useRef<HTMLDivElement | null>(null),
     progress: useRef<HTMLDivElement | null>(null),
     status: useRef<HTMLDivElement | null>(null),
     hullPanel: useRef<HTMLDivElement | null>(null),
@@ -89,9 +88,7 @@ export default function App() {
     score: useRef<HTMLDivElement | null>(null),
     best: useRef<HTMLDivElement | null>(null),
     combo: useRef<HTMLDivElement | null>(null),
-    boostPanel: useRef<HTMLDivElement | null>(null),
-    boostText: useRef<HTMLDivElement | null>(null),
-    boostBar: useRef<HTMLDivElement | null>(null),
+    minerals: useRef<HTMLDivElement | null>(null),
   };
 
   useEffect(() => {
@@ -104,10 +101,11 @@ export default function App() {
       const r = hudRefs;
       const compact = mqCompact.matches;
       if (r.wave.current) r.wave.current.textContent = String(h.wave).padStart(2, "0");
-      if (r.kills.current)
-        r.kills.current.textContent = compact
-          ? `${h.killed}/${h.total}`
-          : `${h.killed} / ${h.total}`;
+      if (r.minerals.current) {
+        const glyph = r.minerals.current.querySelector("svg");
+        r.minerals.current.textContent = ` ${h.minerals}`;
+        if (glyph) r.minerals.current.prepend(glyph);
+      }
       if (r.progress.current)
         r.progress.current.style.width = `${h.total > 0 ? Math.min(100, (h.killed / h.total) * 100) : 0}%`;
       if (r.status.current)
@@ -128,19 +126,6 @@ export default function App() {
           r.combo.current.textContent = `×${h.comboMult.toFixed(1)}`;
         } else {
           r.combo.current.style.opacity = "0";
-        }
-      }
-      // fire-rate boost panel
-      if (r.boostPanel.current && r.boostText.current && r.boostBar.current) {
-        if (h.rateT > 0) {
-          r.boostPanel.current.classList.add("boost-visible");
-          r.boostText.current.textContent = t("hud.statusBoost", {
-            p: Math.round((h.rateMult - 1) * 100),
-            s: Math.ceil(h.rateT),
-          });
-          r.boostBar.current.style.width = `${Math.min(100, (h.rateT / 20) * 100)}%`;
-        } else {
-          r.boostPanel.current.classList.remove("boost-visible");
         }
       }
     };

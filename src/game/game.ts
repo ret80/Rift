@@ -19,6 +19,7 @@ export interface HudData {
   rateMult: number;
   rateT: number;
   drones: number;
+  minerals: number;
 }
 
 export interface BannerData {
@@ -121,7 +122,25 @@ type PickupKind =
   | "gun"
   | "drone"
   | "dash"
-  | "miner";
+  | "miner"
+  | "mineral";
+
+export type AsteroidKind = "small" | "medium" | "large";
+
+interface Asteroid {
+  id: string;
+  kind: AsteroidKind;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  r: number;
+  angle: number;
+  spin: number;
+  verts: number[];
+  hp: number;
+  maxHp: number;
+}
 
 interface Mine {
   x: number;
@@ -357,6 +376,14 @@ export class Game {
   private mines: Mine[] = [];
   private mineDropT = -1;
 
+  /* minerals & asteroid field (chunk-generated, always around the ship) */
+  private minerals = 0;
+  private asteroids: Asteroid[] = [];
+  private astChunks = new Map<string, Asteroid[]>();
+  private astBoundsKey = "";
+  private astGone = new Set<string>();
+  private astFragSeq = 0;
+
   private rifts: Rift[] = [];
   private rings: Ring[] = [];
   private particles: Particle[] = [];
@@ -534,6 +561,11 @@ export class Game {
     this.mines = [];
     this.mineDropT = -1;
     this.dashT = 0;
+    this.minerals = 0;
+    this.asteroids = [];
+    this.astChunks.clear();
+    this.astGone.clear();
+    this.astBoundsKey = "";
     this.particles = [];
     this.rings = [];
     this.px = 0;
@@ -823,6 +855,7 @@ export class Game {
 
     if (this.state === "menu") {
       this.updateCamera(rdt);
+      this.updateAsteroids(rdt);
       this.draw();
       return;
     }
@@ -841,6 +874,7 @@ export class Game {
       this.updateEBullets(dt);
       this.updatePickups(dt);
       this.updateMines(dt);
+      this.updateAsteroids(dt);
       this.updateRifts(dt);
       this.updateZoneAndWaves(dt);
     }
@@ -947,22 +981,38 @@ export class Game {
     this.pvx = pObj.vx;
     this.pvy = pObj.vy;
 
-    // turret: aim & fire at the nearest enemy, independent of the hull
+    // turret: aim & fire at the nearest target (enemies preferred over rocks)
     const rate = Math.min(8.5, 4.4 + this.wave * 0.12) * (1 + this.rateBoost);
-    let bestE: Enemy | null = null;
+    let bestX = 0;
+    let bestY = 0;
+    let bestVX = 0;
+    let bestVY = 0;
     let bestD = 1e9;
     for (const e of this.enemies) {
       if (e.dead) continue;
-      const d = Math.hypot(e.x - this.px, e.y - this.py);
+      const d = Math.hypot(e.x - this.px, e.y - this.py) * 0.75; // prefer living targets
       if (d < bestD) {
         bestD = d;
-        bestE = e;
+        bestX = e.x;
+        bestY = e.y;
+        bestVX = e.vx;
+        bestVY = e.vy;
       }
     }
-    if (bestE && bestD < 620) {
+    for (const a of this.asteroids) {
+      const d = Math.hypot(a.x - this.px, a.y - this.py);
+      if (d < bestD) {
+        bestD = d;
+        bestX = a.x;
+        bestY = a.y;
+        bestVX = a.vx;
+        bestVY = a.vy;
+      }
+    }
+    if (bestD < 620) {
       const leadT = (bestD / 560) * 0.6;
-      const tx = bestE.x + bestE.vx * leadT - this.px;
-      const ty = bestE.y + bestE.vy * leadT - this.py;
+      const tx = bestX + bestVX * leadT - this.px;
+      const ty = bestY + bestVY * leadT - this.py;
       this.aimA = Math.atan2(ty, tx);
       this.fireCd -= dt;
       while (this.fireCd <= 0) {
@@ -1409,6 +1459,22 @@ export class Game {
           }
         }
       }
+      // rocks block shots too
+      if (!dead) {
+        for (let j = this.asteroids.length - 1; j >= 0; j--) {
+          const a = this.asteroids[j];
+          if (Math.hypot(b.x - a.x, b.y - a.y) < a.r) {
+            dead = true;
+            a.hp -= b.dmg;
+            this.burst(b.x, b.y, 3, "#b9c4d6", 100, 0.2);
+            if (a.hp <= 0) {
+              this.asteroids.splice(j, 1);
+              this.destroyAsteroid(a);
+            }
+            break;
+          }
+        }
+      }
       if (dead) this.bullets.splice(i, 1);
     }
   }
@@ -1587,6 +1653,226 @@ export class Game {
     }
   }
 
+  /* ---------------- asteroid field ---------------- */
+
+  private astDef(kind: AsteroidKind) {
+    switch (kind) {
+      case "small":
+        return { rMin: 8, rMax: 12, hp: 22, score: 6 };
+      case "medium":
+        return { rMin: 17, rMax: 23, hp: 60, score: 15 };
+      case "large":
+        return { rMin: 30, rMax: 40, hp: 140, score: 30 };
+    }
+  }
+
+  private makeAst(
+    id: string,
+    kind: AsteroidKind,
+    x: number,
+    y: number,
+    rnd: () => number,
+    vx: number,
+    vy: number
+  ): Asteroid {
+    const d = this.astDef(kind);
+    const r = d.rMin + rnd() * (d.rMax - d.rMin);
+    const verts: number[] = [];
+    const n = 9 + Math.floor(rnd() * 3);
+    for (let i = 0; i < n; i++) verts.push(0.72 + rnd() * 0.3);
+    return {
+      id,
+      kind,
+      x,
+      y,
+      vx,
+      vy,
+      r,
+      angle: rnd() * TAU,
+      spin: (rnd() - 0.5) * 0.6,
+      verts,
+      hp: d.hp,
+      maxHp: d.hp,
+    };
+  }
+
+  private genAstChunk(cx: number, cy: number): Asteroid[] {
+    const CH = 1500;
+    const seed = (Math.imul(cx, 91733) ^ Math.imul(cy, 46511) ^ 0x5eed) >>> 0;
+    const rnd = mulberry32(seed || 0x9e3779b9);
+    const out: Asteroid[] = [];
+    const count = 4 + Math.floor(rnd() * 3);
+    for (let i = 0; i < count; i++) {
+      const roll = rnd();
+      const kind: AsteroidKind = roll < 0.18 ? "large" : roll < 0.52 ? "medium" : "small";
+      const x = cx * CH + rnd() * CH;
+      const y = cy * CH + rnd() * CH;
+      const va = rnd() * TAU;
+      const vs = 4 + rnd() * 14;
+      out.push(this.makeAst(`${cx},${cy}:${i}`, kind, x, y, rnd, Math.cos(va) * vs, Math.sin(va) * vs));
+    }
+    return out;
+  }
+
+  private updateAsteroids(dt: number) {
+    const CH = 1500;
+    const W = this.viewW;
+    const H = this.viewH;
+    const x0 = Math.floor((this.camX - W / 2) / CH) - 1;
+    const x1 = Math.floor((this.camX + W / 2) / CH) + 1;
+    const y0 = Math.floor((this.camY - H / 2) / CH) - 1;
+    const y1 = Math.floor((this.camY + H / 2) / CH) + 1;
+    const key = `${x0},${x1},${y0},${y1}`;
+
+    if (key !== this.astBoundsKey) {
+      this.astBoundsKey = key;
+      const keep = new Set<string>();
+      for (let cx = x0; cx <= x1; cx++) {
+        for (let cy = y0; cy <= y1; cy++) {
+          const k = `${cx},${cy}`;
+          keep.add(k);
+          if (!this.astChunks.has(k)) this.astChunks.set(k, this.genAstChunk(cx, cy));
+        }
+      }
+      for (const k of Array.from(this.astChunks.keys())) {
+        if (!keep.has(k)) {
+          this.astChunks.delete(k);
+          // forget destroyed asteroids in evicted chunks so the field regrows
+          for (const g of Array.from(this.astGone)) if (g.startsWith(k + ":")) this.astGone.delete(g);
+        }
+      }
+    }
+
+    // spawn any seeded asteroids that are not alive or destroyed
+    const alive = new Set<string>();
+    for (const a of this.asteroids) alive.add(a.id);
+    for (const chunk of this.astChunks.values()) {
+      for (const seedAst of chunk) {
+        if (!alive.has(seedAst.id) && !this.astGone.has(seedAst.id)) {
+          this.asteroids.push(seedAst);
+          alive.add(seedAst.id);
+        }
+      }
+    }
+
+    const cap = 90;
+    for (let i = this.asteroids.length - 1; i >= 0; i--) {
+      const a = this.asteroids[i];
+      a.x += a.vx * dt;
+      a.y += a.vy * dt;
+      a.angle += a.spin * dt;
+
+      // the wave zone is sacred ground — shove rocks out and keep them out
+      if (this.zoneOn && this.zoneAlpha > 0.4 && this.zoneR > 60) {
+        const zdx = a.x - this.zoneX;
+        const zdy = a.y - this.zoneY;
+        const zd = Math.hypot(zdx, zdy) || 1;
+        const lim = this.zoneR + a.r + 26;
+        if (zd < lim) {
+          const push = 260 * dt;
+          a.vx += (zdx / zd) * push * 8;
+          a.vy += (zdy / zd) * push * 8;
+          if (zd < lim) {
+            a.x = this.zoneX + (zdx / zd) * lim;
+            a.y = this.zoneY + (zdy / zd) * lim;
+          }
+        }
+      }
+
+      // drift away from the player's immediate path so the field never clogs
+      const dCam = Math.hypot(a.x - this.camX, a.y - this.camY);
+      if (dCam > 2800) {
+        this.asteroids.splice(i, 1);
+        continue;
+      }
+    }
+    if (this.asteroids.length > cap) this.asteroids.length = cap;
+  }
+
+  private destroyAsteroid(a: Asteroid) {
+    this.astGone.add(a.id);
+    const d = this.astDef(a.kind);
+    this.score += d.score;
+    this.burst(a.x, a.y, a.kind === "large" ? 26 : a.kind === "medium" ? 16 : 9, "#b9c4d6", a.kind === "large" ? 300 : 200, 0.5);
+    this.audio.explode(a.kind === "large" ? 0.9 : 0.5);
+    this.addShake(a.kind === "large" ? 4 : a.kind === "medium" ? 2.5 : 1);
+
+    const rnd = Math.random;
+    const spawnFrag = (kind: AsteroidKind) => {
+      const ang = rnd() * TAU;
+      const dist = a.r * 0.5;
+      this.astFragSeq++;
+      const frag = this.makeAst(
+        `f${this.astFragSeq}`,
+        kind,
+        a.x + Math.cos(ang) * dist,
+        a.y + Math.sin(ang) * dist,
+        rnd,
+        a.vx + Math.cos(ang) * (40 + rnd() * 60),
+        a.vy + Math.sin(ang) * (40 + rnd() * 60)
+      );
+      this.asteroids.push(frag);
+    };
+
+    if (a.kind === "large") {
+      const roll = rnd();
+      if (roll < 0.5) {
+        spawnFrag("medium");
+        spawnFrag("small");
+        spawnFrag("small");
+      } else if (roll < 0.75) {
+        spawnFrag("medium");
+        spawnFrag("medium");
+      } else {
+        spawnFrag("small");
+        spawnFrag("small");
+        spawnFrag("small");
+      }
+    } else if (a.kind === "medium" && rnd() < 0.7) {
+      spawnFrag("small");
+      spawnFrag("small");
+    }
+
+    // minerals tumble out of every rock type
+    const dropChance = a.kind === "large" ? 0.7 : a.kind === "medium" ? 0.4 : 0.25;
+    if (rnd() < dropChance) {
+      this.pickups.push({
+        kind: "mineral",
+        x: a.x + rand(-10, 10),
+        y: a.y + rand(-10, 10),
+        vx: rand(-40, 40),
+        vy: rand(-40, 40),
+        life: 13,
+        seed: Math.random() * 100,
+      });
+    }
+  }
+
+  private drawAsteroids() {
+    const R = this.renderer;
+    for (const a of this.asteroids) {
+      const n = a.verts.length;
+      const pts: Array<[number, number]> = [];
+      for (let i = 0; i < n; i++) {
+        const ang = a.angle + (i / n) * TAU;
+        const rr = a.r * a.verts[i];
+        pts.push([a.x + Math.cos(ang) * rr, a.y + Math.sin(ang) * rr]);
+      }
+      R.polyline(pts, true, rgba("#8d9ab0", 0.85));
+      R.pushLine(
+        a.x - a.r * 0.3,
+        a.y - a.r * 0.2,
+        a.x + a.r * 0.25,
+        a.y + a.r * 0.35,
+        rgba("#8d9ab0", 0.3)
+      );
+      if (a.hp < a.maxHp) {
+        const f = clamp(a.hp / a.maxHp, 0, 1);
+        R.dashedCircle(a.x, a.y, a.r + 5, rgba("#ffbf66", 0.4), Math.max(3, Math.round(8 * f)), this.time, 0.4);
+      }
+    }
+  }
+
   private applyPickup(p: Pickup) {
     const heal = (f: number) => {
       const before = this.hp;
@@ -1687,6 +1973,12 @@ export class Game {
         this.popup(p.x, p.y - 16, t("game.mineReady"), C.mine);
         this.burst(p.x, p.y, 10, C.mine, 170, 0.4);
         this.audio.minePlace();
+        break;
+      case "mineral":
+        this.minerals++;
+        this.popup(p.x, p.y - 14, `+1 ${t("game.mineral")}`, C.heal);
+        this.burst(p.x, p.y, 6, C.heal, 110, 0.3);
+        this.audio.pickupHeal();
         break;
     }
   }
@@ -2083,6 +2375,7 @@ export class Game {
       rateMult: 1 + this.rateBoost,
       rateT: this.rateT,
       drones: this.allyDrones.length,
+      minerals: this.minerals,
     });
   }
 
@@ -2096,6 +2389,7 @@ export class Game {
     R.setCamera(this.camX, this.camY, this.zoom, this.shakeX, this.shakeY);
 
     this.drawStars();
+    this.drawAsteroids();
 
     if (this.state === "menu") {
       this.drawMenuScene();
@@ -2338,12 +2632,13 @@ export class Game {
             ? C.fighter
             : p.kind === "gun"
               ? C.player
-              : p.kind === "dash"
-                ? C.dash
-                : p.kind === "miner"
-                  ? C.mine
-                  : C.mint;
-      const pr = 15 + Math.sin(this.time * 4 + p.seed) * 2;
+               : p.kind === "dash"
+                 ? C.dash
+                 : p.kind === "miner"
+                   ? C.mine
+                   : p.kind === "mineral"
+                     ? C.heal
+                     : C.mint;      const pr = 15 + Math.sin(this.time * 4 + p.seed) * 2;
       R.circle(p.x, p.y, pr, rgba(col, 0.35 * blinkA), 26);
       const c1 = Math.cos(rot);
       const s1 = Math.sin(rot);
@@ -2403,6 +2698,23 @@ export class Game {
           R.pushLine(p.x + s, p.y, p.x + sp, p.y, rgba(col, blinkA));
           R.pushLine(p.x, p.y + s, p.x, p.y + sp, rgba(col, blinkA));
           R.pushLine(p.x - s, p.y, p.x - sp, p.y, rgba(col, blinkA));
+          break;
+        }
+        case "mineral": {
+          // faceted gem
+          const s = 6.5;
+          R.polyline(
+            [
+              [p.x, p.y - s],
+              [p.x + s, p.y - s * 0.3],
+              [p.x + s * 0.6, p.y + s],
+              [p.x - s * 0.6, p.y + s],
+              [p.x - s, p.y - s * 0.3],
+            ],
+            true,
+            rgba(col, blinkA)
+          );
+          R.pushLine(p.x, p.y - s, p.x, p.y + s, rgba(col, 0.4 * blinkA));
           break;
         }
       }
