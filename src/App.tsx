@@ -359,17 +359,13 @@ export default function App() {
       {screen === "game" && banner && (
         <div key={banner.id} className="pointer-events-none absolute inset-0 z-30">
           <div className="anim-banner absolute top-[26%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
+            {/* same type treatment as the pre-wave "ВОЛНА: XX" label */}
             <div
-              className="font-display text-3xl tracking-[0.3em] text-glow-cyan sm:text-5xl sm:tracking-[0.35em]"
-              style={{ color: banner.color ?? "#eaffff" }}
+              className="font-display text-lg tracking-[0.42em] whitespace-nowrap text-white sm:text-2xl"
+              style={{ marginRight: "-0.42em" }}
             >
               {banner.title}
             </div>
-            {banner.sub && (
-              <div className="mt-2 text-[11px] tracking-[0.35em] text-[#5ef2ff] sm:text-sm">
-                {banner.sub}
-              </div>
-            )}
           </div>
         </div>
       )}

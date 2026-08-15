@@ -381,6 +381,8 @@ export class Game {
   private cdT = 0;
   private cdLast = -1;
   private clearT = 0;
+  /** guards the clear banner from ever firing twice for one wave */
+  private waveClearSent = false;
 
   /* scoring */
   private score = 0;
@@ -663,6 +665,7 @@ export class Game {
     this.waveTotal = total;
     this.allocated = 0;
     this.killedWave = 0;
+    this.waveClearSent = false;
     this.stepSize = Math.max(1, Math.round(total * 0.05));
     this.dropThreshold = Math.max(1, Math.round(total * 0.05));
 
@@ -797,16 +800,14 @@ export class Game {
   }
 
   private waveCleared() {
+    if (this.waveClearSent) return; // one banner per wave, guaranteed
+    this.waveClearSent = true;
     this.state = "cleared";
-    this.clearT = 2.4;
+    this.clearT = 2.2;
     this.audio.setCombat(false);
     this.audio.waveClear();
     this.zoneCollapse = 0;
-    this.hooks.onBanner({
-      title: t("game.waveCleared"),
-      sub: `${t("hud.wave")} ${this.wave}`,
-      color: C.heal,
-    });
+    this.hooks.onBanner({ title: t("game.waveCleared"), color: C.heal });
     const bonus = 100 + this.wave * 25;
     this.score += bonus;
     this.popup(this.px, this.py - 40, `+${bonus}`, C.heal);
@@ -1846,6 +1847,8 @@ export class Game {
   private updateZoneAndWaves(dt: number) {
     // collapse animation after a wave clear
     if (this.zoneCollapse >= 0) {
+      // runs in parallel with the state machine below — the clear
+      // banner must not hang while the zone animates away
       this.zoneCollapse = Math.min(1, this.zoneCollapse + dt / 1.0);
       const e = easeOutCubic(this.zoneCollapse);
       this.zoneR = this.zoneTarget * (1 + 0.9 * e);
@@ -1855,7 +1858,6 @@ export class Game {
         this.zoneOn = false;
         this.zoneAlpha = 0;
       }
-      return;
     }
 
     switch (this.state) {
