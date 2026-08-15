@@ -76,6 +76,25 @@ export const STAR_LAYERS: StarLayer[] = [
 
 export type EnemyKind = "drone" | "hunter" | "fighter" | "cruiser" | "carrier";
 
+/* ------------------------------- pickups ------------------------------- */
+
+export type PickupKind =
+  | "heal25"
+  | "heal50"
+  | "heal100"
+  | "rate20"
+  | "rate40"
+  | "rate60"
+  | "gun"
+  | "drone"
+  | "dash"
+  | "miner"
+  | "mineral";
+
+/* ------------------------------ asteroids ------------------------------ */
+
+export type AsteroidKind = "small" | "medium" | "large";
+
 export interface EnemyDef {
   r: number;
   hp: number;

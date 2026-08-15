@@ -1,16 +1,7 @@
 import { Renderer, RGBA } from "./render";
 import { AudioEngine, Volumes } from "./audio";
 import { t } from "../i18n";
-import {
-  TAU,
-  rand,
-  clamp,
-  ramp01,
-  lerpAngle,
-  easeOutCubic,
-  rgba,
-  mulberry32,
-} from "./math";
+import { TAU, rand, clamp, ramp01, lerpAngle, easeOutCubic, rgba } from "./math";
 import {
   C,
   PLAYER_MAX_SPEED,
@@ -27,16 +18,22 @@ import {
   MINE_RADIUS,
   MINE_DMG,
   MINE_LIFE,
-  STAR_LAYERS,
   enemyDefFor,
   waveTotalFor,
   zoneRadiusFor,
   pickKindFor,
   dropChanceFor,
   type EnemyDef,
+  type PickupKind,
 } from "./balance";
-export type { EnemyKind } from "./balance";
+export type { EnemyKind, AsteroidKind, PickupKind } from "./balance";
 import type { EnemyKind } from "./balance";
+
+/* subsystems */
+import { Fx } from "./fx";
+import { Starfield } from "./starfield";
+import { AsteroidField } from "./asteroids";
+import { RiftField } from "./rifts";
 
 /* ============================== types ============================== */
 
@@ -135,36 +132,6 @@ interface EBullet {
   life: number;
   dmg: number;
   heavy: boolean;
-}
-
-type PickupKind =
-  | "heal25"
-  | "heal50"
-  | "heal100"
-  | "rate20"
-  | "rate40"
-  | "rate60"
-  | "gun"
-  | "drone"
-  | "dash"
-  | "miner"
-  | "mineral";
-
-export type AsteroidKind = "small" | "medium" | "large";
-
-interface Asteroid {
-  id: string;
-  kind: AsteroidKind;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  r: number;
-  angle: number;
-  spin: number;
-  verts: number[];
-  hp: number;
-  maxHp: number;
 }
 
 interface Mine {
