@@ -1,6 +1,42 @@
 import { Renderer, RGBA } from "./render";
 import { AudioEngine, Volumes } from "./audio";
 import { t } from "../i18n";
+import {
+  TAU,
+  rand,
+  clamp,
+  ramp01,
+  lerpAngle,
+  easeOutCubic,
+  rgba,
+  mulberry32,
+} from "./math";
+import {
+  C,
+  PLAYER_MAX_SPEED,
+  ZONE_EXPAND_SPEED,
+  MAX_GUNS,
+  MAX_ALLY_DRONES,
+  GUN_OFFS,
+  RATE_BOOST_TIME,
+  DASH_TIME,
+  DASH_ACCEL,
+  DASH_SPEED,
+  DASH_DMG,
+  MINE_DELAY,
+  MINE_RADIUS,
+  MINE_DMG,
+  MINE_LIFE,
+  STAR_LAYERS,
+  enemyDefFor,
+  waveTotalFor,
+  zoneRadiusFor,
+  pickKindFor,
+  dropChanceFor,
+  type EnemyDef,
+} from "./balance";
+export type { EnemyKind } from "./balance";
+import type { EnemyKind } from "./balance";
 
 /* ============================== types ============================== */
 
@@ -54,17 +90,6 @@ export interface StatsData {
   wave: number;
   kills: number;
   time: number;
-}
-
-export type EnemyKind = "drone" | "hunter" | "fighter" | "cruiser" | "carrier";
-
-interface EnemyDef {
-  r: number;
-  hp: number;
-  speed: number;
-  contact: number;
-  score: number;
-  bolt: number;
 }
 
 interface Enemy {
@@ -229,87 +254,6 @@ interface Hooks {
 /* ============================== constants ============================== */
 
 const BEST_KEY = "rift9_best";
-const RATE_BOOST_TIME = 20;
-const MAX_GUNS = 5;
-const MAX_ALLY_DRONES = 8;
-const PLAYER_MAX_SPEED = 310;
-const ZONE_EXPAND_SPEED = PLAYER_MAX_SPEED * 1.2;
-const GUN_OFFS = [0, 9, -9, 17, -17];
-const TAU = Math.PI * 2;
-
-const C = {
-  player: "#5ef2ff",
-  mint: "#9dffe8",
-  bullet: "#9dffe8",
-  drone: "#ff5d7e",
-  hunter: "#d8ff3e",
-  fighter: "#ff8c42",
-  cruiser: "#b06bff",
-  carrier: "#ff5da2",
-  rift: "#c06bff",
-  riftCore: "#e6c8ff",
-  zone: "#ff3b52",
-  heal: "#7dffb8",
-  white: "#eaffff",
-  enemyBullet: "#ff8080",
-  dash: "#ffd23e",
-  mine: "#ff7a45",
-};
-
-/* dash & mine tuning */
-const DASH_TIME = 3; // seconds of overdrive
-const DASH_ACCEL = 2.1; // acceleration multiplier while dashing
-const DASH_SPEED = 1.6; // max-speed multiplier while dashing
-const DASH_DMG = 16; // ram damage per hit (throttled)
-const MINE_DELAY = 2; // seconds after pickup before the mine drops
-const MINE_RADIUS = 95; // blast radius; leaving it arms the detonation
-const MINE_DMG = 110; // center damage, falls off to ~40% at the edge
-const MINE_LIFE = 12; // failsafe fuse
-
-const STAR_LAYERS = [
-  { f: 0.12, chunk: 2600, count: 300, sMin: 0.5, sMax: 1.1, aMin: 0.14, aMax: 0.48 },
-  { f: 0.35, chunk: 2000, count: 180, sMin: 0.7, sMax: 1.5, aMin: 0.18, aMax: 0.6 },
-  { f: 0.6, chunk: 1600, count: 110, sMin: 1.0, sMax: 2.0, aMin: 0.24, aMax: 0.78 },
-  { f: 0.9, chunk: 1300, count: 60, sMin: 1.4, sMax: 2.6, aMin: 0.31, aMax: 0.9 },
-];
-
-/* ============================== helpers ============================== */
-
-function rand(a: number, b: number) {
-  return a + Math.random() * (b - a);
-}
-
-function clamp(v: number, a: number, b: number) {
-  return Math.max(a, Math.min(b, v));
-}
-
-function lerpAngle(a: number, b: number, k: number) {
-  let d = ((b - a) % TAU + TAU) % TAU;
-  if (d > Math.PI) d -= TAU;
-  return a + d * k;
-}
-
-function easeOutCubic(x: number) {
-  return 1 - Math.pow(1 - x, 3);
-}
-
-function rgba(hex: string, a: number): RGBA {
-  const r = parseInt(hex.slice(1, 3), 16) / 255;
-  const g = parseInt(hex.slice(3, 5), 16) / 255;
-  const b = parseInt(hex.slice(5, 7), 16) / 255;
-  return [r, g, b, a];
-}
-
-function mulberry32(seed: number) {
-  let a = seed >>> 0;
-  return () => {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 /* ============================== game ============================== */
 
@@ -637,38 +581,20 @@ export class Game {
   /* ---------------- wave config ---------------- */
 
   private waveTotalCount(w: number) {
-    // fewer ships per wave: 30 on wave 1, ~100 by wave 30 (hard cap 100).
-    // Late-game pressure comes from armor & firepower, not headcount.
-    return Math.min(100, Math.round(30 + (w - 1) * 2.4));
+    return waveTotalFor(w);
   }
 
   private zoneRadius(w: number) {
-    return clamp(380 + (w - 1) * 10, 380, 650);
+    return zoneRadiusFor(w);
   }
 
   private rampW(w: number, s: number, f: number) {
-    return clamp((w - s) / (f - s), 0, 1);
+    return ramp01(w, s, f);
   }
 
   /** Gradual introduction of enemy classes across waves. */
   private pickKind(): EnemyKind {
-    const w = this.wave;
-    const ramp = (s: number, f: number) => this.rampW(w, s, f);
-    const weights: Array<[EnemyKind, number]> = [
-      ["drone", 1],
-      ["hunter", 0.15 * ramp(3, 18)],
-      ["fighter", 0.55 * ramp(1, 12)],
-      ["cruiser", 0.45 * ramp(4, 15)],
-      ["carrier", 0.25 * ramp(8, 16)],
-    ];
-    let total = 0;
-    for (const [, wt] of weights) total += wt;
-    let roll = Math.random() * total;
-    for (const [kind, wt] of weights) {
-      roll -= wt;
-      if (roll <= 0) return kind;
-    }
-    return "drone";
+    return pickKindFor(this.wave);
   }
 
   private buildQueue(count: number): EnemyKind[] {
@@ -782,31 +708,7 @@ export class Game {
   }
 
   private enemyDef(kind: EnemyKind): EnemyDef {
-    const w = this.wave;
-    const ramp = (s: number, f: number) => this.rampW(w, s, f);
-    // difficulty lives in armor & firepower: gentle early, steep from 15
-    const hpS = 1 + 0.5 * ramp(1, 15) + 3.0 * ramp(15, 40);
-    const dmgS = 1 + 0.25 * ramp(1, 15) + 1.0 * ramp(15, 40);
-    switch (kind) {
-      case "drone":
-        return { r: 10, hp: 12 * hpS, speed: 150 + w * 4, contact: 10 * dmgS, score: 10, bolt: 0 };
-      case "hunter":
-        // slightly slower than the player, but it aims where you WILL be
-        return { r: 9, hp: 30 * hpS, speed: 285, contact: 25, score: 40, bolt: 0 };
-      case "fighter":
-        return {
-          r: 13,
-          hp: 34 * hpS,
-          speed: (195 + w * 3) * 0.8,
-          contact: 9.1 * dmgS,
-          score: 25,
-          bolt: 4.55 * dmgS,
-        };
-      case "cruiser":
-        return { r: 26, hp: 125 * hpS, speed: 50 + w * 1.5, contact: 22 * dmgS, score: 60, bolt: 12 * dmgS };
-      case "carrier":
-        return { r: 36, hp: 250 * hpS, speed: 32 + w * 0.8, contact: 26 * dmgS, score: 100, bolt: 0 };
-    }
+    return enemyDefFor(kind, this.wave);
   }
 
   private spawnEnemy(kind: EnemyKind, x: number, y: number, parent: Enemy | null) {
@@ -1995,17 +1897,7 @@ export class Game {
   }
 
   private maybeDrop(e: Enemy) {
-    const chance =
-      e.kind === "drone"
-        ? 0.07
-        : e.kind === "hunter"
-          ? 0.25
-          : e.kind === "fighter"
-            ? 0.1
-            : e.kind === "cruiser"
-              ? 0.25
-              : 0.7;
-    if (Math.random() > chance) return;
+    if (Math.random() > dropChanceFor(e.kind)) return;
 
     const w = this.wave;
     const ramp = (s: number, f: number) => this.rampW(w, s, f);
@@ -2148,7 +2040,7 @@ export class Game {
   private onPlayerDeath() {
     if (this.state === "dying" || this.state === "over") return;
     this.hp = 0;
-    this.state = "dying" as typeof this.state;
+    this.state = "dying";
     this.dieT = 1.6;
     this.timeScale = 0.35;
     this.audio.setCombat(false);
@@ -2184,18 +2076,7 @@ export class Game {
     const dl = Math.hypot(dx, dy) || 1;
     this.pvx += (dx / dl) * 190;
     this.pvy += (dy / dl) * 190;
-    if (this.hp <= 0) {
-      this.hp = 0;
-      this.state = "dying";
-      this.dieT = 1.6;
-      this.timeScale = 0.35;
-      this.audio.setCombat(false);
-      this.audio.gameOver();
-      this.burst(this.px, this.py, 40, C.player, 380, 0.9);
-      this.burst(this.px, this.py, 24, C.white, 260, 0.6);
-      this.rings.push({ x: this.px, y: this.py, r: 10, vr: 620, life: 0.7, maxLife: 0.7, c: rgba(C.player, 1) });
-      this.addShake(26);
-    }
+    if (this.hp <= 0) this.onPlayerDeath();
   }
 
   private updateRifts(dt: number) {
