@@ -16,7 +16,7 @@ void main() {
   if (uMode == 1) {
     p = (aPos - uCam) * uZoom + uShake;
   }
-  vec2 clip = (p / uRes) * 2.0;
+  vec2 clip = (p / uRes) * 2.0 - 1.0;
   gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
   vColor = aColor;
 }
@@ -286,7 +286,7 @@ export class Renderer {
     this.uLoc.uZoom = gl.getUniformLocation(this.prog, "uZoom");
     this.uLoc.uShake = gl.getUniformLocation(this.prog, "uShake");
     this.uLoc.uMode = gl.getUniformLocation(this.prog, "uMode");
-    gl.uniform2f(this.uLoc.uRes, this.width / 2 / this.dpr, this.height / 2 / this.dpr);
+    gl.uniform2f(this.uLoc.uRes, this.width / this.dpr, this.height / this.dpr);
     if (this.mode === "world") {
       gl.uniform1i(this.uLoc.uMode, 1);
       gl.uniform2f(this.uLoc.uCam, this.camX - this.width / 2 / this.dpr / this.zoom, this.camY - this.height / 2 / this.dpr / this.zoom);
