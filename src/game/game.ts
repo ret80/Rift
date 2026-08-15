@@ -1697,11 +1697,11 @@ export class Game {
   }
 
   private genAstChunk(cx: number, cy: number): Asteroid[] {
-    const CH = 1500;
+    const CH = 1000;
     const seed = (Math.imul(cx, 91733) ^ Math.imul(cy, 46511) ^ 0x5eed) >>> 0;
     const rnd = mulberry32(seed || 0x9e3779b9);
     const out: Asteroid[] = [];
-    const count = 4 + Math.floor(rnd() * 3);
+    const count = 9 + Math.floor(rnd() * 5);
     for (let i = 0; i < count; i++) {
       const roll = rnd();
       const kind: AsteroidKind = roll < 0.18 ? "large" : roll < 0.52 ? "medium" : "small";
@@ -1715,7 +1715,7 @@ export class Game {
   }
 
   private updateAsteroids(dt: number) {
-    const CH = 1500;
+    const CH = 1000;
     const W = this.viewW;
     const H = this.viewH;
     const x0 = Math.floor((this.camX - W / 2) / CH) - 1;
@@ -1755,7 +1755,7 @@ export class Game {
       }
     }
 
-    const cap = 90;
+    const cap = 220;
     for (let i = this.asteroids.length - 1; i >= 0; i--) {
       const a = this.asteroids[i];
       a.x += a.vx * dt;
