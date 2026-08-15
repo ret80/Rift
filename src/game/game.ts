@@ -975,13 +975,21 @@ export class Game {
 
     this.invuln = Math.max(0, this.invuln - dt);
     const pObj = { x: this.px, y: this.py, vx: this.pvx, vy: this.pvy, r: 13 };
-    this.clampToZone(pObj);
+    // the pilot may overshoot the dashed edge line — the wall beyond it
+    // is what hurts, not the line itself
+    this.clampToZone(pObj, 56);
     this.px = pObj.x;
     this.py = pObj.y;
     this.pvx = pObj.vx;
     this.pvy = pObj.vy;
 
-    // turret: aim & fire at the nearest target (enemies preferred over rocks)
+    this.updateEdgeDanger(dt);
+
+    // turret: aim & fire at the nearest target (enemies preferred over rocks).
+    // During a live wave the gun only locks onto targets INSIDE the zone.
+    const zoneLive = this.zoneOn && this.zoneAlpha > 0.4 && this.zoneR > 60;
+    const inZone = (x: number, y: number) =>
+      !zoneLive || Math.hypot(x - this.zoneX, y - this.zoneY) <= this.zoneR;
     const rate = Math.min(8.5, 4.4 + this.wave * 0.12) * (1 + this.rateBoost);
     let bestX = 0;
     let bestY = 0;
@@ -989,7 +997,7 @@ export class Game {
     let bestVY = 0;
     let bestD = 1e9;
     for (const e of this.enemies) {
-      if (e.dead) continue;
+      if (e.dead || !inZone(e.x, e.y)) continue;
       // slight preference for living targets, but a clearly-closer rock still wins
       const d = Math.hypot(e.x - this.px, e.y - this.py) * 0.85;
       if (d < bestD) {
@@ -1001,6 +1009,7 @@ export class Game {
       }
     }
     for (const a of this.asteroids) {
+      if (!inZone(a.x, a.y)) continue;
       const d = Math.hypot(a.x - this.px, a.y - this.py);
       if (d < bestD) {
         bestD = d;
@@ -2080,6 +2089,75 @@ export class Game {
     return 1 + Math.min(3, this.combo * 0.05);
   }
 
+  /**
+   * The dashed edge line of the wave zone is a hazard:
+   * - approaching it darkens the wall as a warning;
+   * - crossing it deals hull damage that doubles every 2.5s the pilot
+   *   lingers outside (1% → 2% → 4% → 8% → 16% of max hull per second).
+   */
+  private updateEdgeDanger(dt: number) {
+    if (
+      this.state === "menu" ||
+      this.state === "dying" ||
+      this.state === "over" ||
+      !this.zoneOn ||
+      this.zoneAlpha < 0.4 ||
+      this.zoneR <= 60
+    ) {
+      this.edgeOutT = 0;
+      this.edgeWarned = false;
+      return;
+    }
+    const line = this.zoneR * 0.96; // the dashed edge line
+    const pd = Math.hypot(this.px - this.zoneX, this.py - this.zoneY);
+    if (pd > line) {
+      if (this.edgeOutT === 0 && !this.edgeWarned) {
+        this.edgeWarned = true;
+        this.hooks.onToast({ text: t("game.zoneEdge"), color: "#ff3b52" });
+      }
+      this.edgeOutT += dt;
+      // doubles every 2.5s outside, capped so it escalates but never one-shots
+      const stage = Math.min(4, Math.floor(this.edgeOutT / 2.5));
+      const pct = Math.pow(2, stage); // % of max hull per second
+      if (!this.debugGod) {
+        this.hp -= this.maxHp * (pct / 100) * dt;
+      }
+      this.edgeTickT -= dt;
+      if (this.edgeTickT <= 0) {
+        this.edgeTickT = 0.4;
+        if (!this.debugGod) {
+          this.audio.playerHit();
+          this.addShake(3 + stage);
+          this.burst(this.px, this.py, 8, C.zone, 190, 0.35);
+        }
+      }
+      if (this.hp <= 0 && this.state !== "dying") {
+        this.hp = 0;
+        this.state = "dying";
+        this.dieT = 1.6;
+        this.timeScale = 0.35;
+        this.audio.setCombat(false);
+        this.audio.gameOver();
+        this.burst(this.px, this.py, 40, C.player, 380, 0.9);
+        this.burst(this.px, this.py, 24, C.white, 260, 0.6);
+        this.rings.push({
+          x: this.px,
+          y: this.py,
+          r: 10,
+          vr: 620,
+          life: 0.7,
+          maxLife: 0.7,
+          c: rgba(C.player, 1),
+        });
+        this.addShake(26);
+      }
+    } else if (pd < line - 26) {
+      // back in safety (with hysteresis so the timer doesn't flicker)
+      this.edgeOutT = 0;
+      this.edgeWarned = false;
+    }
+  }
+
   private damagePlayer(d: number, hx: number, hy: number) {
     if (this.debugGod) {
       this.burst(this.px, this.py, 4, "#ffb84d", 140, 0.2);
@@ -2228,12 +2306,15 @@ export class Game {
     }
   }
 
-  private clampToZone(o: { x: number; y: number; vx: number; vy: number; r: number }) {
+  private clampToZone(
+    o: { x: number; y: number; vx: number; vy: number; r: number },
+    wallOver = 0
+  ) {
     if (!this.zoneOn || this.zoneAlpha < 0.4) return;
     const dx = o.x - this.zoneX;
     const dy = o.y - this.zoneY;
     const d = Math.hypot(dx, dy);
-    const lim = this.zoneR - o.r;
+    const lim = this.zoneR - o.r + wallOver;
     if (lim > 10 && d > lim) {
       const nx = dx / d;
       const ny = dy / d;
