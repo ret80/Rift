@@ -990,7 +990,8 @@ export class Game {
     let bestD = 1e9;
     for (const e of this.enemies) {
       if (e.dead) continue;
-      const d = Math.hypot(e.x - this.px, e.y - this.py) * 0.75; // prefer living targets
+      // slight preference for living targets, but a clearly-closer rock still wins
+      const d = Math.hypot(e.x - this.px, e.y - this.py) * 0.85;
       if (d < bestD) {
         bestD = d;
         bestX = e.x;
@@ -1435,13 +1436,10 @@ export class Game {
       b.life -= dt;
       b.x += b.vx * dt;
       b.y += b.vy * dt;
+      // bullets are free to leave the wave zone — that's what lets the
+      // turret break the asteroids ringing the arena mid-wave. Their
+      // 0.85s lifetime still bounds how far any shot can travel.
       let dead = b.life <= 0;
-      if (!dead && this.zoneOn && this.zoneAlpha > 0.4 && this.zoneR > 60) {
-        if (Math.hypot(b.x - this.zoneX, b.y - this.zoneY) > this.zoneR) {
-          dead = true;
-          this.burst(b.x, b.y, 2, C.bullet, 80, 0.15);
-        }
-      }
       if (!dead) {
         for (const e of this.enemies) {
           if (e.dead) continue;
