@@ -87,6 +87,7 @@ interface Enemy {
   seed: number;
   spawnCd: number;
   flash: number;
+  hitCd: number;
   dead: boolean;
   parent: Enemy | null;
 }
@@ -118,7 +119,17 @@ type PickupKind =
   | "rate40"
   | "rate60"
   | "gun"
-  | "drone";
+  | "drone"
+  | "dash"
+  | "miner";
+
+interface Mine {
+  x: number;
+  y: number;
+  /** safety timeout — the mine never lingers forever */
+  fuse: number;
+  seed: number;
+}
 
 interface Pickup {
   kind: PickupKind;
@@ -222,7 +233,19 @@ const C = {
   heal: "#7dffb8",
   white: "#eaffff",
   enemyBullet: "#ff8080",
+  dash: "#ffd23e",
+  mine: "#ff7a45",
 };
+
+/* dash & mine tuning */
+const DASH_TIME = 3; // seconds of overdrive
+const DASH_ACCEL = 2.1; // acceleration multiplier while dashing
+const DASH_SPEED = 1.6; // max-speed multiplier while dashing
+const DASH_DMG = 16; // ram damage per hit (throttled)
+const MINE_DELAY = 2; // seconds after pickup before the mine drops
+const MINE_RADIUS = 95; // blast radius; leaving it arms the detonation
+const MINE_DMG = 110; // center damage, falls off to ~40% at the edge
+const MINE_LIFE = 12; // failsafe fuse
 
 const STAR_LAYERS = [
   { f: 0.12, chunk: 2600, count: 300, sMin: 0.5, sMax: 1.1, aMin: 0.14, aMax: 0.48 },
@@ -328,6 +351,12 @@ export class Game {
   private ebullets: EBullet[] = [];
   private pickups: Pickup[] = [];
   private allyDrones: AllyDrone[] = [];
+
+  /* dash & mines */
+  private dashT = 0;
+  private mines: Mine[] = [];
+  private mineDropT = -1;
+
   private rifts: Rift[] = [];
   private rings: Ring[] = [];
   private particles: Particle[] = [];
@@ -500,6 +529,9 @@ export class Game {
     this.rifts = [];
     this.pickups = [];
     this.allyDrones = [];
+    this.mines = [];
+    this.mineDropT = -1;
+    this.dashT = 0;
     this.particles = [];
     this.rings = [];
     this.px = 0;
@@ -544,6 +576,9 @@ export class Game {
     this.rifts = [];
     this.pickups = [];
     this.allyDrones = [];
+    this.mines = [];
+    this.mineDropT = -1;
+    this.dashT = 0;
     this.particles = [];
     this.rings = [];
     this.zoneOn = false;
@@ -755,6 +790,7 @@ export class Game {
       seed: Math.random() * 100,
       spawnCd: rand(1, 2),
       flash: 0,
+      hitCd: 0,
       dead: false,
       parent,
     });
@@ -800,6 +836,7 @@ export class Game {
       this.updateBullets(dt);
       this.updateEBullets(dt);
       this.updatePickups(dt);
+      this.updateMines(dt);
       this.updateRifts(dt);
       this.updateZoneAndWaves(dt);
     }
@@ -857,23 +894,42 @@ export class Game {
     }
     const l = Math.hypot(ax, ay);
     this.thrusting = l > 0;
+    this.dashT = Math.max(0, this.dashT - dt);
+    const dashing = this.dashT > 0;
     if (l > 0) {
       const norm = l > 1 ? l : 1;
       ax /= norm;
       ay /= norm;
-      this.pvx += ax * 1500 * dt;
-      this.pvy += ay * 1500 * dt;
+      this.pvx += ax * 1500 * (dashing ? DASH_ACCEL : 1) * dt;
+      this.pvy += ay * 1500 * (dashing ? DASH_ACCEL : 1) * dt;
     }
     const fr = Math.exp(-2.4 * dt);
     this.pvx *= fr;
     this.pvy *= fr;
     const sp = Math.hypot(this.pvx, this.pvy);
-    if (sp > PLAYER_MAX_SPEED) {
-      this.pvx *= PLAYER_MAX_SPEED / sp;
-      this.pvy *= PLAYER_MAX_SPEED / sp;
+    const cap = PLAYER_MAX_SPEED * (dashing ? DASH_SPEED : 1);
+    if (sp > cap) {
+      this.pvx *= cap / sp;
+      this.pvy *= cap / sp;
     }
     this.px += this.pvx * dt;
     this.py += this.pvy * dt;
+
+    // dash speed-trail
+    if (dashing && sp > 60) {
+      for (let i = 0; i < 2; i++) {
+        this.particles.push({
+          x: this.px - (this.pvx / sp) * 10 + rand(-5, 5),
+          y: this.py - (this.pvy / sp) * 10 + rand(-5, 5),
+          vx: -(this.pvx / sp) * rand(40, 130),
+          vy: -(this.pvy / sp) * rand(40, 130),
+          life: rand(0.2, 0.4),
+          maxLife: 0.4,
+          c: rgba(C.dash, 0.8),
+          size: rand(1, 2.2),
+        });
+      }
+    }
 
     if (sp > 20) {
       this.pAngle = lerpAngle(this.pAngle, Math.atan2(this.pvy, this.pvx), 1 - Math.exp(-8 * dt));
@@ -1027,6 +1083,7 @@ export class Game {
     for (const e of this.enemies) {
       if (e.dead) continue;
       e.flash = Math.max(0, e.flash - dt * 5);
+      e.hitCd = Math.max(0, e.hitCd - dt);
       const dx = this.px - e.x;
       const dy = this.py - e.y;
       const dist = Math.hypot(dx, dy) || 1;
@@ -1274,15 +1331,36 @@ export class Game {
       e.y += e.vy * dt;
       this.clampToZone(e);
 
-      // ramming contact with the player
-      if (alive && this.invuln <= 0 && this.state === "active") {
+      // contact with the player: normal ram hurts the ship, but during a
+      // dash the ship becomes the battering ram instead
+      if (alive && this.state === "active") {
         const rr = e.r + 13;
         if (dist < rr) {
-          this.damagePlayer(e.contact, e.x, e.y);
-          if (e.kind === "drone" || e.kind === "hunter") {
-            e.hp = 0;
-            e.dead = true;
-            this.killEnemy(e);
+          if (this.dashT > 0) {
+            if (e.hitCd <= 0) {
+              e.hp -= DASH_DMG;
+              e.hitCd = 0.18;
+              e.flash = 1;
+              // shove the victim away from the ship
+              const kx = dist > 0.001 ? dx / dist : 1;
+              const ky = dist > 0.001 ? dy / dist : 0;
+              e.vx += kx * 420;
+              e.vy += ky * 420;
+              this.burst(e.x - kx * e.r, e.y - ky * e.r, 6, C.dash, 200, 0.3);
+              this.addShake(3);
+              this.audio.dashRam();
+              if (e.hp <= 0 && !e.dead) {
+                e.dead = true;
+                this.killEnemy(e);
+              }
+            }
+          } else if (this.invuln <= 0) {
+            this.damagePlayer(e.contact, e.x, e.y);
+            if (e.kind === "drone" || e.kind === "hunter") {
+              e.hp = 0;
+              e.dead = true;
+              this.killEnemy(e);
+            }
           }
         }
       }
@@ -1419,6 +1497,89 @@ export class Game {
     }
   }
 
+  /* ---------------- mines ---------------- */
+
+  private updateMines(dt: number) {
+    // scheduled drop: the miner bonus releases its charge a couple of
+    // seconds after being collected, right under the ship
+    if (this.mineDropT > 0) {
+      this.mineDropT -= dt;
+      if (this.mineDropT <= 0) {
+        this.mineDropT = -1;
+        this.mines.push({
+          x: this.px,
+          y: this.py,
+          fuse: MINE_LIFE,
+          seed: Math.random() * 100,
+        });
+        this.popup(this.px, this.py - 22, t("game.minePlaced"), C.mine);
+        this.burst(this.px, this.py, 8, C.mine, 130, 0.3);
+        this.audio.minePlace();
+      }
+    }
+
+    for (let i = this.mines.length - 1; i >= 0; i--) {
+      const m = this.mines[i];
+      m.fuse -= dt;
+      let boom = m.fuse <= 0;
+
+      // primary trigger: the pilot flies out of the blast radius
+      if (!boom && this.state !== "dying" && this.state !== "over") {
+        const dp = Math.hypot(m.x - this.px, m.y - this.py);
+        if (dp > MINE_RADIUS) boom = true;
+      }
+      // classic mine behavior: an enemy stepping on it also sets it off
+      if (!boom) {
+        for (const e of this.enemies) {
+          if (e.dead) continue;
+          if (Math.hypot(e.x - m.x, e.y - m.y) < e.r + 9) {
+            boom = true;
+            break;
+          }
+        }
+      }
+      if (boom) {
+        this.mines.splice(i, 1);
+        this.detonateMine(m);
+      }
+    }
+  }
+
+  private detonateMine(m: Mine) {
+    this.audio.mineBoom();
+    this.addShake(12);
+    this.burst(m.x, m.y, 42, C.mine, 430, 0.7);
+    this.burst(m.x, m.y, 16, C.white, 280, 0.45);
+    this.rings.push({ x: m.x, y: m.y, r: 8, vr: 720, life: 0.42, maxLife: 0.42, c: rgba(C.mine, 1) });
+    this.rings.push({ x: m.x, y: m.y, r: 4, vr: 520, life: 0.3, maxLife: 0.3, c: rgba(C.white, 1) });
+
+    const R = MINE_RADIUS * 1.15;
+    for (const e of this.enemies) {
+      if (e.dead) continue;
+      const d = Math.hypot(e.x - m.x, e.y - m.y);
+      if (d < R) {
+        const fall = 1 - 0.6 * (d / R); // full at the center, 40% at the edge
+        e.hp -= MINE_DMG * fall;
+        e.flash = 1;
+        // knock everyone away from ground zero
+        const kx = d > 0.001 ? (e.x - m.x) / d : 1;
+        const ky = d > 0.001 ? (e.y - m.y) / d : 0;
+        const kb = 430 * fall;
+        e.vx += kx * kb;
+        e.vy += ky * kb;
+        if (e.hp <= 0) {
+          e.dead = true;
+          this.killEnemy(e);
+        }
+      }
+    }
+    // the blast also clears enemy fire caught inside it
+    for (let i = this.ebullets.length - 1; i >= 0; i--) {
+      const b = this.ebullets[i];
+      if (Math.hypot(b.x - m.x, b.y - m.y) < R) this.ebullets.splice(i, 1);
+    }
+  }
+
   private applyPickup(p: Pickup) {
     const heal = (f: number) => {
       const before = this.hp;
@@ -1500,6 +1661,26 @@ export class Game {
           this.audio.pickupDrone();
         }
         break;
+      case "dash":
+        this.dashT = DASH_TIME;
+        // instant kick along the current travel direction
+        const psp = Math.hypot(this.pvx, this.pvy);
+        if (psp > 1) {
+          this.pvx += (this.pvx / psp) * 260;
+          this.pvy += (this.pvy / psp) * 260;
+        }
+        this.popup(p.x, p.y - 16, t("game.dash"), C.dash);
+        this.burst(p.x, p.y, 14, C.dash, 260, 0.5);
+        this.rings.push({ x: p.x, y: p.y, r: 10, vr: 420, life: 0.35, maxLife: 0.35, c: rgba(C.dash, 1) });
+        this.audio.pickupDash();
+        break;
+      case "miner":
+        // the mine drops automatically a couple of seconds later
+        this.mineDropT = MINE_DELAY;
+        this.popup(p.x, p.y - 16, t("game.mineReady"), C.mine);
+        this.burst(p.x, p.y, 10, C.mine, 170, 0.4);
+        this.audio.minePlace();
+        break;
     }
   }
 
@@ -1528,6 +1709,8 @@ export class Game {
       ["rate60", 0.01 + 0.2 * ramp(4, 18)],
       ["gun", this.guns < MAX_GUNS ? 0.05 + 0.3 * ramp(1, 12) : 0],
       ["drone", this.allyDrones.length < MAX_ALLY_DRONES ? 0.06 + 0.3 * ramp(2, 14) : 0],
+      ["dash", 0.12 + 0.18 * ramp(2, 12)],
+      ["miner", 0.08 + 0.2 * ramp(3, 14)],
     ];
     let total = 0;
     for (const [, wt] of table) total += wt;
@@ -1912,6 +2095,7 @@ export class Game {
       this.drawZone();
       this.drawRifts();
       this.drawPickups();
+      this.drawMines();
       this.drawEnemies();
       this.drawAllyDrones();
       this.drawPlayer();
@@ -2146,7 +2330,11 @@ export class Game {
             ? C.fighter
             : p.kind === "gun"
               ? C.player
-              : C.mint;
+              : p.kind === "dash"
+                ? C.dash
+                : p.kind === "miner"
+                  ? C.mine
+                  : C.mint;
       const pr = 15 + Math.sin(this.time * 4 + p.seed) * 2;
       R.circle(p.x, p.y, pr, rgba(col, 0.35 * blinkA), 26);
       const c1 = Math.cos(rot);
@@ -2179,7 +2367,72 @@ export class Game {
           R.circle(p.x, p.y, 9.5, rgba(col, 0.4 * blinkA), 18);
           break;
         }
+        case "dash": {
+          // open arrowhead — same shape as the dash shell
+          const L = 10;
+          const Wd = 7;
+          const tx = p.x + L * c1;
+          const ty = p.y + L * s1;
+          R.pushLine(tx, ty, p.x - L * 0.5 * c1 - Wd * s1, p.y - L * 0.5 * s1 + Wd * c1, rgba(col, blinkA));
+          R.pushLine(tx, ty, p.x - L * 0.5 * c1 + Wd * s1, p.y - L * 0.5 * s1 - Wd * c1, rgba(col, blinkA));
+          break;
+        }
+        case "miner": {
+          // little mine with detonator spikes
+          const s = 5.5;
+          R.polyline(
+            [
+              [p.x, p.y - s],
+              [p.x + s, p.y],
+              [p.x, p.y + s],
+              [p.x - s, p.y],
+            ],
+            true,
+            rgba(col, blinkA)
+          );
+          const sp = s + 3.5;
+          R.pushLine(p.x, p.y - s, p.x, p.y - sp, rgba(col, blinkA));
+          R.pushLine(p.x + s, p.y, p.x + sp, p.y, rgba(col, blinkA));
+          R.pushLine(p.x, p.y + s, p.x, p.y + sp, rgba(col, blinkA));
+          R.pushLine(p.x - s, p.y, p.x - sp, p.y, rgba(col, blinkA));
+          break;
+        }
       }
+    }
+  }
+
+  private drawMines() {
+    const R = this.renderer;
+    for (const m of this.mines) {
+      // blast-radius hint so the pilot knows when the trap will spring
+      R.dashedCircle(m.x, m.y, MINE_RADIUS, rgba(C.mine, 0.16), 14, this.time * 0.5);
+
+      // blink faster as the failsafe fuse runs down
+      const urgency = clamp(1 - m.fuse / MINE_LIFE, 0, 1);
+      const blink = Math.sin(this.time * (6 + urgency * 14) + m.seed) > -0.2 ? 1 : 0.45;
+      const s = 9 + Math.sin(this.time * 3 + m.seed) * 1.2;
+      const c = rgba(C.mine, 0.95 * blink);
+
+      // diamond body
+      R.polyline(
+        [
+          [m.x, m.y - s],
+          [m.x + s, m.y],
+          [m.x, m.y + s],
+          [m.x - s, m.y],
+        ],
+        true,
+        c
+      );
+      // detonator spikes
+      const sp = s + 5;
+      R.pushLine(m.x, m.y - s, m.x, m.y - sp, c);
+      R.pushLine(m.x + s, m.y, m.x + sp, m.y, c);
+      R.pushLine(m.x, m.y + s, m.x, m.y + sp, c);
+      R.pushLine(m.x - s, m.y, m.x - sp, m.y, c);
+      // core
+      R.pushLine(m.x - 2.5, m.y, m.x + 2.5, m.y, rgba(C.white, 0.9 * blink));
+      R.pushLine(m.x, m.y - 2.5, m.x, m.y + 2.5, rgba(C.white, 0.9 * blink));
     }
   }
 
@@ -2244,6 +2497,43 @@ export class Game {
         this.px - cos * (12 + len),
         this.py - sin * (12 + len),
         rgba(C.player, 0.6 * blink)
+      );
+    }
+
+    // dash shell: a sharp chevron larger than the hull, open at the back
+    if (this.dashT > 0) {
+      const a = this.pAngle;
+      const ca = Math.cos(a);
+      const sa = Math.sin(a);
+      const pulse = 1 + Math.sin(this.time * 16) * 0.08;
+      const L = 30 * pulse; // tip length
+      const Wd = 20 * pulse; // half-width at the wings
+      const tipX = this.px + ca * L;
+      const tipY = this.py + sa * L;
+      // wings swept back, NO rear edge — an open arrowhead
+      const w1x = this.px - ca * L * 0.55 - sa * Wd;
+      const w1y = this.py - sa * L * 0.55 + ca * Wd;
+      const w2x = this.px - ca * L * 0.55 + sa * Wd;
+      const w2y = this.py - sa * L * 0.55 - ca * Wd;
+      const glow = Math.min(1, this.dashT / 0.4);
+      R.pushLine(tipX, tipY, w1x, w1y, rgba(C.dash, 0.95 * glow));
+      R.pushLine(tipX, tipY, w2x, w2y, rgba(C.dash, 0.95 * glow));
+      // faint inner chevron for depth
+      const L2 = L * 0.62;
+      const W2 = Wd * 0.62;
+      R.pushLine(
+        this.px + ca * L2,
+        this.py + sa * L2,
+        this.px - ca * L2 * 0.55 - sa * W2,
+        this.py - sa * L2 * 0.55 + ca * W2,
+        rgba(C.dash, 0.4 * glow)
+      );
+      R.pushLine(
+        this.px + ca * L2,
+        this.py + sa * L2,
+        this.px - ca * L2 * 0.55 + sa * W2,
+        this.py - sa * L2 * 0.55 - ca * W2,
+        rgba(C.dash, 0.4 * glow)
       );
     }
 

@@ -403,6 +403,26 @@ export class AudioEngine {
     this.tone("sine", 700, 1150, 0.09, 0.07);
     this.tone("sine", 1150, 850, 0.12, 0.06, 0.09);
   }
+  pickupDash() {
+    this.noise(0.16, 0.1, 3000, 500, 0, 1.2);
+    this.tone("sawtooth", 300, 1700, 0.18, 0.1);
+    this.tone("sine", 1400, 2100, 0.1, 0.05, 0.08);
+  }
+  dashRam() {
+    this.tone("square", 220, 90, 0.07, 0.06);
+  }
+  minePlace() {
+    this.tone("triangle", 500, 320, 0.08, 0.07);
+    this.tone("triangle", 320, 240, 0.1, 0.06, 0.09);
+  }
+  mineArm() {
+    this.tone("sine", 980, 980, 0.05, 0.04);
+  }
+  mineBoom() {
+    this.noise(0.5, 0.3, 1800, 70, 0, 0.6);
+    this.tone("sine", 120, 26, 0.4, 0.28);
+    this.tone("sawtooth", 260, 50, 0.3, 0.12, 0.02);
+  }
   droneShot() {
     if (Math.random() < 0.5) this.tone("square", 1500, 900, 0.04, 0.018);
   }
