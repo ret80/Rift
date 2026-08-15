@@ -559,7 +559,6 @@ export function GameOverScreen(props: {
 
 export interface HudRefs {
   wave: MutableRefObject<HTMLDivElement | null>;
-  kills: MutableRefObject<HTMLDivElement | null>;
   progress: MutableRefObject<HTMLDivElement | null>;
   status: MutableRefObject<HTMLDivElement | null>;
   hullPanel: MutableRefObject<HTMLDivElement | null>;
@@ -568,9 +567,7 @@ export interface HudRefs {
   score: MutableRefObject<HTMLDivElement | null>;
   best: MutableRefObject<HTMLDivElement | null>;
   combo: MutableRefObject<HTMLDivElement | null>;
-  boostPanel: MutableRefObject<HTMLDivElement | null>;
-  boostText: MutableRefObject<HTMLDivElement | null>;
-  boostBar: MutableRefObject<HTMLDivElement | null>;
+  minerals: MutableRefObject<HTMLDivElement | null>;
 }
 
 export function HudLayer(props: { r: HudRefs; godOn: boolean }) {

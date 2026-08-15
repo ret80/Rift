@@ -601,7 +601,9 @@ export class Game {
   /* ---------------- wave config ---------------- */
 
   private waveTotalCount(w: number) {
-    return Math.min(170, Math.round(30 + (w - 1) * 4.5));
+    // fewer ships per wave: 30 on wave 1, ~100 by wave 30 (hard cap 100).
+    // Late-game pressure comes from armor & firepower, not headcount.
+    return Math.min(100, Math.round(30 + (w - 1) * 2.4));
   }
 
   private zoneRadius(w: number) {
@@ -746,8 +748,9 @@ export class Game {
   private enemyDef(kind: EnemyKind): EnemyDef {
     const w = this.wave;
     const ramp = (s: number, f: number) => this.rampW(w, s, f);
-    const hpS = 1 + 0.4 * ramp(1, 15) + 2.2 * ramp(15, 40);
-    const dmgS = 1 + 0.2 * ramp(1, 15) + 0.7 * ramp(15, 40);
+    // difficulty lives in armor & firepower: gentle early, steep from 15
+    const hpS = 1 + 0.5 * ramp(1, 15) + 3.0 * ramp(15, 40);
+    const dmgS = 1 + 0.25 * ramp(1, 15) + 1.0 * ramp(15, 40);
     switch (kind) {
       case "drone":
         return { r: 10, hp: 12 * hpS, speed: 150 + w * 4, contact: 10 * dmgS, score: 10, bolt: 0 };
@@ -1162,15 +1165,18 @@ export class Game {
         }
 
         case "hunter": {
-          /* The seeker: it never aims at where you are — it aims at where
-             you WILL be in 1.5s. Fly straight and it collides; fly in a
-             circle and it cuts the chord. Only a sharp jink breaks it. */
-          const leadX = this.px + this.pvx * 1.5;
-          const leadY = this.py + this.pvy * 1.5;
+          /* The seeker aims at the point where the player WILL be in 1s.
+             It is a hair slower than the ship, so it never wins a straight
+             chase — but the moment the pilot turns or slows, the predicted
+             point swings round and the hunter cuts in for the ram. */
+          const leadX = this.px + this.pvx * 1.0;
+          const leadY = this.py + this.pvy * 1.0;
           const hx = leadX - e.x;
           const hy = leadY - e.y;
           const hd = Math.hypot(hx, hy) || 1;
-          const k = 1 - Math.exp(-4.2 * dt);
+          // steer a little harder when the intercept point is close so it
+          // actually commits to the collision instead of orbiting it
+          const k = 1 - Math.exp(-(hd < 120 ? 7.5 : 4.5) * dt);
           e.vx += ((hx / hd) * e.speed - e.vx) * k;
           e.vy += ((hy / hd) * e.speed - e.vy) * k;
           const hv = Math.hypot(e.vx, e.vy);
@@ -2517,7 +2523,12 @@ export class Game {
       const w1y = this.py - sa * L * 0.55 + ca * Wd;
       const w2x = this.px - ca * L * 0.55 + sa * Wd;
       const w2y = this.py - sa * L * 0.55 - ca * Wd;
-      const glow = Math.min(1, this.dashT / 0.4);
+      let glow = Math.min(1, this.dashT / 0.4);
+      // blink faster as the overdrive is about to run out
+      if (this.dashT < 1.0) {
+        const hz = 6 + (1 - this.dashT) * 12;
+        glow *= 0.55 + 0.45 * Math.sin(this.time * hz);
+      }
       R.pushLine(tipX, tipY, w1x, w1y, rgba(C.dash, 0.95 * glow));
       R.pushLine(tipX, tipY, w2x, w2y, rgba(C.dash, 0.95 * glow));
       // faint inner chevron for depth
@@ -2573,9 +2584,23 @@ export class Game {
       );
     }
 
-    // fire-rate boost ring
+    // fire-rate boost: a solid circular progress bar that drains with the timer
     if (this.rateT > 0) {
-      R.dashedCircle(this.px, this.py, 26, rgba(C.fighter, 0.5), 12, -this.time * 2.4);
+      const f = clamp(this.rateT / RATE_BOOST_TIME, 0, 1);
+      const rr = 26;
+      const segs = Math.max(6, Math.round(30 * f));
+      const a0 = -Math.PI / 2; // start from the top, sweep clockwise
+      let pxp = this.px + Math.cos(a0) * rr;
+      let pyp = this.py + Math.sin(a0) * rr;
+      const blink = f < 0.2 ? (Math.sin(this.time * 14) > 0 ? 1 : 0.45) : 1;
+      for (let i = 1; i <= segs; i++) {
+        const a = a0 + (i / segs) * f * TAU;
+        const nx = this.px + Math.cos(a) * rr;
+        const ny = this.py + Math.sin(a) * rr;
+        R.pushLine(pxp, pyp, nx, ny, rgba(C.fighter, 0.75 * blink));
+        pxp = nx;
+        pyp = ny;
+      }
     }
     // god mode halo
     if (this.debugGod) {
