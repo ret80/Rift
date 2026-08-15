@@ -30,8 +30,23 @@ export const C = {
 /* --------------------------- player & limits --------------------------- */
 
 export const PLAYER_MAX_SPEED = 310;
+/** Thrust applied per second while the player holds a direction. */
+export const PLAYER_ACCEL = 1500;
 /** The zone wall always outpaces the ship, so it can never be caught. */
 export const ZONE_EXPAND_SPEED = PLAYER_MAX_SPEED * 1.2;
+
+/* ------------------------- player turret ------------------------- */
+
+export const PLAYER_BULLET_SPEED = 560;
+export const PLAYER_BULLET_LIFE = 0.85;
+export const PLAYER_BULLET_DMG = 14;
+
+/* ------------------------- ally drones ------------------------- */
+
+export const ALLY_DRONE_ORBIT = 58; // orbit radius around the ship
+export const ALLY_DRONE_RANGE = 430; // target acquisition / hold radius
+export const ALLY_DRONE_DMG = 8;
+export const ALLY_DRONE_FIRE_CD = 0.5; // seconds between shots
 
 export const MAX_GUNS = 5;
 export const MAX_ALLY_DRONES = 8;

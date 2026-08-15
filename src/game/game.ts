@@ -5,6 +5,7 @@ import { TAU, rand, clamp, ramp01, lerpAngle, easeOutCubic, rgba } from "./math"
 import {
   C,
   PLAYER_MAX_SPEED,
+  PLAYER_ACCEL,
   ZONE_EXPAND_SPEED,
   MAX_GUNS,
   MAX_ALLY_DRONES,
@@ -18,6 +19,13 @@ import {
   MINE_RADIUS,
   MINE_DMG,
   MINE_LIFE,
+  PLAYER_BULLET_SPEED,
+  PLAYER_BULLET_LIFE,
+  PLAYER_BULLET_DMG,
+  ALLY_DRONE_ORBIT,
+  ALLY_DRONE_RANGE,
+  ALLY_DRONE_DMG,
+  ALLY_DRONE_FIRE_CD,
   enemyDefFor,
   waveTotalFor,
   zoneRadiusFor,
@@ -27,12 +35,13 @@ import {
   type PickupKind,
 } from "./balance";
 export type { EnemyKind, AsteroidKind, PickupKind } from "./balance";
-import type { EnemyKind } from "./balance";
+import type { EnemyKind, AsteroidKind } from "./balance";
 
 /* subsystems */
+import { InputManager } from "./input";
 import { Fx } from "./fx";
 import { Starfield } from "./starfield";
-import { AsteroidField } from "./asteroids";
+import { AsteroidField, type Asteroid } from "./asteroids";
 import { RiftField } from "./rifts";
 
 /* ============================== types ============================== */
@@ -241,12 +250,13 @@ export class Game {
 
   private state: "menu" | "playing" | "active" | "cleared" | "dying" | "over" = "menu";
   private paused = false;
-  private keys = new Set<string>();
 
-  /* touch */
-  private touchX = 0;
-  private touchY = 0;
-  private touchActive = false;
+  /* input + presentation subsystems (created in the constructor) */
+  private input: InputManager;
+  private fx: Fx;
+  private starfield: Starfield;
+  private asteroidField: AsteroidField;
+  private riftField: RiftField;
 
   /* player */
   private px = 0;
@@ -265,13 +275,10 @@ export class Game {
   private thrusting = false;
   private dieT = 0;
 
-  /* camera */
+  /* camera (shake lives in the Fx subsystem) */
   private camX = 0;
   private camY = 0;
   private zoom = 1;
-  private shakeMag = 0;
-  private shakeX = 0;
-  private shakeY = 0;
   private viewW = 800;
   private viewH = 600;
 
@@ -287,17 +294,8 @@ export class Game {
   private mines: Mine[] = [];
   private mineDropT = -1;
 
-  /* minerals & asteroid field (chunk-generated, always around the ship) */
+  /* minerals (the asteroid belt itself lives in AsteroidField) */
   private minerals = 0;
-  private asteroids: Asteroid[] = [];
-  private astChunks = new Map<string, Asteroid[]>();
-  private astBoundsKey = "";
-  private astGone = new Set<string>();
-  private astFragSeq = 0;
-
-  private rifts: Rift[] = [];
-  private rings: Ring[] = [];
-  private particles: Particle[] = [];
 
   /* waves & zone */
   private wave = 1;
@@ -334,10 +332,6 @@ export class Game {
   private comboT = 0;
   private runTime = 0;
 
-  /* stars (infinite chunked field) */
-  private starChunks = new Map<string, Star[]>();
-  private starBoundsKey = "";
-
   private popupId = 0;
   private countId = 0;
   private announcedKinds = new Set<EnemyKind>();
@@ -348,48 +342,47 @@ export class Game {
     this.viewH = window.innerHeight;
   };
 
-  private onKeyDown = (e: KeyboardEvent) => {
-    if (e.code === "KeyP" || e.code === "Escape") {
-      this.togglePause();
-      return;
-    }
-    this.keys.add(e.code);
-  };
-
-  private onKeyUp = (e: KeyboardEvent) => {
-    this.keys.delete(e.code);
-  };
-
-  private onBlur = () => {
-    this.keys.clear();
-    this.touchActive = false;
-    if (
-      (this.state === "playing" ||
-        this.state === "active" ||
-        this.state === "cleared" ||
-        this.state === "dying") &&
-      !this.paused
-    ) {
-      this.togglePause();
-      this.audio.setSuspended(true);
-    }
-  };
-
-  private onVis = () => {
-    if (document.hidden) this.onBlur();
-  };
-
   constructor(canvas: HTMLCanvasElement, hooks: Hooks) {
     this.renderer = new Renderer(canvas);
     this.hooks = hooks;
     this.best = Number(localStorage.getItem(BEST_KEY)) || 0;
     this.onResize();
 
-    window.addEventListener("keydown", this.onKeyDown);
-    window.addEventListener("keyup", this.onKeyUp);
+    /* input: keyboard + touch, policy delegated back to the game */
+    this.input = new InputManager({
+      onPauseKey: () => this.togglePause(),
+      onLoseFocus: () => {
+        if (
+          (this.state === "playing" ||
+            this.state === "active" ||
+            this.state === "cleared" ||
+            this.state === "dying") &&
+          !this.paused
+        ) {
+          this.togglePause();
+          this.audio.setSuspended(true);
+        }
+      },
+    });
+
+    /* presentation / world subsystems (dependency injection) */
+    this.fx = new Fx();
+    this.starfield = new Starfield();
+    this.asteroidField = new AsteroidField({
+      addScore: (n) => {
+        this.score += n;
+      },
+      spawnPickup: (kind, x, y, vx, vy) => this.spawnPickup(kind, x, y, vx, vy),
+      fx: this.fx,
+      audio: this.audio,
+    });
+    this.riftField = new RiftField({
+      spawnEnemy: (kind, x, y) => this.spawnEnemy(kind, x, y, null),
+      fx: this.fx,
+      audio: this.audio,
+    });
+
     window.addEventListener("resize", this.onResize);
-    window.addEventListener("blur", this.onBlur);
-    document.addEventListener("visibilitychange", this.onVis);
 
     this.lastT = performance.now();
     const loop = (now: number) => {
@@ -404,11 +397,8 @@ export class Game {
 
   destroy() {
     cancelAnimationFrame(this.raf);
-    window.removeEventListener("keydown", this.onKeyDown);
-    window.removeEventListener("keyup", this.onKeyUp);
     window.removeEventListener("resize", this.onResize);
-    window.removeEventListener("blur", this.onBlur);
-    document.removeEventListener("visibilitychange", this.onVis);
+    this.input.destroy();
     this.audio.dispose();
   }
 
@@ -440,15 +430,7 @@ export class Game {
   }
 
   setTouch(active: boolean, x: number, y: number) {
-    this.touchActive = active;
-    const m = Math.hypot(x, y);
-    if (m > 1) {
-      x /= m;
-      y /= m;
-    }
-    const dz = 0.12;
-    this.touchX = Math.abs(x) < dz ? 0 : x;
-    this.touchY = Math.abs(y) < dz ? 0 : y;
+    this.input.setTouch(active, x, y);
   }
 
   togglePause() {
@@ -470,19 +452,15 @@ export class Game {
     this.enemies = [];
     this.bullets = [];
     this.ebullets = [];
-    this.rifts = [];
+    this.riftField.list.length = 0;
     this.pickups = [];
     this.allyDrones = [];
     this.mines = [];
     this.mineDropT = -1;
     this.dashT = 0;
     this.minerals = 0;
-    this.asteroids = [];
-    this.astChunks.clear();
-    this.astGone.clear();
-    this.astBoundsKey = "";
-    this.particles = [];
-    this.rings = [];
+    this.asteroidField.hardReset();
+    this.fx.clear();
     this.px = 0;
     this.py = 0;
     this.pvx = 0;
@@ -783,26 +761,16 @@ export class Game {
     const k = 1 - Math.exp(-5 * rdt);
     this.camX += (this.px - this.camX) * k;
     this.camY += (this.py - this.camY) * k;
-    this.shakeMag = Math.max(0, this.shakeMag - rdt * 40);
-    this.shakeX = (Math.random() - 0.5) * 2 * this.shakeMag;
-    this.shakeY = (Math.random() - 0.5) * 2 * this.shakeMag;
   }
 
   private addShake(v: number) {
-    this.shakeMag = Math.min(26, this.shakeMag + v);
+    this.fx.addShake(v);
   }
 
   private updatePlayer(dt: number) {
-    let ax = 0;
-    let ay = 0;
-    if (this.keys.has("KeyW") || this.keys.has("ArrowUp")) ay -= 1;
-    if (this.keys.has("KeyS") || this.keys.has("ArrowDown")) ay += 1;
-    if (this.keys.has("KeyA") || this.keys.has("ArrowLeft")) ax -= 1;
-    if (this.keys.has("KeyD") || this.keys.has("ArrowRight")) ax += 1;
-    if (this.touchActive) {
-      ax += this.touchX;
-      ay += this.touchY;
-    }
+    const mv = this.input.axis;
+    const ax = mv.x;
+    const ay = mv.y;
     const l = Math.hypot(ax, ay);
     this.thrusting = l > 0;
     this.dashT = Math.max(0, this.dashT - dt);
@@ -1535,223 +1503,13 @@ export class Game {
 
   /* ---------------- asteroid field ---------------- */
 
-  private astDef(kind: AsteroidKind) {
-    switch (kind) {
-      case "small":
-        return { rMin: 8, rMax: 12, hp: 22, score: 6 };
-      case "medium":
-        return { rMin: 17, rMax: 23, hp: 60, score: 15 };
-      case "large":
-        return { rMin: 30, rMax: 40, hp: 140, score: 30 };
-    }
-  }
 
-  private makeAst(
-    id: string,
-    kind: AsteroidKind,
-    x: number,
-    y: number,
-    rnd: () => number,
-    vx: number,
-    vy: number
-  ): Asteroid {
-    const d = this.astDef(kind);
-    const r = d.rMin + rnd() * (d.rMax - d.rMin);
-    const verts: number[] = [];
-    const n = 9 + Math.floor(rnd() * 3);
-    for (let i = 0; i < n; i++) verts.push(0.72 + rnd() * 0.3);
-    return {
-      id,
-      kind,
-      x,
-      y,
-      vx,
-      vy,
-      r,
-      angle: rnd() * TAU,
-      spin: (rnd() - 0.5) * 0.6,
-      verts,
-      hp: d.hp,
-      maxHp: d.hp,
-    };
-  }
 
-  private genAstChunk(cx: number, cy: number): Asteroid[] {
-    const CH = 1000;
-    const seed = (Math.imul(cx, 91733) ^ Math.imul(cy, 46511) ^ 0x5eed) >>> 0;
-    const rnd = mulberry32(seed || 0x9e3779b9);
-    const out: Asteroid[] = [];
-    const count = 9 + Math.floor(rnd() * 5);
-    for (let i = 0; i < count; i++) {
-      const roll = rnd();
-      const kind: AsteroidKind = roll < 0.18 ? "large" : roll < 0.52 ? "medium" : "small";
-      const x = cx * CH + rnd() * CH;
-      const y = cy * CH + rnd() * CH;
-      const va = rnd() * TAU;
-      const vs = 4 + rnd() * 14;
-      out.push(this.makeAst(`${cx},${cy}:${i}`, kind, x, y, rnd, Math.cos(va) * vs, Math.sin(va) * vs));
-    }
-    return out;
-  }
 
-  private updateAsteroids(dt: number) {
-    const CH = 1000;
-    const W = this.viewW;
-    const H = this.viewH;
-    const x0 = Math.floor((this.camX - W / 2) / CH) - 1;
-    const x1 = Math.floor((this.camX + W / 2) / CH) + 1;
-    const y0 = Math.floor((this.camY - H / 2) / CH) - 1;
-    const y1 = Math.floor((this.camY + H / 2) / CH) + 1;
-    const key = `${x0},${x1},${y0},${y1}`;
 
-    if (key !== this.astBoundsKey) {
-      this.astBoundsKey = key;
-      const keep = new Set<string>();
-      for (let cx = x0; cx <= x1; cx++) {
-        for (let cy = y0; cy <= y1; cy++) {
-          const k = `${cx},${cy}`;
-          keep.add(k);
-          if (!this.astChunks.has(k)) this.astChunks.set(k, this.genAstChunk(cx, cy));
-        }
-      }
-      for (const k of Array.from(this.astChunks.keys())) {
-        if (!keep.has(k)) {
-          this.astChunks.delete(k);
-          // forget destroyed asteroids in evicted chunks so the field regrows
-          for (const g of Array.from(this.astGone)) if (g.startsWith(k + ":")) this.astGone.delete(g);
-        }
-      }
-    }
 
-    // spawn any seeded asteroids that are not alive or destroyed
-    const alive = new Set<string>();
-    for (const a of this.asteroids) alive.add(a.id);
-    for (const chunk of this.astChunks.values()) {
-      for (const seedAst of chunk) {
-        if (!alive.has(seedAst.id) && !this.astGone.has(seedAst.id)) {
-          this.asteroids.push(seedAst);
-          alive.add(seedAst.id);
-        }
-      }
-    }
 
-    const cap = 220;
-    for (let i = this.asteroids.length - 1; i >= 0; i--) {
-      const a = this.asteroids[i];
-      a.x += a.vx * dt;
-      a.y += a.vy * dt;
-      a.angle += a.spin * dt;
 
-      // the wave zone is sacred ground — shove rocks out and keep them out
-      if (this.zoneOn && this.zoneAlpha > 0.4 && this.zoneR > 60) {
-        const zdx = a.x - this.zoneX;
-        const zdy = a.y - this.zoneY;
-        const zd = Math.hypot(zdx, zdy) || 1;
-        const lim = this.zoneR + a.r + 26;
-        if (zd < lim) {
-          const push = 260 * dt;
-          a.vx += (zdx / zd) * push * 8;
-          a.vy += (zdy / zd) * push * 8;
-          if (zd < lim) {
-            a.x = this.zoneX + (zdx / zd) * lim;
-            a.y = this.zoneY + (zdy / zd) * lim;
-          }
-        }
-      }
-
-      // drift away from the player's immediate path so the field never clogs
-      const dCam = Math.hypot(a.x - this.camX, a.y - this.camY);
-      if (dCam > 2800) {
-        this.asteroids.splice(i, 1);
-        continue;
-      }
-    }
-    if (this.asteroids.length > cap) this.asteroids.length = cap;
-  }
-
-  private destroyAsteroid(a: Asteroid) {
-    this.astGone.add(a.id);
-    const d = this.astDef(a.kind);
-    this.score += d.score;
-    this.burst(a.x, a.y, a.kind === "large" ? 26 : a.kind === "medium" ? 16 : 9, "#b9c4d6", a.kind === "large" ? 300 : 200, 0.5);
-    this.audio.explode(a.kind === "large" ? 0.9 : 0.5);
-    this.addShake(a.kind === "large" ? 4 : a.kind === "medium" ? 2.5 : 1);
-
-    const rnd = Math.random;
-    const spawnFrag = (kind: AsteroidKind) => {
-      const ang = rnd() * TAU;
-      const dist = a.r * 0.5;
-      this.astFragSeq++;
-      const frag = this.makeAst(
-        `f${this.astFragSeq}`,
-        kind,
-        a.x + Math.cos(ang) * dist,
-        a.y + Math.sin(ang) * dist,
-        rnd,
-        a.vx + Math.cos(ang) * (40 + rnd() * 60),
-        a.vy + Math.sin(ang) * (40 + rnd() * 60)
-      );
-      this.asteroids.push(frag);
-    };
-
-    if (a.kind === "large") {
-      const roll = rnd();
-      if (roll < 0.5) {
-        spawnFrag("medium");
-        spawnFrag("small");
-        spawnFrag("small");
-      } else if (roll < 0.75) {
-        spawnFrag("medium");
-        spawnFrag("medium");
-      } else {
-        spawnFrag("small");
-        spawnFrag("small");
-        spawnFrag("small");
-      }
-    } else if (a.kind === "medium" && rnd() < 0.7) {
-      spawnFrag("small");
-      spawnFrag("small");
-    }
-
-    // minerals tumble out of every rock type
-    const dropChance = a.kind === "large" ? 0.7 : a.kind === "medium" ? 0.4 : 0.25;
-    if (rnd() < dropChance) {
-      this.pickups.push({
-        kind: "mineral",
-        x: a.x + rand(-10, 10),
-        y: a.y + rand(-10, 10),
-        vx: rand(-40, 40),
-        vy: rand(-40, 40),
-        life: 13,
-        seed: Math.random() * 100,
-      });
-    }
-  }
-
-  private drawAsteroids() {
-    const R = this.renderer;
-    for (const a of this.asteroids) {
-      const n = a.verts.length;
-      const pts: Array<[number, number]> = [];
-      for (let i = 0; i < n; i++) {
-        const ang = a.angle + (i / n) * TAU;
-        const rr = a.r * a.verts[i];
-        pts.push([a.x + Math.cos(ang) * rr, a.y + Math.sin(ang) * rr]);
-      }
-      R.polyline(pts, true, rgba("#8d9ab0", 0.85));
-      R.pushLine(
-        a.x - a.r * 0.3,
-        a.y - a.r * 0.2,
-        a.x + a.r * 0.25,
-        a.y + a.r * 0.35,
-        rgba("#8d9ab0", 0.3)
-      );
-      if (a.hp < a.maxHp) {
-        const f = clamp(a.hp / a.maxHp, 0, 1);
-        R.dashedCircle(a.x, a.y, a.r + 5, rgba("#ffbf66", 0.4), Math.max(3, Math.round(8 * f)), this.time, 0.4);
-      }
-    }
-  }
 
   private applyPickup(p: Pickup) {
     const heal = (f: number) => {
@@ -1861,6 +1619,11 @@ export class Game {
         this.audio.pickupHeal();
         break;
     }
+  }
+
+  /** Create a pickup at a point with a given velocity (used by subsystems). */
+  private spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number) {
+    this.pickups.push({ kind, x, y, vx, vy, life: 13, seed: Math.random() * 100 });
   }
 
   private maybeDrop(e: Enemy) {
