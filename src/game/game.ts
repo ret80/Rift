@@ -479,7 +479,6 @@ export class Game {
     this.comboT = 0;
     this.runTime = 0;
     this.timeScale = 1;
-    this.shakeMag = 0;
     this.zoneOn = false;
     this.zoneAlpha = 0;
     this.zoneCollapse = -1;
@@ -500,14 +499,14 @@ export class Game {
     this.enemies = [];
     this.bullets = [];
     this.ebullets = [];
-    this.rifts = [];
+    this.riftField.list.length = 0;
     this.pickups = [];
     this.allyDrones = [];
     this.mines = [];
     this.mineDropT = -1;
     this.dashT = 0;
-    this.particles = [];
-    this.rings = [];
+    this.asteroidField.reset();
+    this.fx.clear();
     this.zoneOn = false;
     this.zoneAlpha = 0;
     this.zoneCollapse = -1;
@@ -619,7 +618,8 @@ export class Game {
       const dEdge = this.zoneTarget - Math.hypot(x - this.zoneX, y - this.zoneY);
       if (dPlayer < 220 || dEdge < 100) continue;
       let dRifts = 1e9;
-      for (const rf of this.rifts) dRifts = Math.min(dRifts, Math.hypot(x - rf.x, y - rf.y));
+      for (const rf of this.riftField.list)
+        dRifts = Math.min(dRifts, Math.hypot(x - rf.x, y - rf.y));
       let dEnemies = 1e9;
       for (const e of this.enemies) dEnemies = Math.min(dEnemies, Math.hypot(x - e.x, y - e.y));
       const score = Math.min(dPlayer, 400) + Math.min(dRifts, 300) * 1.5 + Math.min(dEnemies, 250);
@@ -638,18 +638,7 @@ export class Game {
     let maxR = 0;
     for (const k of queue) maxR = Math.max(maxR, this.enemyDef(k).r);
     const size = Math.max(maxR * 2 * 1.6, 52);
-    this.rifts.push({
-      x: p.x,
-      y: p.y,
-      t: -delay,
-      state: "opening",
-      queue,
-      timer: 0.8,
-      seed: Math.random() * 100,
-      rot: Math.random() * TAU,
-      size,
-    });
-    this.audio.riftOpen();
+    this.riftField.spawn(p.x, p.y, queue, delay, size);
   }
 
   private enemyDef(kind: EnemyKind): EnemyDef {
@@ -706,7 +695,7 @@ export class Game {
 
     if (this.state === "menu") {
       this.updateCamera(rdt);
-      this.updateAsteroids(rdt);
+      this.asteroidField.update(rdt, this.asteroidEnv());
       this.draw();
       return;
     }
@@ -725,7 +714,7 @@ export class Game {
       this.updateEBullets(dt);
       this.updatePickups(dt);
       this.updateMines(dt);
-      this.updateAsteroids(dt);
+      this.asteroidField.update(dt, this.asteroidEnv());
       this.updateRifts(dt);
       this.updateZoneAndWaves(dt);
     }
@@ -752,7 +741,8 @@ export class Game {
       }
     }
 
-    this.updateParticles(dt);
+    // particles freeze with the game clock; shake decays in real time
+    this.fx.update(dt, rdt);
     this.emitHud();
     this.draw();
   }
@@ -769,8 +759,8 @@ export class Game {
 
   private updatePlayer(dt: number) {
     const mv = this.input.axis;
-    const ax = mv.x;
-    const ay = mv.y;
+    let ax = mv.x;
+    let ay = mv.y;
     const l = Math.hypot(ax, ay);
     this.thrusting = l > 0;
     this.dashT = Math.max(0, this.dashT - dt);
@@ -797,7 +787,7 @@ export class Game {
     // dash speed-trail
     if (dashing && sp > 60) {
       for (let i = 0; i < 2; i++) {
-        this.particles.push({
+        this.fx.emit({
           x: this.px - (this.pvx / sp) * 10 + rand(-5, 5),
           y: this.py - (this.pvy / sp) * 10 + rand(-5, 5),
           vx: -(this.pvx / sp) * rand(40, 130),
@@ -849,7 +839,7 @@ export class Game {
         bestVY = e.vy;
       }
     }
-    for (const a of this.asteroids) {
+    for (const a of this.asteroidField.list) {
       if (!inZone(a.x, a.y)) continue;
       const d = Math.hypot(a.x - this.px, a.y - this.py);
       if (d < bestD) {
@@ -1309,16 +1299,11 @@ export class Game {
       }
       // rocks block shots too
       if (!dead) {
-        for (let j = this.asteroids.length - 1; j >= 0; j--) {
-          const a = this.asteroids[j];
+        for (let j = this.asteroidField.list.length - 1; j >= 0; j--) {
+          const a = this.asteroidField.list[j];
           if (Math.hypot(b.x - a.x, b.y - a.y) < a.r) {
             dead = true;
-            a.hp -= b.dmg;
-            this.burst(b.x, b.y, 3, "#b9c4d6", 100, 0.2);
-            if (a.hp <= 0) {
-              this.asteroids.splice(j, 1);
-              this.destroyAsteroid(a);
-            }
+            this.asteroidField.damageAt(j, b.dmg, b.x, b.y);
             break;
           }
         }
@@ -1353,7 +1338,7 @@ export class Game {
             if (d.hp <= 0) {
               this.allyDrones.splice(j, 1);
               this.burst(d.x, d.y, 18, C.mint, 280, 0.55);
-              this.rings.push({ x: d.x, y: d.y, r: 6, vr: 320, life: 0.35, maxLife: 0.35, c: rgba(C.mint, 1) });
+              this.fx.ring(d.x, d.y, 6, 320, 0.35, C.mint);
               this.addShake(4);
               this.audio.explode(0.8);
               this.popup(d.x, d.y - 14, t("game.droneLost"), C.zone);
@@ -1471,8 +1456,8 @@ export class Game {
     this.addShake(12);
     this.burst(m.x, m.y, 42, C.mine, 430, 0.7);
     this.burst(m.x, m.y, 16, C.white, 280, 0.45);
-    this.rings.push({ x: m.x, y: m.y, r: 8, vr: 720, life: 0.42, maxLife: 0.42, c: rgba(C.mine, 1) });
-    this.rings.push({ x: m.x, y: m.y, r: 4, vr: 520, life: 0.3, maxLife: 0.3, c: rgba(C.white, 1) });
+    this.fx.ring(m.x, m.y, 8, 720, 0.42, C.mine);
+    this.fx.ring(m.x, m.y, 4, 520, 0.3, C.white);
 
     const R = MINE_RADIUS * 1.15;
     for (const e of this.enemies) {
@@ -1602,7 +1587,7 @@ export class Game {
         }
         this.popup(p.x, p.y - 16, t("game.dash"), C.dash);
         this.burst(p.x, p.y, 14, C.dash, 260, 0.5);
-        this.rings.push({ x: p.x, y: p.y, r: 10, vr: 420, life: 0.35, maxLife: 0.35, c: rgba(C.dash, 1) });
+        this.fx.ring(p.x, p.y, 10, 420, 0.35, C.dash);
         this.audio.pickupDash();
         break;
       case "miner":
@@ -1680,7 +1665,7 @@ export class Game {
 
     const col = this.kindColor(e.kind);
     this.burst(e.x, e.y, e.kind === "carrier" ? 30 : e.kind === "cruiser" ? 22 : 14, col, 260, 0.5);
-    this.rings.push({ x: e.x, y: e.y, r: e.r * 0.5, vr: 380, life: 0.3, maxLife: 0.3, c: rgba(col, 1) });
+    this.fx.ring(e.x, e.y, e.r * 0.5, 380, 0.3, col);
 
     const shake =
       e.kind === "drone" ? 0 : e.kind === "hunter" ? 3 : e.kind === "fighter" ? 2.5 : e.kind === "cruiser" ? 6.5 : 9;
@@ -1777,15 +1762,7 @@ export class Game {
     this.audio.gameOver();
     this.burst(this.px, this.py, 40, C.player, 380, 0.9);
     this.burst(this.px, this.py, 24, C.white, 260, 0.6);
-    this.rings.push({
-      x: this.px,
-      y: this.py,
-      r: 10,
-      vr: 620,
-      life: 0.7,
-      maxLife: 0.7,
-      c: rgba(C.player, 1),
-    });
+    this.fx.ring(this.px, this.py, 10, 620, 0.7, C.player);
     this.addShake(26);
   }
 
@@ -1810,32 +1787,7 @@ export class Game {
   }
 
   private updateRifts(dt: number) {
-    for (let i = this.rifts.length - 1; i >= 0; i--) {
-      const rf = this.rifts[i];
-      rf.t += dt;
-      if (rf.state === "opening") {
-        if (rf.t >= 0.6) {
-          rf.state = "spawning";
-          rf.timer = 0.35;
-        }
-      } else if (rf.state === "spawning") {
-        rf.timer -= dt;
-        if (rf.timer <= 0 && rf.queue.length > 0) {
-          rf.timer = 0.28;
-          const kind = rf.queue.shift()!;
-          this.spawnEnemy(kind, rf.x + rand(-14, 14), rf.y + rand(-14, 14), null);
-          this.audio.riftSpawn();
-          this.burst(rf.x, rf.y, 5, C.rift, 140, 0.3);
-        }
-        if (rf.queue.length === 0) {
-          rf.state = "closing";
-          rf.t = 0;
-          this.audio.riftClose();
-        }
-      } else if (rf.state === "closing") {
-        if (rf.t >= 0.5) this.rifts.splice(i, 1);
-      }
-    }
+    this.riftField.update(dt);
   }
 
   private updateZoneAndWaves(dt: number) {
@@ -1878,7 +1830,7 @@ export class Game {
             this.zoneAlpha = 0.4;
             this.hooks.onCountdown(null);
             this.audio.go();
-            this.rings.push({ x: this.zoneX, y: this.zoneY, r: 30, vr: 500, life: 0.5, maxLife: 0.5, c: rgba(C.zone, 1) });
+            this.fx.ring(this.zoneX, this.zoneY, 30, 500, 0.5, C.zone);
           }
         } else {
           this.zoneAlpha = Math.min(1, this.zoneAlpha + dt * 2);
@@ -1897,7 +1849,7 @@ export class Game {
         if (
           this.allocated < this.waveTotal &&
           alive <= this.peakAlive - this.dropThreshold &&
-          this.rifts.length < 2
+          this.riftField.list.length < 2
         ) {
           const batch = Math.min(this.stepSize, this.waveTotal - this.allocated);
           this.allocated += batch;
@@ -1907,7 +1859,7 @@ export class Game {
         if (
           this.allocated >= this.waveTotal &&
           this.enemies.length === 0 &&
-          !this.rifts.some((r) => r.queue.length > 0)
+          !this.riftField.list.some((r) => r.queue.length > 0)
         ) {
           this.waveCleared();
         }
@@ -1954,106 +1906,25 @@ export class Game {
   /* ---------------- fx ---------------- */
 
   private burst(x: number, y: number, n: number, hex: string, speed: number, life: number) {
-    const c = rgba(hex, 1);
-    for (let i = 0; i < n; i++) {
-      const a = Math.random() * TAU;
-      const sp = rand(speed * 0.3, speed);
-      this.particles.push({
-        x,
-        y,
-        vx: Math.cos(a) * sp,
-        vy: Math.sin(a) * sp,
-        life: rand(life * 0.5, life),
-        maxLife: life,
-        c,
-        size: rand(2, 7),
-      });
-    }
+    this.fx.burst(x, y, n, hex, speed, life);
   }
 
   private popup(x: number, y: number, text: string, color: string) {
     this.hooks.onPopup({ id: this.popupId++, x, y, text, color });
   }
 
-  private updateParticles(dt: number) {
-    for (let i = this.particles.length - 1; i >= 0; i--) {
-      const p = this.particles[i];
-      p.life -= dt;
-      if (p.life <= 0) {
-        this.particles.splice(i, 1);
-        continue;
-      }
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
-      p.vx *= Math.exp(-2.5 * dt);
-      p.vy *= Math.exp(-2.5 * dt);
-    }
-    for (let i = this.rings.length - 1; i >= 0; i--) {
-      const r = this.rings[i];
-      r.life -= dt;
-      r.r += r.vr * dt;
-      if (r.life <= 0) this.rings.splice(i, 1);
-    }
-  }
-
-  /* ---------------- stars ---------------- */
-
-  private genStarChunk(li: number, cx: number, cy: number): Star[] {
-    const L = STAR_LAYERS[li];
-    const seed =
-      (Math.imul(cx, 73856093) ^
-        Math.imul(cy, 19349663) ^
-        Math.imul(li + 1, 83492791)) >>>
-      0;
-    const rnd = mulberry32(seed || 0x9e3779b9);
-    const out: Star[] = [];
-    for (let i = 0; i < L.count; i++) {
-      out.push({
-        x: cx * L.chunk + rnd() * L.chunk,
-        y: cy * L.chunk + rnd() * L.chunk,
-        s: L.sMin + rnd() * (L.sMax - L.sMin),
-        a: L.aMin + rnd() * (L.aMax - L.aMin),
-        tw: 0.4 + rnd() * 2.2,
-        ph: rnd() * TAU,
-        tint: rnd(),
-      });
-    }
-    return out;
-  }
-
-  private updateStarChunks() {
-    const W = this.viewW;
-    const H = this.viewH;
-    const ranges: Array<[number, number, number, number]> = [];
-    let key = "";
-    for (let li = 0; li < STAR_LAYERS.length; li++) {
-      const L = STAR_LAYERS[li];
-      const ox = this.camX * L.f;
-      const oy = this.camY * L.f;
-      const x0 = Math.floor((ox - W / 2) / L.chunk) - 1;
-      const x1 = Math.floor((ox + W / 2) / L.chunk) + 1;
-      const y0 = Math.floor((oy - H / 2) / L.chunk) - 1;
-      const y1 = Math.floor((oy + H / 2) / L.chunk) + 1;
-      ranges.push([x0, x1, y0, y1]);
-      key += `${x0},${x1},${y0},${y1};`;
-    }
-    if (key === this.starBoundsKey) return;
-    this.starBoundsKey = key;
-
-    const keep = new Set<string>();
-    for (let li = 0; li < STAR_LAYERS.length; li++) {
-      const [x0, x1, y0, y1] = ranges[li];
-      for (let cx = x0; cx <= x1; cx++) {
-        for (let cy = y0; cy <= y1; cy++) {
-          const k = `${li}:${cx}:${cy}`;
-          keep.add(k);
-          if (!this.starChunks.has(k)) this.starChunks.set(k, this.genStarChunk(li, cx, cy));
-        }
-      }
-    }
-    for (const k of Array.from(this.starChunks.keys())) {
-      if (!keep.has(k)) this.starChunks.delete(k);
-    }
+  /** Snapshot of the world the asteroid belt reacts to this frame. */
+  private asteroidEnv() {
+    return {
+      camX: this.camX,
+      camY: this.camY,
+      viewW: this.viewW,
+      viewH: this.viewH,
+      zone:
+        this.zoneOn && this.zoneAlpha > 0.4 && this.zoneR > 60
+          ? { x: this.zoneX, y: this.zoneY, r: this.zoneR }
+          : null,
+    };
   }
 
   /* ---------------- hud ---------------- */
@@ -2085,10 +1956,10 @@ export class Game {
     R.resize(window.innerWidth, window.innerHeight);
     R.beginFrame();
     R.setMode("world");
-    R.setCamera(this.camX, this.camY, this.zoom, this.shakeX, this.shakeY);
+    R.setCamera(this.camX, this.camY, this.zoom, this.fx.shakeX, this.fx.shakeY);
 
     this.drawStars();
-    this.drawAsteroids();
+    this.asteroidField.draw(R, this.time);
 
     if (this.state === "menu") {
       this.drawMenuScene();
@@ -2108,47 +1979,15 @@ export class Game {
   }
 
   private drawStars() {
-    const R = this.renderer;
-    this.updateStarChunks();
-    R.setMode("world");
-    const W = this.viewW;
-    const H = this.viewH;
-    const camX = this.camX;
-    const camY = this.camY;
-    for (let li = 0; li < STAR_LAYERS.length; li++) {
-      const L = STAR_LAYERS[li];
-      const ox = camX * L.f;
-      const oy = camY * L.f;
-      const x0 = Math.floor((ox - W / 2) / L.chunk);
-      const x1 = Math.floor((ox + W / 2) / L.chunk);
-      const y0 = Math.floor((oy - H / 2) / L.chunk);
-      const y1 = Math.floor((oy + H / 2) / L.chunk);
-      const shiftX = camX * (1 - L.f);
-      const shiftY = camY * (1 - L.f);
-      const minX = camX - W / 2 - 8;
-      const maxX = camX + W / 2 + 8;
-      const minY = camY - H / 2 - 8;
-      const maxY = camY + H / 2 + 8;
-      for (let cx = x0; cx <= x1; cx++) {
-        for (let cy = y0; cy <= y1; cy++) {
-          const stars = this.starChunks.get(`${li}:${cx}:${cy}`);
-          if (!stars) continue;
-          for (const st of stars) {
-            const wx = st.x + shiftX;
-            const wy = st.y + shiftY;
-            if (wx < minX || wx > maxX || wy < minY || wy > maxY) continue;
-            const twk = 0.72 + 0.28 * Math.sin(this.time * st.tw + st.ph);
-            const a = st.a * twk;
-            const col: [number, number, number] =
-              st.tint < 0.72 ? [0.78, 0.88, 1] : st.tint < 0.9 ? [1, 0.92, 0.78] : [0.82, 0.74, 1];
-            R.pushLine(wx - st.s, wy, wx + st.s, wy, [col[0], col[1], col[2], a]);
-            if (st.s > 1.8) {
-              R.pushLine(wx, wy - st.s, wx, wy + st.s, [col[0], col[1], col[2], a * 0.5]);
-            }
-          }
-        }
-      }
-    }
+    this.starfield.draw(
+      this.renderer,
+      this.camX,
+      this.camY,
+      this.zoom,
+      this.time,
+      this.viewW,
+      this.viewH
+    );
   }
 
   private drawZone() {
@@ -2178,7 +2017,7 @@ export class Game {
   }
 
   private drawRifts() {
-    for (const rf of this.rifts) this.drawRift(rf);
+    for (const rf of this.riftField.list) this.drawRift(rf);
   }
 
   /**
@@ -2770,23 +2609,7 @@ export class Game {
   }
 
   private drawFx() {
-    const R = this.renderer;
-    for (const p of this.particles) {
-      const f = clamp(p.life / p.maxLife, 0, 1);
-      const l = p.size * f;
-      const d = Math.hypot(p.vx, p.vy) || 1;
-      R.pushLine(
-        p.x - (p.vx / d) * l,
-        p.y - (p.vy / d) * l,
-        p.x,
-        p.y,
-        [p.c[0], p.c[1], p.c[2], p.c[3] * f]
-      );
-    }
-    for (const r of this.rings) {
-      const f = clamp(r.life / r.maxLife, 0, 1);
-      R.circle(r.x, r.y, r.r, [r.c[0], r.c[1], r.c[2], r.c[3] * f], 40);
-    }
+    this.fx.draw(this.renderer);
   }
 
   private drawMenuScene() {
