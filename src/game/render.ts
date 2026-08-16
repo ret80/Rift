@@ -356,6 +356,30 @@ export class Renderer {
     }
   }
 
+  /** Draw a polygon with optional rotation and translation. */
+  drawPolygon(
+    x: number,
+    y: number,
+    angle: number,
+    pts: Array<[number, number]>,
+    c: RGBA,
+    closed = true
+  ) {
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    for (let i = 0; i < pts.length; i++) {
+      const [px, py] = pts[i];
+      const wx = x + px * cos - py * sin;
+      const wy = y + px * sin + py * cos;
+      const next = pts[(i + 1) % pts.length];
+      const nx = x + next[0] * cos - next[1] * sin;
+      const ny = y + next[0] * sin + next[1] * cos;
+      if (closed || i < pts.length - 1) {
+        this.pushLine(wx, wy, nx, ny, c);
+      }
+    }
+  }
+
   private flush() {
     if (this.count === 0 || !this.sceneFbo) return;
     const gl = this.gl;

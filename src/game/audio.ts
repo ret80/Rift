@@ -565,6 +565,14 @@ export class AudioEngine {
   /** Crossfade into/out of the driving combat groove. */
   setCombat(on: boolean) {
     if (on === this.combat || !this.ctx || !this.musicBus) return;
+    /* safety: clean up any lingering combat resources before proceeding */
+    if (on && this.combatTimer !== null) {
+      clearInterval(this.combatTimer);
+      this.combatTimer = null;
+    }
+    if (on && this.combatGain) {
+      try { this.combatGain.disconnect(); } catch { /* already disconnected */ }
+    }
     this.combat = on;
     const ctx = this.ctx;
 
@@ -673,6 +681,9 @@ export class AudioEngine {
 
   dispose() {
     this.stopMusic();
+    this.combatGain = null;
+    this.combatPadNodes = [];
+    this.combatTimer = null;
     if (this.ctx) void this.ctx.close();
     this.ctx = null;
   }

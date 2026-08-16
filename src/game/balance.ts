@@ -29,11 +29,21 @@ export const C = {
 
 /* --------------------------- player & limits --------------------------- */
 
+export const PLAYER_RADIUS = 13;
 export const PLAYER_MAX_SPEED = 310;
 /** Thrust applied per second while the player holds a direction. */
 export const PLAYER_ACCEL = 1500;
 /** The zone wall always outpaces the ship, so it can never be caught. */
 export const ZONE_EXPAND_SPEED = PLAYER_MAX_SPEED * 1.2;
+
+/* ------------------------- zone constants ------------------------- */
+
+/** Wall overdraw for entities clipped to zone boundary. */
+export const ZONE_WALL_OVERDRIVE = 56;
+/** Hysteresis distance for zone edge detection. */
+export const ZONE_EDGE_HYSTERESIS = 26;
+/** Distance at which pickups are magnetically attracted to the player. */
+export const ZONE_PICKUP_MAGNET = 150;
 
 /* ------------------------- player turret ------------------------- */
 

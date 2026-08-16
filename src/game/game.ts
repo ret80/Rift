@@ -6,7 +6,11 @@ import {
   C,
   PLAYER_MAX_SPEED,
   PLAYER_ACCEL,
+  PLAYER_RADIUS,
   ZONE_EXPAND_SPEED,
+  ZONE_WALL_OVERDRIVE,
+  ZONE_EDGE_HYSTERESIS,
+  ZONE_PICKUP_MAGNET,
   MAX_GUNS,
   MAX_ALLY_DRONES,
   GUN_OFFS,
@@ -39,10 +43,11 @@ import type { EnemyKind, AsteroidKind } from "./balance";
 
 /* subsystems */
 import { InputManager } from "./input";
-import { Fx } from "./fx";
+import { Fx, type Ring, type Particle } from "./fx";
 import { Starfield } from "./starfield";
 import { AsteroidField, type Asteroid } from "./asteroids";
 import { RiftField } from "./rifts";
+import type { Rift } from "./types";
 
 /* ============================== types ============================== */
 
@@ -174,39 +179,7 @@ interface AllyDrone {
   flash: number;
 }
 
-interface Rift {
-  x: number;
-  y: number;
-  t: number;
-  state: "opening" | "spawning" | "closing";
-  queue: EnemyKind[];
-  timer: number;
-  seed: number;
-  rot: number;
-  size: number;
-}
-
-interface Ring {
-  x: number;
-  y: number;
-  r: number;
-  vr: number;
-  life: number;
-  maxLife: number;
-  c: RGBA;
-}
-
-interface Particle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  maxLife: number;
-  c: RGBA;
-  size: number;
-}
-
+/** Local star definition for the menu scene (not used elsewhere). */
 interface Star {
   x: number;
   y: number;
@@ -283,9 +256,9 @@ export class Game {
   private viewH = 600;
 
   /* entities */
-  private enemies: Enemy[] = [];
+  private enemyList: Enemy[] = [];
   private bullets: Bullet[] = [];
-  private ebullets: EBullet[] = [];
+  private enemyBulletList: EBullet[] = [];
   private pickups: Pickup[] = [];
   private allyDrones: AllyDrone[] = [];
 
@@ -345,7 +318,13 @@ export class Game {
   constructor(canvas: HTMLCanvasElement, hooks: Hooks) {
     this.renderer = new Renderer(canvas);
     this.hooks = hooks;
-    this.best = Number(localStorage.getItem(BEST_KEY)) || 0;
+    this.best = (() => {
+      try {
+        return Number(localStorage.getItem(BEST_KEY)) || 0;
+      } catch {
+        return 0;
+      }
+    })();
     this.onResize();
 
     /* input: keyboard + touch, policy delegated back to the game */
@@ -449,9 +428,9 @@ export class Game {
 
   startRun() {
     this.state = "playing";
-    this.enemies = [];
+    this.enemyList = [];
     this.bullets = [];
-    this.ebullets = [];
+    this.enemyBulletList = [];
     this.riftField.list.length = 0;
     this.pickups = [];
     this.allyDrones = [];
@@ -496,9 +475,9 @@ export class Game {
     this.paused = false;
     this.audio.setSuspended(false);
     this.audio.setCombat(false);
-    this.enemies = [];
+    this.enemyList = [];
     this.bullets = [];
-    this.ebullets = [];
+    this.enemyBulletList = [];
     this.riftField.list.length = 0;
     this.pickups = [];
     this.allyDrones = [];
@@ -621,7 +600,7 @@ export class Game {
       for (const rf of this.riftField.list)
         dRifts = Math.min(dRifts, Math.hypot(x - rf.x, y - rf.y));
       let dEnemies = 1e9;
-      for (const e of this.enemies) dEnemies = Math.min(dEnemies, Math.hypot(x - e.x, y - e.y));
+      for (const e of this.enemyList) dEnemies = Math.min(dEnemies, Math.hypot(x - e.x, y - e.y));
       const score = Math.min(dPlayer, 400) + Math.min(dRifts, 300) * 1.5 + Math.min(dEnemies, 250);
       if (score > bestScore) {
         bestScore = score;
@@ -647,7 +626,7 @@ export class Game {
 
   private spawnEnemy(kind: EnemyKind, x: number, y: number, parent: Enemy | null) {
     const def = this.enemyDef(kind);
-    this.enemies.push({
+    this.enemyList.push({
       kind,
       x,
       y,
@@ -728,7 +707,11 @@ export class Game {
         const isBest = this.score > this.best;
         if (isBest) {
           this.best = this.score;
-          localStorage.setItem(BEST_KEY, String(this.best));
+          try {
+            localStorage.setItem(BEST_KEY, String(this.best));
+          } catch {
+            /* storage full or blocked */
+          }
         }
         this.hooks.onStats({
           score: this.score,
@@ -808,7 +791,7 @@ export class Game {
     const pObj = { x: this.px, y: this.py, vx: this.pvx, vy: this.pvy, r: 13 };
     // the pilot may overshoot the dashed edge line — the wall beyond it
     // is what hurts, not the line itself
-    this.clampToZone(pObj, 56);
+    this.clampToZone(pObj, ZONE_WALL_OVERDRIVE);
     this.px = pObj.x;
     this.py = pObj.y;
     this.pvx = pObj.vx;
@@ -827,7 +810,7 @@ export class Game {
     let bestVX = 0;
     let bestVY = 0;
     let bestD = 1e9;
-    for (const e of this.enemies) {
+    for (const e of this.enemyList) {
       if (e.dead || !inZone(e.x, e.y)) continue;
       // slight preference for living targets, but a clearly-closer rock still wins
       const d = Math.hypot(e.x - this.px, e.y - this.py) * 0.85;
@@ -877,14 +860,14 @@ export class Game {
     const a = targetAngle + spread;
     const nx = this.px + Math.cos(targetAngle) * 14 - Math.sin(targetAngle) * offset;
     const ny = this.py + Math.sin(targetAngle) * 14 + Math.cos(targetAngle) * offset;
-    const sp = 560;
+    const sp = PLAYER_BULLET_SPEED;
     this.bullets.push({
       x: nx,
       y: ny,
       vx: Math.cos(a) * sp + this.pvx * 0.25,
       vy: Math.sin(a) * sp + this.pvy * 0.25,
-      life: 0.85,
-      dmg: 14,
+      life: PLAYER_BULLET_LIFE,
+      dmg: PLAYER_BULLET_DMG,
     });
     this.burst(nx, ny, 2, C.mint, 90, 0.15);
   }
@@ -892,7 +875,7 @@ export class Game {
   private enemyFire(e: Enemy, speed: number, heavy: boolean, spread: number, life: number) {
     const aa =
       Math.atan2(this.py - e.y, this.px - e.x) + (Math.random() - 0.5) * 2 * spread;
-    this.ebullets.push({
+    this.enemyBulletList.push({
       x: e.x + Math.cos(aa) * (e.r + 6),
       y: e.y + Math.sin(aa) * (e.r + 6),
       vx: Math.cos(aa) * speed,
@@ -931,7 +914,7 @@ export class Game {
         d.retargetT = 1.2;
         let bestE: Enemy | null = null;
         let bestD = 430;
-        for (const e of this.enemies) {
+        for (const e of this.enemyList) {
           if (e.dead) continue;
           const dd = Math.hypot(e.x - d.x, e.y - d.y);
           if (dd < bestD) {
@@ -971,11 +954,11 @@ export class Game {
   private updateEnemies(dt: number) {
     // gather live drones for the boids flock
     this.flock.length = 0;
-    for (const e of this.enemies) {
+    for (const e of this.enemyList) {
       if (e.kind === "drone" && !e.dead) this.flock.push(e);
     }
 
-    for (const e of this.enemies) {
+    for (const e of this.enemyList) {
       if (e.dead) continue;
       e.flash = Math.max(0, e.flash - dt * 5);
       e.hitCd = Math.max(0, e.hitCd - dt);
@@ -1118,7 +1101,7 @@ export class Game {
           // escort a nearby carrier, otherwise hold a standoff ring around the player
           let escort: Enemy | null = null;
           let ed = 1e9;
-          for (const o of this.enemies) {
+          for (const o of this.enemyList) {
             if (o.kind !== "carrier" || o.dead) continue;
             const dd = Math.hypot(e.x - o.x, e.y - o.y);
             if (dd < ed) {
@@ -1142,7 +1125,7 @@ export class Game {
             desX = dirX * radial + -dirY * e.strafeDir * e.speed * 0.6;
             desY = dirY * radial + dirX * e.strafeDir * e.speed * 0.6;
           }
-          for (const o of this.enemies) {
+          for (const o of this.enemyList) {
             if (o === e || o.dead) continue;
             if (o.kind !== "cruiser" && o.kind !== "carrier") continue;
             const sx = e.x - o.x;
@@ -1169,7 +1152,7 @@ export class Game {
             e.fireCd = Math.max(2.0, 3.2 - this.wave * 0.04);
             for (let s = -1; s <= 1; s++) {
               const aa = Math.atan2(dy, dx) + s * 0.13;
-              this.ebullets.push({
+              this.enemyBulletList.push({
                 x: e.x + Math.cos(aa) * (e.r + 6),
                 y: e.y + Math.sin(aa) * (e.r + 6),
                 vx: Math.cos(aa) * 200,
@@ -1190,7 +1173,7 @@ export class Game {
           const radial = (dist - HOLD) * 1.0;
           let desX = dirX * radial + -dirY * e.strafeDir * e.speed * 0.7;
           let desY = dirY * radial + dirX * e.strafeDir * e.speed * 0.7;
-          for (const o of this.enemies) {
+          for (const o of this.enemyList) {
             if (o === e || o.dead || o.kind !== "carrier") continue;
             const sx = e.x - o.x;
             const sy = e.y - o.y;
@@ -1213,7 +1196,7 @@ export class Game {
           e.angle = lerpAngle(e.angle, Math.atan2(dy, dx), 1 - Math.exp(-1.2 * dt));
           e.spawnCd -= dt;
           let droneCount = 0;
-          for (const o of this.enemies) {
+          for (const o of this.enemyList) {
             if (o.kind === "drone" && o.parent === e && !o.dead) droneCount++;
           }
           if (e.spawnCd <= 0 && droneCount < 3 && alive) {
@@ -1232,7 +1215,7 @@ export class Game {
       // contact with the player: normal ram hurts the ship, but during a
       // dash the ship becomes the battering ram instead
       if (alive && this.state === "active") {
-        const rr = e.r + 13;
+        const rr = e.r + PLAYER_RADIUS;
         if (dist < rr) {
           if (this.dashT > 0) {
             if (e.hitCd <= 0) {
@@ -1265,8 +1248,8 @@ export class Game {
     }
 
     // remove dead
-    for (let i = this.enemies.length - 1; i >= 0; i--) {
-      if (this.enemies[i].dead) this.enemies.splice(i, 1);
+    for (let i = this.enemyList.length - 1; i >= 0; i--) {
+      if (this.enemyList[i].dead) this.enemyList.splice(i, 1);
     }
   }
 
@@ -1281,7 +1264,7 @@ export class Game {
       // 0.85s lifetime still bounds how far any shot can travel.
       let dead = b.life <= 0;
       if (!dead) {
-        for (const e of this.enemies) {
+        for (const e of this.enemyList) {
           if (e.dead) continue;
           const rr = e.r + 3;
           if (Math.hypot(b.x - e.x, b.y - e.y) < rr) {
@@ -1313,8 +1296,8 @@ export class Game {
   }
 
   private updateEBullets(dt: number) {
-    for (let i = this.ebullets.length - 1; i >= 0; i--) {
-      const b = this.ebullets[i];
+    for (let i = this.enemyBulletList.length - 1; i >= 0; i--) {
+      const b = this.enemyBulletList[i];
       b.life -= dt;
       b.x += b.vx * dt;
       b.y += b.vy * dt;
@@ -1353,7 +1336,7 @@ export class Game {
           this.damagePlayer(b.dmg, b.x, b.y);
         }
       }
-      if (dead) this.ebullets.splice(i, 1);
+      if (dead) this.enemyBulletList.splice(i, 1);
     }
   }
 
@@ -1372,7 +1355,7 @@ export class Game {
         const zdy = p.y - this.zoneY;
         const zd = Math.hypot(zdx, zdy);
         const dToPlayer = Math.hypot(this.px - p.x, this.py - p.y);
-        if (zd > this.zoneR && dToPlayer > 150) {
+        if (zd > this.zoneR && dToPlayer > ZONE_PICKUP_MAGNET) {
           const over = zd - this.zoneR;
           const pull = Math.min(320, 60 + over * 2.2);
           p.vx -= (zdx / zd) * pull * dt;
@@ -1391,7 +1374,7 @@ export class Game {
       }
 
       let dead = p.life <= 0;
-      if (!dead && canPickup && d < 26) {
+      if (!dead && canPickup && d < PLAYER_RADIUS + 13) {
         dead = true;
         this.applyPickup(p);
       }
@@ -1436,7 +1419,7 @@ export class Game {
       }
       // classic mine behavior: an enemy stepping on it also sets it off
       if (!boom) {
-        for (const e of this.enemies) {
+        for (const e of this.enemyList) {
           if (e.dead) continue;
           if (Math.hypot(e.x - m.x, e.y - m.y) < e.r + 9) {
             boom = true;
@@ -1460,7 +1443,7 @@ export class Game {
     this.fx.ring(m.x, m.y, 4, 520, 0.3, C.white);
 
     const R = MINE_RADIUS * 1.15;
-    for (const e of this.enemies) {
+    for (const e of this.enemyList) {
       if (e.dead) continue;
       const d = Math.hypot(e.x - m.x, e.y - m.y);
       if (d < R) {
@@ -1480,9 +1463,9 @@ export class Game {
       }
     }
     // the blast also clears enemy fire caught inside it
-    for (let i = this.ebullets.length - 1; i >= 0; i--) {
-      const b = this.ebullets[i];
-      if (Math.hypot(b.x - m.x, b.y - m.y) < R) this.ebullets.splice(i, 1);
+    for (let i = this.enemyBulletList.length - 1; i >= 0; i--) {
+      const b = this.enemyBulletList[i];
+      if (Math.hypot(b.x - m.x, b.y - m.y) < R) this.enemyBulletList.splice(i, 1);
     }
   }
 
@@ -1743,7 +1726,7 @@ export class Game {
         }
       }
       if (this.hp <= 0) this.onPlayerDeath();
-    } else if (pd < line - 26) {
+    } else if (pd < line - ZONE_EDGE_HYSTERESIS) {
       // back in safety (with hysteresis so the timer doesn't flicker)
       this.edgeOutT = 0;
       this.edgeTickT = 0;
@@ -1858,7 +1841,7 @@ export class Game {
         }
         if (
           this.allocated >= this.waveTotal &&
-          this.enemies.length === 0 &&
+          this.enemyList.length === 0 &&
           !this.riftField.list.some((r) => r.queue.length > 0)
         ) {
           this.waveCleared();
@@ -1938,7 +1921,7 @@ export class Game {
       maxHp: this.maxHp,
       killed: this.killedWave,
       total: this.waveTotal,
-      enemies: this.enemies.length,
+      enemies: this.enemyList.length,
       comboMult: this.comboT > 0 ? this.comboMult() : 1,
       time: this.runTime,
       guns: this.guns,
@@ -2017,129 +2000,7 @@ export class Game {
   }
 
   private drawRifts() {
-    for (const rf of this.riftField.list) this.drawRift(rf);
-  }
-
-  /**
-   * Two-stage lifecycle: point → line → writhing rift, and the reverse.
-   */
-  private drawRift(rf: Rift) {
-    let lenP = 1;
-    let widP = 1;
-    let alpha = 1;
-    let snake = 1;
-
-    if (rf.state === "opening") {
-      if (rf.t < 0) return;
-      const p = clamp(rf.t / 0.6, 0, 1);
-      if (p < 0.42) {
-        const q = easeOutCubic(p / 0.42);
-        lenP = q;
-        widP = 0;
-        snake = 0;
-        alpha = 0.35 + 0.65 * q;
-      } else {
-        const q = easeOutCubic((p - 0.42) / 0.58);
-        lenP = 1;
-        widP = q;
-        snake = 1.7 - 0.7 * q;
-        alpha = 1;
-      }
-    } else if (rf.state === "closing") {
-      const p = clamp(rf.t / 0.5, 0, 1);
-      if (p < 0.6) {
-        const q = easeOutCubic(p / 0.6);
-        lenP = 1;
-        widP = 1 - q;
-        snake = 1 + q * 0.8;
-        alpha = 1;
-      } else {
-        const q = easeOutCubic((p - 0.6) / 0.4);
-        lenP = 1 - q;
-        widP = 0;
-        snake = 0;
-        alpha = 1 - q;
-      }
-    } else {
-      lenP = 1 + 0.04 * Math.sin(rf.t * 6);
-      widP = 1 + 0.06 * Math.sin(rf.t * 6 + 1.4);
-    }
-
-    if (lenP <= 0.03) {
-      const pr = 3 + 1.6 * Math.sin(this.time * 18 + rf.seed);
-      this.renderer.circle(rf.x, rf.y, Math.max(1.5, pr), rgba(C.riftCore, 0.9 * alpha), 10);
-      return;
-    }
-
-    this.drawRiftShape(
-      rf.x,
-      rf.y,
-      rf.size * lenP,
-      rf.size * 0.227 * widP,
-      rf.seed,
-      this.time,
-      alpha,
-      rf.rot,
-      snake
-    );
-  }
-
-  private drawRiftShape(
-    x: number,
-    y: number,
-    len: number,
-    wid: number,
-    seed: number,
-    tt: number,
-    alpha: number,
-    rot: number,
-    snake: number
-  ) {
-    const R = this.renderer;
-    const N = 12;
-    const cosR = Math.cos(rot);
-    const sinR = Math.sin(rot);
-    const X = (lx: number, ly: number): [number, number] => [
-      x + lx * cosR - ly * sinR,
-      y + lx * sinR + ly * cosR,
-    ];
-
-    const center: Array<[number, number]> = [];
-    const left: Array<[number, number]> = [];
-    const right: Array<[number, number]> = [];
-    for (let k = 0; k <= N; k++) {
-      const s = k / N;
-      const u = -len / 2 + len * s;
-      const taper = Math.sin(Math.PI * s);
-      const wob =
-        (Math.sin(seed * 7.3 + s * 9.0 + tt * 4.4) * 0.6 +
-          Math.sin(seed * 3.1 + s * 4.2 - tt * 2.7) * 0.4) *
-        (5 + wid * 0.3) *
-        snake *
-        taper;
-      const hw =
-        wid * 0.5 * taper * (1 + 0.3 * Math.sin(s * 13.0 + seed * 5.0 + tt * 5.5) * Math.min(1, snake));
-      center.push(X(wob, u));
-      left.push(X(wob - hw, u));
-      right.push(X(wob + hw, u));
-    }
-
-    if (wid <= 0.6) {
-      R.polyline(center, false, rgba(C.riftCore, 0.95 * alpha));
-      R.polyline(center, false, rgba(C.rift, 0.45 * alpha));
-      R.circle(center[0][0], center[0][1], 3.2, rgba(C.riftCore, 0.85 * alpha), 10);
-      R.circle(center[N][0], center[N][1], 3.2, rgba(C.riftCore, 0.85 * alpha), 10);
-      return;
-    }
-
-    R.polyline(left, false, rgba(C.rift, 0.85 * alpha));
-    R.polyline(right, false, rgba(C.rift, 0.85 * alpha));
-    R.polyline(center, false, rgba(C.riftCore, 0.5 * alpha));
-    for (let k = 2; k < N - 1; k += 2) {
-      R.pushLine(left[k][0], left[k][1], right[k][0], right[k][1], rgba(C.riftCore, 0.22 * alpha));
-    }
-    R.circle(center[0][0], center[0][1], 4, rgba(C.riftCore, 0.6 * alpha), 12);
-    R.circle(center[N][0], center[N][1], 4, rgba(C.riftCore, 0.6 * alpha), 12);
+    this.riftField.draw(this.renderer, this.time);
   }
 
   private drawShipPoly(
@@ -2149,13 +2010,7 @@ export class Game {
     pts: Array<[number, number]>,
     c: RGBA
   ) {
-    const cos = Math.cos(angle);
-    const sin = Math.sin(angle);
-    const world: Array<[number, number]> = pts.map(([px, py]) => [
-      x + px * cos - py * sin,
-      y + px * sin + py * cos,
-    ]);
-    this.renderer.polyline(world, true, c);
+    this.renderer.drawPolygon(x, y, angle, pts, c, true);
   }
 
   private drawPickups() {
@@ -2176,7 +2031,8 @@ export class Game {
                    ? C.mine
                    : p.kind === "mineral"
                      ? C.heal
-                     : C.mint;      const pr = 15 + Math.sin(this.time * 4 + p.seed) * 2;
+                      : C.mint;
+      const pr = 15 + Math.sin(this.time * 4 + p.seed) * 2;
       R.circle(p.x, p.y, pr, rgba(col, 0.35 * blinkA), 26);
       const c1 = Math.cos(rot);
       const s1 = Math.sin(rot);
@@ -2460,7 +2316,7 @@ export class Game {
 
   private drawEnemies() {
     const R = this.renderer;
-    for (const e of this.enemies) {
+    for (const e of this.enemyList) {
       if (e.dead) continue;
       const base = this.kindColor(e.kind);
       const flash = e.flash > 0 ? 1 : 0;
@@ -2591,7 +2447,7 @@ export class Game {
         rgba(C.bullet, 0.95)
       );
     }
-    for (const b of this.ebullets) {
+    for (const b of this.enemyBulletList) {
       if (b.heavy) {
         R.circle(b.x, b.y, 3.4, rgba(C.enemyBullet, 0.95), 10);
       } else {
@@ -2616,7 +2472,7 @@ export class Game {
     const R = this.renderer;
     // a slow decorative rift with orbiting drone silhouettes
     const prog = 0.75 + 0.25 * Math.sin(this.time * 0.8);
-    this.drawRiftShape(0, -30, 130 * prog, 40 * prog, 7, this.time, 1, this.time * 0.05, 1);
+    RiftField.drawShape(this.renderer, 0, -30, 130 * prog, 40 * prog, 7, this.time, 1, this.time * 0.05, 1);
     for (let i = 0; i < 3; i++) {
       const a = this.time * (0.25 + i * 0.07) + (i * TAU) / 3;
       const ox = Math.cos(a) * (200 + i * 46);

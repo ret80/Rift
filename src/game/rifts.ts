@@ -9,18 +9,9 @@ import type { AudioEngine } from "./audio";
 import type { Fx } from "./fx";
 import { TAU, rand, clamp, easeOutCubic, rgba } from "./math";
 import { C, type EnemyKind } from "./balance";
+import type { Rift } from "./types";
 
-export interface Rift {
-  x: number;
-  y: number;
-  t: number;
-  state: "opening" | "spawning" | "closing";
-  queue: EnemyKind[];
-  timer: number;
-  seed: number;
-  rot: number;
-  size: number;
-}
+export { Rift };
 
 export interface RiftHooks {
   spawnEnemy(kind: EnemyKind, x: number, y: number): void;
@@ -32,6 +23,80 @@ export class RiftField {
   readonly list: Rift[] = [];
 
   constructor(private h: RiftHooks) {}
+
+  /** Utility: draw a rift shape at the given position (used by menu scene). */
+  static drawShape(
+    R: Renderer,
+    x: number,
+    y: number,
+    len: number,
+    wid: number,
+    seed: number,
+    tt: number,
+    alpha: number,
+    rot: number,
+    snake: number
+  ) {
+    this.drawShapeImpl(R, x, y, len, wid, seed, tt, alpha, rot, snake);
+  }
+
+  private static drawShapeImpl(
+    R: Renderer,
+    x: number,
+    y: number,
+    len: number,
+    wid: number,
+    seed: number,
+    tt: number,
+    alpha: number,
+    rot: number,
+    snake: number
+  ) {
+    const N = 12;
+    const cosR = Math.cos(rot);
+    const sinR = Math.sin(rot);
+    const X = (lx: number, ly: number): [number, number] => [
+      x + lx * cosR - ly * sinR,
+      y + lx * sinR + ly * cosR,
+    ];
+
+    const center: Array<[number, number]> = [];
+    const left: Array<[number, number]> = [];
+    const right: Array<[number, number]> = [];
+    for (let k = 0; k <= N; k++) {
+      const s = k / N;
+      const u = -len / 2 + len * s;
+      const taper = Math.sin(Math.PI * s);
+      const wob =
+        (Math.sin(seed * 7.3 + s * 9.0 + tt * 4.4) * 0.6 +
+          Math.sin(seed * 3.1 + s * 4.2 - tt * 2.7) * 0.4) *
+        (5 + wid * 0.3) *
+        snake *
+        taper;
+      const hw =
+        wid * 0.5 * taper * (1 + 0.3 * Math.sin(s * 13.0 + seed * 5.0 + tt * 5.5) * Math.min(1, snake));
+      center.push(X(wob, u));
+      left.push(X(wob - hw, u));
+      right.push(X(wob + hw, u));
+    }
+
+    if (wid <= 0.6) {
+      R.polyline(center, false, rgba(C.riftCore, 0.95 * alpha));
+      R.polyline(center, false, rgba(C.rift, 0.45 * alpha));
+      R.circle(center[0][0], center[0][1], 3.2, rgba(C.riftCore, 0.85 * alpha), 10);
+      R.circle(center[N][0], center[N][1], 3.2, rgba(C.riftCore, 0.85 * alpha), 10);
+      return;
+    }
+
+    R.polyline(left, false, rgba(C.rift, 0.85 * alpha));
+    R.polyline(right, false, rgba(C.rift, 0.85 * alpha));
+    R.polyline(center, false, rgba(C.riftCore, 0.5 * alpha));
+    for (let k = 2; k < N - 1; k += 2) {
+      R.pushLine(left[k][0], left[k][1], right[k][0], right[k][1], rgba(C.riftCore, 0.22 * alpha));
+    }
+    R.circle(center[0][0], center[0][1], 4, rgba(C.riftCore, 0.6 * alpha), 12);
+    R.circle(center[N][0], center[N][1], 4, rgba(C.riftCore, 0.6 * alpha), 12);
+  }
 
   spawn(x: number, y: number, queue: EnemyKind[], delay: number, size: number) {
     this.list.push({
@@ -139,64 +204,7 @@ export class RiftField {
       return;
     }
 
-    this.drawShape(R, rf.x, rf.y, rf.size * lenP, rf.size * 0.227 * widP, rf.seed, time, alpha, rf.rot, snake);
+    RiftField.drawShape(R, rf.x, rf.y, rf.size * lenP, rf.size * 0.227 * widP, rf.seed, time, alpha, rf.rot, snake);
   }
 
-  private drawShape(
-    R: Renderer,
-    x: number,
-    y: number,
-    len: number,
-    wid: number,
-    seed: number,
-    tt: number,
-    alpha: number,
-    rot: number,
-    snake: number
-  ) {
-    const N = 12;
-    const cosR = Math.cos(rot);
-    const sinR = Math.sin(rot);
-    const X = (lx: number, ly: number): [number, number] => [
-      x + lx * cosR - ly * sinR,
-      y + lx * sinR + ly * cosR,
-    ];
-
-    const center: Array<[number, number]> = [];
-    const left: Array<[number, number]> = [];
-    const right: Array<[number, number]> = [];
-    for (let k = 0; k <= N; k++) {
-      const s = k / N;
-      const u = -len / 2 + len * s;
-      const taper = Math.sin(Math.PI * s);
-      const wob =
-        (Math.sin(seed * 7.3 + s * 9.0 + tt * 4.4) * 0.6 +
-          Math.sin(seed * 3.1 + s * 4.2 - tt * 2.7) * 0.4) *
-        (5 + wid * 0.3) *
-        snake *
-        taper;
-      const hw =
-        wid * 0.5 * taper * (1 + 0.3 * Math.sin(s * 13.0 + seed * 5.0 + tt * 5.5) * Math.min(1, snake));
-      center.push(X(wob, u));
-      left.push(X(wob - hw, u));
-      right.push(X(wob + hw, u));
-    }
-
-    if (wid <= 0.6) {
-      R.polyline(center, false, rgba(C.riftCore, 0.95 * alpha));
-      R.polyline(center, false, rgba(C.rift, 0.45 * alpha));
-      R.circle(center[0][0], center[0][1], 3.2, rgba(C.riftCore, 0.85 * alpha), 10);
-      R.circle(center[N][0], center[N][1], 3.2, rgba(C.riftCore, 0.85 * alpha), 10);
-      return;
-    }
-
-    R.polyline(left, false, rgba(C.rift, 0.85 * alpha));
-    R.polyline(right, false, rgba(C.rift, 0.85 * alpha));
-    R.polyline(center, false, rgba(C.riftCore, 0.5 * alpha));
-    for (let k = 2; k < N - 1; k += 2) {
-      R.pushLine(left[k][0], left[k][1], right[k][0], right[k][1], rgba(C.riftCore, 0.22 * alpha));
-    }
-    R.circle(center[0][0], center[0][1], 4, rgba(C.riftCore, 0.6 * alpha), 12);
-    R.circle(center[N][0], center[N][1], 4, rgba(C.riftCore, 0.6 * alpha), 12);
-  }
 }

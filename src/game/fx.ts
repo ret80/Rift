@@ -4,27 +4,8 @@
 
 import type { Renderer, RGBA } from "./render";
 import { TAU, rand, clamp, rgba } from "./math";
-
-export interface Ring {
-  x: number;
-  y: number;
-  r: number;
-  vr: number;
-  life: number;
-  maxLife: number;
-  c: RGBA;
-}
-
-export interface Particle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  maxLife: number;
-  c: RGBA;
-  size: number;
-}
+import type { Ring, Particle } from "./types";
+export type { Ring, Particle } from "./types";
 
 export class Fx {
   readonly particles: Particle[] = [];
