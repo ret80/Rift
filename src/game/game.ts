@@ -1,65 +1,53 @@
-import { Renderer, RGBA } from "./render";
-import { AudioEngine, Volumes } from "./audio";
 import { t } from "../i18n";
-import { TAU, rand, clamp, ramp01, lerpAngle, easeOutCubic, rgba } from "./math";
+import { AudioEngine, Volumes } from "./audio";
+import type { EnemyKind } from "./balance";
 import {
   C,
-  PLAYER_MAX_SPEED,
-  PLAYER_ACCEL,
-  PLAYER_RADIUS,
-  ZONE_EXPAND_SPEED,
-  ZONE_WALL_OVERDRIVE,
-  ZONE_EDGE_HYSTERESIS,
-  ZONE_PICKUP_MAGNET,
-  MAX_GUNS,
-  MAX_ALLY_DRONES,
-  GUN_OFFS,
-  RATE_BOOST_TIME,
-  DASH_TIME,
   DASH_ACCEL,
-  DASH_SPEED,
   DASH_DMG,
+  DASH_SPEED,
+  DASH_TIME,
+  dropChanceFor,
+  enemyDefFor,
+  GUN_OFFS,
+  MAX_ALLY_DRONES,
+  MAX_GUNS,
   MINE_DELAY,
-  MINE_RADIUS,
   MINE_DMG,
   MINE_LIFE,
-  PLAYER_BULLET_SPEED,
-  PLAYER_BULLET_LIFE,
-  PLAYER_BULLET_DMG,
-  ALLY_DRONE_ORBIT,
-  ALLY_DRONE_RANGE,
-  ALLY_DRONE_DMG,
-  ALLY_DRONE_FIRE_CD,
-  enemyDefFor,
-  waveTotalFor,
-  zoneRadiusFor,
+  MINE_RADIUS,
   pickKindFor,
-  dropChanceFor,
+  PLAYER_BULLET_DMG,
+  PLAYER_BULLET_LIFE,
+  PLAYER_BULLET_SPEED,
+  PLAYER_MAX_SPEED,
+  PLAYER_RADIUS,
+  RATE_BOOST_TIME,
+  waveTotalFor,
+  ZONE_EDGE_HYSTERESIS,
+  ZONE_EXPAND_SPEED,
+  ZONE_PICKUP_MAGNET,
+  ZONE_WALL_OVERDRIVE,
+  zoneRadiusFor,
   type EnemyDef,
-  type PickupKind,
+  type PickupKind
 } from "./balance";
-export type { EnemyKind, AsteroidKind, PickupKind } from "./balance";
-import type { EnemyKind, AsteroidKind } from "./balance";
+import { clamp, easeOutCubic, lerpAngle, ramp01, rand, rgba, TAU } from "./math";
+import { Renderer } from "./render";
+export type { AsteroidKind, EnemyKind, PickupKind } from "./balance";
 
 /* subsystems */
+import { AsteroidField } from "./asteroids";
+import { Fx } from "./fx";
 import { InputManager } from "./input";
-import { Fx, type Ring, type Particle } from "./fx";
-import { Starfield } from "./starfield";
-import { AsteroidField, type Asteroid } from "./asteroids";
 import { RiftField } from "./rifts";
-import type { Rift } from "./types";
+import { Starfield } from "./starfield";
+
+/* RendererSystem — извлечённая система рендеринга */
+import { RendererSystem } from "./systems/RendererSystem";
 
 /* NEW ARCHITECTURE - Core systems */
-import { EventBus } from "./core/EventBus";
-import { GameState } from "./core/GameState";
-import { PhysicsSystem } from "./core/PhysicsSystem";
-import { Player } from "./entities/Player";
 // Note: Enemy is defined locally below for legacy compatibility
-import { EnemyAI } from "./ai/EnemyAI";
-import { GameContext } from "./ai/GameContext";
-import { WaveManager } from "./wave/WaveManager";
-import { ZoneManager } from "./wave/ZoneManager";
-import { ScoreManager } from "./progression/ScoreManager";
 
 /* ============================== types ============================== */
 
@@ -216,6 +204,78 @@ interface Hooks {
 
 const BEST_KEY = "rift9_best";
 
+/* ============================== render state types ============================== */
+
+/** Render state types (mirrors game state for RendererSystem). */
+interface PlayerRenderState {
+  x: number; y: number;
+  angle: number;
+  aimA: number | null;
+  hp: number; maxHp: number;
+  invuln: number;
+  guns: number;
+  rateT: number; rateBoost: number;
+  dashT: number;
+  thrusting: boolean;
+  pvx: number; pvy: number;
+}
+
+interface EnemyRenderState {
+  kind: EnemyKind;
+  x: number; y: number;
+  vx: number; vy: number;
+  angle: number;
+  hp: number; maxHp: number;
+  r: number; speed: number;
+  contact: number; score: number;
+  boltDmg: number; fireCd: number;
+  mode: number; modeT: number;
+  strafeDir: number; seed: number;
+  spawnCd: number; flash: number; hitCd: number;
+  dead: boolean; parent: EnemyRenderState | null;
+}
+
+interface BulletRenderState {
+  x: number; y: number;
+  vx: number; vy: number;
+  life: number; dmg: number;
+}
+
+interface EBulletRenderState {
+  x: number; y: number;
+  vx: number; vy: number;
+  life: number; dmg: number;
+  heavy: boolean;
+}
+
+interface PickupRenderState {
+  kind: PickupKind;
+  x: number; y: number;
+  vx: number; vy: number;
+  life: number; seed: number;
+}
+
+interface MineRenderState {
+  x: number; y: number;
+  fuse: number; seed: number;
+}
+
+interface AllyDroneRenderState {
+  x: number; y: number;
+  angle: number;
+  fireCd: number; phase: number;
+  hp: number; maxHp: number;
+  target: EnemyRenderState | null;
+  retargetT: number; flash: number;
+}
+
+interface ZoneRenderState {
+  active: boolean;
+  x: number; y: number;
+  radius: number; targetRadius: number;
+  alpha: number;
+}
+
 /* ============================== game ============================== */
 
 export class Game {
@@ -242,6 +302,7 @@ export class Game {
   private starfield: Starfield;
   private asteroidField: AsteroidField;
   private riftField: RiftField;
+  private rendererSystem: RendererSystem;
 
   /* player */
   private px = 0;
@@ -371,6 +432,13 @@ export class Game {
       spawnEnemy: (kind, x, y) => this.spawnEnemy(kind, x, y, null),
       fx: this.fx,
       audio: this.audio,
+    });
+
+    this.rendererSystem = new RendererSystem({
+      fx: this.fx,
+      starfield: this.starfield,
+      asteroidField: this.asteroidField,
+      riftField: this.riftField,
     });
 
     window.addEventListener("resize", this.onResize);
@@ -1947,560 +2015,59 @@ export class Game {
   /* ============================== drawing ============================== */
 
   private draw() {
-    const R = this.renderer;
-    R.resize(window.innerWidth, window.innerHeight);
-    R.beginFrame();
-    R.setMode("world");
-    R.setCamera(this.camX, this.camY, this.zoom, this.fx.shakeX, this.fx.shakeY);
+    /* build render state snapshots */
+    const playerState: PlayerRenderState | null =
+      this.state !== "dying" && this.state !== "over"
+        ? {
+            x: this.px, y: this.py,
+            angle: this.pAngle,
+            aimA: this.aimA,
+            hp: this.hp, maxHp: this.maxHp,
+            invuln: this.invuln,
+            guns: this.guns,
+            rateT: this.rateT, rateBoost: this.rateBoost,
+            dashT: this.dashT,
+            thrusting: this.thrusting,
+            pvx: this.pvx, pvy: this.pvy,
+          }
+        : null;
 
-    this.drawStars();
-    this.asteroidField.draw(R, this.time);
+    const enemies: EnemyRenderState[] = this.enemyList.map(e => ({ ...e }));
 
-    if (this.state === "menu") {
-      this.drawMenuScene();
-    } else {
-      this.drawZone();
-      this.drawRifts();
-      this.drawPickups();
-      this.drawMines();
-      this.drawEnemies();
-      this.drawAllyDrones();
-      this.drawPlayer();
-      this.drawBullets();
-      this.drawFx();
-    }
+    const bullets: BulletRenderState[] = this.bullets.map(b => ({ ...b }));
+    const ebullets: EBulletRenderState[] = this.enemyBulletList.map(b => ({ ...b }));
 
-    R.finish(this.time);
-  }
+    const pickups: PickupRenderState[] = this.pickups.map(p => ({ ...p }));
+    const mines: MineRenderState[] = this.mines.map(m => ({ ...m }));
 
-  private drawStars() {
-    this.starfield.draw(
+    const allyDrones: AllyDroneRenderState[] = this.allyDrones.map(d => ({ ...d }));
+
+    const zoneState: ZoneRenderState | null =
+      this.zoneOn && this.zoneAlpha > 0
+        ? {
+            active: this.zoneOn,
+            x: this.zoneX, y: this.zoneY,
+            radius: this.zoneR,
+            targetRadius: this.zoneTarget,
+            alpha: this.zoneAlpha,
+          }
+        : null;
+
+    this.rendererSystem.draw(
       this.renderer,
-      this.camX,
-      this.camY,
-      this.zoom,
       this.time,
+      this.camX, this.camY, this.zoom,
+      this.state,
+      playerState,
+      enemies,
+      bullets,
+      ebullets,
+      pickups,
+      mines,
+      allyDrones,
+      zoneState,
       this.viewW,
       this.viewH
     );
-  }
-
-  private drawZone() {
-    if (!this.zoneOn || this.zoneAlpha <= 0) return;
-    const R = this.renderer;
-    const a = this.zoneAlpha;
-    const zr = this.zoneR;
-    // outer wavy "energy wall"
-    const segs = 90;
-    let px = 0;
-    let py = 0;
-    for (let i = 0; i <= segs; i++) {
-      const ang = (i / segs) * TAU;
-      const wob =
-        Math.sin(ang * 6 + this.time * 2.2) * 4 +
-        Math.sin(ang * 11 - this.time * 3.1) * 2.5 +
-        Math.sin(ang * 3 + this.time * 1.3) * 3;
-      const rr = zr + wob;
-      const x = this.zoneX + Math.cos(ang) * rr;
-      const y = this.zoneY + Math.sin(ang) * rr;
-      if (i > 0) R.pushLine(px, py, x, y, rgba(C.zone, 0.5 * a));
-      px = x;
-      py = y;
-    }
-    // inner dashed ring
-    R.dashedCircle(this.zoneX, this.zoneY, zr * 0.96, rgba(C.zone, 0.3 * a), 24, this.time * 0.8);
-  }
-
-  private drawRifts() {
-    this.riftField.draw(this.renderer, this.time);
-  }
-
-  private drawShipPoly(
-    x: number,
-    y: number,
-    angle: number,
-    pts: Array<[number, number]>,
-    c: RGBA
-  ) {
-    this.renderer.drawPolygon(x, y, angle, pts, c, true);
-  }
-
-  private drawPickups() {
-    const R = this.renderer;
-    for (const p of this.pickups) {
-      const blinkA = p.life < 3 ? 0.35 + 0.65 * Math.abs(Math.sin(p.life * 7)) : 1;
-      const rot = this.time * 1.4 + p.seed;
-      const col =
-        p.kind === "heal25" || p.kind === "heal50" || p.kind === "heal100"
-          ? C.heal
-          : p.kind === "rate20" || p.kind === "rate40" || p.kind === "rate60"
-            ? C.fighter
-            : p.kind === "gun"
-              ? C.player
-               : p.kind === "dash"
-                 ? C.dash
-                 : p.kind === "miner"
-                   ? C.mine
-                   : p.kind === "mineral"
-                     ? C.heal
-                      : C.mint;
-      const pr = 15 + Math.sin(this.time * 4 + p.seed) * 2;
-      R.circle(p.x, p.y, pr, rgba(col, 0.35 * blinkA), 26);
-      const c1 = Math.cos(rot);
-      const s1 = Math.sin(rot);
-      switch (p.kind) {
-        case "heal25":
-        case "heal50":
-        case "heal100": {
-          const s = p.kind === "heal100" ? 7.5 : p.kind === "heal50" ? 6.5 : 5.5;
-          R.pushLine(p.x - s * c1, p.y - s * s1, p.x + s * c1, p.y + s * s1, rgba(col, blinkA));
-          R.pushLine(p.x + s * s1, p.y - s * c1, p.x - s * s1, p.y + s * c1, rgba(col, blinkA));
-          break;
-        }
-        case "rate20":
-        case "rate40":
-        case "rate60": {
-          R.pushLine(p.x + 3, p.y - 8, p.x - 4, p.y + 1, rgba(col, blinkA));
-          R.pushLine(p.x - 4, p.y + 1, p.x + 1, p.y + 1, rgba(col, blinkA));
-          R.pushLine(p.x + 1, p.y + 1, p.x - 3, p.y + 8, rgba(col, blinkA));
-          break;
-        }
-        case "gun": {
-          R.pushLine(p.x - 6, p.y - 3, p.x + 7, p.y - 3, rgba(col, blinkA));
-          R.pushLine(p.x - 6, p.y + 3, p.x + 7, p.y + 3, rgba(col, blinkA));
-          R.pushLine(p.x - 6, p.y - 3, p.x - 6, p.y + 3, rgba(col, blinkA));
-          break;
-        }
-        case "drone": {
-          this.drawShipPoly(p.x, p.y, rot, [[6, 0], [-4, 4], [-4, -4]], rgba(col, blinkA));
-          R.circle(p.x, p.y, 9.5, rgba(col, 0.4 * blinkA), 18);
-          break;
-        }
-        case "dash": {
-          // open arrowhead — same shape as the dash shell
-          const L = 10;
-          const Wd = 7;
-          const tx = p.x + L * c1;
-          const ty = p.y + L * s1;
-          R.pushLine(tx, ty, p.x - L * 0.5 * c1 - Wd * s1, p.y - L * 0.5 * s1 + Wd * c1, rgba(col, blinkA));
-          R.pushLine(tx, ty, p.x - L * 0.5 * c1 + Wd * s1, p.y - L * 0.5 * s1 - Wd * c1, rgba(col, blinkA));
-          break;
-        }
-        case "miner": {
-          // little mine with detonator spikes
-          const s = 5.5;
-          R.polyline(
-            [
-              [p.x, p.y - s],
-              [p.x + s, p.y],
-              [p.x, p.y + s],
-              [p.x - s, p.y],
-            ],
-            true,
-            rgba(col, blinkA)
-          );
-          const sp = s + 3.5;
-          R.pushLine(p.x, p.y - s, p.x, p.y - sp, rgba(col, blinkA));
-          R.pushLine(p.x + s, p.y, p.x + sp, p.y, rgba(col, blinkA));
-          R.pushLine(p.x, p.y + s, p.x, p.y + sp, rgba(col, blinkA));
-          R.pushLine(p.x - s, p.y, p.x - sp, p.y, rgba(col, blinkA));
-          break;
-        }
-        case "mineral": {
-          // faceted gem
-          const s = 6.5;
-          R.polyline(
-            [
-              [p.x, p.y - s],
-              [p.x + s, p.y - s * 0.3],
-              [p.x + s * 0.6, p.y + s],
-              [p.x - s * 0.6, p.y + s],
-              [p.x - s, p.y - s * 0.3],
-            ],
-            true,
-            rgba(col, blinkA)
-          );
-          R.pushLine(p.x, p.y - s, p.x, p.y + s, rgba(col, 0.4 * blinkA));
-          break;
-        }
-      }
-    }
-  }
-
-  private drawMines() {
-    const R = this.renderer;
-    for (const m of this.mines) {
-      // blast-radius hint so the pilot knows when the trap will spring
-      R.dashedCircle(m.x, m.y, MINE_RADIUS, rgba(C.mine, 0.16), 14, this.time * 0.5);
-
-      // blink faster as the failsafe fuse runs down
-      const urgency = clamp(1 - m.fuse / MINE_LIFE, 0, 1);
-      const blink = Math.sin(this.time * (6 + urgency * 14) + m.seed) > -0.2 ? 1 : 0.45;
-      const s = 9 + Math.sin(this.time * 3 + m.seed) * 1.2;
-      const c = rgba(C.mine, 0.95 * blink);
-
-      // diamond body
-      R.polyline(
-        [
-          [m.x, m.y - s],
-          [m.x + s, m.y],
-          [m.x, m.y + s],
-          [m.x - s, m.y],
-        ],
-        true,
-        c
-      );
-      // detonator spikes
-      const sp = s + 5;
-      R.pushLine(m.x, m.y - s, m.x, m.y - sp, c);
-      R.pushLine(m.x + s, m.y, m.x + sp, m.y, c);
-      R.pushLine(m.x, m.y + s, m.x, m.y + sp, c);
-      R.pushLine(m.x - s, m.y, m.x - sp, m.y, c);
-      // core
-      R.pushLine(m.x - 2.5, m.y, m.x + 2.5, m.y, rgba(C.white, 0.9 * blink));
-      R.pushLine(m.x, m.y - 2.5, m.x, m.y + 2.5, rgba(C.white, 0.9 * blink));
-    }
-  }
-
-  private drawAllyDrones() {
-    const R = this.renderer;
-    const n = this.allyDrones.length;
-    if (n === 0) return;
-    if (this.state !== "dying" && this.state !== "over") {
-      R.dashedCircle(this.px, this.py, 58, rgba(C.mint, 0.12), 20, this.time * 0.7);
-    }
-    for (const d of this.allyDrones) {
-      const hpF = clamp(d.hp / d.maxHp, 0, 1);
-      const cr = 0.62 + (1 - hpF) * 0.38;
-      const cg = 1 - (1 - hpF) * 0.5;
-      const cb = 0.91 - (1 - hpF) * 0.6;
-      const flash = d.flash > 0 ? 1 : 0;
-      const col: RGBA = [
-        Math.min(1, cr + flash * 0.5),
-        Math.min(1, cg + flash * 0.5),
-        Math.min(1, cb + flash * 0.5),
-        0.95,
-      ];
-      this.drawShipPoly(
-        d.x,
-        d.y,
-        d.angle,
-        [
-          [7, 0],
-          [-5, 5],
-          [-2, 0],
-          [-5, -5],
-        ],
-        col
-      );
-      // hull integrity arc
-      if (hpF < 1) {
-        R.dashedCircle(d.x, d.y, 11, [cr, cg, cb, 0.5], 10, this.time, 0.35);
-      }
-      R.pushLine(
-        d.x - Math.cos(d.angle) * 5,
-        d.y - Math.sin(d.angle) * 5,
-        d.x - Math.cos(d.angle) * (8 + Math.random() * 3),
-        d.y - Math.sin(d.angle) * (8 + Math.random() * 3),
-        rgba(C.mint, 0.5)
-      );
-    }
-  }
-
-  private drawPlayer() {
-    const R = this.renderer;
-    if (this.state === "dying" || this.state === "over") return;
-    const blink = this.invuln > 0 ? (Math.sin(this.time * 30) > 0 ? 0.35 : 1) : 1;
-
-    // thruster
-    if (this.thrusting) {
-      const cos = Math.cos(this.pAngle);
-      const sin = Math.sin(this.pAngle);
-      const len = 10 + Math.random() * 8;
-      R.pushLine(
-        this.px - cos * 12,
-        this.py - sin * 12,
-        this.px - cos * (12 + len),
-        this.py - sin * (12 + len),
-        rgba(C.player, 0.6 * blink)
-      );
-    }
-
-    // dash shell: a sharp chevron larger than the hull, open at the back
-    if (this.dashT > 0) {
-      const a = this.pAngle;
-      const ca = Math.cos(a);
-      const sa = Math.sin(a);
-      const pulse = 1 + Math.sin(this.time * 16) * 0.08;
-      const L = 30 * pulse; // tip length
-      const Wd = 20 * pulse; // half-width at the wings
-      const tipX = this.px + ca * L;
-      const tipY = this.py + sa * L;
-      // wings swept back, NO rear edge — an open arrowhead
-      const w1x = this.px - ca * L * 0.55 - sa * Wd;
-      const w1y = this.py - sa * L * 0.55 + ca * Wd;
-      const w2x = this.px - ca * L * 0.55 + sa * Wd;
-      const w2y = this.py - sa * L * 0.55 - ca * Wd;
-      let glow = Math.min(1, this.dashT / 0.4);
-      // blink faster as the overdrive is about to run out
-      if (this.dashT < 1.0) {
-        const hz = 6 + (1 - this.dashT) * 12;
-        glow *= 0.55 + 0.45 * Math.sin(this.time * hz);
-      }
-      R.pushLine(tipX, tipY, w1x, w1y, rgba(C.dash, 0.95 * glow));
-      R.pushLine(tipX, tipY, w2x, w2y, rgba(C.dash, 0.95 * glow));
-      // faint inner chevron for depth
-      const L2 = L * 0.62;
-      const W2 = Wd * 0.62;
-      R.pushLine(
-        this.px + ca * L2,
-        this.py + sa * L2,
-        this.px - ca * L2 * 0.55 - sa * W2,
-        this.py - sa * L2 * 0.55 + ca * W2,
-        rgba(C.dash, 0.4 * glow)
-      );
-      R.pushLine(
-        this.px + ca * L2,
-        this.py + sa * L2,
-        this.px - ca * L2 * 0.55 + sa * W2,
-        this.py - sa * L2 * 0.55 - ca * W2,
-        rgba(C.dash, 0.4 * glow)
-      );
-    }
-
-    // hull — faces movement direction
-    this.drawShipPoly(
-      this.px,
-      this.py,
-      this.pAngle,
-      [
-        [16, 0],
-        [-11, 10],
-        [-6, 0],
-        [-11, -10],
-      ],
-      rgba(C.player, blink)
-    );
-
-    // turret: barrels pivot toward the aim
-    const ba = this.aimA !== null ? this.aimA : this.pAngle;
-    const gcos = Math.cos(ba);
-    const gsin = Math.sin(ba);
-    for (let i = 0; i < this.guns; i++) {
-      const o = GUN_OFFS[i];
-      const bx = this.px + 8 * gcos - o * gsin;
-      const by = this.py + 8 * gsin + o * gcos;
-      R.pushLine(bx, by, bx + 8 * gcos, by + 8 * gsin, rgba(C.mint, 0.85 * blink));
-    }
-    if (this.aimA !== null) {
-      R.pushLine(
-        this.px + Math.cos(this.aimA) * 20,
-        this.py + Math.sin(this.aimA) * 20,
-        this.px + Math.cos(this.aimA) * 30,
-        this.py + Math.sin(this.aimA) * 30,
-        rgba(C.mint, 0.3 * blink)
-      );
-    }
-
-    // fire-rate boost: a solid circular progress bar that drains with the timer
-    if (this.rateT > 0) {
-      const f = clamp(this.rateT / RATE_BOOST_TIME, 0, 1);
-      const rr = 26;
-      const segs = Math.max(6, Math.round(30 * f));
-      const a0 = -Math.PI / 2; // start from the top, sweep clockwise
-      let pxp = this.px + Math.cos(a0) * rr;
-      let pyp = this.py + Math.sin(a0) * rr;
-      const blink = f < 0.2 ? (Math.sin(this.time * 14) > 0 ? 1 : 0.45) : 1;
-      for (let i = 1; i <= segs; i++) {
-        const a = a0 + (i / segs) * f * TAU;
-        const nx = this.px + Math.cos(a) * rr;
-        const ny = this.py + Math.sin(a) * rr;
-        R.pushLine(pxp, pyp, nx, ny, rgba(C.fighter, 0.75 * blink));
-        pxp = nx;
-        pyp = ny;
-      }
-    }
-    // god mode halo
-    if (this.debugGod) {
-      R.circle(this.px, this.py, 22, rgba("#ffb84d", 0.4 + 0.2 * Math.sin(this.time * 5)), 32);
-    }
-  }
-
-  private drawEnemies() {
-    const R = this.renderer;
-    for (const e of this.enemyList) {
-      if (e.dead) continue;
-      const base = this.kindColor(e.kind);
-      const flash = e.flash > 0 ? 1 : 0;
-      const [r, g, b] = rgba(base, 1);
-      const col: RGBA = [
-        Math.min(1, r + flash * 0.6),
-        Math.min(1, g + flash * 0.6),
-        Math.min(1, b + flash * 0.6),
-        1,
-      ];
-      switch (e.kind) {
-        case "drone": {
-          const rot = e.angle + Math.sin(this.time * 3 + e.seed) * 0.12;
-          this.drawShipPoly(
-            e.x,
-            e.y,
-            rot,
-            [
-              [9, 0],
-              [-7, 7],
-              [-4, 0],
-              [-7, -7],
-            ],
-            col
-          );
-          break;
-        }
-        case "hunter": {
-          // sleek dart with a sensor eye — always pointed where it's going
-          this.drawShipPoly(
-            e.x,
-            e.y,
-            e.angle,
-            [
-              [13, 0],
-              [-8, 6],
-              [-4, 0],
-              [-8, -6],
-            ],
-            col
-          );
-          R.circle(
-            e.x + Math.cos(e.angle) * 5,
-            e.y + Math.sin(e.angle) * 5,
-            2,
-            rgba(C.hunter, 0.95),
-            8
-          );
-          // predictive targeting tick toward the intercept point
-          R.pushLine(
-            e.x + Math.cos(e.angle) * 16,
-            e.y + Math.sin(e.angle) * 16,
-            e.x + Math.cos(e.angle) * 24,
-            e.y + Math.sin(e.angle) * 24,
-            rgba(C.hunter, 0.45)
-          );
-          break;
-        }
-        case "fighter": {
-          this.drawShipPoly(
-            e.x,
-            e.y,
-            e.angle,
-            [
-              [14, 0],
-              [-10, 9],
-              [-5, 0],
-              [-10, -9],
-            ],
-            col
-          );
-          break;
-        }
-        case "cruiser": {
-          this.drawShipPoly(
-            e.x,
-            e.y,
-            e.angle,
-            [
-              [22, 0],
-              [8, 14],
-              [-18, 12],
-              [-18, -12],
-              [8, -14],
-            ],
-            col
-          );
-          R.circle(e.x, e.y, 8, rgba(base, 0.5), 16);
-          break;
-        }
-        case "carrier": {
-          this.drawShipPoly(
-            e.x,
-            e.y,
-            e.angle,
-            [
-              [30, 0],
-              [10, 20],
-              [-24, 16],
-              [-24, -16],
-              [10, -20],
-            ],
-            col
-          );
-          R.circle(e.x, e.y, 12, rgba(base, 0.4), 20);
-          R.dashedCircle(e.x, e.y, 20, rgba(base, 0.3), 8, this.time * 0.8);
-          break;
-        }
-      }
-      // hp arc for tougher ships
-      if (e.maxHp > 40 && e.hp < e.maxHp) {
-        const f = clamp(e.hp / e.maxHp, 0, 1);
-        R.dashedCircle(e.x, e.y, e.r + 6, rgba(base, 0.4), Math.max(3, Math.round(10 * f)), this.time, 0.4);
-      }
-    }
-  }
-
-  private drawBullets() {
-    const R = this.renderer;
-    for (const b of this.bullets) {
-      const l = 7;
-      const d = Math.hypot(b.vx, b.vy) || 1;
-      R.pushLine(
-        b.x - (b.vx / d) * l,
-        b.y - (b.vy / d) * l,
-        b.x,
-        b.y,
-        rgba(C.bullet, 0.95)
-      );
-    }
-    for (const b of this.enemyBulletList) {
-      if (b.heavy) {
-        R.circle(b.x, b.y, 3.4, rgba(C.enemyBullet, 0.95), 10);
-      } else {
-        const l = 6;
-        const d = Math.hypot(b.vx, b.vy) || 1;
-        R.pushLine(
-          b.x - (b.vx / d) * l,
-          b.y - (b.vy / d) * l,
-          b.x,
-          b.y,
-          rgba(C.enemyBullet, 0.9)
-        );
-      }
-    }
-  }
-
-  private drawFx() {
-    this.fx.draw(this.renderer);
-  }
-
-  private drawMenuScene() {
-    const R = this.renderer;
-    // a slow decorative rift with orbiting drone silhouettes
-    const prog = 0.75 + 0.25 * Math.sin(this.time * 0.8);
-    RiftField.drawShape(this.renderer, 0, -30, 130 * prog, 40 * prog, 7, this.time, 1, this.time * 0.05, 1);
-    for (let i = 0; i < 3; i++) {
-      const a = this.time * (0.25 + i * 0.07) + (i * TAU) / 3;
-      const ox = Math.cos(a) * (200 + i * 46);
-      const oy = -30 + Math.sin(a) * (115 + i * 28);
-      this.drawShipPoly(
-        ox,
-        oy,
-        a + Math.PI / 2,
-        [
-          [10, 0],
-          [-8, 8],
-          [-4, 0],
-          [-8, -8],
-        ],
-        rgba(C.drone, 0.35)
-      );
-    }
   }
 }
