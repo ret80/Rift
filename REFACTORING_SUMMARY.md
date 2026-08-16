@@ -18,8 +18,9 @@
 ### Core (ядро)
 | Файл | Строк | Описание |
 |------|-------|----------|
-| `core/EventBus.ts` | ~85 | Шина событий для декуплинга систем |
+| `core/EventBus.ts` | ~90 | Шина событий для декуплинга систем |
 | `core/GameState.ts` | ~265 | Централизованное хранилище состояния |
+| `core/PhysicsSystem.ts` | ~220 | Обертка над kinetics.ts для физики и коллизий |
 
 ### Entities (сущности)
 | Файл | Строк | Описание |
@@ -99,6 +100,7 @@ type EventType =
   | 'game_over'           // Конец игры → Stats
   | 'score_changed'       // Изменение счета → HUD
   | 'enemy_fired'         // Выстрел врага → BulletSpawner
+  | 'physics_collision'   // Коллизия тел → PhysicsSystem
 ```
 
 ---
@@ -123,14 +125,15 @@ type EventType =
 4. ✅ **Enemy Entity + AI Strategies** — готово (3 из 5 типов)
 5. ✅ **ZoneManager** — готово
 6. ✅ **ScoreManager** — готово
-7. ⏳ **WaveManager** — логика волн, спавн
-8. ⏳ **EntityRenderer** — отрисовка сущностей
-9. ⏳ **HUDRenderer** — интерфейс
-10. ⏳ **BulletSystem** — пули и коллизии
-11. ⏳ **PickupSystem** — бонусы и минералы
-12. ⏳ **MineSystem** — мины с детонацией
-13. ⏳ **DI Container** — управление зависимостями
-14. ⏳ **Refactor Game.ts** — сократить до оркестратора
+7. ✅ **PhysicsSystem** — готово (kinetics.ts интегрирована)
+8. ⏳ **WaveManager** — логика волн, спавн
+9. ⏳ **EntityRenderer** — отрисовка сущностей
+10. ⏳ **HUDRenderer** — интерфейс
+11. ⏳ **BulletSystem** — пули и коллизии
+12. ⏳ **PickupSystem** — бонусы и минералы
+13. ⏳ **MineSystem** — мины с детонацией
+14. ⏳ **DI Container** — управление зависимостями
+15. ⏳ **Refactor Game.ts** — сократить до оркестратора
 
 ---
 

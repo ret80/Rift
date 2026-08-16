@@ -20,7 +20,8 @@ export type EventType =
   | 'dash_activated'
   | 'game_over'
   | 'score_changed'
-  | 'enemy_fired';
+  | 'enemy_fired'
+  | 'physics_collision';
 
 export interface GameEvent {
   type: EventType;
