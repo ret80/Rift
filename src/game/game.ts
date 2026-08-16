@@ -49,6 +49,18 @@ import { AsteroidField, type Asteroid } from "./asteroids";
 import { RiftField } from "./rifts";
 import type { Rift } from "./types";
 
+/* NEW ARCHITECTURE - Core systems */
+import { EventBus } from "./core/EventBus";
+import { GameState } from "./core/GameState";
+import { PhysicsSystem } from "./core/PhysicsSystem";
+import { Player } from "./entities/Player";
+// Note: Enemy is defined locally below for legacy compatibility
+import { EnemyAI } from "./ai/EnemyAI";
+import { GameContext } from "./ai/GameContext";
+import { WaveManager } from "./wave/WaveManager";
+import { ZoneManager } from "./wave/ZoneManager";
+import { ScoreManager } from "./progression/ScoreManager";
+
 /* ============================== types ============================== */
 
 export interface HudData {
