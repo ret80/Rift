@@ -1,115 +1,38 @@
 ```
-# Dependencies
-node_modules/
-
-# Build artifacts
+# Build artifacts and compiled files
+*.js.map
+*.min.js
+*.bundle.js
 dist/
 build/
-target/
+coverage/
 
-# TypeScript
-*.tsbuildinfo
-out/
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Logs
 *.log
 
-# Environment
+# Environment variables
 .env
 .env.local
-*.env.*
+.env.*
+!.env.example
 
-# Editor
+# IDE specific
 .vscode/
 .idea/
 *.swp
 *.swo
-*.tmp
+*~
 
-# OS
+# OS generated files
 .DS_Store
 Thumbs.db
 
-# Coverage
-coverage/
-htmlcov/
-.coverage
-
-# Python (if present)
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.nox/
-.pytest_cache/
-.mypy_cache/
-
-# Java (if present)
-*.class
-*.jar
-*.war
-*.ear
-hs_err_pid*
-.recommenders
-
-# C/C++ (if present)
-*.o
-*.a
-*.so
-*.dll
-*.exe
-*.out
-
-# Go (if present)
-*.exe
-*.test
-*.prof
-go.mod
-go.sum
-
-# Gradle (if present)
-.gradle/
-build/
-
-# Maven (if present)
-target/
-
-# Zig (if present)
-zig-cache/
-zig-out/
-
-# Julia (if present)
-julia-*/
-
-# Compressed files
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
+# TypeScript
+*.tsbuildinfo
 ```
