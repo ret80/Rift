@@ -1,0 +1,43 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "pwa-chrome",
+      "request": "launch",
+      "name": "Vite: Chrome / Edge",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/src",
+      "sourceMaps": true,
+      "sourceMapPathOverrides": {
+        "webpack://@/*": "${webRoot}/*",
+        "webpack:///*": "*",
+        "webpack:///./src/*": "${webRoot}/*"
+      }
+    },
+    {
+      "type": "pwa-msedge",
+      "request": "launch",
+      "name": "Vite: MS Edge",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/src",
+      "sourceMaps": true,
+      "sourceMapPathOverrides": {
+        "webpack://@/*": "${webRoot}/*",
+        "webpack:///*": "*",
+        "webpack:///./src/*": "${webRoot}/*"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Vite: Dev + Debug",
+      "configurations": ["Vite: Chrome / Edge"],
+      "preLaunchTask": "Vite: dev server",
+      "presentation": {
+        "hidden": false,
+        "group": "1_run",
+        "order": 1
+      }
+    }
+  ]
+}
