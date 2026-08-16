@@ -1,0 +1,420 @@
+/**
+ * EnemySystem - управление врагами.
+ * Отвечает за AI, движение, стрельбу и состояние врагов.
+ */
+
+import type { EventBus } from '../core/EventBus';
+import type { GameState } from '../core/GameState';
+import type { EnemyKind } from '../balance';
+import { TAU } from '../math';
+import type { Fx } from '../fx';
+import type { AudioEngine } from '../audio';
+
+interface Enemy {
+  kind: EnemyKind;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  angle: number;
+  hp: number;
+  maxHp: number;
+  r: number;
+  speed: number;
+  contact: number;
+  score: number;
+  boltDmg: number;
+  fireCd: number;
+  mode: number;
+  modeT: number;
+  strafeDir: number;
+  seed: number;
+  spawnCd: number;
+  flash: number;
+  hitCd: number;
+  dead: boolean;
+  parent: Enemy | null;
+}
+
+interface EnemyDef {
+  hp: number;
+  r: number;
+  speed: number;
+  contact: number;
+  score: number;
+  bolt: number;
+}
+
+export class EnemySystem {
+  private eventBus: EventBus;
+  private state: GameState;
+  private fx: Fx;
+  private audio: AudioEngine;
+  
+  private enemies: Enemy[] = [];
+  private wave = 1;
+  
+  // Для отрисовки
+  public flock: Enemy[] = [];
+  
+  constructor(eventBus: EventBus, state: GameState, fx: Fx, audio: AudioEngine) {
+    this.eventBus = eventBus;
+    this.state = state;
+    this.fx = fx;
+    this.audio = audio;
+  }
+  
+  reset(): void {
+    this.enemies = [];
+    this.flock = [];
+  }
+  
+  setWave(wave: number): void {
+    this.wave = wave;
+  }
+  
+  getEnemies(): Enemy[] {
+    return this.enemies;
+  }
+  
+  getLiveCount(): number {
+    return this.enemies.filter(e => !e.dead).length;
+  }
+  
+  addEnemy(kind: EnemyKind, x: number, y: number, def: EnemyDef): void {
+    this.enemies.push({
+      kind,
+      x,
+      y,
+      vx: 0,
+      vy: 0,
+      angle: rand(0, TAU),
+      hp: def.hp,
+      maxHp: def.hp,
+      r: def.r,
+      speed: def.speed,
+      contact: def.contact,
+      score: def.score,
+      boltDmg: def.bolt,
+      fireCd: rand(0.3, 1),
+      mode: 0,
+      modeT: 0,
+      strafeDir: Math.random() < 0.5 ? -1 : 1,
+      seed: Math.random() * 100,
+      spawnCd: rand(1, 2),
+      flash: 0,
+      hitCd: 0,
+      dead: false,
+      parent: null,
+    });
+  }
+  
+  update(dt: number, playerX: number, playerY: number, playerVx: number, playerVy: number, zoneTarget: number): void {
+    // gather live drones for the boids flock
+    this.flock.length = 0;
+    for (const e of this.enemies) {
+      if (e.kind === "drone" && !e.dead) this.flock.push(e);
+    }
+    
+    for (const e of this.enemies) {
+      if (e.dead) continue;
+      
+      e.flash = Math.max(0, e.flash - dt * 5);
+      e.hitCd = Math.max(0, e.hitCd - dt);
+      
+      const dx = playerX - e.x;
+      const dy = playerY - e.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const dirX = dx / dist;
+      const dirY = dy / dist;
+      
+      switch (e.kind) {
+        case "drone": {
+          /* Boids swarm: separation + alignment + cohesion, still seeking the player. */
+          const SEP_R = 36;
+          const SEP_R2 = SEP_R * SEP_R;
+          const ALI_R2 = 85 * 85;
+          const SEP_W = 320;
+          const ALIGN = 0.35;
+          const COH = 0.7;
+          
+          let sepX = 0, sepY = 0, aliX = 0, aliY = 0, aliN = 0, cohX = 0, cohY = 0, cohN = 0;
+          
+          for (const o of this.flock) {
+            if (o === e || o.dead) continue;
+            const ddx = e.x - o.x;
+            const ddy = e.y - o.y;
+            const d2 = ddx * ddx + ddy * ddy;
+            
+            if (d2 < ALI_R2 && d2 > 0.0001) {
+              aliX += o.vx;
+              aliY += o.vy;
+              aliN++;
+              cohX += o.x;
+              cohY += o.y;
+              cohN++;
+              
+              if (d2 < SEP_R2) {
+                const d = Math.sqrt(d2);
+                const w = 1 - d / SEP_R;
+                sepX += (ddx / d) * w;
+                sepY += (ddy / d) * w;
+              }
+            }
+          }
+          
+          let desX = dirX * e.speed;
+          let desY = dirY * e.speed;
+          desX += sepX * SEP_W;
+          desY += sepY * SEP_W;
+          
+          if (aliN > 0) {
+            desX += (aliX / aliN - desX) * ALIGN;
+            desY += (aliY / aliN - desY) * ALIGN;
+          }
+          
+          if (cohN > 0) {
+            desX += (cohX / cohN - e.x) * COH;
+            desY += (cohY / cohN - e.y) * COH;
+          }
+          
+          const k = 1 - Math.exp(-3.2 * dt);
+          e.vx += (desX - e.vx) * k;
+          e.vy += (desY - e.vy) * k;
+          
+          const dsp2 = e.vx * e.vx + e.vy * e.vy;
+          const dspMax = e.speed * 1.5;
+          if (dsp2 > dspMax * dspMax) {
+            const s = dspMax / Math.sqrt(dsp2);
+            e.vx *= s;
+            e.vy *= s;
+          }
+          
+          const dsp = Math.sqrt(dsp2);
+          if (dsp > 5) {
+            e.angle = lerpAngle(e.angle, Math.atan2(e.vy, e.vx), 1 - Math.exp(-9 * dt));
+          }
+          break;
+        }
+        
+        case "hunter": {
+          const leadX = playerX + playerVx * 1.0;
+          const leadY = playerY + playerVy * 1.0;
+          const hx = leadX - e.x;
+          const hy = leadY - e.y;
+          const hd = Math.hypot(hx, hy) || 1;
+          const k = 1 - Math.exp(-(hd < 120 ? 7.5 : 4.5) * dt);
+          e.vx += ((hx / hd) * e.speed - e.vx) * k;
+          e.vy += ((hy / hd) * e.speed - e.vy) * k;
+          const hv = Math.hypot(e.vx, e.vy);
+          if (hv > 5) {
+            e.angle = lerpAngle(e.angle, Math.atan2(e.vy, e.vx), 1 - Math.exp(-10 * dt));
+          }
+          break;
+        }
+        
+        case "fighter": {
+          e.modeT -= dt;
+          if (e.mode === 0) {
+            e.vx += (dirX * e.speed - e.vx) * (1 - Math.exp(-4 * dt));
+            e.vy += (dirY * e.speed - e.vy) * (1 - Math.exp(-4 * dt));
+            if (dist < 300) {
+              e.mode = 1;
+              e.modeT = rand(1.3, 2);
+              e.strafeDir = Math.random() < 0.5 ? -1 : 1;
+            }
+          } else if (e.mode === 1) {
+            const tx = -dirY * e.strafeDir;
+            const ty = dirX * e.strafeDir;
+            const radial = (dist - 265) * 2.2;
+            e.vx += (tx * e.speed * 0.95 + dirX * radial - e.vx) * (1 - Math.exp(-5 * dt));
+            e.vy += (ty * e.speed * 0.95 + dirY * radial - e.vy) * (1 - Math.exp(-5 * dt));
+            if (e.modeT <= 0) {
+              e.mode = 2;
+              e.modeT = rand(0.9, 1.4);
+            }
+          } else {
+            const tx = -dirX * 0.7 - dirY * e.strafeDir * 0.7;
+            const ty = -dirY * 0.7 + dirX * e.strafeDir * 0.7;
+            e.vx += (tx * e.speed - e.vx) * (1 - Math.exp(-4.5 * dt));
+            e.vy += (ty * e.speed - e.vy) * (1 - Math.exp(-4.5 * dt));
+            if (e.modeT <= 0) e.mode = 0;
+          }
+          e.angle = Math.atan2(e.vy, e.vx);
+          break;
+        }
+        
+        case "cruiser": {
+          let escort: Enemy | null = null;
+          let ed = 1e9;
+          for (const o of this.enemies) {
+            if (o.kind !== "carrier" || o.dead) continue;
+            const dd = Math.hypot(e.x - o.x, e.y - o.y);
+            if (dd < ed) {
+              ed = dd;
+              escort = o;
+            }
+          }
+          
+          let desX: number;
+          let desY: number;
+          
+          if (escort && ed < 290) {
+            const ox = e.x - escort.x;
+            const oy = e.y - escort.y;
+            const od = Math.hypot(ox, oy) || 1;
+            const radial = (od - 150) * 1.2;
+            desX = (ox / od) * radial + (-oy / od) * e.strafeDir * e.speed;
+            desY = (oy / od) * radial + (ox / od) * e.strafeDir * e.speed;
+          } else {
+            const zr = zoneTarget > 0 ? zoneTarget : 420;
+            const HOLD = Math.min(400, zr * 0.8);
+            const radial = (dist - HOLD) * 1.0;
+            desX = dirX * radial + -dirY * e.strafeDir * e.speed * 0.6;
+            desY = dirY * radial + dirX * e.strafeDir * e.speed * 0.6;
+          }
+          
+          for (const o of this.enemies) {
+            if (o === e || o.dead) continue;
+            const ddx = e.x - o.x;
+            const ddy = e.y - o.y;
+            const d2 = ddx * ddx + ddy * ddy;
+            const minSep = (e.r + o.r) * 1.1;
+            if (d2 < minSep * minSep && d2 > 0.0001) {
+              const d = Math.sqrt(d2);
+              const push = (minSep - d) / d * 180;
+              desX += (ddx / d) * push;
+              desY += (ddy / d) * push;
+            }
+          }
+          
+          const k = 1 - Math.exp(-2.8 * dt);
+          e.vx += (desX - e.vx) * k;
+          e.vy += (desY - e.vy) * k;
+          const sp = Math.hypot(e.vx, e.vy);
+          if (sp > 5) {
+            e.angle = lerpAngle(e.angle, Math.atan2(e.vy, e.vx), 1 - Math.exp(-6 * dt));
+          }
+          break;
+        }
+        
+        case "carrier": {
+          const HOLD = 480;
+          const radial = (dist - HOLD) * 0.7;
+          let desX = dirX * radial + -dirY * e.strafeDir * e.speed * 0.4;
+          let desY = dirY * radial + dirX * e.strafeDir * e.speed * 0.4;
+          
+          for (const o of this.enemies) {
+            if (o === e || o.dead) continue;
+            const ddx = e.x - o.x;
+            const ddy = e.y - o.y;
+            const d2 = ddx * ddx + ddy * ddy;
+            const minSep = (e.r + o.r) * 1.05;
+            if (d2 < minSep * minSep && d2 > 0.0001) {
+              const d = Math.sqrt(d2);
+              const push = (minSep - d) / d * 120;
+              desX += (ddx / d) * push;
+              desY += (ddy / d) * push;
+            }
+          }
+          
+          const k = 1 - Math.exp(-2.2 * dt);
+          e.vx += (desX - e.vx) * k;
+          e.vy += (desY - e.vy) * k;
+          const sp = Math.hypot(e.vx, e.vy);
+          if (sp > 5) {
+            e.angle = lerpAngle(e.angle, Math.atan2(e.vy, e.vx), 1 - Math.exp(-5 * dt));
+          }
+          
+          // spawn drones
+          e.spawnCd -= dt;
+          if (e.spawnCd <= 0 && this.getLiveCount() < 30) {
+            e.spawnCd = rand(3, 5);
+            this.eventBus.emit('carrierSpawnDrone', { x: e.x, y: e.y, parent: e });
+          }
+          break;
+        }
+      }
+      
+      // apply velocity
+      e.x += e.vx * dt;
+      e.y += e.vy * dt;
+      
+      // shooting logic
+      if (e.kind === "fighter" || e.kind === "cruiser" || e.kind === "carrier") {
+        e.fireCd -= dt;
+        const canShoot = (e.kind === "fighter" && dist < 420) ||
+                        (e.kind === "cruiser" && dist < 380) ||
+                        (e.kind === "carrier" && dist < 500);
+        
+        if (e.fireCd <= 0 && canShoot) {
+          const rate = e.kind === "fighter" ? 2 : e.kind === "cruiser" ? 3 : 4;
+          e.fireCd = rate / (4.4 + this.wave * 0.12);
+          const heavy = e.kind === "cruiser" || e.kind === "carrier";
+          const spread = e.kind === "fighter" ? 0.15 : e.kind === "cruiser" ? 0.1 : 0.18;
+          const life = e.kind === "fighter" ? 1.35 : 1.8;
+          const speed = e.kind === "fighter" ? 300 : e.kind === "cruiser" ? 260 : 240;
+          
+          this.eventBus.emit('enemyFire', {
+            x: e.x + Math.cos(e.angle) * (e.r + 6),
+            y: e.y + Math.sin(e.angle) * (e.r + 6),
+            angle: e.angle + (Math.random() - 0.5) * 2 * spread,
+            speed,
+            dmg: e.boltDmg,
+            life,
+            heavy,
+          });
+          
+          if (heavy) this.audio.heavyShoot();
+          else this.audio.enemyShoot();
+        }
+      }
+    }
+  }
+  
+  damageEnemy(index: number, dmg: number): boolean {
+    if (index < 0 || index >= this.enemies.length) return false;
+    
+    const e = this.enemies[index];
+    if (e.dead) return false;
+    
+    e.hp -= dmg;
+    e.hitCd = 0.15;
+    
+    if (e.hp <= 0) {
+      e.dead = true;
+      return true; // enemy killed
+    }
+    
+    return false;
+  }
+  
+  removeDead(): void {
+    this.enemies = this.enemies.filter(e => !e.dead);
+  }
+  
+  enemyFire(e: Enemy, speed: number, heavy: boolean, spread: number, life: number): void {
+    const aa = Math.atan2(this.state.getPlayerY() - e.y, this.state.getPlayerX() - e.x) + (Math.random() - 0.5) * 2 * spread;
+    this.eventBus.emit('enemyBulletSpawn', {
+      x: e.x + Math.cos(aa) * (e.r + 6),
+      y: e.y + Math.sin(aa) * (e.r + 6),
+      vx: Math.cos(aa) * speed,
+      vy: Math.sin(aa) * speed,
+      life,
+      dmg: e.boltDmg,
+      heavy,
+    });
+    
+    if (heavy) this.audio.heavyShoot();
+    else this.audio.enemyShoot();
+  }
+}
+
+function rand(min: number, max: number): number {
+  return min + Math.random() * (max - min);
+}
+
+function lerpAngle(a: number, b: number, t: number): number {
+  const d = ((b - a) % TAU + TAU * 2) % TAU - TAU;
+  return a + d * t;
+}

@@ -3,7 +3,7 @@
  * Отвечает за показ счётчиков (5, 4, 3, 2, 1) при начале волны.
  */
 
-import { t } from "../i18n";
+import { t } from "../../i18n";
 import type { EventBus } from "../core/EventBus";
 
 export interface BannerData {

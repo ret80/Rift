@@ -50,34 +50,36 @@ export interface ScoreState {
   minerals: number;
 }
 
+export interface EnemyEntity {
+  kind: EnemyKind;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  angle: number;
+  hp: number;
+  maxHp: number;
+  r: number;
+  speed: number;
+  contact: number;
+  score: number;
+  boltDmg: number;
+  fireCd: number;
+  mode: number;
+  modeT: number;
+  strafeDir: number;
+  seed: number;
+  spawnCd: number;
+  flash: number;
+  hitCd: number;
+  dead: boolean;
+  parentIndex: number | null;
+}
+
 export type GameStateType = 'menu' | 'playing' | 'active' | 'cleared' | 'dying' | 'over';
 
 export interface WorldState {
-  enemies: Array<{
-    kind: EnemyKind;
-    x: number;
-    y: number;
-    vx: number;
-    vy: number;
-    angle: number;
-    hp: number;
-    maxHp: number;
-    r: number;
-    speed: number;
-    contact: number;
-    score: number;
-    boltDmg: number;
-    fireCd: number;
-    mode: number;
-    modeT: number;
-    strafeDir: number;
-    seed: number;
-    spawnCd: number;
-    flash: number;
-    hitCd: number;
-    dead: boolean;
-    parentIndex: number | null; // индекс родителя в массиве enemies или null
-  }>;
+  enemies: EnemyEntity[];
   bullets: Array<{
     x: number;
     y: number;

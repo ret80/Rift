@@ -1,55 +1,41 @@
-import { t } from "../i18n";
-import { AudioEngine, Volumes } from "./audio";
-import type { EnemyKind } from "./balance";
-import {
-  C,
-  DASH_ACCEL,
-  DASH_DMG,
-  DASH_SPEED,
-  DASH_TIME,
-  dropChanceFor,
-  enemyDefFor,
-  GUN_OFFS,
-  MAX_ALLY_DRONES,
-  MAX_GUNS,
-  MINE_DELAY,
-  MINE_DMG,
-  MINE_LIFE,
-  MINE_RADIUS,
-  pickKindFor,
-  PLAYER_BULLET_DMG,
-  PLAYER_BULLET_LIFE,
-  PLAYER_BULLET_SPEED,
-  PLAYER_MAX_SPEED,
-  PLAYER_RADIUS,
-  RATE_BOOST_TIME,
-  waveTotalFor,
-  ZONE_EDGE_HYSTERESIS,
-  ZONE_EXPAND_SPEED,
-  ZONE_PICKUP_MAGNET,
-  ZONE_WALL_OVERDRIVE,
-  zoneRadiusFor,
-  type EnemyDef,
-  type PickupKind
-} from "./balance";
-import { clamp, easeOutCubic, lerpAngle, ramp01, rand, rgba, TAU } from "./math";
-import { Renderer } from "./render";
-export type { AsteroidKind, EnemyKind, PickupKind } from "./balance";
+/**
+ * Game - чистый оркестратор игровых систем.
+ * Координирует работу модульных систем через EventBus и GameState.
+ * Не содержит бизнес-логики - вся логика вынесена в системы.
+ */
 
-/* subsystems */
+import { t } from "../i18n";
+import { AudioEngine } from "./audio";
+import type { EnemyKind, PickupKind } from "./balance";
+import { Renderer } from "./render";
+
+/* Core systems */
+import { EventBus } from "./core/EventBus";
+import { GameState } from "./core/GameState";
+
+/* Subsystems */
 import { AsteroidField } from "./asteroids";
 import { Fx } from "./fx";
 import { InputManager } from "./input";
 import { RiftField } from "./rifts";
 import { Starfield } from "./starfield";
 
-/* RendererSystem — извлечённая система рендеринга */
+/* Entity types */
+import type { Enemy, Bullet, EBullet, Pickup, Mine, AllyDrone } from "./types";
+
+/* Game systems */
 import { RendererSystem } from "./systems/RendererSystem";
+import { BulletSystem } from "./systems/BulletSystem";
+import { SpawnSystem } from "./systems/SpawnSystem";
+import { CountdownSystem } from "./systems/CountdownSystem";
+import { MineSystem } from "./systems/MineSystem";
+import { DroneSystem } from "./systems/DroneSystem";
+import { PickupSystem } from "./systems/PickupSystem";
+import { PlayerSystem } from "./systems/PlayerSystem";
+import { EnemySystem } from "./systems/EnemySystem";
+import { CollisionSystem } from "./systems/CollisionSystem";
 
-/* NEW ARCHITECTURE - Core systems */
-// Note: Enemy is defined locally below for legacy compatibility
-
-/* ============================== types ============================== */
+/* ============================== UI types ============================== */
 
 export interface HudData {
   wave: number;
@@ -103,93 +89,6 @@ export interface StatsData {
   time: number;
 }
 
-interface Enemy {
-  kind: EnemyKind;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  angle: number;
-  hp: number;
-  maxHp: number;
-  r: number;
-  speed: number;
-  contact: number;
-  score: number;
-  boltDmg: number;
-  fireCd: number;
-  mode: number;
-  modeT: number;
-  strafeDir: number;
-  seed: number;
-  spawnCd: number;
-  flash: number;
-  hitCd: number;
-  dead: boolean;
-  parent: Enemy | null;
-}
-
-interface Bullet {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  dmg: number;
-}
-
-interface EBullet {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  dmg: number;
-  heavy: boolean;
-}
-
-interface Mine {
-  x: number;
-  y: number;
-  /** safety timeout — the mine never lingers forever */
-  fuse: number;
-  seed: number;
-}
-
-interface Pickup {
-  kind: PickupKind;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  seed: number;
-}
-
-interface AllyDrone {
-  x: number;
-  y: number;
-  angle: number;
-  fireCd: number;
-  phase: number;
-  hp: number;
-  maxHp: number;
-  target: Enemy | null;
-  retargetT: number;
-  flash: number;
-}
-
-/** Local star definition for the menu scene (not used elsewhere). */
-interface Star {
-  x: number;
-  y: number;
-  s: number;
-  a: number;
-  tw: number;
-  ph: number;
-  tint: number;
-}
-
 interface Hooks {
   onHud: (h: HudData) => void;
   onBanner: (b: BannerData | null) => void;
@@ -200,83 +99,9 @@ interface Hooks {
   onPause: (p: boolean) => void;
 }
 
-/* ============================== constants ============================== */
+const BEST_KEY = "voxbest";
 
-const BEST_KEY = "rift9_best";
-
-/* ============================== render state types ============================== */
-
-/** Render state types (mirrors game state for RendererSystem). */
-interface PlayerRenderState {
-  x: number; y: number;
-  angle: number;
-  aimA: number | null;
-  hp: number; maxHp: number;
-  invuln: number;
-  guns: number;
-  rateT: number; rateBoost: number;
-  dashT: number;
-  thrusting: boolean;
-  pvx: number; pvy: number;
-}
-
-interface EnemyRenderState {
-  kind: EnemyKind;
-  x: number; y: number;
-  vx: number; vy: number;
-  angle: number;
-  hp: number; maxHp: number;
-  r: number; speed: number;
-  contact: number; score: number;
-  boltDmg: number; fireCd: number;
-  mode: number; modeT: number;
-  strafeDir: number; seed: number;
-  spawnCd: number; flash: number; hitCd: number;
-  dead: boolean; parent: EnemyRenderState | null;
-}
-
-interface BulletRenderState {
-  x: number; y: number;
-  vx: number; vy: number;
-  life: number; dmg: number;
-}
-
-interface EBulletRenderState {
-  x: number; y: number;
-  vx: number; vy: number;
-  life: number; dmg: number;
-  heavy: boolean;
-}
-
-interface PickupRenderState {
-  kind: PickupKind;
-  x: number; y: number;
-  vx: number; vy: number;
-  life: number; seed: number;
-}
-
-interface MineRenderState {
-  x: number; y: number;
-  fuse: number; seed: number;
-}
-
-interface AllyDroneRenderState {
-  x: number; y: number;
-  angle: number;
-  fireCd: number; phase: number;
-  hp: number; maxHp: number;
-  target: EnemyRenderState | null;
-  retargetT: number; flash: number;
-}
-
-interface ZoneRenderState {
-  active: boolean;
-  x: number; y: number;
-  radius: number; targetRadius: number;
-  alpha: number;
-}
-
-/* ============================== game ============================== */
+/* ============================== Game Orchestrator ============================== */
 
 export class Game {
   readonly audio = new AudioEngine();
@@ -288,7 +113,6 @@ export class Game {
   private time = 0;
   private timeScale = 1;
 
-  /* dev tools */
   private debugGod = false;
   private fpsEma = 60;
   private startWave = 1;
@@ -296,7 +120,11 @@ export class Game {
   private state: "menu" | "playing" | "active" | "cleared" | "dying" | "over" = "menu";
   private paused = false;
 
-  /* input + presentation subsystems (created in the constructor) */
+  /* Core systems */
+  private eventBus: EventBus;
+  private gameState: GameState;
+
+  /* Input + presentation subsystems */
   private input: InputManager;
   private fx: Fx;
   private starfield: Starfield;
@@ -304,53 +132,23 @@ export class Game {
   private riftField: RiftField;
   private rendererSystem: RendererSystem;
 
-  /* player */
-  private px = 0;
-  private py = 0;
-  private pvx = 0;
-  private pvy = 0;
-  private pAngle = -Math.PI / 2;
-  private aimA: number | null = null;
-  private hp = 100;
-  private maxHp = 100;
-  private invuln = 0;
-  private fireCd = 0;
-  private guns = 1;
-  private rateBoost = 0;
-  private rateT = 0;
-  private thrusting = false;
-  private dieT = 0;
+  /* Game logic systems */
+  private playerSystem: PlayerSystem;
+  private enemySystem: EnemySystem;
+  private bulletSystem: BulletSystem;
+  private spawnSystem: SpawnSystem;
+  private countdownSystem: CountdownSystem;
+  private mineSystem: MineSystem;
+  private droneSystem: DroneSystem;
+  private pickupSystem: PickupSystem;
+  private collisionSystem: CollisionSystem;
 
-  /* camera (shake lives in the Fx subsystem) */
-  private camX = 0;
-  private camY = 0;
-  private zoom = 1;
-  private viewW = 800;
-  private viewH = 600;
-
-  /* entities */
-  private enemyList: Enemy[] = [];
-  private bullets: Bullet[] = [];
-  private enemyBulletList: EBullet[] = [];
-  private pickups: Pickup[] = [];
-  private allyDrones: AllyDrone[] = [];
-
-  /* dash & mines */
-  private dashT = 0;
-  private mines: Mine[] = [];
-  private mineDropT = -1;
-
-  /* minerals (the asteroid belt itself lives in AsteroidField) */
-  private minerals = 0;
-
-  /* waves & zone */
+  /* Wave & zone management */
   private wave = 1;
   private waveTotal = 0;
   private allocated = 0;
   private killedWave = 0;
   private peakAlive = 0;
-  private stepSize = 1;
-  private dropThreshold = 1;
 
   private zoneOn = false;
   private zoneX = 0;
@@ -359,18 +157,15 @@ export class Game {
   private zoneTarget = 0;
   private zoneAlpha = 0;
   private zoneCollapse = -1;
-  /* zone-edge danger */
+
   private edgeOutT = 0;
   private edgeTickT = 0;
   private edgeWarned = false;
 
-  private cdT = 0;
-  private cdLast = -1;
   private clearT = 0;
-  /** guards the clear banner from ever firing twice for one wave */
   private waveClearSent = false;
 
-  /* scoring */
+  /* Scoring */
   private score = 0;
   private best = 0;
   private killed = 0;
@@ -380,8 +175,23 @@ export class Game {
 
   private popupId = 0;
   private countId = 0;
-  private announcedKinds = new Set<EnemyKind>();
-  private flock: Enemy[] = [];
+
+  /* Camera */
+  private camX = 0;
+  private camY = 0;
+  private zoom = 1;
+  private viewW = 800;
+  private viewH = 600;
+
+  /* Entity arrays */
+  private enemyList: Enemy[] = [];
+  private bullets: Bullet[] = [];
+  private enemyBulletList: EBullet[] = [];
+  private pickups: Pickup[] = [];
+  private allyDrones: AllyDrone[] = [];
+  private mines: Mine[] = [];
+  private mineDropT = -1;
+  private minerals = 0;
 
   private onResize = () => {
     this.viewW = window.innerWidth;
@@ -400,7 +210,11 @@ export class Game {
     })();
     this.onResize();
 
-    /* input: keyboard + touch, policy delegated back to the game */
+    /* Initialize core systems */
+    this.eventBus = new EventBus();
+    this.gameState = new GameState();
+
+    /* Initialize input */
     this.input = new InputManager({
       onPauseKey: () => this.togglePause(),
       onLoseFocus: () => {
@@ -417,13 +231,11 @@ export class Game {
       },
     });
 
-    /* presentation / world subsystems (dependency injection) */
+    /* Initialize presentation subsystems */
     this.fx = new Fx();
     this.starfield = new Starfield();
     this.asteroidField = new AsteroidField({
-      addScore: (n) => {
-        this.score += n;
-      },
+      addScore: (n) => this.addScore(n),
       spawnPickup: (kind, x, y, vx, vy) => this.spawnPickup(kind, x, y, vx, vy),
       fx: this.fx,
       audio: this.audio,
@@ -440,6 +252,79 @@ export class Game {
       asteroidField: this.asteroidField,
       riftField: this.riftField,
     });
+
+    /* Initialize game logic systems with dependency injection */
+    this.playerSystem = new PlayerSystem(
+      this.eventBus,
+      this.gameState,
+      this.input,
+      this.fx,
+      this.audio,
+      () => this.getZoneBounds(),
+      (kind, x, y, vx, vy) => this.spawnPickup(kind, x, y, vx, vy),
+      (angle) => this.fireAll(angle)
+    );
+
+    this.enemySystem = new EnemySystem(
+      this.eventBus,
+      this.gameState,
+      this.fx,
+      this.audio,
+      (e) => this.enemyFire(e),
+      () => this.getZoneBounds()
+    );
+
+    this.bulletSystem = new BulletSystem(
+      this.eventBus,
+      this.gameState,
+      this.fx,
+      this.audio
+    );
+
+    this.spawnSystem = new SpawnSystem(
+      this.eventBus,
+      this.gameState,
+      this.riftField,
+      this.fx,
+      this.audio
+    );
+
+    this.countdownSystem = new CountdownSystem(
+      this.eventBus,
+      this.gameState,
+      (label, value) => this.showCountdown(label, value)
+    );
+
+    this.mineSystem = new MineSystem(
+      this.eventBus,
+      this.gameState,
+      this.fx,
+      this.audio
+    );
+
+    this.droneSystem = new DroneSystem(
+      this.eventBus,
+      this.gameState,
+      this.fx,
+      this.audio,
+      (kind, x, y, parent) => this.spawnEnemy(kind, x, y, parent)
+    );
+
+    this.pickupSystem = new PickupSystem(
+      this.eventBus,
+      this.gameState,
+      this.audio,
+      (kind) => this.applyPickup(kind),
+      () => this.getPlayerPosition()
+    );
+
+    this.collisionSystem = new CollisionSystem(
+      this.eventBus,
+      this.gameState
+    );
+
+    /* Subscribe to events */
+    this.setupEventListeners();
 
     window.addEventListener("resize", this.onResize);
 
@@ -458,1616 +343,382 @@ export class Game {
     cancelAnimationFrame(this.raf);
     window.removeEventListener("resize", this.onResize);
     this.input.destroy();
-    this.audio.dispose();
+    this.audio.destroy();
   }
 
-  /* ---------------- dev tools ---------------- */
+  private setupEventListeners() {
+    this.eventBus.on("player_hit", (data) => {
+      this.playerSystem.hit(data.dmg);
+    });
 
-  setDebugGod(v: boolean) {
-    if (this.debugGod === v) return;
-    this.debugGod = v;
-    if (this.state !== "menu") {
-      this.popup(this.px, this.py - 34, t(v ? "debug.godOn" : "debug.godOff"), "#ffb84d");
-      if (v) this.burst(this.px, this.py, 10, "#ffb84d", 180, 0.35);
-    }
-  }
+    this.eventBus.on("enemy_killed", (data) => {
+      const { scoreValue } = data;
+      this.score += scoreValue;
+      this.killed++;
+      this.killedWave++;
+      this.combo++;
+      this.comboT = 3;
+      this.checkWaveClear();
+    });
 
-  isDebugGod() {
-    return this.debugGod;
-  }
+    this.eventBus.on("wave_start", (data) => {
+      const { waveNum, total } = data;
+      this.wave = waveNum;
+      this.waveTotal = total;
+      this.waveClearSent = false;
+      this.clearT = 0;
+    });
 
-  fps() {
-    return this.fpsEma;
-  }
+    this.eventBus.on("spawn_enemy", (data) => {
+      const { kind, x, y, parent } = data;
+      this.spawnEnemy(kind, x, y, parent);
+    });
 
-  setStartWave(w: number) {
-    this.startWave = clamp(Math.round(w), 1, 50);
-  }
-
-  setVolumes(v: Volumes) {
-    this.audio.setVolumes(v);
-  }
-
-  setTouch(active: boolean, x: number, y: number) {
-    this.input.setTouch(active, x, y);
-  }
-
-  togglePause() {
-    if (this.state === "menu" || this.state === "over") return;
-    this.paused = !this.paused;
-    if (this.paused) {
-      this.audio.setCombat(false);
-    } else {
-      this.audio.setSuspended(false);
-      if (this.state === "active") this.audio.setCombat(true);
-    }
-    this.hooks.onPause(this.paused);
-  }
-
-  /* ---------------- run control ---------------- */
-
-  startRun() {
-    this.state = "playing";
-    this.enemyList = [];
-    this.bullets = [];
-    this.enemyBulletList = [];
-    this.riftField.list.length = 0;
-    this.pickups = [];
-    this.allyDrones = [];
-    this.mines = [];
-    this.mineDropT = -1;
-    this.dashT = 0;
-    this.minerals = 0;
-    this.asteroidField.hardReset();
-    this.fx.clear();
-    this.px = 0;
-    this.py = 0;
-    this.pvx = 0;
-    this.pvy = 0;
-    this.pAngle = -Math.PI / 2;
-    this.camX = 0;
-    this.camY = 0;
-    this.hp = this.maxHp;
-    this.invuln = 0;
-    this.guns = 1;
-    this.rateBoost = 0;
-    this.rateT = 0;
-    this.score = 0;
-    this.killed = 0;
-    this.combo = 0;
-    this.comboT = 0;
-    this.runTime = 0;
-    this.timeScale = 1;
-    this.zoneOn = false;
-    this.zoneAlpha = 0;
-    this.zoneCollapse = -1;
-    this.announcedKinds.clear();
-    this.paused = false;
-    this.audio.setSuspended(false);
-    this.audio.setCombat(false);
-    this.hooks.onPause(false);
-    this.wave = this.startWave;
-    this.beginCountdown();
-  }
-
-  toMenu() {
-    this.state = "menu";
-    this.paused = false;
-    this.audio.setSuspended(false);
-    this.audio.setCombat(false);
-    this.enemyList = [];
-    this.bullets = [];
-    this.enemyBulletList = [];
-    this.riftField.list.length = 0;
-    this.pickups = [];
-    this.allyDrones = [];
-    this.mines = [];
-    this.mineDropT = -1;
-    this.dashT = 0;
-    this.asteroidField.reset();
-    this.fx.clear();
-    this.zoneOn = false;
-    this.zoneAlpha = 0;
-    this.zoneCollapse = -1;
-    this.timeScale = 1;
-    this.hooks.onPause(false);
-    this.hooks.onCountdown(null);
-    this.hooks.onBanner(null);
-  }
-
-  private beginCountdown() {
-    this.cdT = 15;
-    this.cdLast = -1;
-    this.audio.setCombatWave(this.wave);
-  }
-
-  /* ---------------- wave config ---------------- */
-
-  private waveTotalCount(w: number) {
-    return waveTotalFor(w);
-  }
-
-  private zoneRadius(w: number) {
-    return zoneRadiusFor(w);
-  }
-
-  private rampW(w: number, s: number, f: number) {
-    return ramp01(w, s, f);
-  }
-
-  /** Gradual introduction of enemy classes across waves. */
-  private pickKind(): EnemyKind {
-    return pickKindFor(this.wave);
-  }
-
-  private buildQueue(count: number): EnemyKind[] {
-    const q: EnemyKind[] = [];
-    for (let i = 0; i < count; i++) q.push(this.pickKind());
-    // guarantee at least one of each unlocked class so the player meets them
-    const need: Array<[EnemyKind, number]> = [
-      ["fighter", 2],
-      ["hunter", 4],
-      ["cruiser", 5],
-      ["carrier", 9],
-    ];
-    for (const [kind, minW] of need) {
-      if (this.wave >= minW && !q.includes(kind)) {
-        const di = q.indexOf("drone");
-        if (di >= 0) q[di] = kind;
+    this.eventBus.on("fire_bullet", (data) => {
+      const { x, y, vx, vy, life, dmg, isEnemy } = data;
+      if (isEnemy) {
+        this.enemyBulletList.push({ x, y, vx, vy, life, dmg, heavy: false });
+      } else {
+        this.bullets.push({ x, y, vx, vy, life, dmg });
       }
-    }
-    return q;
-  }
+    });
 
-  private riftCountFor(w: number) {
-    if (w === 1) return 2;
-    if (w < 6) return 3;
-    if (w < 12) return 4;
-    if (w < 20) return 4 + (Math.random() < 0.5 ? 1 : 0);
-    return 5;
-  }
+    this.eventBus.on("spawn_pickup", (data) => {
+      const { kind, x, y, vx, vy } = data;
+      this.spawnPickup(kind, x, y, vx, vy);
+    });
 
-  private initWave() {
-    const total = this.waveTotalCount(this.wave);
-    this.waveTotal = total;
-    this.allocated = 0;
-    this.killedWave = 0;
-    this.waveClearSent = false;
-    this.stepSize = Math.max(1, Math.round(total * 0.05));
-    this.dropThreshold = Math.max(1, Math.round(total * 0.05));
+    this.eventBus.on("popup", (data) => {
+      const { x, y, text, color } = data;
+      this.popupId++;
+      this.hooks.onPopup({ id: this.popupId, x, y, text, color });
+    });
 
-    const initial = Math.round(total * 0.3);
-    this.allocated = initial;
-    this.peakAlive = initial;
+    this.eventBus.on("camera_shake", (data) => {
+      const { strength, duration } = data;
+      this.fx.shake(strength, duration);
+    });
 
-    const queue = this.buildQueue(initial);
-    const riftCount = Math.min(this.riftCountFor(this.wave), Math.max(1, initial));
-
-    // announce any newly-introduced target classes
-    for (const k of queue) {
-      if (!this.announcedKinds.has(k)) {
-        this.announcedKinds.add(k);
-        const key = ("toast." + k) as "toast.drone";
-        this.hooks.onToast({ text: t(key), color: C.rift });
-      }
-    }
-
-    // split the initial batch across the rifts round-robin
-    const queues: EnemyKind[][] = Array.from({ length: riftCount }, () => []);
-    queue.forEach((k, i) => queues[i % riftCount].push(k));
-    for (let i = 0; i < riftCount; i++) {
-      this.spawnRift(queues[i], 0.15 + i * 0.5);
-    }
-  }
-
-  private spawnRiftPoint(): { x: number; y: number } {
-    const inner = this.zoneTarget * 0.25;
-    const outer = Math.max(
-      inner + 80,
-      Math.min(this.zoneTarget * 0.62, this.zoneTarget - 115)
-    );
-    let bestP = { x: this.zoneX, y: this.zoneY - this.zoneTarget * 0.5 };
-    let bestScore = -1;
-    for (let i = 0; i < 16; i++) {
-      const a = Math.random() * TAU;
-      const rr = rand(inner, outer);
-      const x = this.zoneX + Math.cos(a) * rr;
-      const y = this.zoneY + Math.sin(a) * rr;
-      const dPlayer = Math.hypot(x - this.px, y - this.py);
-      const dEdge = this.zoneTarget - Math.hypot(x - this.zoneX, y - this.zoneY);
-      if (dPlayer < 220 || dEdge < 100) continue;
-      let dRifts = 1e9;
-      for (const rf of this.riftField.list)
-        dRifts = Math.min(dRifts, Math.hypot(x - rf.x, y - rf.y));
-      let dEnemies = 1e9;
-      for (const e of this.enemyList) dEnemies = Math.min(dEnemies, Math.hypot(x - e.x, y - e.y));
-      const score = Math.min(dPlayer, 400) + Math.min(dRifts, 300) * 1.5 + Math.min(dEnemies, 250);
-      if (score > bestScore) {
-        bestScore = score;
-        bestP = { x, y };
-      }
-    }
-    return bestP;
-  }
-
-  private spawnRift(queue: EnemyKind[], delay = 0) {
-    const p = this.spawnRiftPoint();
-    // size the crack for the biggest ship it will release: 60% larger than
-    // that ship's diameter, floored at the fighter-rift size (52)
-    let maxR = 0;
-    for (const k of queue) maxR = Math.max(maxR, this.enemyDef(k).r);
-    const size = Math.max(maxR * 2 * 1.6, 52);
-    this.riftField.spawn(p.x, p.y, queue, delay, size);
-  }
-
-  private enemyDef(kind: EnemyKind): EnemyDef {
-    return enemyDefFor(kind, this.wave);
-  }
-
-  private spawnEnemy(kind: EnemyKind, x: number, y: number, parent: Enemy | null) {
-    const def = this.enemyDef(kind);
-    this.enemyList.push({
-      kind,
-      x,
-      y,
-      vx: 0,
-      vy: 0,
-      angle: rand(0, TAU),
-      hp: def.hp,
-      maxHp: def.hp,
-      r: def.r,
-      speed: def.speed,
-      contact: def.contact,
-      score: def.score,
-      boltDmg: def.bolt,
-      fireCd: rand(0.3, 1),
-      mode: 0,
-      modeT: 0,
-      strafeDir: Math.random() < 0.5 ? -1 : 1,
-      seed: Math.random() * 100,
-      spawnCd: rand(1, 2),
-      flash: 0,
-      hitCd: 0,
-      dead: false,
-      parent,
+    this.eventBus.on("zone_update", (data) => {
+      const { x, y, radius, targetRadius, alpha, active } = data;
+      this.zoneX = x;
+      this.zoneY = y;
+      this.zoneR = radius;
+      this.zoneTarget = targetRadius;
+      this.zoneAlpha = alpha;
+      this.zoneOn = active;
     });
   }
 
-  private waveCleared() {
-    if (this.waveClearSent) return; // one banner per wave, guaranteed
-    this.waveClearSent = true;
-    this.state = "cleared";
-    this.clearT = 2.2;
-    this.audio.setCombat(false);
-    this.audio.waveClear();
-    this.zoneCollapse = 0;
-    this.hooks.onBanner({ title: t("game.waveCleared"), color: C.heal });
-    const bonus = 100 + this.wave * 25;
-    this.score += bonus;
-    this.popup(this.px, this.py - 40, `+${bonus}`, C.heal);
-  }
+  private step(dt: number) {
+    const dtScaled = dt * this.timeScale;
+    this.time += dtScaled;
 
-  /* ---------------- update ---------------- */
-
-  private step(rdt: number) {
-    this.time += rdt;
+    this.gameState.setTime(this.time);
+    this.gameState.setWave(this.wave);
+    this.gameState.setScore(this.score);
 
     if (this.state === "menu") {
-      this.updateCamera(rdt);
-      this.asteroidField.update(rdt, this.asteroidEnv());
-      this.draw();
+      this.updateMenu(dtScaled);
       return;
     }
 
-    const dt = this.paused ? 0 : rdt * this.timeScale;
-    if (dt > 0) this.runTime += dt;
-
-    this.updateCamera(rdt);
-    this.comboT = Math.max(0, this.comboT - dt);
-    if (this.comboT === 0) this.combo = 0;
-
-    if (this.state === "playing" || this.state === "active" || this.state === "cleared") {
-      this.updatePlayer(dt);
-      this.updateAllyDrones(dt);
-      this.updateBullets(dt);
-      this.updateEBullets(dt);
-      this.updatePickups(dt);
-      this.updateMines(dt);
-      this.asteroidField.update(dt, this.asteroidEnv());
-      this.updateRifts(dt);
-      this.updateZoneAndWaves(dt);
-    }
-    if (this.state === "active" || this.state === "cleared") {
-      this.updateEnemies(dt);
-    }
-    if (this.state === "dying") {
-      this.dieT -= rdt;
-      if (this.dieT <= 0) {
-        this.state = "over";
-        const isBest = this.score > this.best;
-        if (isBest) {
-          this.best = this.score;
-          try {
-            localStorage.setItem(BEST_KEY, String(this.best));
-          } catch {
-            /* storage full or blocked */
-          }
-        }
-        this.hooks.onStats({
-          score: this.score,
-          best: this.best,
-          isBest,
-          wave: this.wave,
-          kills: this.killed,
-          time: this.runTime,
-        });
-      }
-    }
-
-    // particles freeze with the game clock; shake decays in real time
-    this.fx.update(dt, rdt);
-    this.emitHud();
-    this.draw();
-  }
-
-  private updateCamera(rdt: number) {
-    const k = 1 - Math.exp(-5 * rdt);
-    this.camX += (this.px - this.camX) * k;
-    this.camY += (this.py - this.camY) * k;
-  }
-
-  private addShake(v: number) {
-    this.fx.addShake(v);
-  }
-
-  private updatePlayer(dt: number) {
-    const mv = this.input.axis;
-    let ax = mv.x;
-    let ay = mv.y;
-    const l = Math.hypot(ax, ay);
-    this.thrusting = l > 0;
-    this.dashT = Math.max(0, this.dashT - dt);
-    const dashing = this.dashT > 0;
-    if (l > 0) {
-      const norm = l > 1 ? l : 1;
-      ax /= norm;
-      ay /= norm;
-      this.pvx += ax * 1500 * (dashing ? DASH_ACCEL : 1) * dt;
-      this.pvy += ay * 1500 * (dashing ? DASH_ACCEL : 1) * dt;
-    }
-    const fr = Math.exp(-2.4 * dt);
-    this.pvx *= fr;
-    this.pvy *= fr;
-    const sp = Math.hypot(this.pvx, this.pvy);
-    const cap = PLAYER_MAX_SPEED * (dashing ? DASH_SPEED : 1);
-    if (sp > cap) {
-      this.pvx *= cap / sp;
-      this.pvy *= cap / sp;
-    }
-    this.px += this.pvx * dt;
-    this.py += this.pvy * dt;
-
-    // dash speed-trail
-    if (dashing && sp > 60) {
-      for (let i = 0; i < 2; i++) {
-        this.fx.emit({
-          x: this.px - (this.pvx / sp) * 10 + rand(-5, 5),
-          y: this.py - (this.pvy / sp) * 10 + rand(-5, 5),
-          vx: -(this.pvx / sp) * rand(40, 130),
-          vy: -(this.pvy / sp) * rand(40, 130),
-          life: rand(0.2, 0.4),
-          maxLife: 0.4,
-          c: rgba(C.dash, 0.8),
-          size: rand(1, 2.2),
-        });
-      }
-    }
-
-    if (sp > 20) {
-      this.pAngle = lerpAngle(this.pAngle, Math.atan2(this.pvy, this.pvx), 1 - Math.exp(-8 * dt));
-    }
-
-    this.invuln = Math.max(0, this.invuln - dt);
-    const pObj = { x: this.px, y: this.py, vx: this.pvx, vy: this.pvy, r: 13 };
-    // the pilot may overshoot the dashed edge line — the wall beyond it
-    // is what hurts, not the line itself
-    this.clampToZone(pObj, ZONE_WALL_OVERDRIVE);
-    this.px = pObj.x;
-    this.py = pObj.y;
-    this.pvx = pObj.vx;
-    this.pvy = pObj.vy;
-
-    this.updateEdgeDanger(dt);
-
-    // turret: aim & fire at the nearest target (enemies preferred over rocks).
-    // During a live wave the gun only locks onto targets INSIDE the zone.
-    const zoneLive = this.zoneOn && this.zoneAlpha > 0.4 && this.zoneR > 60;
-    const inZone = (x: number, y: number) =>
-      !zoneLive || Math.hypot(x - this.zoneX, y - this.zoneY) <= this.zoneR;
-    const rate = Math.min(8.5, 4.4 + this.wave * 0.12) * (1 + this.rateBoost);
-    let bestX = 0;
-    let bestY = 0;
-    let bestVX = 0;
-    let bestVY = 0;
-    let bestD = 1e9;
-    for (const e of this.enemyList) {
-      if (e.dead || !inZone(e.x, e.y)) continue;
-      // slight preference for living targets, but a clearly-closer rock still wins
-      const d = Math.hypot(e.x - this.px, e.y - this.py) * 0.85;
-      if (d < bestD) {
-        bestD = d;
-        bestX = e.x;
-        bestY = e.y;
-        bestVX = e.vx;
-        bestVY = e.vy;
-      }
-    }
-    for (const a of this.asteroidField.list) {
-      if (!inZone(a.x, a.y)) continue;
-      const d = Math.hypot(a.x - this.px, a.y - this.py);
-      if (d < bestD) {
-        bestD = d;
-        bestX = a.x;
-        bestY = a.y;
-        bestVX = a.vx;
-        bestVY = a.vy;
-      }
-    }
-    if (bestD < 620) {
-      const leadT = (bestD / 560) * 0.6;
-      const tx = bestX + bestVX * leadT - this.px;
-      const ty = bestY + bestVY * leadT - this.py;
-      this.aimA = Math.atan2(ty, tx);
-      this.fireCd -= dt;
-      while (this.fireCd <= 0) {
-        this.fireCd += 1 / rate;
-        this.fireAll(this.aimA);
-      }
-    } else {
-      this.aimA = null;
-      if (this.fireCd < 0) this.fireCd = 0;
-    }
-  }
-
-  private fireAll(angle: number) {
-    for (let i = 0; i < this.guns; i++) {
-      this.fireBullet(GUN_OFFS[i], (Math.random() - 0.5) * 0.06, angle);
-    }
-    this.audio.shoot();
-  }
-
-  private fireBullet(offset: number, spread: number, targetAngle: number) {
-    const a = targetAngle + spread;
-    const nx = this.px + Math.cos(targetAngle) * 14 - Math.sin(targetAngle) * offset;
-    const ny = this.py + Math.sin(targetAngle) * 14 + Math.cos(targetAngle) * offset;
-    const sp = PLAYER_BULLET_SPEED;
-    this.bullets.push({
-      x: nx,
-      y: ny,
-      vx: Math.cos(a) * sp + this.pvx * 0.25,
-      vy: Math.sin(a) * sp + this.pvy * 0.25,
-      life: PLAYER_BULLET_LIFE,
-      dmg: PLAYER_BULLET_DMG,
-    });
-    this.burst(nx, ny, 2, C.mint, 90, 0.15);
-  }
-
-  private enemyFire(e: Enemy, speed: number, heavy: boolean, spread: number, life: number) {
-    const aa =
-      Math.atan2(this.py - e.y, this.px - e.x) + (Math.random() - 0.5) * 2 * spread;
-    this.enemyBulletList.push({
-      x: e.x + Math.cos(aa) * (e.r + 6),
-      y: e.y + Math.sin(aa) * (e.r + 6),
-      vx: Math.cos(aa) * speed,
-      vy: Math.sin(aa) * speed,
-      life,
-      dmg: e.boltDmg,
-      heavy,
-    });
-    if (heavy) this.audio.heavyShoot();
-    else this.audio.enemyShoot();
-  }
-
-  private updateAllyDrones(dt: number) {
-    const n = this.allyDrones.length;
-    if (n === 0) return;
-    const orbitR = 58;
-    for (let i = 0; i < n; i++) {
-      const d = this.allyDrones[i];
-      d.flash = Math.max(0, d.flash - dt * 4);
-      const baseA = this.time * 1.1 + d.phase;
-      const tx = this.px + Math.cos(baseA) * orbitR;
-      const ty = this.py + Math.sin(baseA) * orbitR;
-      const k = 1 - Math.exp(-6 * dt);
-      d.x += (tx - d.x) * k;
-      d.y += (ty - d.y) * k;
-
-      // autonomous target selection
-      d.retargetT -= dt;
-      const t0 = d.target;
-      const targetOk =
-        t0 &&
-        !t0.dead &&
-        t0.hp > 0 &&
-        Math.hypot(t0.x - d.x, t0.y - d.y) < 430;
-      if (!targetOk || d.retargetT <= 0) {
-        d.retargetT = 1.2;
-        let bestE: Enemy | null = null;
-        let bestD = 430;
-        for (const e of this.enemyList) {
-          if (e.dead) continue;
-          const dd = Math.hypot(e.x - d.x, e.y - d.y);
-          if (dd < bestD) {
-            bestD = dd;
-            bestE = e;
-          }
-        }
-        d.target = bestE;
-      }
-
-      if (d.target) {
-        d.angle = lerpAngle(
-          d.angle,
-          Math.atan2(d.target.y - d.y, d.target.x - d.x),
-          1 - Math.exp(-9 * dt)
-        );
-        d.fireCd -= dt;
-        if (d.fireCd <= 0) {
-          d.fireCd = 0.5;
-          const a = d.angle + (Math.random() - 0.5) * 0.08;
-          this.bullets.push({
-            x: d.x + Math.cos(d.angle) * 8,
-            y: d.y + Math.sin(d.angle) * 8,
-            vx: Math.cos(a) * 520,
-            vy: Math.sin(a) * 520,
-            life: 0.8,
-            dmg: 8,
-          });
-          this.audio.droneShot();
-        }
-      } else {
-        d.angle = lerpAngle(d.angle, baseA + Math.PI / 2, 1 - Math.exp(-4 * dt));
-      }
-    }
-  }
-
-  private updateEnemies(dt: number) {
-    // gather live drones for the boids flock
-    this.flock.length = 0;
-    for (const e of this.enemyList) {
-      if (e.kind === "drone" && !e.dead) this.flock.push(e);
-    }
-
-    for (const e of this.enemyList) {
-      if (e.dead) continue;
-      e.flash = Math.max(0, e.flash - dt * 5);
-      e.hitCd = Math.max(0, e.hitCd - dt);
-      const dx = this.px - e.x;
-      const dy = this.py - e.y;
-      const dist = Math.hypot(dx, dy) || 1;
-      const dirX = dx / dist;
-      const dirY = dy / dist;
-      const alive = this.state === "active";
-
-      switch (e.kind) {
-        case "drone": {
-          /* Boids swarm: separation + alignment + cohesion, still seeking the player. */
-          const SEP_R = 36;
-          const SEP_R2 = SEP_R * SEP_R;
-          const ALI_R2 = 85 * 85;
-          const SEP_W = 320;
-          const ALIGN = 0.35;
-          const COH = 0.7;
-
-          let sepX = 0,
-            sepY = 0,
-            aliX = 0,
-            aliY = 0,
-            aliN = 0,
-            cohX = 0,
-            cohY = 0,
-            cohN = 0;
-          for (const o of this.flock) {
-            if (o === e || o.dead) continue;
-            const ddx = e.x - o.x;
-            const ddy = e.y - o.y;
-            const d2 = ddx * ddx + ddy * ddy;
-            if (d2 < ALI_R2 && d2 > 0.0001) {
-              aliX += o.vx;
-              aliY += o.vy;
-              aliN++;
-              cohX += o.x;
-              cohY += o.y;
-              cohN++;
-              if (d2 < SEP_R2) {
-                const d = Math.sqrt(d2);
-                const w = 1 - d / SEP_R;
-                sepX += (ddx / d) * w;
-                sepY += (ddy / d) * w;
-              }
-            }
-          }
-
-          let desX = dirX * e.speed;
-          let desY = dirY * e.speed;
-          desX += sepX * SEP_W;
-          desY += sepY * SEP_W;
-          if (aliN > 0) {
-            desX += (aliX / aliN - desX) * ALIGN;
-            desY += (aliY / aliN - desY) * ALIGN;
-          }
-          if (cohN > 0) {
-            desX += (cohX / cohN - e.x) * COH;
-            desY += (cohY / cohN - e.y) * COH;
-          }
-
-          const k = 1 - Math.exp(-3.2 * dt);
-          e.vx += (desX - e.vx) * k;
-          e.vy += (desY - e.vy) * k;
-          const dsp2 = e.vx * e.vx + e.vy * e.vy;
-          const dspMax = e.speed * 1.5;
-          if (dsp2 > dspMax * dspMax) {
-            const s = dspMax / Math.sqrt(dsp2);
-            e.vx *= s;
-            e.vy *= s;
-          }
-          const dsp = Math.sqrt(dsp2);
-          if (dsp > 5) {
-            e.angle = lerpAngle(e.angle, Math.atan2(e.vy, e.vx), 1 - Math.exp(-9 * dt));
-          }
-          break;
-        }
-
-        case "hunter": {
-          /* The seeker aims at the point where the player WILL be in 1s.
-             It is a hair slower than the ship, so it never wins a straight
-             chase — but the moment the pilot turns or slows, the predicted
-             point swings round and the hunter cuts in for the ram. */
-          const leadX = this.px + this.pvx * 1.0;
-          const leadY = this.py + this.pvy * 1.0;
-          const hx = leadX - e.x;
-          const hy = leadY - e.y;
-          const hd = Math.hypot(hx, hy) || 1;
-          // steer a little harder when the intercept point is close so it
-          // actually commits to the collision instead of orbiting it
-          const k = 1 - Math.exp(-(hd < 120 ? 7.5 : 4.5) * dt);
-          e.vx += ((hx / hd) * e.speed - e.vx) * k;
-          e.vy += ((hy / hd) * e.speed - e.vy) * k;
-          const hv = Math.hypot(e.vx, e.vy);
-          if (hv > 5) {
-            e.angle = lerpAngle(e.angle, Math.atan2(e.vy, e.vx), 1 - Math.exp(-10 * dt));
-          }
-          break;
-        }
-
-        case "fighter": {
-          e.modeT -= dt;
-          if (e.mode === 0) {
-            e.vx += (dirX * e.speed - e.vx) * (1 - Math.exp(-4 * dt));
-            e.vy += (dirY * e.speed - e.vy) * (1 - Math.exp(-4 * dt));
-            if (dist < 300) {
-              e.mode = 1;
-              e.modeT = rand(1.3, 2);
-              e.strafeDir = Math.random() < 0.5 ? -1 : 1;
-            }
-          } else if (e.mode === 1) {
-            const tx = -dirY * e.strafeDir;
-            const ty = dirX * e.strafeDir;
-            const radial = (dist - 265) * 2.2;
-            e.vx += (tx * e.speed * 0.95 + dirX * radial - e.vx) * (1 - Math.exp(-5 * dt));
-            e.vy += (ty * e.speed * 0.95 + dirY * radial - e.vy) * (1 - Math.exp(-5 * dt));
-            if (e.modeT <= 0) {
-              e.mode = 2;
-              e.modeT = rand(0.9, 1.4);
-            }
-          } else {
-            const tx = -dirX * 0.7 - dirY * e.strafeDir * 0.7;
-            const ty = -dirY * 0.7 + dirX * e.strafeDir * 0.7;
-            e.vx += (tx * e.speed - e.vx) * (1 - Math.exp(-4.5 * dt));
-            e.vy += (ty * e.speed - e.vy) * (1 - Math.exp(-4.5 * dt));
-            if (e.modeT <= 0) e.mode = 0;
-          }
-          e.angle = Math.atan2(e.vy, e.vx);
-          // continuous fire at 50% of the player's base rate
-          e.fireCd -= dt;
-          if (e.fireCd <= 0 && dist < 420 && alive) {
-            e.fireCd = 2 / (4.4 + this.wave * 0.12);
-            this.enemyFire(e, 300, false, 0.15, 1.35);
-          }
-          break;
-        }
-
-        case "cruiser": {
-          // escort a nearby carrier, otherwise hold a standoff ring around the player
-          let escort: Enemy | null = null;
-          let ed = 1e9;
-          for (const o of this.enemyList) {
-            if (o.kind !== "carrier" || o.dead) continue;
-            const dd = Math.hypot(e.x - o.x, e.y - o.y);
-            if (dd < ed) {
-              ed = dd;
-              escort = o;
-            }
-          }
-          let desX: number;
-          let desY: number;
-          if (escort && ed < 290) {
-            const ox = e.x - escort.x;
-            const oy = e.y - escort.y;
-            const od = Math.hypot(ox, oy) || 1;
-            const radial = (od - 150) * 1.2;
-            desX = (ox / od) * radial + (-oy / od) * e.strafeDir * e.speed;
-            desY = (oy / od) * radial + (ox / od) * e.strafeDir * e.speed;
-          } else {
-            const zr = this.zoneTarget > 0 ? this.zoneTarget : 420;
-            const HOLD = Math.min(400, zr * 0.8);
-            const radial = (dist - HOLD) * 1.0;
-            desX = dirX * radial + -dirY * e.strafeDir * e.speed * 0.6;
-            desY = dirY * radial + dirX * e.strafeDir * e.speed * 0.6;
-          }
-          for (const o of this.enemyList) {
-            if (o === e || o.dead) continue;
-            if (o.kind !== "cruiser" && o.kind !== "carrier") continue;
-            const sx = e.x - o.x;
-            const sy = e.y - o.y;
-            const sd = Math.hypot(sx, sy);
-            if (sd < 130 && sd > 0.001) {
-              const w = (1 - sd / 130) * 230;
-              desX += (sx / sd) * w;
-              desY += (sy / sd) * w;
-            }
-          }
-          const k = 1 - Math.exp(-1.0 * dt);
-          e.vx += (desX - e.vx) * k;
-          e.vy += (desY - e.vy) * k;
-          const ksp = Math.hypot(e.vx, e.vy);
-          const kmax = e.speed * 1.7;
-          if (ksp > kmax) {
-            e.vx *= kmax / ksp;
-            e.vy *= kmax / ksp;
-          }
-          e.angle = lerpAngle(e.angle, Math.atan2(dy, dx), 1 - Math.exp(-1.2 * dt));
-          e.fireCd -= dt;
-          if (e.fireCd <= 0 && dist < 460 && alive) {
-            e.fireCd = Math.max(2.0, 3.2 - this.wave * 0.04);
-            for (let s = -1; s <= 1; s++) {
-              const aa = Math.atan2(dy, dx) + s * 0.13;
-              this.enemyBulletList.push({
-                x: e.x + Math.cos(aa) * (e.r + 6),
-                y: e.y + Math.sin(aa) * (e.r + 6),
-                vx: Math.cos(aa) * 200,
-                vy: Math.sin(aa) * 200,
-                life: 2.0,
-                dmg: e.boltDmg,
-                heavy: true,
-              });
-            }
-            this.audio.heavyShoot();
-          }
-          break;
-        }
-
-        case "carrier": {
-          const zr = this.zoneTarget > 0 ? this.zoneTarget : 420;
-          const HOLD = Math.min(520, zr * 0.92);
-          const radial = (dist - HOLD) * 1.0;
-          let desX = dirX * radial + -dirY * e.strafeDir * e.speed * 0.7;
-          let desY = dirY * radial + dirX * e.strafeDir * e.speed * 0.7;
-          for (const o of this.enemyList) {
-            if (o === e || o.dead || o.kind !== "carrier") continue;
-            const sx = e.x - o.x;
-            const sy = e.y - o.y;
-            const sd = Math.hypot(sx, sy);
-            if (sd < 260 && sd > 0.001) {
-              const w = (1 - sd / 260) * 170;
-              desX += (sx / sd) * w;
-              desY += (sy / sd) * w;
-            }
-          }
-          const k = 1 - Math.exp(-1.1 * dt);
-          e.vx += (desX - e.vx) * k;
-          e.vy += (desY - e.vy) * k;
-          const ksp = Math.hypot(e.vx, e.vy);
-          const kmax = e.speed * 1.5;
-          if (ksp > kmax) {
-            e.vx *= kmax / ksp;
-            e.vy *= kmax / ksp;
-          }
-          e.angle = lerpAngle(e.angle, Math.atan2(dy, dx), 1 - Math.exp(-1.2 * dt));
-          e.spawnCd -= dt;
-          let droneCount = 0;
-          for (const o of this.enemyList) {
-            if (o.kind === "drone" && o.parent === e && !o.dead) droneCount++;
-          }
-          if (e.spawnCd <= 0 && droneCount < 3 && alive) {
-            e.spawnCd = rand(2.2, 3.4);
-            this.spawnEnemy("drone", e.x + rand(-20, 20), e.y + rand(-20, 20), e);
-            this.audio.riftSpawn();
-          }
-          break;
-        }
-      }
-
-      e.x += e.vx * dt;
-      e.y += e.vy * dt;
-      this.clampToZone(e);
-
-      // contact with the player: normal ram hurts the ship, but during a
-      // dash the ship becomes the battering ram instead
-      if (alive && this.state === "active") {
-        const rr = e.r + PLAYER_RADIUS;
-        if (dist < rr) {
-          if (this.dashT > 0) {
-            if (e.hitCd <= 0) {
-              e.hp -= DASH_DMG;
-              e.hitCd = 0.18;
-              e.flash = 1;
-              // shove the victim away from the ship
-              const kx = dist > 0.001 ? dx / dist : 1;
-              const ky = dist > 0.001 ? dy / dist : 0;
-              e.vx += kx * 420;
-              e.vy += ky * 420;
-              this.burst(e.x - kx * e.r, e.y - ky * e.r, 6, C.dash, 200, 0.3);
-              this.addShake(3);
-              this.audio.dashRam();
-              if (e.hp <= 0 && !e.dead) {
-                e.dead = true;
-                this.killEnemy(e);
-              }
-            }
-          } else if (this.invuln <= 0) {
-            this.damagePlayer(e.contact, e.x, e.y);
-            if (e.kind === "drone" || e.kind === "hunter") {
-              e.hp = 0;
-              e.dead = true;
-              this.killEnemy(e);
-            }
-          }
-        }
-      }
-    }
-
-    // remove dead
-    for (let i = this.enemyList.length - 1; i >= 0; i--) {
-      if (this.enemyList[i].dead) this.enemyList.splice(i, 1);
-    }
-  }
-
-  private updateBullets(dt: number) {
-    for (let i = this.bullets.length - 1; i >= 0; i--) {
-      const b = this.bullets[i];
-      b.life -= dt;
-      b.x += b.vx * dt;
-      b.y += b.vy * dt;
-      // bullets are free to leave the wave zone — that's what lets the
-      // turret break the asteroids ringing the arena mid-wave. Their
-      // 0.85s lifetime still bounds how far any shot can travel.
-      let dead = b.life <= 0;
-      if (!dead) {
-        for (const e of this.enemyList) {
-          if (e.dead) continue;
-          const rr = e.r + 3;
-          if (Math.hypot(b.x - e.x, b.y - e.y) < rr) {
-            dead = true;
-            e.hp -= b.dmg;
-            e.flash = 1;
-            this.burst(b.x, b.y, 3, C.white, 120, 0.2);
-            if (e.hp <= 0) {
-              e.dead = true;
-              this.killEnemy(e);
-            }
-            break;
-          }
-        }
-      }
-      // rocks block shots too
-      if (!dead) {
-        for (let j = this.asteroidField.list.length - 1; j >= 0; j--) {
-          const a = this.asteroidField.list[j];
-          if (Math.hypot(b.x - a.x, b.y - a.y) < a.r) {
-            dead = true;
-            this.asteroidField.damageAt(j, b.dmg, b.x, b.y);
-            break;
-          }
-        }
-      }
-      if (dead) this.bullets.splice(i, 1);
-    }
-  }
-
-  private updateEBullets(dt: number) {
-    for (let i = this.enemyBulletList.length - 1; i >= 0; i--) {
-      const b = this.enemyBulletList[i];
-      b.life -= dt;
-      b.x += b.vx * dt;
-      b.y += b.vy * dt;
-      let dead = b.life <= 0;
-      if (!dead && this.zoneOn && this.zoneAlpha > 0.4) {
-        if (Math.hypot(b.x - this.zoneX, b.y - this.zoneY) > this.zoneR + 10) dead = true;
-      }
-      // ally drones can be shot down
-      const aliveNow = this.state === "active" || this.state === "cleared";
-      if (!dead && aliveNow) {
-        for (let j = this.allyDrones.length - 1; j >= 0; j--) {
-          const d = this.allyDrones[j];
-          const ddx = b.x - d.x;
-          const ddy = b.y - d.y;
-          if (ddx * ddx + ddy * ddy < 144) {
-            dead = true;
-            d.hp -= b.dmg;
-            d.flash = 1;
-            this.burst(d.x, d.y, 4, C.mint, 150, 0.25);
-            this.audio.droneHit();
-            if (d.hp <= 0) {
-              this.allyDrones.splice(j, 1);
-              this.burst(d.x, d.y, 18, C.mint, 280, 0.55);
-              this.fx.ring(d.x, d.y, 6, 320, 0.35, C.mint);
-              this.addShake(4);
-              this.audio.explode(0.8);
-              this.popup(d.x, d.y - 14, t("game.droneLost"), C.zone);
-            }
-            break;
-          }
-        }
-      }
-      if (!dead && aliveNow && this.invuln <= 0) {
-        if (Math.hypot(b.x - this.px, b.y - this.py) < 14) {
-          dead = true;
-          this.damagePlayer(b.dmg, b.x, b.y);
-        }
-      }
-      if (dead) this.enemyBulletList.splice(i, 1);
-    }
-  }
-
-  private updatePickups(dt: number) {
-    for (let i = this.pickups.length - 1; i >= 0; i--) {
-      const p = this.pickups[i];
-      p.life -= dt;
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
-      p.vx *= Math.exp(-1.5 * dt);
-      p.vy *= Math.exp(-1.5 * dt);
-
-      // drift back toward the zone edge if knocked outside and unmagnetized
-      if (this.zoneOn && this.zoneAlpha > 0.4 && this.zoneR > 60) {
-        const zdx = p.x - this.zoneX;
-        const zdy = p.y - this.zoneY;
-        const zd = Math.hypot(zdx, zdy);
-        const dToPlayer = Math.hypot(this.px - p.x, this.py - p.y);
-        if (zd > this.zoneR && dToPlayer > ZONE_PICKUP_MAGNET) {
-          const over = zd - this.zoneR;
-          const pull = Math.min(320, 60 + over * 2.2);
-          p.vx -= (zdx / zd) * pull * dt;
-          p.vy -= (zdy / zd) * pull * dt;
-        }
-      }
-
-      const dx = this.px - p.x;
-      const dy = this.py - p.y;
-      const d = Math.hypot(dx, dy);
-      // bonuses are collected at any moment — no game mode blocks pickup
-      const canPickup = this.state !== "menu";
-      if (d < 150 && d > 0.001 && canPickup) {
-        p.vx += (dx / d) * 900 * dt;
-        p.vy += (dy / d) * 900 * dt;
-      }
-
-      let dead = p.life <= 0;
-      if (!dead && canPickup && d < PLAYER_RADIUS + 13) {
-        dead = true;
-        this.applyPickup(p);
-      }
-      if (dead) this.pickups.splice(i, 1);
-    }
-    if (this.rateT > 0) {
-      this.rateT = Math.max(0, this.rateT - dt);
-      if (this.rateT === 0) this.rateBoost = 0;
-    }
-  }
-
-  /* ---------------- mines ---------------- */
-
-  private updateMines(dt: number) {
-    // scheduled drop: the miner bonus releases its charge a couple of
-    // seconds after being collected, right under the ship
-    if (this.mineDropT > 0) {
-      this.mineDropT -= dt;
-      if (this.mineDropT <= 0) {
-        this.mineDropT = -1;
-        this.mines.push({
-          x: this.px,
-          y: this.py,
-          fuse: MINE_LIFE,
-          seed: Math.random() * 100,
-        });
-        this.popup(this.px, this.py - 22, t("game.minePlaced"), C.mine);
-        this.burst(this.px, this.py, 8, C.mine, 130, 0.3);
-        this.audio.minePlace();
-      }
-    }
-
-    for (let i = this.mines.length - 1; i >= 0; i--) {
-      const m = this.mines[i];
-      m.fuse -= dt;
-      let boom = m.fuse <= 0;
-
-      // primary trigger: the pilot flies out of the blast radius
-      if (!boom && this.state !== "dying" && this.state !== "over") {
-        const dp = Math.hypot(m.x - this.px, m.y - this.py);
-        if (dp > MINE_RADIUS) boom = true;
-      }
-      // classic mine behavior: an enemy stepping on it also sets it off
-      if (!boom) {
-        for (const e of this.enemyList) {
-          if (e.dead) continue;
-          if (Math.hypot(e.x - m.x, e.y - m.y) < e.r + 9) {
-            boom = true;
-            break;
-          }
-        }
-      }
-      if (boom) {
-        this.mines.splice(i, 1);
-        this.detonateMine(m);
-      }
-    }
-  }
-
-  private detonateMine(m: Mine) {
-    this.audio.mineBoom();
-    this.addShake(12);
-    this.burst(m.x, m.y, 42, C.mine, 430, 0.7);
-    this.burst(m.x, m.y, 16, C.white, 280, 0.45);
-    this.fx.ring(m.x, m.y, 8, 720, 0.42, C.mine);
-    this.fx.ring(m.x, m.y, 4, 520, 0.3, C.white);
-
-    const R = MINE_RADIUS * 1.15;
-    for (const e of this.enemyList) {
-      if (e.dead) continue;
-      const d = Math.hypot(e.x - m.x, e.y - m.y);
-      if (d < R) {
-        const fall = 1 - 0.6 * (d / R); // full at the center, 40% at the edge
-        e.hp -= MINE_DMG * fall;
-        e.flash = 1;
-        // knock everyone away from ground zero
-        const kx = d > 0.001 ? (e.x - m.x) / d : 1;
-        const ky = d > 0.001 ? (e.y - m.y) / d : 0;
-        const kb = 430 * fall;
-        e.vx += kx * kb;
-        e.vy += ky * kb;
-        if (e.hp <= 0) {
-          e.dead = true;
-          this.killEnemy(e);
-        }
-      }
-    }
-    // the blast also clears enemy fire caught inside it
-    for (let i = this.enemyBulletList.length - 1; i >= 0; i--) {
-      const b = this.enemyBulletList[i];
-      if (Math.hypot(b.x - m.x, b.y - m.y) < R) this.enemyBulletList.splice(i, 1);
-    }
-  }
-
-  /* ---------------- asteroid field ---------------- */
-
-
-
-
-
-
-
-
-
-  private applyPickup(p: Pickup) {
-    const heal = (f: number) => {
-      const before = this.hp;
-      this.hp = Math.min(this.maxHp, this.hp + this.maxHp * f);
-      const healed = Math.round(this.hp - before);
-      this.popup(
-        p.x,
-        p.y - 16,
-        healed > 0 ? `+${healed} ${t("game.hull")}` : t("game.hullMax"),
-        C.heal
-      );
-      this.burst(p.x, p.y, 10, C.heal, 160, 0.45);
-      this.audio.pickupHeal();
-    };
-    const rateVal = (v: number) => {
-      this.rateBoost = Math.min(1, this.rateBoost + v);
-      this.rateT = RATE_BOOST_TIME;
-      this.popup(
-        p.x,
-        p.y - 16,
-        t("game.rate", { p: Math.round(this.rateBoost * 100), s: RATE_BOOST_TIME }),
-        C.fighter
-      );
-      this.burst(p.x, p.y, 10, C.fighter, 170, 0.4);
-      this.audio.pickupRate();
-    };
-    switch (p.kind) {
-      case "heal25":
-        heal(0.25);
-        break;
-      case "heal50":
-        heal(0.5);
-        break;
-      case "heal100":
-        heal(1);
-        break;
-      case "rate20":
-        rateVal(0.2);
-        break;
-      case "rate40":
-        rateVal(0.4);
-        break;
-      case "rate60":
-        rateVal(0.6);
-        break;
-      case "gun":
-        if (this.guns < MAX_GUNS) {
-          this.guns++;
-          this.popup(p.x, p.y - 16, t("game.gun", { g: this.guns }), C.player);
-          this.burst(p.x, p.y, 12, C.player, 200, 0.5);
-          this.audio.pickupGun();
-        } else {
-          this.score += 300;
-          this.popup(p.x, p.y - 16, t("game.gunMax"), C.player);
-          this.audio.pickupGun();
-        }
-        break;
-      case "drone":
-        if (this.allyDrones.length < MAX_ALLY_DRONES) {
-          const droneHp = 45 + this.wave * 1.5;
-          this.allyDrones.push({
-            x: p.x,
-            y: p.y,
-            angle: 0,
-            fireCd: 0.25,
-            phase: Math.random() * TAU,
-            hp: droneHp,
-            maxHp: droneHp,
-            target: null,
-            retargetT: 0,
-            flash: 0,
-          });
-          this.popup(p.x, p.y - 16, t("game.drone", { i: this.allyDrones.length }), C.mint);
-          this.burst(p.x, p.y, 12, C.mint, 200, 0.5);
-          this.audio.pickupDrone();
-        } else {
-          this.score += 400;
-          this.popup(p.x, p.y - 16, t("game.droneMax"), C.mint);
-          this.audio.pickupDrone();
-        }
-        break;
-      case "dash":
-        this.dashT = DASH_TIME;
-        // instant kick along the current travel direction
-        const psp = Math.hypot(this.pvx, this.pvy);
-        if (psp > 1) {
-          this.pvx += (this.pvx / psp) * 260;
-          this.pvy += (this.pvy / psp) * 260;
-        }
-        this.popup(p.x, p.y - 16, t("game.dash"), C.dash);
-        this.burst(p.x, p.y, 14, C.dash, 260, 0.5);
-        this.fx.ring(p.x, p.y, 10, 420, 0.35, C.dash);
-        this.audio.pickupDash();
-        break;
-      case "miner":
-        // the mine drops automatically a couple of seconds later
-        this.mineDropT = MINE_DELAY;
-        this.popup(p.x, p.y - 16, t("game.mineReady"), C.mine);
-        this.burst(p.x, p.y, 10, C.mine, 170, 0.4);
-        this.audio.minePlace();
-        break;
-      case "mineral":
-        this.minerals++;
-        this.popup(p.x, p.y - 14, `+1 ${t("game.mineral")}`, C.heal);
-        this.burst(p.x, p.y, 6, C.heal, 110, 0.3);
-        this.audio.pickupHeal();
-        break;
-    }
-  }
-
-  /** Create a pickup at a point with a given velocity (used by subsystems). */
-  private spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number) {
-    this.pickups.push({ kind, x, y, vx, vy, life: 13, seed: Math.random() * 100 });
-  }
-
-  private maybeDrop(e: Enemy) {
-    if (Math.random() > dropChanceFor(e.kind)) return;
-
-    const w = this.wave;
-    const ramp = (s: number, f: number) => this.rampW(w, s, f);
-    const lowHull = this.hp / this.maxHp < 0.5 ? 2 : 1;
-    const table: Array<[PickupKind, number]> = [
-      ["heal25", 0.45 * lowHull],
-      ["heal50", 0.2 * lowHull + 0.1 * ramp(1, 12)],
-      ["heal100", 0.05 * lowHull + 0.15 * ramp(1, 25)],
-      ["rate20", 0.3],
-      ["rate40", 0.04 + 0.2 * ramp(2, 14)],
-      ["rate60", 0.01 + 0.2 * ramp(4, 18)],
-      ["gun", this.guns < MAX_GUNS ? 0.05 + 0.3 * ramp(1, 12) : 0],
-      ["drone", this.allyDrones.length < MAX_ALLY_DRONES ? 0.06 + 0.3 * ramp(2, 14) : 0],
-      ["dash", 0.12 + 0.18 * ramp(2, 12)],
-      ["miner", 0.08 + 0.2 * ramp(3, 14)],
-    ];
-    let total = 0;
-    for (const [, wt] of table) total += wt;
-    if (total <= 0) return;
-    let roll = Math.random() * total;
-    let kind: PickupKind = "heal25";
-    for (const [k, wt] of table) {
-      roll -= wt;
-      if (roll <= 0) {
-        kind = k;
-        break;
-      }
-    }
-    this.pickups.push({
-      kind,
-      x: e.x,
-      y: e.y,
-      vx: rand(-70, 70),
-      vy: rand(-70, 70),
-      life: 13,
-      seed: Math.random() * 100,
-    });
-  }
-
-  private killEnemy(e: Enemy) {
-    this.killed++;
-    this.killedWave++;
-    this.combo++;
-    this.comboT = 2.5;
-    const mult = this.comboMult();
-    const gained = Math.round(e.score * mult);
-    this.score += gained;
-    this.popup(e.x, e.y - e.r - 6, t("game.points", { v: gained }), C.white);
-    if (this.combo > 0 && this.combo % 8 === 0) this.audio.comboUp(mult);
-
-    const col = this.kindColor(e.kind);
-    this.burst(e.x, e.y, e.kind === "carrier" ? 30 : e.kind === "cruiser" ? 22 : 14, col, 260, 0.5);
-    this.fx.ring(e.x, e.y, e.r * 0.5, 380, 0.3, col);
-
-    const shake =
-      e.kind === "drone" ? 0 : e.kind === "hunter" ? 3 : e.kind === "fighter" ? 2.5 : e.kind === "cruiser" ? 6.5 : 9;
-    this.addShake(shake);
-    this.audio.explode(e.kind === "carrier" ? 1.6 : e.kind === "cruiser" ? 1.3 : 0.9);
-
-    if (e.kind === "carrier") {
-      for (let i = 0; i < 2; i++) {
-        this.spawnEnemy("drone", e.x + rand(-20, 20), e.y + rand(-20, 20), null);
-      }
-    }
-
-    this.maybeDrop(e);
-  }
-
-  private kindColor(kind: EnemyKind): string {
-    switch (kind) {
-      case "drone":
-        return C.drone;
-      case "hunter":
-        return C.hunter;
-      case "fighter":
-        return C.fighter;
-      case "cruiser":
-        return C.cruiser;
-      case "carrier":
-        return C.carrier;
-    }
-  }
-
-  private comboMult() {
-    return 1 + Math.min(3, this.combo * 0.05);
-  }
-
-  /**
-   * The dashed edge line of the wave zone is a hazard:
-   * - crossing it deals hull damage that doubles every 2.5s the pilot
-   *   lingers outside (1% → 2% → 4% → 8% → 16% of max hull per second).
-   */
-  private updateEdgeDanger(dt: number) {
-    if (
-      this.state === "menu" ||
-      this.state === "dying" ||
-      this.state === "over" ||
-      !this.zoneOn ||
-      this.zoneAlpha < 0.4 ||
-      this.zoneR <= 60
-    ) {
-      this.edgeOutT = 0;
-      this.edgeTickT = 0;
-      this.edgeWarned = false;
+    if (this.paused) {
+      this.render();
       return;
     }
-    const line = this.zoneR * 0.96; // the dashed edge line
-    const pd = Math.hypot(this.px - this.zoneX, this.py - this.zoneY);
-    if (pd > line) {
-      if (this.edgeOutT === 0 && !this.edgeWarned) {
-        this.edgeWarned = true;
-        this.hooks.onToast({ text: t("game.zoneEdge"), color: "#ff3b52" });
-      }
-      this.edgeOutT += dt;
-      // doubles every 2.5s outside, capped so it escalates but never one-shots
-      const stage = Math.min(4, Math.floor(this.edgeOutT / 2.5));
-      const pct = Math.pow(2, stage); // % of max hull per second
-      if (!this.debugGod) {
-        this.hp -= this.maxHp * (pct / 100) * dt;
-      }
-      this.edgeTickT -= dt;
-      if (this.edgeTickT <= 0) {
-        this.edgeTickT = 0.4;
-        if (!this.debugGod) {
-          this.audio.playerHit();
-          this.addShake(3 + stage);
-          this.burst(this.px, this.py, 8, C.zone, 190, 0.35);
-        }
-      }
-      if (this.hp <= 0) this.onPlayerDeath();
-    } else if (pd < line - ZONE_EDGE_HYSTERESIS) {
-      // back in safety (with hysteresis so the timer doesn't flicker)
-      this.edgeOutT = 0;
-      this.edgeTickT = 0;
-      this.edgeWarned = false;
-    }
+
+    /* Update all systems in order */
+    this.countdownSystem.update(dtScaled);
+    this.playerSystem.update(dtScaled, this.state === "active");
+    this.enemySystem.update(dtScaled, this.enemyList, this.getPlayerPosition());
+    this.bulletSystem.update(dtScaled, this.bullets, this.enemyBulletList, this.enemyList);
+    this.mineSystem.update(dtScaled, this.mines);
+    this.droneSystem.update(dtScaled, this.allyDrones, this.enemyList);
+    this.pickupSystem.update(dtScaled, this.pickups);
+    this.collisionSystem.update(
+      dtScaled,
+      this.playerSystem.getState(),
+      this.enemyList,
+      this.bullets,
+      this.enemyBulletList,
+      this.pickups,
+      this.mines,
+      this.allyDrones
+    );
+    this.spawnSystem.update(dtScaled, this.wave, this.allocated, this.killedWave);
+    this.riftField.update(dtScaled);
+    this.updateZoneAndWaves(dtScaled);
+    this.updateEdgeDanger(dtScaled);
+
+    this.render();
+    this.updateHud();
   }
 
-  /** Shared death sequence — hull breaches from any source. */
-  private onPlayerDeath() {
-    if (this.state === "dying" || this.state === "over") return;
-    this.hp = 0;
-    this.state = "dying";
-    this.dieT = 1.6;
-    this.timeScale = 0.35;
-    this.audio.setCombat(false);
-    this.audio.gameOver();
-    this.burst(this.px, this.py, 40, C.player, 380, 0.9);
-    this.burst(this.px, this.py, 24, C.white, 260, 0.6);
-    this.fx.ring(this.px, this.py, 10, 620, 0.7, C.player);
-    this.addShake(26);
-  }
-
-  private damagePlayer(d: number, hx: number, hy: number) {
-    if (this.debugGod) {
-      this.burst(this.px, this.py, 4, "#ffb84d", 140, 0.2);
-      return;
-    }
-    if (this.invuln > 0 || this.state === "dying" || this.state === "over") return;
-    this.hp -= d;
-    this.invuln = 0.75;
-    this.addShake(12);
-    this.audio.playerHit();
-    this.burst(this.px, this.py, 14, C.zone, 260, 0.5);
-    this.combo = 0;
-    const dx = this.px - hx;
-    const dy = this.py - hy;
-    const dl = Math.hypot(dx, dy) || 1;
-    this.pvx += (dx / dl) * 190;
-    this.pvy += (dy / dl) * 190;
-    if (this.hp <= 0) this.onPlayerDeath();
-  }
-
-  private updateRifts(dt: number) {
-    this.riftField.update(dt);
-  }
-
-  private updateZoneAndWaves(dt: number) {
-    // collapse animation after a wave clear
-    if (this.zoneCollapse >= 0) {
-      // runs in parallel with the state machine below — the clear
-      // banner must not hang while the zone animates away
-      this.zoneCollapse = Math.min(1, this.zoneCollapse + dt / 1.0);
-      const e = easeOutCubic(this.zoneCollapse);
-      this.zoneR = this.zoneTarget * (1 + 0.9 * e);
-      this.zoneAlpha = 1 - this.zoneCollapse;
-      if (this.zoneCollapse >= 1) {
-        this.zoneCollapse = -1;
-        this.zoneOn = false;
-        this.zoneAlpha = 0;
-      }
-    }
-
-    switch (this.state) {
-      case "playing": {
-        if (!this.zoneOn) {
-          // countdown 5 → 0, then anchor the zone at the player's position
-          this.cdT -= dt;
-          const c = Math.ceil(this.cdT);
-          if (c !== this.cdLast && c > 0) {
-            this.cdLast = c;
-            this.hooks.onCountdown({
-              id: this.countId++,
-              label: t("game.waveN", { n: String(this.wave).padStart(2, "0") }),
-              value: String(c),
-            });
-            this.audio.tick();
-          }
-          if (this.cdT <= 0) {
-            this.zoneX = this.px;
-            this.zoneY = this.py;
-            this.zoneTarget = this.zoneRadius(this.wave);
-            this.zoneR = 40;
-            this.zoneOn = true;
-            this.zoneAlpha = 0.4;
-            this.hooks.onCountdown(null);
-            this.audio.go();
-            this.fx.ring(this.zoneX, this.zoneY, 30, 500, 0.5, C.zone);
-          }
-        } else {
-          this.zoneAlpha = Math.min(1, this.zoneAlpha + dt * 2);
-          this.zoneR = Math.min(this.zoneTarget, this.zoneR + dt * ZONE_EXPAND_SPEED);
-          if (this.zoneR >= this.zoneTarget) {
-            this.state = "active";
-            this.initWave();
-            this.audio.setCombatWave(this.wave);
-            this.audio.setCombat(true);
-          }
-        }
-        break;
-      }
-      case "active": {
-        const alive = this.allocated - this.killedWave;
-        if (
-          this.allocated < this.waveTotal &&
-          alive <= this.peakAlive - this.dropThreshold &&
-          this.riftField.list.length < 2
-        ) {
-          const batch = Math.min(this.stepSize, this.waveTotal - this.allocated);
-          this.allocated += batch;
-          this.peakAlive = alive + batch;
-          this.spawnRift(this.buildQueue(batch));
-        }
-        if (
-          this.allocated >= this.waveTotal &&
-          this.enemyList.length === 0 &&
-          !this.riftField.list.some((r) => r.queue.length > 0)
-        ) {
-          this.waveCleared();
-        }
-        break;
-      }
-      case "cleared": {
-        this.clearT -= dt;
-        if (this.clearT <= 0) {
-          this.wave++;
-          this.hooks.onBanner(null);
-          this.state = "playing";
-          this.beginCountdown();
-        }
-        break;
-      }
-    }
-  }
-
-  private clampToZone(
-    o: { x: number; y: number; vx: number; vy: number; r: number },
-    wallOver = 0
-  ) {
-    if (!this.zoneOn || this.zoneAlpha < 0.4) return;
-    const dx = o.x - this.zoneX;
-    const dy = o.y - this.zoneY;
-    const d = Math.hypot(dx, dy);
-    const lim = this.zoneR - o.r + wallOver;
-    if (lim > 10 && d > lim) {
-      const nx = dx / d;
-      const ny = dy / d;
-      o.x = this.zoneX + nx * lim;
-      o.y = this.zoneY + ny * lim;
-      const vOut = o.vx * nx + o.vy * ny;
-      if (vOut > 0) {
-        o.vx -= vOut * nx * 1.4;
-        o.vy -= vOut * ny * 1.4;
-        if (Math.random() < 0.2) {
-          this.burst(o.x, o.y, 2, C.zone, 120, 0.2);
-        }
-      }
-    }
-  }
-
-  /* ---------------- fx ---------------- */
-
-  private burst(x: number, y: number, n: number, hex: string, speed: number, life: number) {
-    this.fx.burst(x, y, n, hex, speed, life);
-  }
-
-  private popup(x: number, y: number, text: string, color: string) {
-    this.hooks.onPopup({ id: this.popupId++, x, y, text, color });
-  }
-
-  /** Snapshot of the world the asteroid belt reacts to this frame. */
-  private asteroidEnv() {
-    return {
-      camX: this.camX,
-      camY: this.camY,
-      viewW: this.viewW,
-      viewH: this.viewH,
-      zone:
-        this.zoneOn && this.zoneAlpha > 0.4 && this.zoneR > 60
-          ? { x: this.zoneX, y: this.zoneY, r: this.zoneR }
-          : null,
-    };
-  }
-
-  /* ---------------- hud ---------------- */
-
-  private emitHud() {
-    this.hooks.onHud({
-      wave: this.wave,
-      score: this.score,
-      best: this.best,
-      hp: Math.max(0, Math.round(this.hp)),
-      maxHp: this.maxHp,
-      killed: this.killedWave,
-      total: this.waveTotal,
-      enemies: this.enemyList.length,
-      comboMult: this.comboT > 0 ? this.comboMult() : 1,
-      time: this.runTime,
-      guns: this.guns,
-      rateMult: 1 + this.rateBoost,
-      rateT: this.rateT,
-      drones: this.allyDrones.length,
-      minerals: this.minerals,
-    });
-  }
-
-  /* ============================== drawing ============================== */
-
-  private draw() {
-    /* build render state snapshots */
-    const playerState: PlayerRenderState | null =
-      this.state !== "dying" && this.state !== "over"
-        ? {
-            x: this.px, y: this.py,
-            angle: this.pAngle,
-            aimA: this.aimA,
-            hp: this.hp, maxHp: this.maxHp,
-            invuln: this.invuln,
-            guns: this.guns,
-            rateT: this.rateT, rateBoost: this.rateBoost,
-            dashT: this.dashT,
-            thrusting: this.thrusting,
-            pvx: this.pvx, pvy: this.pvy,
-          }
-        : null;
-
-    const enemies: EnemyRenderState[] = this.enemyList.map(e => ({ ...e }));
-
-    const bullets: BulletRenderState[] = this.bullets.map(b => ({ ...b }));
-    const ebullets: EBulletRenderState[] = this.enemyBulletList.map(b => ({ ...b }));
-
-    const pickups: PickupRenderState[] = this.pickups.map(p => ({ ...p }));
-    const mines: MineRenderState[] = this.mines.map(m => ({ ...m }));
-
-    const allyDrones: AllyDroneRenderState[] = this.allyDrones.map(d => ({ ...d }));
-
-    const zoneState: ZoneRenderState | null =
-      this.zoneOn && this.zoneAlpha > 0
-        ? {
-            active: this.zoneOn,
-            x: this.zoneX, y: this.zoneY,
-            radius: this.zoneR,
-            targetRadius: this.zoneTarget,
-            alpha: this.zoneAlpha,
-          }
-        : null;
-
-    this.rendererSystem.draw(
+  private render() {
+    const playerRender = this.playerSystem.getRenderState();
+    
+    this.rendererSystem.render(
       this.renderer,
-      this.time,
-      this.camX, this.camY, this.zoom,
-      this.state,
-      playerState,
-      enemies,
-      bullets,
-      ebullets,
-      pickups,
-      mines,
-      allyDrones,
-      zoneState,
+      this.gameState,
+      playerRender,
+      this.enemyList,
+      this.bullets,
+      this.enemyBulletList,
+      this.pickups,
+      this.mines,
+      this.allyDrones,
+      {
+        active: this.zoneOn,
+        x: this.zoneX,
+        y: this.zoneY,
+        radius: this.zoneR,
+        targetRadius: this.zoneTarget,
+        alpha: this.zoneAlpha,
+      },
+      this.camX,
+      this.camY,
+      this.zoom,
       this.viewW,
       this.viewH
     );
   }
+
+  private updateMenu(dt: number) {
+    this.starfield.update(dt, 0, 0, 0, 0, 1);
+    this.asteroidField.update(dt, { x: 0, y: 0 }, 0);
+    this.riftField.update(dt);
+    this.renderer.clear();
+    this.rendererSystem.renderMenu(
+      this.renderer,
+      this.starfield,
+      this.asteroidField,
+      this.riftField,
+      this.viewW,
+      this.viewH
+    );
+  }
+
+  private updateHud() {
+    const hud: HudData = {
+      wave: this.wave,
+      score: this.score,
+      best: this.best,
+      hp: this.playerSystem.getHP(),
+      maxHp: this.playerSystem.getMaxHP(),
+      killed: this.killed,
+      total: this.waveTotal,
+      enemies: this.enemyList.length,
+      comboMult: Math.min(10, 1 + Math.floor(this.combo / 5)),
+      time: this.runTime,
+      guns: this.playerSystem.getGuns(),
+      rateMult: this.playerSystem.getRateMult(),
+      rateT: this.playerSystem.getRateT(),
+      drones: this.allyDrones.length,
+      minerals: this.minerals,
+    };
+    this.hooks.onHud(hud);
+  }
+
+  private togglePause() {
+    if (this.state === "menu" || this.state === "over") return;
+    this.paused = !this.paused;
+    this.hooks.onPause(this.paused);
+    this.audio.setSuspended(this.paused);
+  }
+
+  startRun() {
+    this.state = "playing";
+    this.time = 0;
+    this.runTime = 0;
+    this.score = 0;
+    this.killed = 0;
+    this.wave = this.startWave;
+    this.waveTotal = 0;
+    this.allocated = 0;
+    this.killedWave = 0;
+    this.peakAlive = 0;
+    this.combo = 0;
+    this.comboT = 0;
+    this.clearT = 0;
+    this.waveClearSent = false;
+    this.edgeOutT = 0;
+    this.edgeTickT = 0;
+    this.edgeWarned = false;
+
+    this.playerSystem.reset();
+    this.enemyList = [];
+    this.bullets = [];
+    this.enemyBulletList = [];
+    this.pickups = [];
+    this.allyDrones = [];
+    this.mines = [];
+    this.mineDropT = -1;
+    this.minerals = 0;
+
+    this.zoneOn = false;
+    this.zoneX = 0;
+    this.zoneY = 0;
+    this.zoneR = 0;
+    this.zoneTarget = 0;
+    this.zoneAlpha = 0;
+    this.zoneCollapse = -1;
+
+    this.riftField.reset();
+    this.asteroidField.reset();
+    this.fx.reset();
+
+    this.hooks.onBanner(null);
+    this.hooks.onCountdown(null);
+    this.hooks.onToast(null);
+
+    setTimeout(() => {
+      this.state = "active";
+      this.countdownSystem.startWave(this.wave);
+    }, 1000);
+  }
+
+  private addScore(n: number) {
+    this.score += n;
+  }
+
+  private spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number) {
+    this.pickups.push({ kind, x, y, vx, vy, life: 20, seed: Math.random() });
+  }
+
+  private spawnEnemy(kind: EnemyKind, x: number, y: number, parent: Enemy | null) {
+    this.enemySystem.spawn(kind, x, y, parent, this.enemyList);
+    this.allocated++;
+  }
+
+  private getPlayerPosition(): { x: number; y: number } {
+    const state = this.playerSystem.getState();
+    return { x: state.x, y: state.y };
+  }
+
+  private getZoneBounds(): { x: number; y: number; radius: number; active: boolean } {
+    return { x: this.zoneX, y: this.zoneY, radius: this.zoneR, active: this.zoneOn };
+  }
+
+  private fireAll(angle: number) {
+    this.bulletSystem.firePlayerBullets(this.playerSystem.getState(), angle, this.bullets);
+  }
+
+  private enemyFire(e: Enemy) {
+    this.bulletSystem.fireEnemyBullet(e, this.enemyBulletList);
+  }
+
+  private applyPickup(kind: PickupKind) {
+    switch (kind) {
+      case "hp":
+        this.playerSystem.heal(25);
+        break;
+      case "gun":
+        this.playerSystem.addGun();
+        break;
+      case "rate":
+        this.playerSystem.boostRate();
+        break;
+      case "drone":
+        this.droneSystem.spawn(this.allyDrones, this.getPlayerPosition());
+        break;
+      case "mine":
+        this.mineDropT = 0;
+        break;
+      case "mineral":
+        this.minerals++;
+        this.score += 50;
+        break;
+    }
+  }
+
+  private showCountdown(label: string, value: string) {
+    this.countId++;
+    this.hooks.onCountdown({ id: this.countId, label, value });
+    setTimeout(() => this.hooks.onCountdown(null), 1400);
+  }
+
+  private checkWaveClear() {
+    const alive = this.enemyList.filter((e) => !e.dead).length;
+    if (alive === 0 && this.state === "active") {
+      this.state = "cleared";
+      this.clearT = 0;
+      this.waveClearSent = false;
+    }
+  }
+
+  private updateZoneAndWaves(dt: number) {
+    if (this.state !== "active" && this.state !== "cleared") return;
+
+    this.runTime += dt;
+
+    if (!this.zoneOn) {
+      this.zoneOn = true;
+      const p = this.playerSystem.getState();
+      this.zoneX = p.x;
+      this.zoneY = p.y;
+      this.zoneTarget = Math.max(400, 200 + this.wave * 50);
+      this.zoneR = 0;
+      this.zoneAlpha = 0;
+      this.zoneCollapse = -1;
+    }
+
+    const expandSpeed = 80;
+    if (this.zoneR < this.zoneTarget) {
+      this.zoneR = Math.min(this.zoneTarget, this.zoneR + expandSpeed * dt);
+      this.zoneAlpha = Math.min(0.15, this.zoneAlpha + dt * 0.5);
+    } else if (this.zoneCollapse < 0 && this.state === "cleared") {
+      this.clearT += dt;
+      if (this.clearT >= 1.5 && !this.waveClearSent) {
+        this.waveClearSent = true;
+        this.hooks.onBanner({
+          title: t("game.waveClear"),
+          sub: t("game.nextWave", { wave: this.wave + 1 }),
+          color: "#6f6",
+        });
+        setTimeout(() => this.hooks.onBanner(null), 2000);
+      }
+      if (this.clearT >= 3) {
+        this.wave++;
+        this.killedWave = 0;
+        this.allocated = 0;
+        this.state = "active";
+        this.zoneOn = false;
+        this.countdownSystem.startWave(this.wave);
+      }
+    }
+  }
+
+  private updateEdgeDanger(dt: number) {
+    if (!this.zoneOn) return;
+
+    const p = this.playerSystem.getState();
+    const dx = p.x - this.zoneX;
+    const dy = p.y - this.zoneY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const margin = 40;
+
+    if (dist > this.zoneR - margin) {
+      this.edgeOutT += dt;
+      this.edgeTickT += dt;
+      if (!this.edgeWarned && this.edgeOutT > 0.3) {
+        this.edgeWarned = true;
+        this.hooks.onToast({ text: t("game.zoneWarning"), color: "#fa5" });
+        setTimeout(() => this.hooks.onToast(null), 1500);
+      }
+      if (this.edgeTickT > 0.5) {
+        this.edgeTickT = 0;
+        this.playerSystem.hit(10);
+        this.fx.shake(4, 0.2);
+      }
+    } else {
+      this.edgeOutT = 0;
+      this.edgeTickT = 0;
+      this.edgeWarned = false;
+    }
+  }
+}
+
+function clamp(v: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, v));
 }

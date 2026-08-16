@@ -4,7 +4,7 @@
  */
 
 import type { EventBus } from '../core/EventBus';
-import type { GameState } from '../core/GameState';
+import type { GameState, EnemyEntity } from '../core/GameState';
 import { MINE_DELAY, MINE_RADIUS, MINE_DMG, MINE_LIFE } from '../balance';
 
 export interface MineData {
@@ -66,10 +66,11 @@ export class MineSystem {
       
       // Проверка детонации при приближении врагов
       if (m.armed) {
-        const enemies = this.state.enemies || [];
+        const enemies = this.state.world.enemies;
         let shouldDetonate = false;
         
         for (const enemy of enemies) {
+          if (enemy.dead) continue;
           const dist = Math.hypot(enemy.x - m.x, enemy.y - m.y);
           if (dist < MINE_RADIUS + enemy.r) {
             shouldDetonate = true;
@@ -106,13 +107,15 @@ export class MineSystem {
     });
     
     // Нанесение урона врагам в радиусе
-    const enemies = this.state.enemies || [];
+    const enemies = this.state.world.enemies;
     for (const enemy of enemies) {
+      if (enemy.dead) continue;
       const dist = Math.hypot(enemy.x - mine.x, enemy.y - mine.y);
       if (dist < MINE_RADIUS + enemy.r) {
         // Враг получит урон через систему коллизий
         enemy.hp -= MINE_DMG;
         if (enemy.hp <= 0) {
+          enemy.dead = true;
           this.eventBus.publish('enemy_killed', {
             enemy: enemy,
             score: enemy.score || 0,
