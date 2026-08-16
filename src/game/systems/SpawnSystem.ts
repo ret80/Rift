@@ -4,7 +4,7 @@
  * и анонс новых типов врагов.
  */
 
-import { t } from "../i18n";
+import { t } from "../../i18n";
 import type { EventBus } from "../core/EventBus";
 import type { RiftField } from "../rifts";
 import type { Fx } from "../fx";
@@ -46,9 +46,9 @@ export class SpawnSystem {
     eventBus: EventBus;
     riftField: RiftField;
   }) {
-    this.hooks = hooks;
-    this.eventBus = eventBus;
-    this.riftField = riftField;
+    this.hooks = config.hooks;
+    this.eventBus = config.eventBus;
+    this.riftField = config.riftField;
   }
 
   /**

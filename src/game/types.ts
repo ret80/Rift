@@ -41,3 +41,56 @@ export interface Rift {
   rot: number;
   size: number;
 }
+
+/* ---- Entity types (from game.ts) ---- */
+
+import type { PickupKind } from "./balance";
+
+export interface Enemy {
+  kind: EnemyKind;
+  x: number; y: number;
+  vx: number; vy: number;
+  angle: number;
+  hp: number; maxHp: number;
+  r: number; speed: number;
+  contact: number; score: number;
+  boltDmg: number; fireCd: number;
+  mode: number; modeT: number;
+  strafeDir: number; seed: number;
+  spawnCd: number; flash: number; hitCd: number;
+  dead: boolean; parent: Enemy | null;
+}
+
+export interface Bullet {
+  x: number; y: number;
+  vx: number; vy: number;
+  life: number; dmg: number;
+}
+
+export interface EBullet {
+  x: number; y: number;
+  vx: number; vy: number;
+  life: number; dmg: number;
+  heavy: boolean;
+}
+
+export interface Pickup {
+  kind: PickupKind;
+  x: number; y: number;
+  vx: number; vy: number;
+  life: number; seed: number;
+}
+
+export interface Mine {
+  x: number; y: number;
+  fuse: number; seed: number;
+}
+
+export interface AllyDrone {
+  x: number; y: number;
+  angle: number;
+  fireCd: number; phase: number;
+  hp: number; maxHp: number;
+  target: Enemy | null;
+  retargetT: number; flash: number;
+}

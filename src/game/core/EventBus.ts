@@ -21,7 +21,9 @@ export type EventType =
   | 'game_over'
   | 'score_changed'
   | 'enemy_fired'
-  | 'physics_collision';
+  | 'physics_collision'
+  | 'drone_fired'
+  | 'player_fired';
 
 export interface GameEvent {
   type: EventType;
