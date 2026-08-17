@@ -62,6 +62,9 @@ export class PlayerSystem {
   private zoneR = 0;
   private zoneOn = false;
   private zoneAlpha = 0;
+  private aimAngle: number | null = null;
+  private isFiring = false;
+  private lastFireTime = 0;
   
   // Для внешних систем
   public bullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number }> = [];
@@ -141,7 +144,10 @@ export class PlayerSystem {
   }
   
   getState(): PlayerState {
-    return { ...this.player };
+    return { 
+      ...this.player,
+      aimA: this.aimAngle,
+    };
   }
   
   getPosition(): { x: number; y: number } {
@@ -295,7 +301,12 @@ export class PlayerSystem {
       }
     }
     
-    if (sp > 20) {
+    // Угол корабля следует за направлением прицеливания, а не за скоростью
+    // Это предотвращает "перевороты" при ударе о границу зоны
+    if (this.aimAngle !== null) {
+      this.player.angle = lerpAngle(this.player.angle, this.aimAngle, 1 - Math.exp(-10 * dt));
+    } else if (sp > 20) {
+      // Fallback: если нет прицеливания, следовать за скоростью
       this.player.angle = lerpAngle(this.player.angle, Math.atan2(this.player.vy, this.player.vx), 1 - Math.exp(-8 * dt));
     }
     
@@ -303,6 +314,24 @@ export class PlayerSystem {
     
     this.fireCd = Math.max(0, this.fireCd - dt);
     if (this.fireCd < 0) this.fireCd = 0;
+    
+    // Handle shooting
+    if (this.isFiring && this.fireCd <= 0) {
+      const fireRate = 0.12 / this.getRateMult();
+      this.fireCd = fireRate;
+      this.lastFireTime = fireRate;
+      if (this.aimAngle !== null) {
+        this.fireAll(this.aimAngle);
+      }
+    }
+  }
+  
+  setAim(angle: number | null): void {
+    this.aimAngle = angle;
+  }
+  
+  setIsFiring(firing: boolean): void {
+    this.isFiring = firing;
   }
   
   private fireAll(angle: number): void {
@@ -325,6 +354,27 @@ export class PlayerSystem {
     });
   }
   
+  /** Жёсткий барьер зоны для игрока — отталкивает обратно при выходе за границу. */
+  clampPlayerToZone(zoneX: number, zoneY: number, zoneR: number, zoneOn: boolean, overdrive: number): void {
+    if (!zoneOn || zoneR <= 0) return;
+    const dx = this.player.x - zoneX;
+    const dy = this.player.y - zoneY;
+    const dist = Math.hypot(dx, dy);
+    const limit = zoneR - overdrive;
+    if (dist > limit) {
+      const angle = Math.atan2(dy, dx);
+      this.player.x = zoneX + Math.cos(angle) * limit;
+      this.player.y = zoneY + Math.sin(angle) * limit;
+      const nx = Math.cos(angle);
+      const ny = Math.sin(angle);
+      const dot = this.player.vx * nx + this.player.vy * ny;
+      if (dot > 0) {
+        this.player.vx -= 2 * dot * nx;
+        this.player.vy -= 2 * dot * ny;
+      }
+    }
+  }
+
   clampToZone(obj: { x: number; y: number; vx: number; vy: number }, overdrive: number): void {
     if (!this.zoneOn) return;
     

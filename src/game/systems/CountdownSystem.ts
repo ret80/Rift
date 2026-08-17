@@ -47,7 +47,7 @@ export class CountdownSystem {
     */
   beginCountdown(wave: number): void {
     this.currentWave = wave;
-    this.cdT = 15;
+    this.cdT = 5;
     this.cdLast = -1;
   }
 

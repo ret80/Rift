@@ -5,7 +5,7 @@ import { defineConfig } from "vite";
 // Deploy to GitHub Pages via CI/CD
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: "/Rift/",
+  base: "/",
   server: {
     host: "0.0.0.0",
     port: 3000,

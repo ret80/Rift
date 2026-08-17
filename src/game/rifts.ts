@@ -131,7 +131,8 @@ export class RiftField {
           this.h.audio.riftSpawn();
           this.h.fx.burst(rf.x, rf.y, 5, C.rift, 140, 0.3);
         }
-        if (rf.queue.length === 0) {
+        // Only close if queue is truly empty and timer has expired
+        if (rf.queue.length === 0 && rf.timer <= 0) {
           rf.state = "closing";
           rf.t = 0;
           this.h.audio.riftClose();
@@ -201,6 +202,9 @@ export class RiftField {
       lenP = 1 + 0.04 * Math.sin(rf.t * 6);
       widP = 1 + 0.06 * Math.sin(rf.t * 6 + 1.4);
     }
+
+    // Don't draw if completely transparent
+    if (alpha <= 0.01) return;
 
     if (lenP <= 0.03) {
       const pr = 3 + 1.6 * Math.sin(time * 18 + rf.seed);

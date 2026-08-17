@@ -93,13 +93,17 @@ export class EnemySystem {
   }
   
   addEnemy(kind: EnemyKind, x: number, y: number, def: EnemyDef): void {
+    // Дроны ориентируются носом к игроку при спавне
+    const angle = kind === "drone"
+      ? Math.atan2(this.state.player.y - y, this.state.player.x - x)
+      : rand(0, TAU);
     this.enemies.push({
       kind,
       x,
       y,
       vx: 0,
       vy: 0,
-      angle: rand(0, TAU),
+      angle,
       hp: def.hp,
       maxHp: def.hp,
       r: def.r,
@@ -209,7 +213,8 @@ export class EnemySystem {
           
           const dsp = Math.sqrt(dsp2);
           if (dsp > 5) {
-            e.angle = lerpAngle(e.angle, Math.atan2(e.vy, e.vx), 1 - Math.exp(-9 * dt));
+            // Плавные повороты: lerp factor снижен с 9 до 5
+            e.angle = lerpAngle(e.angle, Math.atan2(e.vy, e.vx), 1 - Math.exp(-5 * dt));
           }
           break;
         }
@@ -225,7 +230,8 @@ export class EnemySystem {
           e.vy += ((hy / hd) * e.speed - e.vy) * k;
           const hv = Math.hypot(e.vx, e.vy);
           if (hv > 5) {
-            e.angle = lerpAngle(e.angle, Math.atan2(e.vy, e.vx), 1 - Math.exp(-10 * dt));
+            // Плавные повороты: lerp factor снижен с 10 до 6
+            e.angle = lerpAngle(e.angle, Math.atan2(e.vy, e.vx), 1 - Math.exp(-6 * dt));
           }
           break;
         }
@@ -257,7 +263,8 @@ export class EnemySystem {
             e.vy += (ty * e.speed - e.vy) * (1 - Math.exp(-4.5 * dt));
             if (e.modeT <= 0) e.mode = 0;
           }
-          e.angle = Math.atan2(e.vy, e.vx);
+          const kAngle = 1 - Math.exp(-6 * dt);
+          e.angle = lerpAngle(e.angle, Math.atan2(e.vy, e.vx), kAngle);
           break;
         }
         
@@ -310,7 +317,8 @@ export class EnemySystem {
           e.vy += (desY - e.vy) * k;
           const sp = Math.hypot(e.vx, e.vy);
           if (sp > 5) {
-            e.angle = lerpAngle(e.angle, Math.atan2(e.vy, e.vx), 1 - Math.exp(-6 * dt));
+            // Плавные повороты: lerp factor снижен с 6 до 4
+            e.angle = lerpAngle(e.angle, Math.atan2(e.vy, e.vx), 1 - Math.exp(-4 * dt));
           }
           break;
         }
@@ -412,13 +420,17 @@ export class EnemySystem {
 
   spawn(kind: EnemyKind, x: number, y: number, parent: Enemy | null, enemyList: Enemy[]): void {
     const def = this.getEnemyDef(kind);
-    this.enemies.push({
+    // Дроны ориентируются носом к игроку при спавне
+    const angle = kind === "drone"
+      ? Math.atan2(this.state.player.y - y, this.state.player.x - x)
+      : rand(0, TAU);
+    const e: Enemy = {
       kind,
       x,
       y,
       vx: 0,
       vy: 0,
-      angle: rand(0, TAU),
+      angle,
       hp: def.hp,
       maxHp: def.hp,
       r: def.r,
@@ -436,7 +448,11 @@ export class EnemySystem {
       hitCd: 0,
       dead: false,
       parent,
-    });
+    };
+    // Добавляем И во внутренний массив И во внешний (enemyList)
+    // чтобы рендерер и коллизии видели врага
+    this.enemies.push(e);
+    enemyList.push(e);
     if (parent) {
       parent.spawnCd = 0;
     }
@@ -445,7 +461,7 @@ export class EnemySystem {
   private getEnemyDef(kind: EnemyKind): EnemyDef {
     switch (kind) {
       case "drone":
-        return { hp: 8, r: 10, speed: 60, contact: 12, score: 10, bolt: 8 };
+        return { hp: 8, r: 14, speed: 60, contact: 12, score: 10, bolt: 8 };
       case "hunter":
         return { hp: 20, r: 14, speed: 150, contact: 16, score: 25, bolt: 12 };
       case "fighter":

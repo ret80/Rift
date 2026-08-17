@@ -110,6 +110,9 @@ export class Game {
   private touchActive = false;
   private touchX = 0;
   private touchY = 0;
+  private mouseX = 0;
+  private mouseY = 0;
+  private mouseDown = false;
 
   private raf = 0;
   private lastT = 0;
@@ -167,6 +170,8 @@ export class Game {
 
   private clearT = 0;
   private waveClearSent = false;
+  private spawnQueue: string[] = [];
+  private spawnIdx = 0;
 
   /* Scoring */
   private score = 0;
@@ -202,6 +207,16 @@ export class Game {
     this.renderer.width = this.viewW;
     this.renderer.height = this.viewH;
   };
+  
+  private updateAimAngle() {
+    // Convert mouse screen position to world position
+    const worldX = this.camX + (this.mouseX - this.viewW / 2) / this.zoom;
+    const worldY = this.camY + (this.mouseY - this.viewH / 2) / this.zoom;
+    
+    const playerPos = this.playerSystem.getState();
+    const angle = Math.atan2(worldY - playerPos.y, worldX - playerPos.x);
+    this.playerSystem.setAim(angle);
+  }
 
   constructor(canvas: HTMLCanvasElement, hooks: Hooks) {
     this.renderer = new Renderer(canvas);
@@ -239,6 +254,35 @@ export class Game {
     /* Initialize presentation subsystems */
     this.fx = new Fx();
     this.starfield = new Starfield();
+    
+    // Setup mouse/touch controls for aiming and firing
+    const gameCanvas = this.renderer.canvas;
+    gameCanvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      this.mouseX = e.clientX - rect.left;
+      this.mouseY = e.clientY - rect.top;
+      this.updateAimAngle();
+    });
+    canvas.addEventListener('mousedown', (e) => {
+      this.mouseDown = true;
+      this.playerSystem.setIsFiring(true);
+    });
+    canvas.addEventListener('mouseup', () => {
+      this.mouseDown = false;
+      this.playerSystem.setIsFiring(false);
+    });
+    canvas.addEventListener('mouseleave', () => {
+      this.mouseDown = false;
+      this.playerSystem.setIsFiring(false);
+    });
+    canvas.addEventListener('touchstart', (e) => {
+      this.mouseDown = true;
+      this.playerSystem.setIsFiring(true);
+    }, { passive: true });
+    canvas.addEventListener('touchend', () => {
+      this.mouseDown = false;
+      this.playerSystem.setIsFiring(false);
+    });
     this.asteroidField = new AsteroidField({
       addScore: (n) => this.addScore(n),
       spawnPickup: (kind, x, y, vx, vy) => this.spawnPickup(kind, x, y, vx, vy),
@@ -457,7 +501,14 @@ export class Game {
 
     /* Update all systems in order */
     this.countdownSystem.update(dtScaled);
-    this.playerSystem.update(dtScaled, this.state === "active");
+    if (this.state === "playing" || this.state === "active") {
+      this.updateAimAngle();
+    }
+    this.playerSystem.update(dtScaled, this.state === "playing" || this.state === "active");
+    // Жёсткий барьер зоны: отталкивает игрока обратно, если он вышел за границу
+    if (this.zoneOn && this.zoneR > 0) {
+      this.playerSystem.clampPlayerToZone(this.zoneX, this.zoneY, this.zoneR, this.zoneOn, 0);
+    }
     this.enemySystem.update(dtScaled, this.enemyList, this.getPlayerPosition());
     this.bulletSystem.update(dtScaled, this.bullets, this.enemyBulletList, this.enemyList);
     this.mineSystem.update(dtScaled, this.mines);
@@ -474,16 +525,33 @@ export class Game {
       this.mines as any,
       this.allyDrones as any
     );
-    this.spawnSystem.update(dtScaled, this.wave, this.allocated, this.killedWave);
+    this.spawnSystem.update(dtScaled, this.wave, this.allocated, this.killedWave, this);
     this.riftField.update(dtScaled);
     this.updateZoneAndWaves(dtScaled);
     this.updateEdgeDanger(dtScaled);
+    
+    // Update asteroid field with camera and zone info
+    this.asteroidField.update(dtScaled, {
+      camX: this.camX,
+      camY: this.camY,
+      viewW: this.viewW,
+      viewH: this.viewH,
+      zone: this.zoneOn ? { x: this.zoneX, y: this.zoneY, r: this.zoneR } : null,
+    } as any);
 
     this.render();
     this.updateHud();
   }
 
   private render() {
+    const playerState = this.playerSystem.getState();
+    
+    // Camera follows player with smooth interpolation
+    const targetCamX = playerState.x;
+    const targetCamY = playerState.y;
+    this.camX += (targetCamX - this.camX) * Math.min(1, 8 * (1/60));
+    this.camY += (targetCamY - this.camY) * Math.min(1, 8 * (1/60));
+    
     const playerRender = this.playerSystem.getRenderState();
     
     this.rendererSystem.render(
@@ -519,16 +587,89 @@ export class Game {
 
   private updateMenu(dt: number) {
     this.starfield.update(dt, 0, 0, 1, 0, window.innerWidth, window.innerHeight);
-    this.asteroidField.update(dt, { x: 0, y: 0 } as any);
+    this.asteroidField.update(dt, {
+      camX: 0,
+      camY: 0,
+      viewW: this.viewW,
+      viewH: this.viewH,
+      zone: null,
+    } as any);
     this.riftField.update(dt);
+    
+    // Animate menu background enemies
+    this.updateMenuEnemies(dt);
+    
     this.renderer.clear();
     this.rendererSystem.renderMenu(
       this.renderer,
       this.starfield,
       this.asteroidField,
       this.riftField,
+      this.enemyMenuList,
       this.viewW,
       this.viewH
+    );
+  }
+  
+  // Menu scene enemy animation
+  private enemyMenuList: Array<{
+    x: number; y: number; vx: number; vy: number;
+    kind: EnemyKind; angle: number; seed: number;
+  }> = [];
+  private menuEnemyTimer = 0;
+  
+  private updateMenuEnemies(dt: number) {
+    // Spawn new enemy occasionally
+    this.menuEnemyTimer -= dt;
+    if (this.menuEnemyTimer <= 0 && this.enemyMenuList.length < 8) {
+      this.menuEnemyTimer = 1.5 + Math.random() * 2;
+      const kinds: EnemyKind[] = ["drone", "hunter", "fighter", "cruiser", "carrier"];
+      const kind = kinds[Math.floor(Math.random() * kinds.length)];
+      // Spawn from random edge
+      const side = Math.floor(Math.random() * 4);
+      let x: number, y: number;
+      if (side === 0) { // top
+        x = Math.random() * this.viewW;
+        y = -50;
+      } else if (side === 1) { // right
+        x = this.viewW + 50;
+        y = Math.random() * this.viewH;
+      } else if (side === 2) { // bottom
+        x = Math.random() * this.viewW;
+        y = this.viewH + 50;
+      } else { // left
+        x = -50;
+        y = Math.random() * this.viewH;
+      }
+      // Move toward center
+      const cx = this.viewW / 2 + (Math.random() - 0.5) * 200;
+      const cy = this.viewH / 2 + (Math.random() - 0.5) * 200;
+      const dx = cx - x;
+      const dy = cy - y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const speed = 30 + Math.random() * 40;
+      this.enemyMenuList.push({
+        x, y,
+        vx: (dx / dist) * speed,
+        vy: (dy / dist) * speed,
+        kind,
+        angle: Math.atan2(dy, dx),
+        seed: Math.random() * 100,
+      });
+    }
+    
+    // Update enemy positions
+    for (const e of this.enemyMenuList) {
+      e.x += e.vx * dt;
+      e.y += e.vy * dt;
+      // Gentle sine wave motion
+      e.x += Math.sin(this.time * 2 + e.seed) * 0.3;
+      e.y += Math.cos(this.time * 1.5 + e.seed) * 0.3;
+    }
+    
+    // Remove enemies that are off screen (far outside)
+    this.enemyMenuList = this.enemyMenuList.filter(e => 
+      e.x > -200 && e.x < this.viewW + 200 && e.y > -200 && e.y < this.viewH + 200
     );
   }
 
@@ -634,9 +775,11 @@ export class Game {
     this.hooks.onCountdown(null);
     this.hooks.onToast(null);
 
+    // Start countdown immediately
+    this.countdownSystem.startWave(this.wave);
+    
     setTimeout(() => {
       this.state = "active";
-      this.countdownSystem.startWave(this.wave);
     }, 1000);
   }
 
@@ -714,6 +857,8 @@ export class Game {
 
     this.runTime += dt;
 
+    // Zone activates after countdown ends (countdown resets cdT to 0)
+    // This is handled by the countdownSystem - zone is active when countdown is done
     if (!this.zoneOn) {
       this.zoneOn = true;
       const p = this.playerSystem.getState();
@@ -725,10 +870,10 @@ export class Game {
       this.zoneCollapse = -1;
     }
 
-    const expandSpeed = 80;
+    const expandSpeed = 120;
     if (this.zoneR < this.zoneTarget) {
       this.zoneR = Math.min(this.zoneTarget, this.zoneR + expandSpeed * dt);
-      this.zoneAlpha = Math.min(0.15, this.zoneAlpha + dt * 0.5);
+      this.zoneAlpha = Math.min(0.5, this.zoneAlpha + dt * 1.2);
     } else if (this.zoneCollapse < 0 && this.state === "cleared") {
       this.clearT += dt;
       if (this.clearT >= 1.5 && !this.waveClearSent) {
@@ -747,6 +892,53 @@ export class Game {
         this.state = "active";
         this.zoneOn = false;
         this.countdownSystem.startWave(this.wave);
+      }
+    }
+    
+    // Apply zone boundary constraints
+    this.applyZoneConstraints(dt);
+  }
+  
+  // Zone boundary enforcement - keep enemies inside, asteroids outside
+  private applyZoneConstraints(dt: number) {
+    if (!this.zoneOn || this.zoneR <= 0) return;
+    
+    const zoneRadius = this.zoneR;
+    const zoneCenterX = this.zoneX;
+    const zoneCenterY = this.zoneY;
+    
+    // Constrain asteroids - keep them outside the zone
+    for (const asteroid of (this.asteroidField as any).list || []) {
+      const dx = asteroid.x - zoneCenterX;
+      const dy = asteroid.y - zoneCenterY;
+      const dist = Math.hypot(dx, dy);
+      
+      // If asteroid is inside zone boundary, push it out strongly
+      if (dist < zoneRadius - asteroid.r * 0.5) {
+        const pushDir = dist > 0.01 ? 1 / dist : 0;
+        const pushForce = (zoneRadius - asteroid.r * 0.5 - dist) * 15;
+        asteroid.vx += (dx * pushDir) * pushForce;
+        asteroid.vy += (dy * pushDir) * pushForce;
+      }
+    }
+    
+    // Constrain enemies - keep them inside the zone
+    for (const enemy of this.enemyList) {
+      if (enemy.dead) continue;
+      const dx = enemy.x - zoneCenterX;
+      const dy = enemy.y - zoneCenterY;
+      const dist = Math.hypot(dx, dy);
+      const enemyR = enemy.r || 15;
+      
+      // If enemy is outside zone boundary, push it back inside
+      // Используем мягкую силу отталкивания, чтобы не вызывать колебания скорости/угла
+      if (dist > zoneRadius - enemyR) {
+        const pushDir = dist > 0.01 ? 1 / dist : 0;
+        const penetration = dist - (zoneRadius - enemyR);
+        // Снижен коэффициент с 20 до 8 для плавности
+        const pushForce = Math.min(penetration * 8, 200);
+        enemy.vx -= (dx * pushDir) * pushForce * dt;
+        enemy.vy -= (dy * pushDir) * pushForce * dt;
       }
     }
   }

@@ -178,6 +178,10 @@ export class RendererSystem {
     starfield: Starfield,
     asteroidField: AsteroidField,
     riftField: RiftField,
+    menuEnemies: Array<{
+      x: number; y: number; vx: number; vy: number;
+      kind: EnemyKind; angle: number; seed: number;
+    }>,
     viewW: number,
     viewH: number
   ) {
@@ -188,6 +192,7 @@ export class RendererSystem {
     starfield.draw(R, 0, 0, 1, 0, viewW, viewH);
     asteroidField.draw(R, 0);
     this.drawMenuScene(R, 0);
+    this.drawMenuEnemies(R, menuEnemies, 0);
     this.renderHud(R, viewW, viewH);
     R.finish(0);
   }
@@ -417,8 +422,7 @@ export class RendererSystem {
       ];
       switch (e.kind) {
         case "drone": {
-          const rot = e.angle + Math.sin(time * 3 + e.seed) * 0.12;
-          this.drawShipPoly(R, e.x, e.y, rot, [[9, 0], [-7, 7], [-4, 0], [-7, -7]], col);
+          this.drawShipPoly(R, e.x, e.y, e.angle, [[9, 0], [-7, 7], [-4, 0], [-7, -7]], col);
           break;
         }
         case "hunter": {
@@ -657,13 +661,94 @@ export class RendererSystem {
     this.config.fx.draw(R);
   }
 
+  /* ============================== menu scene enemies ============================== */
+
+  private drawMenuEnemies(
+    R: Renderer,
+    enemies: Array<{
+      x: number; y: number; vx: number; vy: number;
+      kind: EnemyKind; angle: number; seed: number;
+    }>,
+    time: number
+  ) {
+    for (const e of enemies) {
+      const base = this.kindColor(e.kind);
+      this.drawShipPoly(R, e.x, e.y, e.angle, this.getEnemyShape(e.kind), rgba(base, 0.6));
+    }
+  }
+
+  private getEnemyShape(kind: EnemyKind): Array<[number, number]> {
+    switch (kind) {
+      case "drone": return [[9, 0], [-7, 7], [-4, 0], [-7, -7]];
+      case "hunter": return [[13, 0], [-8, 6], [-4, 0], [-8, -6]];
+      case "fighter": return [[14, 0], [-10, 9], [-5, 0], [-10, -9]];
+      case "cruiser": return [[22, 0], [8, 14], [-18, 12], [-18, -12], [8, -14]];
+      case "carrier": return [[30, 0], [10, 20], [-24, 16], [-24, -16], [10, -20]];
+    }
+  }
+
   /* ============================== menu scene ============================== */
 
   private drawMenuScene(R: Renderer, time: number) {
-    const prog = 0.75 + 0.25 * Math.sin(time * 0.8);
-    RiftField.drawShape(R, 0, -30, 130 * prog, 40 * prog, 7, time, 1, time * 0.05, 1);
+    // Animate rift through opening → spawning → closing lifecycle
+    const cycleDuration = 4.0; // full cycle time
+    const cyclePos = time % cycleDuration;
+    
+    let lenP = 1;
+    let widP = 1;
+    let alpha = 1;
+    let snake = 1;
+    
+    // Opening phase: 0.0 - 0.6s
+    if (cyclePos < 0.6) {
+      const p = cyclePos / 0.6;
+      if (p < 0.42) {
+        const q = p / 0.42; // easeOutCubic approx
+        lenP = q;
+        widP = 0;
+        snake = 0;
+        alpha = 0.35 + 0.65 * q;
+      } else {
+        const q = (p - 0.42) / 0.58;
+        lenP = 1;
+        widP = q;
+        snake = 1.7 - 0.7 * q;
+        alpha = 1;
+      }
+    } else if (cyclePos < 2.6) {
+      // Spawning phase: 0.6 - 2.6s (stabilized with slight writhing)
+      lenP = 1 + 0.04 * Math.sin(time * 6);
+      widP = 1 + 0.06 * Math.sin(time * 6 + 1.4);
+      snake = 1.0;
+      alpha = 1;
+    } else if (cyclePos < 3.6) {
+      // Closing phase: 2.6 - 3.6s
+      const closeTime = cyclePos - 2.6;
+      const p = closeTime / 1.0;
+      if (p < 0.6) {
+        const q = p / 0.6;
+        lenP = 1;
+        widP = 1 - q;
+        snake = 1 + q * 0.8;
+        alpha = 1;
+      } else {
+        const q = (p - 0.6) / 0.4;
+        lenP = 1 - q;
+        widP = 0;
+        snake = 0;
+        alpha = 1 - q;
+      }
+    } else {
+      // Brief pause before restart
+      lenP = 0;
+      widP = 0;
+      alpha = 0;
+    }
+    
+    RiftField.drawShape(R, 0, -30, 130 * lenP, 40 * widP, 7, time, alpha, time * 0.05, snake);
+    
     for (let i = 0; i < 3; i++) {
-      const a = time * (0.25 + i * 0.07) + (i * TAU) / 3;
+      const a = time * (0.5 + i * 0.12) + (i * TAU) / 3;
       const ox = Math.cos(a) * (200 + i * 46);
       const oy = -30 + Math.sin(a) * (115 + i * 28);
       this.drawShipPoly(

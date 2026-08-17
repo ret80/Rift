@@ -42,6 +42,10 @@ export class SpawnSystem {
   private audio: AudioEngine;
   private currentWave = 1;
   private announcedKinds = new Set<EnemyKind>();
+  private lastSpawnTime = 0;
+  private riftSpawnTimers = 0;
+  private spawnQueue: EnemyKind[] = [];
+  private spawnIdx = 0;
 
   constructor(config: {
     hooks: SpawnHooks;
@@ -116,21 +120,24 @@ export class SpawnSystem {
   /**
    * Найти точку для размещения рифта.
    */
-  spawnRiftPoint(zoneX: number, zoneY: number, zoneTarget: number): { x: number; y: number } {
-    const inner = zoneTarget * 0.25;
+  spawnRiftPoint(zoneX: number, zoneY: number, zoneRadius: number): { x: number; y: number } {
+    // Рифты спавнятся ТОЛЬКО ВНУТРИ зоны, используя фактический радиус зоны
+    const inner = zoneRadius * 0.25;
     const outer = Math.max(
       inner + 80,
-      Math.min(zoneTarget * 0.62, zoneTarget - 115)
+      Math.min(zoneRadius * 0.62, zoneRadius - 100)
     );
-    let bestP = { x: zoneX, y: zoneY - zoneTarget * 0.5 };
+    let bestP = { x: zoneX, y: zoneY - zoneRadius * 0.5 };
     let bestScore = -1;
     for (let i = 0; i < 16; i++) {
       const a = Math.random() * TAU;
       const rr = rand(inner, outer);
       const x = zoneX + Math.cos(a) * rr;
       const y = zoneY + Math.sin(a) * rr;
-      const dPlayer = Math.hypot(x - zoneX, y - zoneY);
-      const dEdge = zoneTarget - Math.hypot(x - zoneX, y - zoneY);
+      const dist = Math.hypot(x - zoneX, y - zoneY);
+      const dPlayer = dist;
+      const dEdge = zoneRadius - dist;
+      // Пропускаем если слишком близко к игроку (<220) или краю зоны (<100)
       if (dPlayer < 220 || dEdge < 100) continue;
       let dRifts = 1e9;
       for (const rf of this.riftField.list)
@@ -172,8 +179,84 @@ export class SpawnSystem {
   /**
     * Обновить спавн.
     */
-  update(dt: number, wave: number, allocated: number, killedWave: number): void {
+  update(dt: number, wave: number, allocated: number, killedWave: number, game: any): void {
     this.currentWave = wave;
-    // Логика спавна может быть добавлена здесь
+    
+    // Check if we need to spawn more enemies
+    const totalNeeded = this.waveTotalCount(wave);
+    const remaining = totalNeeded - killedWave;
+    
+    if (remaining > 0 && allocated < totalNeeded) {
+      // Try to spawn next enemy from queue
+      if (this.spawnQueue.length === 0 || this.spawnIdx >= this.spawnQueue.length) {
+        // Build new queue
+        this.spawnQueue = this.buildQueue(Math.min(20, totalNeeded - allocated), wave);
+        this.spawnIdx = 0;
+        
+        // Announce new kinds
+        this.announceNewKinds(this.spawnQueue, wave, (data) => {
+          game.hooks?.onToast?.(data);
+        });
+      }
+      
+      // Spawn enemies based on spawn rate
+      const spawnRate = Math.max(0.3, 1.0 - wave * 0.03);
+      if (!this.lastSpawnTime) this.lastSpawnTime = 0;
+      this.lastSpawnTime += dt;
+      
+      if (this.lastSpawnTime >= spawnRate && this.spawnIdx < this.spawnQueue.length) {
+        this.lastSpawnTime = 0;
+        this.spawnNextEnemy(game, wave);
+      }
+    }
+  }
+  
+  private spawnNextEnemy(game: any, wave: number) {
+    if (this.spawnIdx >= this.spawnQueue.length) return;
+    
+    const kind = this.spawnQueue[this.spawnIdx++];
+    if (!kind) return;
+    
+    // Create rifts if needed
+    const riftCount = this.riftCountFor(wave);
+    if (game.riftField.list.length < riftCount) {
+      this.riftSpawnTimers += 1;
+      if (this.riftSpawnTimers >= 3) {
+        this.riftSpawnTimers = 0;
+        this.spawnRift(game);
+      }
+    }
+    
+    // Find an open rift to spawn from
+    let spawned = false;
+    for (const rf of game.riftField.list) {
+      if (rf.state === "opening" || rf.state === "spawning") {
+        rf.queue.push(kind);
+        spawned = true;
+        break;
+      }
+    }
+    
+    // If no rift available, spawn directly near player
+    if (!spawned) {
+      const p = game.getPlayerPosition();
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 80 + Math.random() * 60;
+      const x = p.x + Math.cos(angle) * dist;
+      const y = p.y + Math.sin(angle) * dist;
+      game.spawnEnemy(kind, x, y);
+    }
+  }
+  
+  private spawnRift(game: any) {
+    // Рифты размещаем относительно ЦЕНТРА зоны, а не позиции игрока
+    const zoneX = (game as any).zoneX ?? 0;
+    const zoneY = (game as any).zoneY ?? 0;
+    // Используем фактический радиус зоны (game.zoneR), а не константу из balance
+    const zoneR = (game as any).zoneR ?? this.zoneRadius(game.wave);
+    const point = this.spawnRiftPoint(zoneX, zoneY, zoneR);
+    const queue = this.buildQueue(3 + Math.floor(Math.random() * 3), game.wave);
+    const size = 80 + Math.random() * 40;
+    game.riftField.spawn(point.x, point.y, queue, 0, size);
   }
 }
