@@ -479,6 +479,24 @@ export class Game {
       this.zoneAlpha = alpha;
       this.zoneOn = active;
     });
+
+    this.eventBus.on("asteroid_hit", (event) => {
+      const data = event.payload as { index: number; dmg: number; vx: number; vy: number };
+      const { index, dmg, vx, vy } = data;
+      // Get the asteroid from the field and apply damage
+      const asteroids = ((this.asteroidField as any).list || []);
+      if (index >= 0 && index < asteroids.length) {
+        // Apply damage directly to the asteroid
+        const asteroid = asteroids[index];
+        asteroid.hp = (asteroid.hp || 100) - dmg;
+        asteroid.vx += vx * 0.1;
+        asteroid.vy += vy * 0.1;
+        if (asteroid.hp <= 0) {
+          // Destroy the asteroid using the existing destroy logic
+          this.destroyAsteroid(index);
+        }
+      }
+    });
   }
 
   private step(dt: number) {
@@ -509,6 +527,8 @@ export class Game {
     if (this.zoneOn && this.zoneR > 0) {
       this.playerSystem.clampPlayerToZone(this.zoneX, this.zoneY, this.zoneR, this.zoneOn, 0);
     }
+    // Ограничиваем врагов пределами зоны волны
+    this.enemySystem.clampEnemiesToZone(this.zoneX, this.zoneY, this.zoneR, this.zoneOn);
     this.enemySystem.update(dtScaled, this.enemyList, this.getPlayerPosition());
     this.bulletSystem.update(dtScaled, this.bullets, this.enemyBulletList, this.enemyList);
     this.mineSystem.update(dtScaled, this.mines);
@@ -532,6 +552,11 @@ export class Game {
     this.riftField.update(dtScaled);
     this.updateZoneAndWaves(dtScaled);
     this.updateEdgeDanger(dtScaled);
+    
+    // Авто-стрельба по ближайшему врагу в зоне поражения
+    if (this.state === "playing" || this.state === "active") {
+      this.handleAutoFire(dtScaled);
+    }
     
     // Update asteroid field with camera and zone info
     this.asteroidField.update(dtScaled, {
@@ -758,7 +783,8 @@ export class Game {
     this.edgeTickT = 0;
     this.edgeWarned = false;
 
-    this.playerSystem.reset();
+    // Spawn player at center of screen (not from rift)
+    this.playerSystem.reset(0, 0);
     this.enemyList = [];
     this.bullets = [];
     this.enemyBulletList = [];
@@ -777,7 +803,7 @@ export class Game {
     this.zoneCollapse = -1;
 
     this.riftField.reset();
-    this.asteroidField.reset();
+    this.asteroidField.hardReset();
     this.fx.reset();
 
     this.hooks.onBanner(null);
@@ -978,6 +1004,39 @@ export class Game {
       this.edgeOutT = 0;
       this.edgeTickT = 0;
       this.edgeWarned = false;
+    }
+  }
+  
+  /** Авто-стрельба по ближайшему врагу в зоне поражения пушек игрока */
+  private handleAutoFire(dt: number): void {
+    const playerPos = this.playerSystem.getPosition();
+    const playerAngle = this.playerSystem.getAngle();
+    const gunRange = 420; // Дистанция поражения пушек
+    
+    // Находим ближайшего врага в зоне поражения
+    let nearestEnemy: { x: number; y: number; dist: number } | null = null;
+    let nearestDist = gunRange;
+    
+    for (const e of this.enemyList) {
+      if (e.dead) continue;
+      const dx = e.x - playerPos.x;
+      const dy = e.y - playerPos.y;
+      const dist = Math.hypot(dx, dy);
+      
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearestEnemy = { x: e.x, y: e.y, dist };
+      }
+    }
+    
+    // Если есть враг в зоне поражения, стреляем автоматически
+    if (nearestEnemy) {
+      const targetAngle = Math.atan2(nearestEnemy.y - playerPos.y, nearestEnemy.x - playerPos.x);
+      this.playerSystem.setAim(targetAngle);
+      this.playerSystem.setIsFiring(true);
+    } else if (!this.mouseDown) {
+      // Если нет врагов и игрок не нажал кнопку мыши, прекращаем стрельбу
+      this.playerSystem.setIsFiring(false);
     }
   }
 }

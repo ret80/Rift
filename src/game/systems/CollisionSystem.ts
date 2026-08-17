@@ -129,13 +129,13 @@ export class CollisionSystem {
       
       // Check collision with asteroids
       if (!bulletHit) {
-        for (const a of asteroids) {
+        for (let ai = 0; ai < asteroids.length; ai++) {
+          const a = asteroids[ai];
           if (a.dead) continue;
           if (this.checkBulletCollision(b.x, b.y, { x: a.x, y: a.y, r: a.r })) {
             bulletHit = true;
-            // Damage asteroid
-            a.vx += b.vx * 0.1;
-            a.vy += b.vy * 0.1;
+            // Damage asteroid using the damageAt method
+            this.damageAsteroid(ai, b.dmg, b.vx, b.vy);
             break;
           }
         }
@@ -253,5 +253,12 @@ export class CollisionSystem {
         pickups.splice(i, 1);
       }
     }
+  }
+  
+  /**
+   * Нанести урон астероиду через событие.
+   */
+  private damageAsteroid(index: number, dmg: number, vx: number, vy: number): void {
+    this.eventBus.publish('asteroid_hit', { index, dmg, vx, vy });
   }
 }
