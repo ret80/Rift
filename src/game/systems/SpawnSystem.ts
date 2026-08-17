@@ -225,27 +225,20 @@ export class SpawnSystem {
         this.riftSpawnTimers = 0;
         this.spawnRift(game);
       }
+      // Wait for rift to be created before spawning
+      return;
     }
     
-    // Find an open rift to spawn from
-    let spawned = false;
+    // Find an open rift to spawn from - enemies ONLY spawn from rifts
     for (const rf of game.riftField.list) {
       if (rf.state === "opening" || rf.state === "spawning") {
         rf.queue.push(kind);
-        spawned = true;
-        break;
+        return;
       }
     }
     
-    // If no rift available, spawn directly near player
-    if (!spawned) {
-      const p = game.getPlayerPosition();
-      const angle = Math.random() * Math.PI * 2;
-      const dist = 80 + Math.random() * 60;
-      const x = p.x + Math.cos(angle) * dist;
-      const y = p.y + Math.sin(angle) * dist;
-      game.spawnEnemy(kind, x, y);
-    }
+    // If all rifts are closing/closed, create a new rift
+    this.spawnRift(game);
   }
   
   private spawnRift(game: any) {
