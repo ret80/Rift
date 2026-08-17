@@ -515,6 +515,8 @@ export class Game {
     this.droneSystem.update(dtScaled, this.allyDrones, this.enemyList);
     this.pickupSystem.update(dtScaled, this.pickups);
     const playerState = this.playerSystem.getState();
+    // Get asteroids from asteroid field for collision
+    const asteroids = ((this.asteroidField as any).list || []) as Array<{ x: number; y: number; r: number; vx: number; vy: number }>;
     this.collisionSystem.update(
       dtScaled,
       { x: playerState.x, y: playerState.y, r: 16, hp: playerState.hp, invuln: playerState.invuln },
@@ -523,7 +525,8 @@ export class Game {
       this.enemyBulletList as any,
       this.pickups as any,
       this.mines as any,
-      this.allyDrones as any
+      this.allyDrones as any,
+      asteroids
     );
     this.spawnSystem.update(dtScaled, this.wave, this.allocated, this.killedWave, this);
     this.riftField.update(dtScaled);
@@ -596,7 +599,7 @@ export class Game {
     } as any);
     this.riftField.update(dt);
     
-    // Animate menu background enemies
+    // Animate menu background enemies - they spawn from the central rift
     this.updateMenuEnemies(dt);
     
     this.renderer.clear();
@@ -611,49 +614,50 @@ export class Game {
     );
   }
   
-  // Menu scene enemy animation
+  // Menu scene enemy animation - enemies spawn from central rift
   private enemyMenuList: Array<{
     x: number; y: number; vx: number; vy: number;
     kind: EnemyKind; angle: number; seed: number;
   }> = [];
   private menuEnemyTimer = 0;
+  private menuRiftActive = false;
   
   private updateMenuEnemies(dt: number) {
-    // Spawn new enemy occasionally
+    // Spawn rift in center of screen if not active
+    if (!this.menuRiftActive && this.riftField.list.length === 0) {
+      this.menuRiftActive = true;
+      const cx = this.viewW / 2;
+      const cy = this.viewH / 2;
+      const kinds: EnemyKind[] = ["drone", "hunter", "fighter", "cruiser", "carrier"];
+      const queue: EnemyKind[] = [];
+      for (let i = 0; i < 5; i++) {
+        queue.push(kinds[Math.floor(Math.random() * kinds.length)]);
+      }
+      this.riftField.spawn(cx, cy, queue, 0, 80 + Math.random() * 40);
+    }
+    
+    // Spawn new enemy from rift periodically
     this.menuEnemyTimer -= dt;
     if (this.menuEnemyTimer <= 0 && this.enemyMenuList.length < 8) {
       this.menuEnemyTimer = 1.5 + Math.random() * 2;
       const kinds: EnemyKind[] = ["drone", "hunter", "fighter", "cruiser", "carrier"];
       const kind = kinds[Math.floor(Math.random() * kinds.length)];
-      // Spawn from random edge
-      const side = Math.floor(Math.random() * 4);
-      let x: number, y: number;
-      if (side === 0) { // top
-        x = Math.random() * this.viewW;
-        y = -50;
-      } else if (side === 1) { // right
-        x = this.viewW + 50;
-        y = Math.random() * this.viewH;
-      } else if (side === 2) { // bottom
-        x = Math.random() * this.viewW;
-        y = this.viewH + 50;
-      } else { // left
-        x = -50;
-        y = Math.random() * this.viewH;
-      }
-      // Move toward center
-      const cx = this.viewW / 2 + (Math.random() - 0.5) * 200;
-      const cy = this.viewH / 2 + (Math.random() - 0.5) * 200;
-      const dx = cx - x;
-      const dy = cy - y;
-      const dist = Math.hypot(dx, dy) || 1;
+      
+      // Spawn from the central rift position
+      const rift = this.riftField.list[0];
+      const spawnX = rift ? rift.x : this.viewW / 2;
+      const spawnY = rift ? rift.y : this.viewH / 2;
+      
+      // Random direction from rift
+      const angle = Math.random() * Math.PI * 2;
       const speed = 30 + Math.random() * 40;
       this.enemyMenuList.push({
-        x, y,
-        vx: (dx / dist) * speed,
-        vy: (dy / dist) * speed,
+        x: spawnX,
+        y: spawnY,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
         kind,
-        angle: Math.atan2(dy, dx),
+        angle: angle,
         seed: Math.random() * 100,
       });
     }
@@ -667,9 +671,10 @@ export class Game {
       e.y += Math.cos(this.time * 1.5 + e.seed) * 0.3;
     }
     
-    // Remove enemies that are off screen (far outside)
+    // Remove enemies that are off screen (outside camera visibility)
+    const margin = 100;
     this.enemyMenuList = this.enemyMenuList.filter(e => 
-      e.x > -200 && e.x < this.viewW + 200 && e.y > -200 && e.y < this.viewH + 200
+      e.x > -margin || e.x < this.viewW + margin || e.y > -margin || e.y < this.viewH + margin
     );
   }
 
@@ -724,6 +729,10 @@ export class Game {
     this.state = "menu";
     this.paused = false;
     this.hooks.onPause(false);
+    // Reset menu rift state
+    this.menuRiftActive = false;
+    this.riftField.reset();
+    this.enemyMenuList = [];
   }
 
   setTouch(active: boolean, x: number, y: number): void {

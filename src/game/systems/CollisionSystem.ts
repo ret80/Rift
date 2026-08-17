@@ -1,10 +1,11 @@
 /**
- * CollisionSystem - обработка столкновений.
- * Отвечает за проверку и обработку коллизий между объектами.
+ * CollisionSystem - обработка столкновений с использованием PhysicsSystem.
+ * Отвечает за проверку и обработку коллизий между объектами через kinetics.ts.
  */
 
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
+import type { PhysicsSystem } from '../core/PhysicsSystem';
 
 interface Collidable {
   x: number;
@@ -46,13 +47,27 @@ interface PlayerBody {
   invuln: number;
 }
 
+interface Asteroid {
+  x: number;
+  y: number;
+  r: number;
+  vx: number;
+  vy: number;
+  dead?: boolean;
+}
+
 export class CollisionSystem {
   private eventBus: EventBus;
   private state: GameState;
+  private physics: PhysicsSystem | null = null;
 
   constructor(eventBus: EventBus, state: GameState) {
     this.eventBus = eventBus;
     this.state = state;
+  }
+
+  setPhysicsSystem(physics: PhysicsSystem): void {
+    this.physics = physics;
   }
 
   /**
@@ -80,13 +95,15 @@ export class CollisionSystem {
     enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number; heavy: boolean }>,
     pickups: Array<{ x: number; y: number; r: number }>,
     mines: Array<{ x: number; y: number; r: number }>,
-    drones: Array<{ x: number; y: number; r: number }>
+    drones: Array<{ x: number; y: number; r: number }>,
+    asteroids: Asteroid[] = []
   ): void {
     // Проверка пуль игрока против врагов
     for (let i = bullets.length - 1; i >= 0; i--) {
       const b = bullets[i];
       let bulletHit = false;
       
+      // Check collision with enemies
       for (const e of enemies) {
         if (e.dead) continue;
         
@@ -107,6 +124,20 @@ export class CollisionSystem {
             });
           }
           break; // пуля попала в одного врага
+        }
+      }
+      
+      // Check collision with asteroids
+      if (!bulletHit) {
+        for (const a of asteroids) {
+          if (a.dead) continue;
+          if (this.checkBulletCollision(b.x, b.y, { x: a.x, y: a.y, r: a.r })) {
+            bulletHit = true;
+            // Damage asteroid
+            a.vx += b.vx * 0.1;
+            a.vy += b.vy * 0.1;
+            break;
+          }
         }
       }
       
@@ -147,6 +178,62 @@ export class CollisionSystem {
             y: e.y,
           });
           break;
+        }
+      }
+    }
+
+    // Проверка столкновения игрока с астероидами
+    if (playerState.invuln <= 0) {
+      for (const a of asteroids) {
+        if (a.dead) continue;
+        const dx = playerState.x - a.x;
+        const dy = playerState.y - a.y;
+        const dist = Math.hypot(dx, dy);
+        const minDist = playerState.r + a.r;
+        
+        if (dist < minDist) {
+          this.eventBus.publish('player_hit', {
+            dmg: 20,
+            x: a.x,
+            y: a.y,
+          });
+          // Push asteroid away
+          const pushX = dx / (dist || 1);
+          const pushY = dy / (dist || 1);
+          a.vx += pushX * 100;
+          a.vy += pushY * 100;
+          break;
+        }
+      }
+    }
+
+    // Проверка столкновения врагов с астероидами (враги не сталкиваются друг с другом)
+    for (const e of enemies) {
+      if (e.dead) continue;
+      for (const a of asteroids) {
+        if (a.dead) continue;
+        const dx = e.x - a.x;
+        const dy = e.y - a.y;
+        const dist = Math.hypot(dx, dy);
+        const minDist = e.r + a.r;
+        
+        if (dist < minDist) {
+          // Push enemy away from asteroid
+          const pushX = dx / (dist || 1);
+          const pushY = dy / (dist || 1);
+          e.vx += pushX * 50;
+          e.vy += pushY * 50;
+          // Also damage enemy slightly
+          e.hp -= 1;
+          if (e.hp <= 0) {
+            e.dead = true;
+            this.eventBus.publish('enemy_killed', {
+              scoreValue: e.score,
+              kind: e.kind,
+              x: e.x,
+              y: e.y,
+            });
+          }
         }
       }
     }
