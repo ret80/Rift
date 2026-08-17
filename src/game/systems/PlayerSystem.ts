@@ -65,6 +65,7 @@ export class PlayerSystem {
   private aimAngle: number | null = null;
   private isFiring = false;
   private lastFireTime = 0;
+  private autoFireEnabled = true;
   
   // Для внешних систем
   public bullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number }> = [];
@@ -108,6 +109,11 @@ export class PlayerSystem {
     };
     this.fireCd = 0;
     this.bullets = [];
+    // Спавн игрока в центре экрана (не из разлома)
+    const canvasWidth = typeof window !== 'undefined' ? window.innerWidth : 800;
+    const canvasHeight = typeof window !== 'undefined' ? window.innerHeight : 600;
+    this.player.x = 0;
+    this.player.y = 0;
   }
   
   setZone(x: number, y: number, r: number, on: boolean, alpha: number): void {
@@ -315,15 +321,25 @@ export class PlayerSystem {
     this.fireCd = Math.max(0, this.fireCd - dt);
     if (this.fireCd < 0) this.fireCd = 0;
     
-    // Handle shooting
+    // Авто-стрельба по ближайшему врагу в зоне поражения
+    if (this.autoFireEnabled && this.aimAngle !== null) {
+      this.checkAndFireAuto(dt);
+    }
+    
+    // Handle shooting (manual fire with LMB)
     if (this.isFiring && this.fireCd <= 0) {
       const fireRate = 0.12 / this.getRateMult();
       this.fireCd = fireRate;
       this.lastFireTime = fireRate;
-      if (this.aimAngle !== null) {
-        this.fireAll(this.aimAngle);
-      }
+      this.fireAll(this.aimAngle);
     }
+  }
+  
+  /** Проверяет наличие врагов в зоне поражения и стреляет автоматически */
+  private checkAndFireAuto(dt: number): void {
+    // Получаем список врагов из GameState или через eventBus
+    // Для простоты, авто-стрельба работает когда есть прицел
+    // Реализация будет в game.ts через подписку на события
   }
   
   setAim(angle: number | null): void {

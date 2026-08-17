@@ -457,6 +457,34 @@ export class EnemySystem {
       parent.spawnCd = 0;
     }
   }
+  
+  /** Ограничивает врагов пределами зоны волны */
+  clampEnemiesToZone(zoneX: number, zoneY: number, zoneR: number, zoneOn: boolean): void {
+    if (!zoneOn || zoneR <= 0) return;
+    
+    for (const e of this.enemies) {
+      if (e.dead) continue;
+      
+      const dx = e.x - zoneX;
+      const dy = e.y - zoneY;
+      const dist = Math.hypot(dx, dy);
+      const limit = zoneR - e.r;
+      
+      if (dist > limit) {
+        const angle = Math.atan2(dy, dx);
+        e.x = zoneX + Math.cos(angle) * limit;
+        e.y = zoneY + Math.sin(angle) * limit;
+        
+        const nx = Math.cos(angle);
+        const ny = Math.sin(angle);
+        const dot = e.vx * nx + e.vy * ny;
+        if (dot > 0) {
+          e.vx -= 2 * dot * nx;
+          e.vy -= 2 * dot * ny;
+        }
+      }
+    }
+  }
 
   private getEnemyDef(kind: EnemyKind): EnemyDef {
     switch (kind) {

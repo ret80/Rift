@@ -133,12 +133,15 @@ export class RiftField {
         }
         // Only close if queue is truly empty and timer has expired
         if (rf.queue.length === 0 && rf.timer <= 0) {
-          rf.state = "closing";
+          rf.state = "closed";
           rf.t = 0;
           this.h.audio.riftClose();
         }
       } else if (rf.state === "closing") {
         if (rf.t >= 0.5) this.list.splice(i, 1);
+      } else if (rf.state === "closed") {
+        // Closed rifts fade out and disappear after a short delay
+        if (rf.t >= 0.8) this.list.splice(i, 1);
       }
     }
   }
@@ -198,7 +201,15 @@ export class RiftField {
         snake = 0;
         alpha = 1 - q;
       }
+    } else if (rf.state === "closed") {
+      // Closed rift: small fading circle
+      const p = clamp(rf.t / 0.8, 0, 1);
+      alpha = 1 - p;
+      lenP = 1 - p * 0.7;
+      widP = 0;
+      snake = 0;
     } else {
+      // spawning state - animated rift with sine wave motion
       lenP = 1 + 0.04 * Math.sin(rf.t * 6);
       widP = 1 + 0.06 * Math.sin(rf.t * 6 + 1.4);
     }
@@ -206,9 +217,9 @@ export class RiftField {
     // Don't draw if completely transparent
     if (alpha <= 0.01) return;
 
-    if (lenP <= 0.03) {
+    if (lenP <= 0.03 || rf.state === "closed") {
       const pr = 3 + 1.6 * Math.sin(time * 18 + rf.seed);
-      R.circle(rf.x, rf.y, Math.max(1.5, pr), rgba(C.riftCore, 0.9 * alpha), 10);
+      R.circle(rf.x, rf.y, Math.max(1.5, pr * lenP), rgba(C.riftCore, 0.9 * alpha), 10);
       return;
     }
 
