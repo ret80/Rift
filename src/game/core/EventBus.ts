@@ -4,6 +4,7 @@
  */
 
 export type EventType =
+  // Новые события
   | 'enemy_killed'
   | 'player_damaged'
   | 'player_healed'
@@ -23,7 +24,19 @@ export type EventType =
   | 'enemy_fired'
   | 'physics_collision'
   | 'drone_fired'
-  | 'player_fired';
+  | 'player_fired'
+  // Старые события (для совместимости)
+  | 'player_hit'
+  | 'wave_start'
+  | 'spawn_enemy'
+  | 'fire_bullet'
+  | 'spawn_pickup'
+  | 'popup'
+  | 'camera_shake'
+  | 'zone_update'
+  | 'carrierSpawnDrone'
+  | 'enemyFire'
+  | 'enemyBulletSpawn';
 
 export interface GameEvent {
   type: EventType;
@@ -32,6 +45,9 @@ export interface GameEvent {
 }
 
 export type EventCallback = (event: GameEvent) => void;
+
+// Aliases for backward compatibility
+export type OnCallback<T = Record<string, unknown>> = (data: T) => void;
 
 export class EventBus {
   private listeners: Map<EventType, Set<EventCallback>> = new Map();
@@ -83,10 +99,26 @@ export class EventBus {
   }
 
   /**
-   * Проверить, есть ли подписчики на событие.
-   */
+    * Проверить, есть ли подписчики на событие.
+    */
   hasListeners(eventType: EventType): boolean {
     const set = this.listeners.get(eventType);
     return set !== undefined && set.size > 0;
+  }
+
+  // ===== Aliases for backward compatibility =====
+
+  /**
+    * Алиас для subscribe (он же on в старом API).
+    */
+  on(eventType: EventType, callback: EventCallback): () => void {
+    return this.subscribe(eventType, callback);
+  }
+
+  /**
+    * Алиас для publish (он же emit в старом API).
+    */
+  emit(eventType: EventType, payload: Record<string, unknown> = {}): void {
+    this.publish(eventType, payload);
   }
 }

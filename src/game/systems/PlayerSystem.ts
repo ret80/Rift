@@ -10,6 +10,7 @@ import { C } from '../balance';
 import type { InputManager } from '../input';
 import type { Fx } from '../fx';
 import type { AudioEngine } from '../audio';
+import type { RGBA } from '../render';
 
 interface PlayerState {
   x: number;
@@ -34,6 +35,9 @@ export class PlayerSystem {
   private input: InputManager;
   private fx: Fx;
   private audio: AudioEngine;
+  private getZoneBounds: () => { x: number; y: number; radius: number; active: boolean };
+  private spawnPickup: (kind: string, x: number, y: number, vx: number, vy: number) => void;
+  private fireAllCallback: (angle: number) => void;
   
   private player: PlayerState = {
     x: 0,
@@ -62,12 +66,24 @@ export class PlayerSystem {
   // Для внешних систем
   public bullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number }> = [];
   
-  constructor(eventBus: EventBus, state: GameState, input: InputManager, fx: Fx, audio: AudioEngine) {
+  constructor(
+    eventBus: EventBus,
+    state: GameState,
+    input: InputManager,
+    fx: Fx,
+    audio: AudioEngine,
+    getZoneBounds: () => { x: number; y: number; radius: number; active: boolean },
+    spawnPickup: (kind: string, x: number, y: number, vx: number, vy: number) => void,
+    fireAllCallback: (angle: number) => void
+  ) {
     this.eventBus = eventBus;
     this.state = state;
     this.input = input;
     this.fx = fx;
     this.audio = audio;
+    this.getZoneBounds = getZoneBounds;
+    this.spawnPickup = spawnPickup;
+    this.fireAllCallback = fireAllCallback;
   }
   
   reset(): void {
@@ -171,8 +187,67 @@ export class PlayerSystem {
   getAimA(): number | null {
     return this.player.aimA;
   }
+
+  // Методы для вызова из game.ts
   
-  update(dt: number, wave: number, asteroids: Array<{ x: number; y: number; vx: number; vy: number }>, enemies: Array<{ x: number; y: number; dead: boolean }>): void {
+  hit(dmg: number): void {
+    if (this.player.invuln > 0) return;
+    this.player.hp -= dmg;
+    this.eventBus.publish('player_damaged', { hp: this.player.hp });
+    if (this.player.hp <= 0) {
+      this.player.hp = 0;
+      this.eventBus.publish('game_over', {});
+    }
+  }
+
+  heal(amount: number): void {
+    this.player.hp = Math.min(this.player.maxHp, this.player.hp + amount);
+    this.eventBus.publish('player_healed', { hp: this.player.hp });
+  }
+
+  addGun(): void {
+    this.player.guns++;
+  }
+
+  boostRate(): void {
+    this.player.rateBoost = Math.min(1.0, this.player.rateBoost + 0.2);
+    this.player.rateT = 10; // 10 seconds boost
+  }
+
+  getRateMult(): number {
+    return 1 + this.player.rateBoost;
+  }
+
+  getRateT(): number {
+    return this.player.rateT;
+  }
+
+  getRenderState(): import('../systems/RendererSystem').PlayerRenderState {
+    return {
+      x: this.player.x,
+      y: this.player.y,
+      angle: this.player.angle,
+      aimA: this.player.aimA,
+      hp: this.player.hp,
+      maxHp: this.player.maxHp,
+      invuln: this.player.invuln,
+      guns: this.player.guns,
+      rateT: this.player.rateT,
+      rateBoost: this.player.rateBoost,
+      dashT: this.player.dashT,
+      thrusting: this.player.thrusting,
+      pvx: this.player.vx,
+      pvy: this.player.vy,
+    };
+  }
+
+  setTouch(active: boolean, x: number, y: number): void {
+    this.input.setTouch(active, x, y);
+  }
+  
+  update(dt: number, active: boolean): void {
+    if (!active) return;
+    
     const mv = this.input.axis;
     let ax = mv.x;
     let ay = mv.y;
@@ -214,7 +289,7 @@ export class PlayerSystem {
           vy: -(this.player.vy / sp) * rand(40, 130),
           life: rand(0.2, 0.4),
           maxLife: 0.4,
-          c: rgba(C.dash, 0.8),
+          c: [1, 1, 1, 0.8] as RGBA,
           size: rand(1, 2.2),
         });
       }
@@ -226,63 +301,12 @@ export class PlayerSystem {
     
     this.player.invuln = Math.max(0, this.player.invuln - dt);
     
-    // turret: aim & fire at the nearest target (enemies preferred over rocks).
-    const zoneLive = this.zoneOn && this.zoneAlpha > 0.4 && this.zoneR > 60;
-    const inZone = (x: number, y: number) => !zoneLive || Math.hypot(x - this.zoneX, y - this.zoneY) <= this.zoneR;
-    
-    const rate = Math.min(8.5, 4.4 + wave * 0.12) * (1 + this.player.rateBoost);
-    let bestX = 0;
-    let bestY = 0;
-    let bestVX = 0;
-    let bestVY = 0;
-    let bestD = 1e9;
-    
-    for (const e of enemies) {
-      if (e.dead || !inZone(e.x, e.y)) continue;
-      const d = Math.hypot(e.x - this.player.x, e.y - this.player.y) * 0.85;
-      if (d < bestD) {
-        bestD = d;
-        bestX = e.x;
-        bestY = e.y;
-        bestVX = 0;
-        bestVY = 0;
-      }
-    }
-    
-    for (const a of asteroids) {
-      if (!inZone(a.x, a.y)) continue;
-      const d = Math.hypot(a.x - this.player.x, a.y - this.player.y);
-      if (d < bestD) {
-        bestD = d;
-        bestX = a.x;
-        bestY = a.y;
-        bestVX = a.vx;
-        bestVY = a.vy;
-      }
-    }
-    
-    if (bestD < 620) {
-      const leadT = (bestD / 560) * 0.6;
-      const tx = bestX + bestVX * leadT - this.player.x;
-      const ty = bestY + bestVY * leadT - this.player.y;
-      this.player.aimA = Math.atan2(ty, tx);
-      
-      this.fireCd -= dt;
-      while (this.fireCd <= 0) {
-        this.fireCd += 1 / rate;
-        this.fireAll(this.player.aimA);
-      }
-    } else {
-      this.player.aimA = null;
-      if (this.fireCd < 0) this.fireCd = 0;
-    }
+    this.fireCd = Math.max(0, this.fireCd - dt);
+    if (this.fireCd < 0) this.fireCd = 0;
   }
   
   private fireAll(angle: number): void {
-    const GUN_OFFS = [0];
-    for (let i = 0; i < this.player.guns; i++) {
-      this.fireBullet(GUN_OFFS[i] || 0, (Math.random() - 0.5) * 0.06, angle);
-    }
+    this.fireAllCallback(angle);
     this.audio.shoot();
   }
   

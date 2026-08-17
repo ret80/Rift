@@ -114,7 +114,10 @@ export type PickupKind =
   | "drone"
   | "dash"
   | "miner"
-  | "mineral";
+  | "mineral"
+  | "hp"
+  | "rate"
+  | "mine";
 
 /* ------------------------------ asteroids ------------------------------ */
 

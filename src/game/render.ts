@@ -270,6 +270,14 @@ export class Renderer {
     this.mode = "world";
   }
 
+  /** Clear the entire canvas (for menu). */
+  clear() {
+    const gl = this.gl;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, this.width, this.height);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  }
+
   setMode(m: "screen" | "world") {
     if (m !== this.mode) {
       this.flush();

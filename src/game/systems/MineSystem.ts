@@ -5,6 +5,8 @@
 
 import type { EventBus } from '../core/EventBus';
 import type { GameState, EnemyEntity } from '../core/GameState';
+import type { Fx } from '../fx';
+import type { AudioEngine } from '../audio';
 import { MINE_DELAY, MINE_RADIUS, MINE_DMG, MINE_LIFE } from '../balance';
 
 export interface MineData {
@@ -17,6 +19,8 @@ export interface MineData {
 export class MineSystem {
   private eventBus: EventBus;
   private state: GameState;
+  private fx: Fx;
+  private audio: AudioEngine;
   
   private mines: Array<{ 
     x: number; 
@@ -26,9 +30,11 @@ export class MineSystem {
     armed: boolean;
   }> = [];
 
-  constructor(eventBus: EventBus, state: GameState) {
+  constructor(eventBus: EventBus, state: GameState, fx: Fx, audio: AudioEngine) {
     this.eventBus = eventBus;
     this.state = state;
+    this.fx = fx;
+    this.audio = audio;
     
     // Подписка на событие детонации
     this.eventBus.subscribe('mine_detonated', (e) => {
@@ -50,43 +56,15 @@ export class MineSystem {
   }
 
   /**
-   * Обновить все мины.
-   */
-  update(dt: number, playerX: number, playerY: number): void {
-    for (let i = this.mines.length - 1; i >= 0; i--) {
-      const m = this.mines[i];
-      
-      // Активация мины после задержки
-      if (!m.armed && m.fuse > 0) {
-        m.fuse -= dt;
-        if (m.fuse <= 0) {
-          m.armed = true;
-        }
-      }
-      
-      // Проверка детонации при приближении врагов
-      if (m.armed) {
-        const enemies = this.state.world.enemies;
-        let shouldDetonate = false;
-        
-        for (const enemy of enemies) {
-          if (enemy.dead) continue;
-          const dist = Math.hypot(enemy.x - m.x, enemy.y - m.y);
-          if (dist < MINE_RADIUS + enemy.r) {
-            shouldDetonate = true;
-            break;
-          }
-        }
-        
-        // Детонация по таймеру жизни
-        const totalTime = MINE_LIFE - m.fuse;
-        if (totalTime >= MINE_LIFE) {
-          shouldDetonate = true;
-        }
-        
-        if (shouldDetonate) {
-          this.detonate(m, i);
-        }
+    * Обновить все мины.
+    */
+  update(dt: number, mines: Array<{ x: number; y: number; fuse: number; seed: number }>): void {
+    // Обновление мин (список mines передается извне)
+    for (let i = mines.length - 1; i >= 0; i--) {
+      const m = mines[i];
+      m.fuse -= dt;
+      if (m.fuse <= 0) {
+        mines.splice(i, 1);
       }
     }
   }

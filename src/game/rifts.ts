@@ -151,6 +151,10 @@ export class RiftField {
     this.list.length = 0;
   }
 
+  reset() {
+    this.list.length = 0;
+  }
+
   draw(R: Renderer, time: number) {
     for (const rf of this.list) this.drawRift(R, rf, time);
   }

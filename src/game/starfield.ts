@@ -40,6 +40,11 @@ export class Starfield {
     return out;
   }
 
+  /** Обновить звёздное поле. */
+  update(dt: number, camX: number, camY: number, zoom: number, time: number, viewW: number, viewH: number) {
+    this.ensure(camX, camY, viewW, viewH);
+  }
+
   private ensure(camX: number, camY: number, viewW: number, viewH: number) {
     const ranges: Array<[number, number, number, number]> = [];
     let key = "";
@@ -75,6 +80,12 @@ export class Starfield {
 
   /** Draws in world space: a star at layer coord `st` is pushed at
       `st + cam·(1−f)`, which the world transform renders at `st − cam·f`. */
+  /** Reset starfield. */
+  reset() {
+    this.chunks.clear();
+    this.boundsKey = "";
+  }
+
   draw(
     R: Renderer,
     camX: number,

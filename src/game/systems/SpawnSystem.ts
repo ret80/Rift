@@ -38,6 +38,8 @@ export class SpawnSystem {
   private hooks: SpawnHooks;
   private eventBus: EventBus;
   private riftField: RiftField;
+  private fx: Fx;
+  private audio: AudioEngine;
   private currentWave = 1;
   private announcedKinds = new Set<EnemyKind>();
 
@@ -45,10 +47,14 @@ export class SpawnSystem {
     hooks: SpawnHooks;
     eventBus: EventBus;
     riftField: RiftField;
+    fx: Fx;
+    audio: AudioEngine;
   }) {
     this.hooks = config.hooks;
     this.eventBus = config.eventBus;
     this.riftField = config.riftField;
+    this.fx = config.fx;
+    this.audio = config.audio;
   }
 
   /**
@@ -161,5 +167,13 @@ export class SpawnSystem {
 
   private pickKindForWave(w: number): EnemyKind {
     return pickKindFor(w);
+  }
+
+  /**
+    * Обновить спавн.
+    */
+  update(dt: number, wave: number, allocated: number, killedWave: number): void {
+    this.currentWave = wave;
+    // Логика спавна может быть добавлена здесь
   }
 }

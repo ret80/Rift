@@ -50,6 +50,8 @@ export class EnemySystem {
   private state: GameState;
   private fx: Fx;
   private audio: AudioEngine;
+  private enemyFireCallback: (e: Enemy) => void;
+  private getZoneBounds: () => { x: number; y: number; radius: number; active: boolean };
   
   private enemies: Enemy[] = [];
   private wave = 1;
@@ -57,11 +59,20 @@ export class EnemySystem {
   // Для отрисовки
   public flock: Enemy[] = [];
   
-  constructor(eventBus: EventBus, state: GameState, fx: Fx, audio: AudioEngine) {
+  constructor(
+    eventBus: EventBus,
+    state: GameState,
+    fx: Fx,
+    audio: AudioEngine,
+    enemyFireCallback: (e: Enemy) => void,
+    getZoneBounds: () => { x: number; y: number; radius: number; active: boolean }
+  ) {
     this.eventBus = eventBus;
     this.state = state;
     this.fx = fx;
     this.audio = audio;
+    this.enemyFireCallback = enemyFireCallback;
+    this.getZoneBounds = getZoneBounds;
   }
   
   reset(): void {
@@ -109,7 +120,13 @@ export class EnemySystem {
     });
   }
   
-  update(dt: number, playerX: number, playerY: number, playerVx: number, playerVy: number, zoneTarget: number): void {
+  update(dt: number, enemyList: Enemy[], playerPos: { x: number; y: number }): void {
+    const playerX = playerPos.x;
+    const playerY = playerPos.y;
+    const playerVx = 0;
+    const playerVy = 0;
+    const zone = this.getZoneBounds();
+    const zoneTarget = zone.radius;
     // gather live drones for the boids flock
     this.flock.length = 0;
     for (const e of this.enemies) {
@@ -392,21 +409,54 @@ export class EnemySystem {
   removeDead(): void {
     this.enemies = this.enemies.filter(e => !e.dead);
   }
-  
-  enemyFire(e: Enemy, speed: number, heavy: boolean, spread: number, life: number): void {
-    const aa = Math.atan2(this.state.getPlayerY() - e.y, this.state.getPlayerX() - e.x) + (Math.random() - 0.5) * 2 * spread;
-    this.eventBus.emit('enemyBulletSpawn', {
-      x: e.x + Math.cos(aa) * (e.r + 6),
-      y: e.y + Math.sin(aa) * (e.r + 6),
-      vx: Math.cos(aa) * speed,
-      vy: Math.sin(aa) * speed,
-      life,
-      dmg: e.boltDmg,
-      heavy,
+
+  spawn(kind: EnemyKind, x: number, y: number, parent: Enemy | null, enemyList: Enemy[]): void {
+    const def = this.getEnemyDef(kind);
+    this.enemies.push({
+      kind,
+      x,
+      y,
+      vx: 0,
+      vy: 0,
+      angle: rand(0, TAU),
+      hp: def.hp,
+      maxHp: def.hp,
+      r: def.r,
+      speed: def.speed,
+      contact: def.contact,
+      score: def.score,
+      boltDmg: def.bolt,
+      fireCd: rand(0.3, 1),
+      mode: 0,
+      modeT: 0,
+      strafeDir: Math.random() < 0.5 ? -1 : 1,
+      seed: Math.random() * 100,
+      spawnCd: rand(1, 2),
+      flash: 0,
+      hitCd: 0,
+      dead: false,
+      parent,
     });
-    
-    if (heavy) this.audio.heavyShoot();
-    else this.audio.enemyShoot();
+    if (parent) {
+      parent.spawnCd = 0;
+    }
+  }
+
+  private getEnemyDef(kind: EnemyKind): EnemyDef {
+    switch (kind) {
+      case "drone":
+        return { hp: 8, r: 10, speed: 60, contact: 12, score: 10, bolt: 8 };
+      case "hunter":
+        return { hp: 20, r: 14, speed: 150, contact: 16, score: 25, bolt: 12 };
+      case "fighter":
+        return { hp: 35, r: 18, speed: 110, contact: 20, score: 40, bolt: 15 };
+      case "cruiser":
+        return { hp: 80, r: 26, speed: 80, contact: 24, score: 80, bolt: 20 };
+      case "carrier":
+        return { hp: 150, r: 36, speed: 60, contact: 30, score: 150, bolt: 25 };
+      default:
+        return { hp: 10, r: 12, speed: 80, contact: 14, score: 15, bolt: 10 };
+    }
   }
 }
 

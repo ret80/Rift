@@ -24,7 +24,7 @@ import { Starfield } from "./starfield";
 import type { Enemy, Bullet, EBullet, Pickup, Mine, AllyDrone } from "./types";
 
 /* Game systems */
-import { RendererSystem } from "./systems/RendererSystem";
+import { RendererSystem, type PlayerRenderState, type ZoneRenderState, type EnemyRenderState, type PickupRenderState, type MineRenderState, type AllyDroneRenderState, type BulletRenderState, type EBulletRenderState } from "./systems/RendererSystem";
 import { BulletSystem } from "./systems/BulletSystem";
 import { SpawnSystem } from "./systems/SpawnSystem";
 import { CountdownSystem } from "./systems/CountdownSystem";
@@ -107,6 +107,9 @@ export class Game {
   readonly audio = new AudioEngine();
   private renderer: Renderer;
   private hooks: Hooks;
+  private touchActive = false;
+  private touchX = 0;
+  private touchY = 0;
 
   private raf = 0;
   private lastT = 0;
@@ -196,6 +199,8 @@ export class Game {
   private onResize = () => {
     this.viewW = window.innerWidth;
     this.viewH = window.innerHeight;
+    this.renderer.width = this.viewW;
+    this.renderer.height = this.viewH;
   };
 
   constructor(canvas: HTMLCanvasElement, hooks: Hooks) {
@@ -261,8 +266,8 @@ export class Game {
       this.fx,
       this.audio,
       () => this.getZoneBounds(),
-      (kind, x, y, vx, vy) => this.spawnPickup(kind, x, y, vx, vy),
-      (angle) => this.fireAll(angle)
+      (kind: string, x: number, y: number, vx: number, vy: number) => this.spawnPickup(kind as any, x, y, vx, vy),
+      (angle: number) => this.fireAll(angle)
     );
 
     this.enemySystem = new EnemySystem(
@@ -270,7 +275,7 @@ export class Game {
       this.gameState,
       this.fx,
       this.audio,
-      (e) => this.enemyFire(e),
+      (e: any) => this.enemyFire(e),
       () => this.getZoneBounds()
     );
 
@@ -281,19 +286,32 @@ export class Game {
       this.audio
     );
 
-    this.spawnSystem = new SpawnSystem(
-      this.eventBus,
-      this.gameState,
-      this.riftField,
-      this.fx,
-      this.audio
-    );
+    this.spawnSystem = new SpawnSystem({
+      hooks: {
+        fx: this.fx,
+        audio: this.audio,
+      },
+      eventBus: this.eventBus,
+      riftField: this.riftField,
+      fx: this.fx,
+      audio: this.audio,
+    });
 
-    this.countdownSystem = new CountdownSystem(
-      this.eventBus,
-      this.gameState,
-      (label, value) => this.showCountdown(label, value)
-    );
+    this.countdownSystem = new CountdownSystem({
+      hooks: {
+        onBanner: (b) => this.hooks.onBanner(b),
+        onToast: (t) => this.hooks.onToast(t),
+        onCountdown: (c) => {
+          if (c) {
+            this.countId++;
+            this.hooks.onCountdown({ id: this.countId, label: c.label, value: c.value });
+          } else {
+            this.hooks.onCountdown(null);
+          }
+        },
+      },
+      eventBus: this.eventBus,
+    });
 
     this.mineSystem = new MineSystem(
       this.eventBus,
@@ -307,7 +325,7 @@ export class Game {
       this.gameState,
       this.fx,
       this.audio,
-      (kind, x, y, parent) => this.spawnEnemy(kind, x, y, parent)
+      (kind: string, x: number, y: number, parent: any) => this.spawnEnemy(kind as any, x, y, parent)
     );
 
     this.pickupSystem = new PickupSystem(
@@ -347,11 +365,13 @@ export class Game {
   }
 
   private setupEventListeners() {
-    this.eventBus.on("player_hit", (data) => {
+    this.eventBus.on("player_hit", (event) => {
+      const data = event.payload as { dmg: number };
       this.playerSystem.hit(data.dmg);
     });
 
-    this.eventBus.on("enemy_killed", (data) => {
+    this.eventBus.on("enemy_killed", (event) => {
+      const data = event.payload as { scoreValue: number };
       const { scoreValue } = data;
       this.score += scoreValue;
       this.killed++;
@@ -361,7 +381,8 @@ export class Game {
       this.checkWaveClear();
     });
 
-    this.eventBus.on("wave_start", (data) => {
+    this.eventBus.on("wave_start", (event) => {
+      const data = event.payload as { waveNum: number; total: number };
       const { waveNum, total } = data;
       this.wave = waveNum;
       this.waveTotal = total;
@@ -369,12 +390,14 @@ export class Game {
       this.clearT = 0;
     });
 
-    this.eventBus.on("spawn_enemy", (data) => {
+    this.eventBus.on("spawn_enemy", (event) => {
+      const data = event.payload as { kind: string; x: number; y: number; parent: Enemy | null };
       const { kind, x, y, parent } = data;
-      this.spawnEnemy(kind, x, y, parent);
+      this.spawnEnemy(kind as any, x, y, parent);
     });
 
-    this.eventBus.on("fire_bullet", (data) => {
+    this.eventBus.on("fire_bullet", (event) => {
+      const data = event.payload as { x: number; y: number; vx: number; vy: number; life: number; dmg: number; isEnemy: boolean };
       const { x, y, vx, vy, life, dmg, isEnemy } = data;
       if (isEnemy) {
         this.enemyBulletList.push({ x, y, vx, vy, life, dmg, heavy: false });
@@ -383,23 +406,27 @@ export class Game {
       }
     });
 
-    this.eventBus.on("spawn_pickup", (data) => {
+    this.eventBus.on("spawn_pickup", (event) => {
+      const data = event.payload as { kind: string; x: number; y: number; vx: number; vy: number };
       const { kind, x, y, vx, vy } = data;
-      this.spawnPickup(kind, x, y, vx, vy);
+      this.spawnPickup(kind as any, x, y, vx, vy);
     });
 
-    this.eventBus.on("popup", (data) => {
+    this.eventBus.on("popup", (event) => {
+      const data = event.payload as { x: number; y: number; text: string; color: string };
       const { x, y, text, color } = data;
       this.popupId++;
       this.hooks.onPopup({ id: this.popupId, x, y, text, color });
     });
 
-    this.eventBus.on("camera_shake", (data) => {
+    this.eventBus.on("camera_shake", (event) => {
+      const data = event.payload as { strength: number; duration: number };
       const { strength, duration } = data;
-      this.fx.shake(strength, duration);
+      this.fx.addShake(strength);
     });
 
-    this.eventBus.on("zone_update", (data) => {
+    this.eventBus.on("zone_update", (event) => {
+      const data = event.payload as { x: number; y: number; radius: number; targetRadius: number; alpha: number; active: boolean };
       const { x, y, radius, targetRadius, alpha, active } = data;
       this.zoneX = x;
       this.zoneY = y;
@@ -436,15 +463,16 @@ export class Game {
     this.mineSystem.update(dtScaled, this.mines);
     this.droneSystem.update(dtScaled, this.allyDrones, this.enemyList);
     this.pickupSystem.update(dtScaled, this.pickups);
+    const playerState = this.playerSystem.getState();
     this.collisionSystem.update(
       dtScaled,
-      this.playerSystem.getState(),
-      this.enemyList,
-      this.bullets,
-      this.enemyBulletList,
-      this.pickups,
-      this.mines,
-      this.allyDrones
+      { x: playerState.x, y: playerState.y, r: 16, hp: playerState.hp, invuln: playerState.invuln },
+      this.enemyList as any,
+      this.bullets as any,
+      this.enemyBulletList as any,
+      this.pickups as any,
+      this.mines as any,
+      this.allyDrones as any
     );
     this.spawnSystem.update(dtScaled, this.wave, this.allocated, this.killedWave);
     this.riftField.update(dtScaled);
@@ -460,7 +488,12 @@ export class Game {
     
     this.rendererSystem.render(
       this.renderer,
-      this.gameState,
+      {
+        type: this.state,
+        time: this.time,
+        wave: this.wave,
+        score: this.score,
+      },
       playerRender,
       this.enemyList,
       this.bullets,
@@ -485,8 +518,8 @@ export class Game {
   }
 
   private updateMenu(dt: number) {
-    this.starfield.update(dt, 0, 0, 0, 0, 1);
-    this.asteroidField.update(dt, { x: 0, y: 0 }, 0);
+    this.starfield.update(dt, 0, 0, 1, 0, window.innerWidth, window.innerHeight);
+    this.asteroidField.update(dt, { x: 0, y: 0 } as any);
     this.riftField.update(dt);
     this.renderer.clear();
     this.rendererSystem.renderMenu(
@@ -504,8 +537,8 @@ export class Game {
       wave: this.wave,
       score: this.score,
       best: this.best,
-      hp: this.playerSystem.getHP(),
-      maxHp: this.playerSystem.getMaxHP(),
+      hp: this.playerSystem.getHp(),
+      maxHp: this.playerSystem.getMaxHp(),
       killed: this.killed,
       total: this.waveTotal,
       enemies: this.enemyList.length,
@@ -520,11 +553,40 @@ export class Game {
     this.hooks.onHud(hud);
   }
 
-  private togglePause() {
+  public togglePause() {
     if (this.state === "menu" || this.state === "over") return;
     this.paused = !this.paused;
     this.hooks.onPause(this.paused);
     this.audio.setSuspended(this.paused);
+  }
+
+  // ===== Public methods for App.tsx =====
+
+  setVolumes(vols: { master: number; sfx: number; music: number }): void {
+    this.audio.setVolumes(vols);
+  }
+
+  setDebugGod(on: boolean): void {
+    this.debugGod = on;
+  }
+
+  setStartWave(wave: number): void {
+    this.startWave = wave;
+  }
+
+  fps(): number {
+    return Math.round(this.fpsEma);
+  }
+
+  toMenu(): void {
+    if (this.state === "menu") return;
+    this.state = "menu";
+    this.paused = false;
+    this.hooks.onPause(false);
+  }
+
+  setTouch(active: boolean, x: number, y: number): void {
+    this.input.setTouch(active, x, y);
   }
 
   startRun() {
@@ -632,9 +694,9 @@ export class Game {
     }
   }
 
-  private showCountdown(label: string, value: string) {
+  private showCountdown(data: { label: string; value: string }) {
     this.countId++;
-    this.hooks.onCountdown({ id: this.countId, label, value });
+    this.hooks.onCountdown({ id: this.countId, label: data.label, value: data.value });
     setTimeout(() => this.hooks.onCountdown(null), 1400);
   }
 

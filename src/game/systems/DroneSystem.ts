@@ -5,7 +5,9 @@
 
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
-import type { Enemy } from '../entities/Enemy';
+import type { Enemy } from '../types';
+import type { Fx } from '../fx';
+import type { AudioEngine } from '../audio';
 import { ALLY_DRONE_ORBIT, ALLY_DRONE_RANGE, ALLY_DRONE_DMG, ALLY_DRONE_FIRE_CD, MAX_ALLY_DRONES } from '../balance';
 
 export interface DroneData {
@@ -24,6 +26,9 @@ export interface DroneData {
 export class DroneSystem {
   private eventBus: EventBus;
   private state: GameState;
+  private fx: Fx;
+  private audio: AudioEngine;
+  private spawnEnemy: (kind: string, x: number, y: number, parent: any) => void;
   
   private drones: Array<{
     x: number;
@@ -38,9 +43,12 @@ export class DroneSystem {
     flash: number;
   }> = [];
 
-  constructor(eventBus: EventBus, state: GameState) {
+  constructor(eventBus: EventBus, state: GameState, fx: Fx, audio: AudioEngine, spawnEnemy: (kind: string, x: number, y: number, parent: any) => void) {
     this.eventBus = eventBus;
     this.state = state;
+    this.fx = fx;
+    this.audio = audio;
+    this.spawnEnemy = spawnEnemy;
   }
 
   /**
@@ -71,14 +79,25 @@ export class DroneSystem {
   }
 
   /**
-   * Обновить все дроны.
-   */
-  update(dt: number, playerX: number, playerY: number, enemies: Enemy[]): void {
-    for (const drone of this.drones) {
+    * Добавить дрон.
+    */
+  spawn(drones: Array<{ x: number; y: number }>, playerPos: { x: number; y: number }): void {
+    const phase = (drones.length / 8) * Math.PI * 2;
+    drones.push({
+      x: playerPos.x + Math.cos(phase) * 58,
+      y: playerPos.y + Math.sin(phase) * 58,
+    });
+  }
+
+  /**
+    * Обновить все дроны.
+    */
+  update(dt: number, drones: Array<{ x: number; y: number; angle: number; fireCd: number; phase: number; hp: number; maxHp: number; target: any; retargetT: number; flash: number }>, enemies: Array<{ x: number; y: number; dead: boolean; kind: string }>): void {
+    for (const drone of drones) {
       // Орбитальное движение вокруг игрока
       drone.phase += dt * 0.5;
-      drone.x = playerX + Math.cos(drone.phase) * ALLY_DRONE_ORBIT;
-      drone.y = playerY + Math.sin(drone.phase) * ALLY_DRONE_ORBIT;
+      drone.x = drone.x; // stays in place until updated by game
+      drone.y = drone.y;
       
       // Перезарядка
       if (drone.fireCd > 0) {
@@ -88,7 +107,7 @@ export class DroneSystem {
       // Выбор цели
       drone.retargetT -= dt;
       if (!drone.target || drone.retargetT <= 0 || drone.target.dead) {
-        drone.target = this.findNearestTarget(drone.x, drone.y, enemies);
+        drone.target = this.findNearestTarget(drone.x, drone.y, enemies as any);
         drone.retargetT = 1.0;
       }
       

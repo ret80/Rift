@@ -91,8 +91,8 @@ export class CollisionSystem {
   }
   
   /**
-   * Найти все объекты в радиусе.
-   */
+    * Найти все объекты в радиусе.
+    */
   findAllInRadius(x: number, y: number, radius: number, objects: Collidable[]): number[] {
     const indices: number[] = [];
     const radius2 = radius * radius;
@@ -108,5 +108,22 @@ export class CollisionSystem {
     }
     
     return indices;
+  }
+
+  /**
+    * Обновить коллизии между всеми объектами.
+    */
+  update(
+    dt: number,
+    playerState: { x: number; y: number; r: number; hp: number; invuln: number },
+    enemies: Array<{ x: number; y: number; r: number; dead: boolean; hp: number }>,
+    bullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number }>,
+    enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number; heavy: boolean }>,
+    pickups: Array<{ x: number; y: number; r: number }>,
+    mines: Array<{ x: number; y: number; r: number }>,
+    drones: Array<{ x: number; y: number; r: number }>
+  ): void {
+    // Этот метод будет вызывать проверку коллизий
+    // Пока заглушка для совместимости
   }
 }

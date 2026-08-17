@@ -19,6 +19,18 @@ export class Fx {
     this.mag = Math.min(26, this.mag + v);
   }
 
+  /** Алиас для addShake */
+  shake(strength: number, duration: number) {
+    this.addShake(strength);
+  }
+
+  /** Сброс тряски */
+  reset() {
+    this.mag = 0;
+    this.shakeX = 0;
+    this.shakeY = 0;
+  }
+
   burst(x: number, y: number, n: number, hex: string, speed: number, life: number) {
     const c = rgba(hex, 1);
     for (let i = 0; i < n; i++) {

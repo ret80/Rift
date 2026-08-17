@@ -129,6 +129,7 @@ export interface WorldState {
 export class GameState {
   public type: GameStateType = 'menu';
   public paused: boolean = false;
+  public time: number = 0;
   
   public player: PlayerState = {
     x: 0,
@@ -247,8 +248,8 @@ export class GameState {
   }
 
   /**
-   * Перейти в меню.
-   */
+    * Перейти в меню.
+    */
   toMenu(): void {
     this.type = 'menu';
     this.paused = false;
@@ -261,5 +262,31 @@ export class GameState {
     this.world.pickups = [];
     this.world.allyDrones = [];
     this.world.mines = [];
+  }
+
+  // ===== Алиасы для совместимости с game.ts =====
+
+  setTime(t: number): void {
+    this.time = t;
+  }
+
+  setWave(w: number): void {
+    this.wave.wave = w;
+  }
+
+  setScore(s: number): void {
+    this.score.score = s;
+  }
+
+  setBest(b: number): void {
+    this.score.best = b;
+  }
+
+  getPlayerX(): number {
+    return this.player.x;
+  }
+
+  getPlayerY(): number {
+    return this.player.y;
   }
 }

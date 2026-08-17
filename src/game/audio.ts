@@ -687,4 +687,9 @@ export class AudioEngine {
     if (this.ctx) void this.ctx.close();
     this.ctx = null;
   }
+
+  /** Алиас для dispose */
+  destroy() {
+    this.dispose();
+  }
 }

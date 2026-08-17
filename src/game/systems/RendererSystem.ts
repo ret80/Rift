@@ -11,6 +11,7 @@ import { clamp, rgba, TAU } from "../math";
 import type { Renderer, RGBA } from "../render";
 import { RiftField } from "../rifts";
 import type { Starfield } from "../starfield";
+import type { GameState } from "../core/GameState";
 
 /* ============================== config ============================== */
 
@@ -134,6 +135,66 @@ export class RendererSystem {
   }
 
   /* ============================== main draw ============================== */
+
+  render(
+    R: Renderer,
+    gameState: { type: string; time: number; wave: number; score: number },
+    player: PlayerRenderState | null,
+    enemies: EnemyRenderState[],
+    bullets: BulletRenderState[],
+    ebullets: EBulletRenderState[],
+    pickups: PickupRenderState[],
+    mines: MineRenderState[],
+    allyDrones: AllyDroneRenderState[],
+    zone: ZoneRenderState | null,
+    camX: number,
+    camY: number,
+    zoom: number,
+    viewW: number,
+    viewH: number
+  ) {
+    this.draw(
+      R,
+      gameState.time,
+      camX,
+      camY,
+      zoom,
+      gameState.type as "menu" | "playing" | "active" | "cleared" | "dying" | "over",
+      player,
+      enemies,
+      bullets,
+      ebullets,
+      pickups,
+      mines,
+      allyDrones,
+      zone,
+      viewW,
+      viewH
+    );
+  }
+
+  renderMenu(
+    R: Renderer,
+    starfield: Starfield,
+    asteroidField: AsteroidField,
+    riftField: RiftField,
+    viewW: number,
+    viewH: number
+  ) {
+    R.resize(viewW, viewH);
+    R.beginFrame();
+    R.setMode("world");
+    R.setCamera(0, 0, 1, 0, 0);
+    starfield.draw(R, 0, 0, 1, 0, viewW, viewH);
+    asteroidField.draw(R, 0);
+    this.drawMenuScene(R, 0);
+    this.renderHud(R, viewW, viewH);
+    R.finish(0);
+  }
+
+  private renderHud(R: Renderer, viewW: number, viewH: number) {
+    // HUD rendering can be added here
+  }
 
   draw(
     R: Renderer,

@@ -43,12 +43,19 @@ export class CountdownSystem {
   }
 
   /**
-   * Начать обратный отсчёт перед волной.
-   */
+    * Начать обратный отсчёт перед волной.
+    */
   beginCountdown(wave: number): void {
     this.currentWave = wave;
     this.cdT = 15;
     this.cdLast = -1;
+  }
+
+  /**
+    * Алиас для beginCountdown (для совместимости).
+    */
+  startWave(wave: number): void {
+    this.beginCountdown(wave);
   }
 
   /**

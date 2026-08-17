@@ -6,7 +6,7 @@
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { PickupKind } from '../balance';
-import { ZONE_PICKUP_MAGNET } from '../balance';
+import type { AudioEngine } from '../audio';
 
 export interface PickupData {
   kind: PickupKind;
@@ -21,6 +21,9 @@ export interface PickupData {
 export class PickupSystem {
   private eventBus: EventBus;
   private state: GameState;
+  private audio: AudioEngine;
+  private applyPickup: (kind: PickupKind) => void;
+  private getPlayerPosition: () => { x: number; y: number };
   
   private pickups: Array<{ 
     kind: PickupKind; 
@@ -32,9 +35,18 @@ export class PickupSystem {
     seed: number;
   }> = [];
 
-  constructor(eventBus: EventBus, state: GameState) {
+  constructor(
+    eventBus: EventBus,
+    state: GameState,
+    audio: AudioEngine,
+    applyPickup: (kind: PickupKind) => void,
+    getPlayerPosition: () => { x: number; y: number }
+  ) {
     this.eventBus = eventBus;
     this.state = state;
+    this.audio = audio;
+    this.applyPickup = applyPickup;
+    this.getPlayerPosition = getPlayerPosition;
   }
 
   /**
@@ -53,35 +65,20 @@ export class PickupSystem {
   }
 
   /**
-   * Обновить все бонусы.
-   */
-  update(dt: number, playerX: number, playerY: number, zoneRadius: number): void {
-    for (let i = this.pickups.length - 1; i >= 0; i--) {
-      const p = this.pickups[i];
+    * Обновить все бонусы.
+    */
+  update(dt: number, pickups: Array<{ kind: PickupKind; x: number; y: number; vx: number; vy: number; life: number; seed: number }>): void {
+    for (let i = pickups.length - 1; i >= 0; i--) {
+      const p = pickups[i];
       
       // Движение
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.life -= dt;
       
-      // Магнит к игроку если близко
-      const distToPlayer = Math.hypot(playerX - p.x, playerY - p.y);
-      const distToZoneEdge = zoneRadius - Math.hypot(p.x - this.state.zone.x, p.y - this.state.zone.y);
-      
-      if (distToZoneEdge < ZONE_PICKUP_MAGNET || distToPlayer < 150) {
-        const angle = Math.atan2(playerY - p.y, playerX - p.x);
-        const magnetSpeed = 200;
-        p.vx += Math.cos(angle) * magnetSpeed * dt;
-        p.vy += Math.sin(angle) * magnetSpeed * dt;
-        
-        // Затухание скорости
-        p.vx *= 0.95;
-        p.vy *= 0.95;
-      }
-      
       // Удаление по времени жизни
       if (p.life <= 0) {
-        this.pickups.splice(i, 1);
+        pickups.splice(i, 1);
       }
     }
   }
