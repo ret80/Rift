@@ -373,21 +373,21 @@ export class EnemySystem {
                         (e.kind === "carrier" && dist < 500);
         
         if (e.fireCd <= 0 && canShoot) {
-          const rate = e.kind === "fighter" ? 2 : e.kind === "cruiser" ? 3 : 4;
-          e.fireCd = rate / (4.4 + this.wave * 0.12);
           const heavy = e.kind === "cruiser" || e.kind === "carrier";
           const spread = e.kind === "fighter" ? 0.15 : e.kind === "cruiser" ? 0.1 : 0.18;
           const life = e.kind === "fighter" ? 1.35 : 1.8;
           const speed = e.kind === "fighter" ? 300 : e.kind === "cruiser" ? 260 : 240;
+          const rate = e.kind === "fighter" ? 2 : e.kind === "cruiser" ? 3 : 4;
+          e.fireCd = rate / (4.4 + this.wave * 0.12);
           
-          this.eventBus.emit('enemyFire', {
-            x: e.x + Math.cos(e.angle) * (e.r + 6),
-            y: e.y + Math.sin(e.angle) * (e.r + 6),
+           // Вызываем callback для создания вражеской пули
+          this.enemyFireCallback({
+            x: e.x,
+            y: e.y,
+            kind: e.kind,
             angle: e.angle + (Math.random() - 0.5) * 2 * spread,
-            speed,
-            dmg: e.boltDmg,
-            life,
-            heavy,
+            r: e.r,
+            boltDmg: e.boltDmg,
           });
           
           if (heavy) this.audio.heavyShoot();

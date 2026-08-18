@@ -6,8 +6,9 @@
 
 import { t } from "../i18n";
 import { AudioEngine } from "./audio";
-import type { EnemyKind, PickupKind } from "./balance";
+import { waveTotalFor, type EnemyKind, PickupKind } from "./balance";
 import { Renderer } from "./render";
+import { clamp, easeOutCubic } from "./math";
 
 /* Core systems */
 import { EventBus } from "./core/EventBus";
@@ -425,13 +426,11 @@ export class Game {
       this.checkWaveClear();
     });
 
-    this.eventBus.on("wave_start", (event) => {
-      const data = event.payload as { waveNum: number; total: number };
-      const { waveNum, total } = data;
-      this.wave = waveNum;
-      this.waveTotal = total;
-      this.waveClearSent = false;
-      this.clearT = 0;
+    this.eventBus.on("wave_started", (event) => {
+      // Запускаем волну при начале обратного отсчёта
+      if (this.state === "playing" || this.state === "active") {
+        this.waveTotal = waveTotalFor(this.wave);
+      }
     });
 
     this.eventBus.on("spawn_enemy", (event) => {
@@ -481,21 +480,10 @@ export class Game {
     });
 
     this.eventBus.on("asteroid_hit", (event) => {
-      const data = event.payload as { index: number; dmg: number; vx: number; vy: number };
-      const { index, dmg, vx, vy } = data;
-      // Get the asteroid from the field and apply damage
-      const asteroids = ((this.asteroidField as any).list || []);
-      if (index >= 0 && index < asteroids.length) {
-        // Apply damage directly to the asteroid
-        const asteroid = asteroids[index];
-        asteroid.hp = (asteroid.hp || 100) - dmg;
-        asteroid.vx += vx * 0.1;
-        asteroid.vy += vy * 0.1;
-        if (asteroid.hp <= 0) {
-          // Destroy the asteroid using the existing destroy logic
-          this.destroyAsteroid(index);
-        }
-      }
+      const data = event.payload as { index: number; dmg: number; vx: number; vy: number; x: number; y: number };
+      const { index, dmg, x, y } = data;
+      // Delegate damage/destruction to asteroidField
+      this.asteroidField.damageAt(index, dmg, x ?? 0, y ?? 0);
     });
   }
 
@@ -522,7 +510,7 @@ export class Game {
     if (this.state === "playing" || this.state === "active") {
       this.updateAimAngle();
     }
-    this.playerSystem.update(dtScaled, this.state === "playing" || this.state === "active");
+    this.playerSystem.update(dtScaled, this.state !== "menu" && this.state !== "over" && this.state !== "dying");
     // Жёсткий барьер зоны: отталкивает игрока обратно, если он вышел за границу
     if (this.zoneOn && this.zoneR > 0) {
       this.playerSystem.clampPlayerToZone(this.zoneX, this.zoneY, this.zoneR, this.zoneOn, 0);
@@ -550,6 +538,7 @@ export class Game {
     );
     this.spawnSystem.update(dtScaled, this.wave, this.allocated, this.killedWave, this);
     this.riftField.update(dtScaled);
+    this.fx.update(dtScaled, dtScaled); // Обновляем частицы и тряску экрана
     this.updateZoneAndWaves(dtScaled);
     this.updateEdgeDanger(dtScaled);
     
@@ -622,9 +611,9 @@ export class Game {
       viewH: this.viewH,
       zone: null,
     } as any);
-    this.riftField.update(dt);
+    this.fx.update(dt, dt); // Обновляем частицы и тряску экрана
     
-    // Animate menu background enemies - they spawn from the central rift
+    // Меню враги — полностью изолированы от игрового riftField
     this.updateMenuEnemies(dt);
     
     this.renderer.clear();
@@ -645,40 +634,29 @@ export class Game {
     kind: EnemyKind; angle: number; seed: number;
   }> = [];
   private menuEnemyTimer = 0;
-  private menuRiftActive = false;
   
   private updateMenuEnemies(dt: number) {
-    // Spawn rift in center of screen if not active
-    if (!this.menuRiftActive && this.riftField.list.length === 0) {
-      this.menuRiftActive = true;
-      const cx = this.viewW / 2;
-      const cy = this.viewH / 2;
-      const kinds: EnemyKind[] = ["drone", "hunter", "fighter", "cruiser", "carrier"];
-      const queue: EnemyKind[] = [];
-      for (let i = 0; i < 5; i++) {
-        queue.push(kinds[Math.floor(Math.random() * kinds.length)]);
-      }
-      this.riftField.spawn(cx, cy, queue, 0, 80 + Math.random() * 40);
-    }
+    // ТОЛЬКО для меню — не вызываем в игре
+    if (this.state !== "menu") return;
+    
+    // Меню враги — полностью изолированы от игрового riftField
+    // Меню rift рендерится отдельно через drawMenuScene — не используем riftField
+    const cx = this.viewW / 2;
+    const cy = this.viewH / 2;
     
     // Spawn new enemy from rift periodically
     this.menuEnemyTimer -= dt;
     if (this.menuEnemyTimer <= 0 && this.enemyMenuList.length < 8) {
       this.menuEnemyTimer = 1.5 + Math.random() * 2;
-      const kinds: EnemyKind[] = ["drone", "hunter", "fighter", "cruiser", "carrier"];
-      const kind = kinds[Math.floor(Math.random() * kinds.length)];
+      // ТОЛЬКО дроны в меню — они не стреляют
+      const kind: EnemyKind = "drone";
       
-      // Spawn from the central rift position
-      const rift = this.riftField.list[0];
-      const spawnX = rift ? rift.x : this.viewW / 2;
-      const spawnY = rift ? rift.y : this.viewH / 2;
-      
-      // Random direction from rift
+      // Spawn from center of screen
       const angle = Math.random() * Math.PI * 2;
       const speed = 30 + Math.random() * 40;
       this.enemyMenuList.push({
-        x: spawnX,
-        y: spawnY,
+        x: cx + Math.cos(angle) * 40,
+        y: cy + Math.sin(angle) * 40,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
         kind,
@@ -754,8 +732,7 @@ export class Game {
     this.state = "menu";
     this.paused = false;
     this.hooks.onPause(false);
-    // Reset menu rift state
-    this.menuRiftActive = false;
+    // Reset menu state
     this.riftField.reset();
     this.enemyMenuList = [];
   }
@@ -879,11 +856,21 @@ export class Game {
   }
 
   private checkWaveClear() {
+    // Не проверяем завершение если всё ещё спавнятся враги
+    if (this.state !== "active") return;
+    
     const alive = this.enemyList.filter((e) => !e.dead).length;
-    if (alive === 0 && this.state === "active") {
-      this.state = "cleared";
-      this.clearT = 0;
-      this.waveClearSent = false;
+    if (alive === 0) {
+      // Проверяем что все враги действительно спавнятся (спавновая очередь пуста)
+      // и все враги убиты
+      const allSpawned = this.allocated >= this.waveTotal;
+      const allKilled = this.killedWave >= this.waveTotal;
+      
+      if (allSpawned && allKilled) {
+        this.state = "cleared";
+        this.clearT = 0;
+        this.waveClearSent = false;
+      }
     }
   }
 
@@ -892,9 +879,8 @@ export class Game {
 
     this.runTime += dt;
 
-    // Zone activates after countdown ends (countdown resets cdT to 0)
-    // This is handled by the countdownSystem - zone is active when countdown is done
-    if (!this.zoneOn) {
+    // Zone activates AFTER countdown ends (not during countdown)
+    if (!this.zoneOn && !this.countdownSystem.isCountdownActive()) {
       this.zoneOn = true;
       const p = this.playerSystem.getState();
       this.zoneX = p.x;
@@ -906,10 +892,11 @@ export class Game {
     }
 
     const expandSpeed = 120;
-    if (this.zoneR < this.zoneTarget) {
+    // Зона расширяется ТОЛЬКО когда отсчёт завершён
+    if (this.zoneR < this.zoneTarget && !this.countdownSystem.isCountdownActive()) {
       this.zoneR = Math.min(this.zoneTarget, this.zoneR + expandSpeed * dt);
       this.zoneAlpha = Math.min(0.5, this.zoneAlpha + dt * 1.2);
-    } else if (this.zoneCollapse < 0 && this.state === "cleared") {
+    } else if (this.state === "cleared") {
       this.clearT += dt;
       if (this.clearT >= 1.5 && !this.waveClearSent) {
         this.waveClearSent = true;
@@ -920,12 +907,27 @@ export class Game {
         });
         setTimeout(() => this.hooks.onBanner(null), 2000);
       }
+      // Плавно увеличиваем зону и уменьшаем альфу перед исчезновением
+      if (this.clearT >= 2) {
+        const expandDuration = 1.0; // 1 секунда на расширение
+        const expandProgress = clamp((this.clearT - 2) / expandDuration, 0, 1);
+        const eased = easeOutCubic(expandProgress);
+        // Зона расширяется в 1.5 раза
+        this.zoneR = this.zoneTarget * (1 + 0.5 * eased);
+        // Альфа уменьшается от 0.5 до 0
+        this.zoneAlpha = 0.5 * (1 - eased);
+      }
+      // Переход к следующей волне только после полного исчезновения зоны
       if (this.clearT >= 3) {
         this.wave++;
         this.killedWave = 0;
         this.allocated = 0;
+        this.clearT = 0;
         this.state = "active";
-        this.zoneOn = false;
+        // Сброс зоны — она начнёт раскрываться ПОСЛЕ отсчёта
+        this.zoneR = 0;
+        this.zoneAlpha = 0;
+        this.zoneTarget = Math.max(400, 200 + this.wave * 50);
         this.countdownSystem.startWave(this.wave);
       }
     }

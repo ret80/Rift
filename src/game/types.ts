@@ -34,7 +34,7 @@ export interface Rift {
   x: number;
   y: number;
   t: number;
-  state: "opening" | "spawning" | "closing" | "closed";
+  state: "opening" | "spawning" | "closing";
   queue: EnemyKind[];
   timer: number;
   seed: number;

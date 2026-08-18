@@ -135,7 +135,7 @@ export class CollisionSystem {
           if (this.checkBulletCollision(b.x, b.y, { x: a.x, y: a.y, r: a.r })) {
             bulletHit = true;
             // Damage asteroid using the damageAt method
-            this.damageAsteroid(ai, b.dmg, b.vx, b.vy);
+            this.damageAsteroid(ai, b.dmg, b.vx, b.vy, a.x, a.y);
             break;
           }
         }
@@ -164,7 +164,8 @@ export class CollisionSystem {
 
     // Проверка столкновения игрока с врагами
     if (playerState.invuln <= 0) {
-      for (const e of enemies) {
+      for (let ei = 0; ei < enemies.length; ei++) {
+        const e = enemies[ei];
         if (e.dead) continue;
         const dx = playerState.x - e.x;
         const dy = playerState.y - e.y;
@@ -174,6 +175,14 @@ export class CollisionSystem {
         if (dist < minDist) {
           this.eventBus.publish('player_hit', {
             dmg: e.contact,
+            x: e.x,
+            y: e.y,
+          });
+          // Уничтожаем врага при столкновении
+          e.dead = true;
+          this.eventBus.publish('enemy_killed', {
+            scoreValue: e.score,
+            kind: e.kind,
             x: e.x,
             y: e.y,
           });
@@ -258,7 +267,7 @@ export class CollisionSystem {
   /**
    * Нанести урон астероиду через событие.
    */
-  private damageAsteroid(index: number, dmg: number, vx: number, vy: number): void {
-    this.eventBus.publish('asteroid_hit', { index, dmg, vx, vy });
+  private damageAsteroid(index: number, dmg: number, vx: number, vy: number, x: number, y: number): void {
+    this.eventBus.publish('asteroid_hit', { index, dmg, vx, vy, x, y });
   }
 }

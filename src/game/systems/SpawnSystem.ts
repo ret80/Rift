@@ -86,25 +86,11 @@ export class SpawnSystem {
    * Построить очередь врагов для спавна.
    * Гарантирует хотя бы минимальное количество каждого разблокированного класса.
    */
-  buildQueue(count: number, wave: number): EnemyKind[] {
-    const q: EnemyKind[] = [];
-    for (let i = 0; i < count; i++) q.push(this.pickKindForWave(wave));
-
-    // guarantee at least one of each unlocked class so the player meets them
-    const need: Array<[EnemyKind, number]> = [
-      ["fighter", 2],
-      ["hunter", 4],
-      ["cruiser", 5],
-      ["carrier", 9],
-    ];
-    for (const [kind, minW] of need) {
-      if (wave >= minW && !q.includes(kind)) {
-        const di = q.indexOf("drone");
-        if (di >= 0) q[di] = kind;
-      }
-    }
-    return q;
-  }
+   buildQueue(count: number, wave: number): EnemyKind[] {
+     const q: EnemyKind[] = [];
+     for (let i = 0; i < count; i++) q.push(this.pickKindForWave(wave));
+     return q;
+   }
 
   /**
    * Получить количество рифтов для волны.
@@ -242,13 +228,13 @@ export class SpawnSystem {
   }
   
   private spawnRift(game: any) {
-    // Рифты размещаем относительно ЦЕНТРА зоны, а не позиции игрока
+    const queue = this.buildQueue(3 + Math.floor(Math.random() * 3), game.wave);
+    // Рифы спавнятся только после того как зона достаточно большая
     const zoneX = (game as any).zoneX ?? 0;
     const zoneY = (game as any).zoneY ?? 0;
-    // Используем фактический радиус зоны (game.zoneR), а не константу из balance
     const zoneR = (game as any).zoneR ?? this.zoneRadius(game.wave);
+    if (zoneR < 50) return; // зона ещё не открылась
     const point = this.spawnRiftPoint(zoneX, zoneY, zoneR);
-    const queue = this.buildQueue(3 + Math.floor(Math.random() * 3), game.wave);
     const size = 80 + Math.random() * 40;
     game.riftField.spawn(point.x, point.y, queue, 0, size);
   }

@@ -36,6 +36,7 @@ export class CountdownSystem {
   private cdLast = -1;
   private countId = 0;
   private currentWave = 1;
+  private started = false;
 
   constructor(config: { hooks: CountdownHooks; eventBus: EventBus }) {
     this.hooks = config.hooks;
@@ -49,6 +50,7 @@ export class CountdownSystem {
     this.currentWave = wave;
     this.cdT = 5;
     this.cdLast = -1;
+    this.started = false;
   }
 
   /**
@@ -59,13 +61,19 @@ export class CountdownSystem {
   }
 
   /**
-   * Обновить отсчёт.
-   */
+    * Обновить отсчёт.
+    */
   update(dt: number): void {
     if (this.cdT <= 0) return;
 
     this.cdT -= dt;
     const c = Math.ceil(this.cdT);
+
+    // Публикуем wave_started ОДИН РАЗ когда отсчёт начинается
+    if (!this.started && c === 5) {
+      this.started = true;
+      this.eventBus.publish("wave_started", { wave: this.currentWave });
+    }
 
     if (c !== this.cdLast && c > 0) {
       this.cdLast = c;
@@ -74,7 +82,6 @@ export class CountdownSystem {
         label: t("game.waveN", { n: String(this.currentWave).padStart(2, "0") }),
         value: String(c),
       });
-      this.eventBus.publish("wave_started", { wave: this.currentWave });
     }
 
     if (this.cdT <= 0) {
@@ -97,13 +104,21 @@ export class CountdownSystem {
   }
 
   /**
-   * Сбросить состояние.
-   */
+     * Сбросить состояние.
+     */
   reset(): void {
     this.cdT = 0;
     this.cdLast = -1;
+    this.started = false;
     this.hooks.onCountdown(null);
     this.hooks.onBanner(null);
     this.hooks.onToast(null);
+  }
+
+  /**
+   * Проверить, идёт ли сейчас обратный отсчёт.
+   */
+  isCountdownActive(): boolean {
+    return this.cdT > 0;
   }
 }
