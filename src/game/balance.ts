@@ -103,6 +103,11 @@ export const STAR_LAYERS: StarLayer[] = [
 
 export type EnemyKind = "drone" | "hunter" | "fighter" | "cruiser" | "carrier";
 
+/* -------------- mass based on radius (mass = π·r², scaled) -------------- */
+export function massForRadius(r: number): number {
+  return Math.max(1, Math.PI * r * r * 0.02);
+}
+
 /* ------------------------------- pickups ------------------------------- */
 
 export type PickupKind =
@@ -132,6 +137,7 @@ export interface EnemyDef {
   contact: number;
   score: number;
   bolt: number;
+  mass: number;
 }
 
 /**
@@ -149,12 +155,16 @@ export function enemyDefFor(kind: EnemyKind, w: number): EnemyDef {
   const hpS = hpScale(w);
   const dmgS = dmgScale(w);
   switch (kind) {
-    case "drone":
-      return { r: 10, hp: 12 * hpS, speed: 150 + w * 4, contact: 10 * dmgS, score: 10, bolt: 0 };
-    case "hunter":
-      // slightly slower than the player, but it aims where you WILL be
-      return { r: 9, hp: 30 * hpS, speed: 285, contact: 25, score: 40, bolt: 0 };
-    case "fighter":
+    case "drone": {
+      const r = 10;
+      return { r, hp: 12 * hpS, speed: 150 + w * 4, contact: 10 * dmgS, score: 10, bolt: 0, mass: massForRadius(r) };
+    }
+    case "hunter": {
+      const r = 9;
+      return { r: 9, hp: 30 * hpS, speed: 285, contact: 25, score: 40, bolt: 0, mass: massForRadius(r) };
+    }
+    case "fighter": {
+      const r = 13;
       return {
         r: 13,
         hp: 34 * hpS,
@@ -162,11 +172,17 @@ export function enemyDefFor(kind: EnemyKind, w: number): EnemyDef {
         contact: 9.1 * dmgS,
         score: 25,
         bolt: 4.55 * dmgS,
+        mass: massForRadius(r),
       };
-    case "cruiser":
-      return { r: 26, hp: 125 * hpS, speed: 50 + w * 1.5, contact: 22 * dmgS, score: 60, bolt: 12 * dmgS };
-    case "carrier":
-      return { r: 36, hp: 250 * hpS, speed: 32 + w * 0.8, contact: 26 * dmgS, score: 100, bolt: 0 };
+    }
+    case "cruiser": {
+      const r = 26;
+      return { r: 26, hp: 125 * hpS, speed: 50 + w * 1.5, contact: 22 * dmgS, score: 60, bolt: 12 * dmgS, mass: massForRadius(r) };
+    }
+    case "carrier": {
+      const r = 36;
+      return { r: 36, hp: 250 * hpS, speed: 32 + w * 0.8, contact: 26 * dmgS, score: 100, bolt: 0, mass: massForRadius(r) };
+    }
   }
 }
 

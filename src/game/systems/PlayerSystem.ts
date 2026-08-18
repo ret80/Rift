@@ -10,6 +10,7 @@ import type { Fx } from '../fx';
 import type { InputManager } from '../input';
 import { TAU, lerpAngle as lerpAngleMath } from '../math';
 import type { RGBA } from '../render';
+import { massForRadius, PLAYER_RADIUS } from '../balance';
 
 // Флаг для отладки вращения кораблей
 const DEBUG_ROTATION = true;
@@ -37,6 +38,7 @@ interface PlayerState {
   thrusting: boolean;
   dashT: number;
   aimA: number | null;
+  mass: number;
 }
 
 export class PlayerSystem {
@@ -64,6 +66,7 @@ export class PlayerSystem {
     thrusting: false,
     dashT: 0,
     aimA: null,
+    mass: massForRadius(PLAYER_RADIUS),
   };
   
   private fireCd = 0;
@@ -116,6 +119,7 @@ export class PlayerSystem {
       thrusting: false,
       dashT: 0,
       aimA: null,
+      mass: massForRadius(PLAYER_RADIUS),
     };
     this.fireCd = 0;
     this.bullets = [];
@@ -335,6 +339,14 @@ export class PlayerSystem {
     }
     
     this.player.invuln = Math.max(0, this.player.invuln - dt);
+    
+    // Decrease rate boost timer
+    if (this.player.rateT > 0) {
+      this.player.rateT -= dt;
+      if (this.player.rateT <= 0) {
+        this.player.rateBoost = 0;
+      }
+    }
     
     this.fireCd = Math.max(0, this.fireCd - dt);
     if (this.fireCd < 0) this.fireCd = 0;

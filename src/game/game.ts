@@ -99,6 +99,7 @@ interface Hooks {
   onPopup: (p: PopupData) => void;
   onStats: (s: StatsData) => void;
   onPause: (p: boolean) => void;
+  onGameOver: () => void;
 }
 
 const BEST_KEY = "voxbest";
@@ -141,6 +142,7 @@ export class Game {
 
   private state: "menu" | "playing" | "active" | "cleared" | "dying" | "over" = "menu";
   private paused = false;
+  private deathTimer = 0;
 
   /* Core systems */
   private eventBus: EventBus;
@@ -504,6 +506,30 @@ export class Game {
       // Delegate damage/destruction to asteroidField
       this.asteroidField.damageAt(index, dmg, x ?? 0, y ?? 0);
     });
+
+    this.eventBus.on("game_over", (event) => {
+      // Prevent double-trigger if already dying or over
+      if (this.state === "dying" || this.state === "over") return;
+      this.state = "dying";
+      this.deathTimer = 1.2; // 1.2 seconds of death animation
+      // Spawn death explosion particles
+      const pos = this.getPlayerPosition();
+      for (let i = 0; i < 60; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 50 + Math.random() * 250;
+        this.fx.emit({
+          x: pos.x,
+          y: pos.y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 0.3 + Math.random() * 0.8,
+          maxLife: 1.1,
+          c: Math.random() > 0.5 ? [1, 0.3, 0.1, 1] : [1, 0.8, 0.2, 1],
+          size: 1 + Math.random() * 3,
+        });
+      }
+      this.audio.explosion();
+    });
   }
 
   private step(dt: number) {
@@ -532,6 +558,25 @@ export class Game {
       this.updateAimAngle();
     }
     this.playerSystem.update(dtScaled, (this.state as string) !== "menu" && this.state !== "over" && this.state !== "dying");
+    
+    // Handle dying → over transition
+    if (this.state === "dying") {
+      this.deathTimer -= dtScaled;
+      if (this.deathTimer <= 0) {
+        this.state = "over";
+        const best = this.best;
+        const isNewBest = this.score > best;
+        this.hooks.onStats({
+          score: this.score,
+          best: Math.max(best, this.score),
+          isBest: isNewBest,
+          wave: this.wave,
+          kills: this.killed,
+          time: this.runTime,
+        });
+      }
+    }
+    
     // Жёсткий барьер зоны: отталкивает игрока обратно, если он вышел за границу
     if (this.zoneOn && this.zoneR > 0) {
       this.playerSystem.clampPlayerToZone(this.zoneX, this.zoneY, this.zoneR, this.zoneOn, 0);
@@ -544,10 +589,10 @@ export class Game {
     this.droneSystem.update(dtScaled, this.allyDrones, this.enemyList);
     const playerState = this.playerSystem.getState();
     // Get asteroids from asteroid field for collision
-    const asteroids = ((this.asteroidField as any).list || []) as Array<{ x: number; y: number; r: number; vx: number; vy: number }>;
+    const asteroids = ((this.asteroidField as any).list || []) as Array<{ x: number; y: number; r: number; vx: number; vy: number; mass: number; kind: string }>;
     this.collisionSystem.update(
       dtScaled,
-      { x: playerState.x, y: playerState.y, r: 16, hp: playerState.hp, invuln: playerState.invuln },
+      { x: playerState.x, y: playerState.y, r: 16, hp: playerState.hp, invuln: playerState.invuln, mass: playerState.mass || 1, vx: playerState.vx || 0, vy: playerState.vy || 0 },
       this.enemyList as any,
       this.bullets as any,
       this.enemyBulletList as any,
@@ -561,12 +606,19 @@ export class Game {
     this.spawnSystem.update(dtScaled, this.wave, this.allocated, this.killedWave, this);
     this.riftField.update(dtScaled);
     this.fx.update(dtScaled, dtScaled); // Обновляем частицы и тряску экрана
-    this.updateZoneAndWaves(dtScaled);
-    this.updateEdgeDanger(dtScaled);
     
-    // Авто-стрельба по ближайшему врагу в зоне поражения
-    if (this.state === "playing" || this.state === "active") {
-      this.handleAutoFire(dtScaled);
+    // Stop zone damage and autofire when dying or dead
+    if (this.state !== "dying" && this.state !== "over") {
+      this.updateZoneAndWaves(dtScaled);
+      this.updateEdgeDanger(dtScaled);
+      
+      // Авто-стрельба по ближайшему врагу в зоне поражения
+      if (this.state === "playing" || this.state === "active") {
+        this.handleAutoFire(dtScaled);
+      }
+    } else {
+      // Still render zone effects but don't damage player
+      this.updateZoneAndWaves(dtScaled);
     }
     
     // Update asteroid field with camera and zone info
@@ -836,6 +888,17 @@ export class Game {
       }
     } else {
       keys['G'] = false;
+    }
+    
+    // R or Enter or Space to restart from "over" state
+    if (this.state === "over") {
+      const restartKey = this.input.isKey('KeyR') || this.input.isKey('Enter') || this.input.isKey('Space');
+      if (restartKey && !keys['restart']) {
+        this.startRun();
+        keys['restart'] = true;
+      }
+    } else {
+      keys['restart'] = false;
     }
   }
   

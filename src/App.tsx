@@ -148,6 +148,9 @@ export default function App() {
         setBest(s.best);
       },
       onPause: (p) => setPaused(p),
+      onGameOver: () => {
+        // Stats will be set via onStats when dying → over transition completes
+      },
     });
     game.setVolumes(vols);
     gameRef.current = game;

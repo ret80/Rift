@@ -1,12 +1,13 @@
 /**
- * CollisionSystem - обработка столкновений с использованием PhysicsSystem.
- * Отвечает за проверку и обработку коллизий между объектами через kinetics.ts.
+ * CollisionSystem - обработка столкновений с учётом массы.
+ * Мягкие столкновения: массивные объекты (астероиды, корабли) почти не отскакивают.
+ * Импульс передаётся пропорционально массе.
  */
 
+import { dropChanceFor, massForRadius, type AsteroidKind, type EnemyKind, type PickupKind } from '../balance';
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { PhysicsSystem } from '../core/PhysicsSystem';
-import { dropChanceFor, type PickupKind } from '../balance';
 
 interface Collidable {
   x: number;
@@ -20,7 +21,7 @@ interface Enemy {
   r: number;
   dead: boolean;
   hp: number;
-  kind: string;
+  kind: EnemyKind;
   seed: number;
   flash: number;
   hitCd: number;
@@ -38,6 +39,7 @@ interface Enemy {
   contact: number;
   strafeDir: number;
   fireCd: number;
+  mass: number;
 }
 
 interface PlayerBody {
@@ -46,6 +48,7 @@ interface PlayerBody {
   r: number;
   hp: number;
   invuln: number;
+  mass: number;
 }
 
 interface Asteroid {
@@ -54,7 +57,61 @@ interface Asteroid {
   r: number;
   vx: number;
   vy: number;
+  mass: number;
+  kind: AsteroidKind;
   dead?: boolean;
+}
+
+/** Мягкое столкновение двух тел с учётом массы.
+ *  Не отскакивает как мячик, а медленно меняет траекторию.
+ *  impulse — сила импульса (чем больше, тем сильнее реакция).
+ *  Вектор impulse направлен от центра A к центру B.
+ */
+function softResolveCollision(
+  ax: number, ay: number, am: number, avx: number, avy: number,
+  bx: number, by: number, bm: number, bvx: number, bvy: number,
+  impulse: number
+): { na: { vx: number; vy: number }; nb: { vx: number; vy: number } } {
+  // Вектор от A к B
+  const dx = bx - ax;
+  const dy = by - ay;
+  const dist = Math.hypot(dx, dy) || 0.01;
+  const nx = dx / dist;
+  const ny = dy / dist;
+
+  // Относительная скорость вдоль нормали
+  const dvx = avx - bvx;
+  const dvy = avy - bvy;
+  const dvn = dvx * nx + dvy * ny;
+
+  // Если тела расходятся — ничего не делаем
+  if (dvn <= 0) return { na: { vx: avx, vy: avy }, nb: { vx: bvx, vy: bvy } };
+
+  const totalMass = am + bm;
+  // Импульс пропорционален относительной скорости и взвешен массам
+  // coefficient_of_restitution = 0.15 — очень мягкие столкновения
+  const e = 0.15;
+  const j = -(1 + e) * dvn / (1 / am + 1 / bm);
+
+  const newAvx = avx + (j / am) * nx;
+  const newAvy = avy + (j / am) * ny;
+  const newBvx = bvx - (j / bm) * nx;
+  const newBvy = bvy - (j / bm) * ny;
+
+  // Ограничиваем максимальную передачу скорости для stability
+  const maxVx = 200;
+  const maxVy = 200;
+
+  return {
+    na: {
+      vx: Math.max(-maxVx, Math.min(maxVx, newAvx)),
+      vy: Math.max(-maxVy, Math.min(maxVy, newAvy)),
+    },
+    nb: {
+      vx: Math.max(-maxVx, Math.min(maxVx, newBvx)),
+      vy: Math.max(-maxVy, Math.min(maxVy, newBvy)),
+    },
+  };
 }
 
 export class CollisionSystem {
@@ -195,7 +252,7 @@ export class CollisionSystem {
     }
 
     // Проверка пуль врагов против игрока
-    if (playerState.invuln <= 0) {
+    if (playerState.invuln <= 0 && playerState.hp > 0) {
       for (let i = enemyBullets.length - 1; i >= 0; i--) {
         const b = enemyBullets[i];
         if (this.checkBulletCollision(b.x, b.y, playerState)) {
@@ -211,7 +268,7 @@ export class CollisionSystem {
     }
 
     // Проверка столкновения игрока с врагами
-    if (playerState.invuln <= 0) {
+    if (playerState.invuln <= 0 && playerState.hp > 0) {
       for (let ei = 0; ei < enemies.length; ei++) {
         const e = enemies[ei];
         if (e.dead) continue;
@@ -240,8 +297,8 @@ export class CollisionSystem {
       }
     }
 
-    // Проверка столкновения игрока с астероидами
-    if (playerState.invuln <= 0) {
+    // Проверка столкновения игрока с астероидами (мягкое столкновение с учётом массы)
+    if (playerState.invuln <= 0 && playerState.hp > 0) {
       for (const a of asteroids) {
         if (a.dead) continue;
         const dx = playerState.x - a.x;
@@ -255,11 +312,20 @@ export class CollisionSystem {
             x: a.x,
             y: a.y,
           });
-          // Push asteroid away
-          const pushX = dx / (dist || 1);
-          const pushY = dy / (dist || 1);
-          a.vx += pushX * 100;
-          a.vy += pushY * 100;
+          
+          // Мягкое столкновение: игрок (small mass) получает импульс от астероида (large mass)
+          const playerMass = playerState.mass || massForRadius(playerState.r);
+          const impulse = 80;
+          const result = softResolveCollision(
+            playerState.x, playerState.y, playerMass,
+            playerState.vx || 0, playerState.vy || 0,
+            a.x, a.y, a.mass, a.vx, a.vy,
+            impulse
+          );
+          // У игрока скорость обновляется через playerSystem
+          // Астероид получает малый импульс
+          a.vx = result.nb.vx;
+          a.vy = result.nb.vy;
           break;
         }
       }
@@ -276,11 +342,19 @@ export class CollisionSystem {
         const minDist = e.r + a.r;
         
         if (dist < minDist) {
-          // Push enemy away from asteroid
-          const pushX = dx / (dist || 1);
-          const pushY = dy / (dist || 1);
-          e.vx += pushX * 50;
-          e.vy += pushY * 50;
+          // Мягкое столкновение с учётом массы
+          const enemyMass = e.mass || massForRadius(e.r);
+          const impulse = 60;
+          const result = softResolveCollision(
+            e.x, e.y, enemyMass,
+            e.vx, e.vy,
+            a.x, a.y, a.mass, a.vx, a.vy,
+            impulse
+          );
+          e.vx = result.na.vx;
+          e.vy = result.na.vy;
+          a.vx = result.nb.vx;
+          a.vy = result.nb.vy;
           // Also damage enemy slightly
           e.hp -= 1;
           if (e.hp <= 0) {
@@ -293,6 +367,36 @@ export class CollisionSystem {
               y: e.y,
             });
           }
+        }
+      }
+    }
+
+    // Столкновения астероидов между собой (мягкие, с учётом массы)
+    for (let i = 0; i < asteroids.length; i++) {
+      const a1 = asteroids[i];
+      if (a1.dead) continue;
+      for (let j = i + 1; j < asteroids.length; j++) {
+        const a2 = asteroids[j];
+        if (a2.dead) continue;
+        const dx = a2.x - a1.x;
+        const dy = a2.y - a1.y;
+        const dist = Math.hypot(dx, dy);
+        const minDist = a1.r + a2.r;
+        
+        if (dist < minDist && dist > 0.01) {
+          // Мягкое столкновение астероидов
+          const impulse = 30; // Очень мягкий импульс между астероидами
+          const result = softResolveCollision(
+            a1.x, a1.y, a1.mass,
+            a1.vx, a1.vy,
+            a2.x, a2.y, a2.mass,
+            a2.vx, a2.vy,
+            impulse
+          );
+          a1.vx = result.na.vx;
+          a1.vy = result.na.vy;
+          a2.vx = result.nb.vx;
+          a2.vy = result.nb.vy;
         }
       }
     }

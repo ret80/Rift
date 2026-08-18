@@ -5,6 +5,7 @@
 
 import type { AudioEngine } from '../audio';
 import type { EnemyKind } from '../balance';
+import { massForRadius } from '../balance';
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { Fx } from '../fx';
@@ -54,6 +55,7 @@ interface Enemy {
   hitCd: number;
   dead: boolean;
   parent: Enemy | null;
+  mass: number;
 }
 
 interface EnemyDef {
@@ -63,6 +65,7 @@ interface EnemyDef {
   contact: number;
   score: number;
   bolt: number;
+  mass: number;
 }
 
 export class EnemySystem {
@@ -483,8 +486,9 @@ export class EnemySystem {
     this.enemies = this.enemies.filter(e => !e.dead);
   }
 
-  spawn(kind: EnemyKind, x: number, y: number, parent: Enemy | null, enemyList: Enemy[]): void {
+  spawn(kind: EnemyKind, x: number, y: number, parent: Enemy | null, enemyList: any[]): void {
     const def = this.getEnemyDef(kind);
+    const mass = massForRadius(def.r);
     // Дроны ориентируются носом к игроку при спавне
     const angle = kind === "drone"
       ? Math.atan2(this.state.player.y - y, this.state.player.x - x)
@@ -514,6 +518,7 @@ export class EnemySystem {
       hitCd: 0,
       dead: false,
       parent,
+      mass,
     };
     // Добавляем И во внутренний массив И во внешний (enemyList)
     // чтобы рендерер и коллизии видели врага
@@ -558,17 +563,17 @@ export class EnemySystem {
   private getEnemyDef(kind: EnemyKind): EnemyDef {
     switch (kind) {
       case "drone":
-        return { hp: 8, r: 14, speed: 60, contact: 12, score: 10, bolt: 8 };
+        return { hp: 8, r: 14, speed: 60, contact: 12, score: 10, bolt: 8, mass: massForRadius(14) };
       case "hunter":
-        return { hp: 20, r: 14, speed: 150, contact: 16, score: 25, bolt: 12 };
+        return { hp: 20, r: 14, speed: 150, contact: 16, score: 25, bolt: 12, mass: massForRadius(14) };
       case "fighter":
-        return { hp: 35, r: 18, speed: 110, contact: 20, score: 40, bolt: 15 };
+        return { hp: 35, r: 18, speed: 110, contact: 20, score: 40, bolt: 15, mass: massForRadius(18) };
       case "cruiser":
-        return { hp: 80, r: 26, speed: 80, contact: 24, score: 80, bolt: 20 };
+        return { hp: 80, r: 26, speed: 80, contact: 24, score: 80, bolt: 20, mass: massForRadius(26) };
       case "carrier":
-        return { hp: 150, r: 36, speed: 60, contact: 30, score: 150, bolt: 25 };
+        return { hp: 150, r: 36, speed: 60, contact: 30, score: 150, bolt: 25, mass: massForRadius(36) };
       default:
-        return { hp: 10, r: 12, speed: 80, contact: 14, score: 15, bolt: 10 };
+        return { hp: 10, r: 12, speed: 80, contact: 14, score: 15, bolt: 10, mass: massForRadius(12) };
     }
   }
 }

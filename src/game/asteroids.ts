@@ -7,6 +7,7 @@ import type { AudioEngine } from "./audio";
 import type { Fx } from "./fx";
 import { TAU, rand, clamp, mulberry32, rgba } from "./math";
 import type { AsteroidKind, PickupKind } from "./balance";
+import { massForRadius } from "./balance";
 
 export interface Asteroid {
   id: string;
@@ -21,6 +22,7 @@ export interface Asteroid {
   verts: number[];
   hp: number;
   maxHp: number;
+  mass: number;
 }
 
 export interface AsteroidEnv {
@@ -46,11 +48,11 @@ const CULL_DIST = 2800;
 function astDef(kind: AsteroidKind) {
   switch (kind) {
     case "small":
-      return { rMin: 8, rMax: 12, hp: 22, score: 6 };
+      return { rMin: 8, rMax: 12, hp: 22, score: 6, mass: 0 }; // mass calculated dynamically
     case "medium":
-      return { rMin: 17, rMax: 23, hp: 60, score: 15 };
+      return { rMin: 17, rMax: 23, hp: 60, score: 15, mass: 0 };
     case "large":
-      return { rMin: 30, rMax: 40, hp: 140, score: 30 };
+      return { rMin: 30, rMax: 40, hp: 140, score: 30, mass: 0 };
   }
 }
 
@@ -81,6 +83,7 @@ function makeAst(
     verts,
     hp: d.hp,
     maxHp: d.hp,
+    mass: massForRadius(r),
   };
 }
 
