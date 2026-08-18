@@ -38,6 +38,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Add SPA fallback for GitHub Pages
+        run: printf '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta http-equiv="refresh" content="0;url=./"></head><body><p>Redirecting...</p></body></html>' > dist/404.html
+
       - name: Upload dist artifact
         uses: actions/upload-pages-artifact@v3
         with:
