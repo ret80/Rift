@@ -883,15 +883,20 @@ export class Game {
     if (!this.zoneOn && !this.countdownSystem.isCountdownActive()) {
       this.zoneOn = true;
       const p = this.playerSystem.getState();
+      // Зона начинается вокруг игрока с радиусом 1.5 * размер игрока (10px radius)
       this.zoneX = p.x;
       this.zoneY = p.y;
       this.zoneTarget = Math.max(400, 200 + this.wave * 50);
-      this.zoneR = 0;
+      this.zoneR = 15; // Начальный радиус: 1.5 * 10 (радиус игрока)
       this.zoneAlpha = 0;
       this.zoneCollapse = -1;
     }
 
-    const expandSpeed = 120;
+    // Скорость расширения = 120 + 20% от скорости игрока
+    const playerState = this.playerSystem.getState();
+    const playerSpeed = Math.hypot(playerState.vx, playerState.vy);
+    const expandSpeed = 120 + playerSpeed * 0.2; // базовая скорость + 20% от скорости игрока
+    
     // Зона расширяется ТОЛЬКО когда отсчёт завершён
     if (this.zoneR < this.zoneTarget && !this.countdownSystem.isCountdownActive()) {
       this.zoneR = Math.min(this.zoneTarget, this.zoneR + expandSpeed * dt);
@@ -925,9 +930,7 @@ export class Game {
         this.clearT = 0;
         this.state = "active";
         // Сброс зоны — она начнёт раскрываться ПОСЛЕ отсчёта
-        this.zoneR = 0;
-        this.zoneAlpha = 0;
-        this.zoneTarget = Math.max(400, 200 + this.wave * 50);
+        this.zoneOn = false; // <-- Сбрасываем zoneOn чтобы активация прошла снова
         this.countdownSystem.startWave(this.wave);
       }
     }
@@ -989,6 +992,9 @@ export class Game {
     const dist = Math.sqrt(dx * dx + dy * dy);
     const margin = 40;
 
+    // Не наносим урон пока зона не раскрылась хотя бы наполовину
+    if (this.zoneR < this.zoneTarget * 0.3) return;
+    
     if (dist > this.zoneR - margin) {
       this.edgeOutT += dt;
       this.edgeTickT += dt;
