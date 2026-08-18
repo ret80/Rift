@@ -7,7 +7,7 @@
 import type { AsteroidField } from "../asteroids";
 import { C, GUN_OFFS, MINE_LIFE, MINE_RADIUS, RATE_BOOST_TIME, type EnemyKind, type PickupKind } from "../balance";
 import type { Fx } from "../fx";
-import { clamp, rgba, TAU } from "../math";
+import { clamp, rgba, TAU, easeOutCubic } from "../math";
 import type { Renderer, RGBA } from "../render";
 import { RiftField } from "../rifts";
 import type { Starfield } from "../starfield";
@@ -178,22 +178,28 @@ export class RendererSystem {
     starfield: Starfield,
     asteroidField: AsteroidField,
     riftField: RiftField,
+    menuRifts: Array<{
+      x: number; y: number; t: number; state: "opening" | "spawning" | "closing";
+      queue: EnemyKind[]; timer: number; seed: number; rot: number; size: number;
+      nextSpawnT: number;
+    }>,
     menuEnemies: Array<{
       x: number; y: number; vx: number; vy: number;
       kind: EnemyKind; angle: number; seed: number;
     }>,
-    viewW: number,
-    viewH: number
+    cssWidth: number,
+    cssHeight: number
   ) {
-    R.resize(viewW, viewH);
+    R.resize(cssWidth, cssHeight);
     R.beginFrame();
     R.setMode("world");
     R.setCamera(0, 0, 1, 0, 0);
-    starfield.draw(R, 0, 0, 1, 0, viewW, viewH);
+    starfield.draw(R, 0, 0, 1, 0, cssWidth, cssHeight);
     asteroidField.draw(R, 0);
     this.drawMenuScene(R, 0);
+    this.drawMenuRifts(R, menuRifts, 0);
     this.drawMenuEnemies(R, menuEnemies, 0);
-    this.renderHud(R, viewW, viewH);
+    this.renderHud(R, cssWidth, cssHeight);
     R.finish(0);
   }
 
@@ -661,32 +667,6 @@ export class RendererSystem {
     this.config.fx.draw(R);
   }
 
-  /* ============================== menu scene enemies ============================== */
-
-  private drawMenuEnemies(
-    R: Renderer,
-    enemies: Array<{
-      x: number; y: number; vx: number; vy: number;
-      kind: EnemyKind; angle: number; seed: number;
-    }>,
-    time: number
-  ) {
-    for (const e of enemies) {
-      const base = this.kindColor(e.kind);
-      this.drawShipPoly(R, e.x, e.y, e.angle, this.getEnemyShape(e.kind), rgba(base, 0.6));
-    }
-  }
-
-  private getEnemyShape(kind: EnemyKind): Array<[number, number]> {
-    switch (kind) {
-      case "drone": return [[9, 0], [-7, 7], [-4, 0], [-7, -7]];
-      case "hunter": return [[13, 0], [-8, 6], [-4, 0], [-8, -6]];
-      case "fighter": return [[14, 0], [-10, 9], [-5, 0], [-10, -9]];
-      case "cruiser": return [[22, 0], [8, 14], [-18, 12], [-18, -12], [8, -14]];
-      case "carrier": return [[30, 0], [10, 20], [-24, 16], [-24, -16], [10, -20]];
-    }
-  }
-
   /* ============================== menu scene ============================== */
 
   private drawMenuScene(R: Renderer, time: number) {
@@ -757,6 +737,109 @@ export class RendererSystem {
         rgba(C.drone, 0.35)
       );
     }
+  }
+
+  /* ============================== menu rifts & enemies ============================== */
+
+  private drawMenuRifts(
+    R: Renderer,
+    rifts: Array<{
+      x: number; y: number; t: number; state: "opening" | "spawning" | "closing";
+      seed: number; rot: number; size: number;
+    }>,
+    time: number
+  ) {
+    for (const rf of rifts) {
+      this.drawMenuRift(R, rf, time);
+    }
+  }
+
+  private drawMenuRift(
+    R: Renderer,
+    rf: { x: number; y: number; t: number; state: "opening" | "spawning" | "closing"; seed: number; rot: number; size: number },
+    time: number
+  ) {
+    let lenP = 1;
+    let widP = 1;
+    let alpha = 1;
+    let snake = 1;
+
+    if (rf.state === "opening") {
+      if (rf.t < 0) return;
+      const p = clamp(rf.t / 0.6, 0, 1);
+      if (p < 0.42) {
+        const q = easeOutCubic(p / 0.42);
+        lenP = q;
+        widP = 0;
+        snake = 0;
+        alpha = 0.35 + 0.65 * q;
+      } else {
+        const q = easeOutCubic((p - 0.42) / 0.58);
+        lenP = 1;
+        widP = q;
+        snake = 1.7 - 0.7 * q;
+        alpha = 1;
+      }
+    } else if (rf.state === "closing") {
+      const p = clamp(rf.t / 0.5, 0, 1);
+      if (p < 0.6) {
+        const q = easeOutCubic(p / 0.6);
+        lenP = 1;
+        widP = 1 - q;
+        snake = 1 + q * 0.8;
+        alpha = 1;
+      } else {
+        const q = easeOutCubic((p - 0.6) / 0.4);
+        lenP = 1 - q;
+        widP = 0;
+        snake = 0;
+        alpha = 1 - q;
+      }
+    } else {
+      lenP = 1 + 0.04 * Math.sin(rf.t * 6);
+      widP = 1 + 0.06 * Math.sin(rf.t * 6 + 1.4);
+    }
+
+    if (alpha <= 0.01) return;
+    if (lenP <= 0.03) {
+      const pr = 3 + 1.6 * Math.sin(time * 18 + rf.seed);
+      R.circle(rf.x, rf.y, Math.max(1.5, pr * lenP), rgba(C.riftCore, 0.9 * alpha), 10);
+      return;
+    }
+
+    RiftField.drawShape(R, rf.x, rf.y, rf.size * lenP, rf.size * 0.227 * widP, rf.seed, time, alpha, rf.rot, snake);
+  }
+
+  private drawMenuEnemies(
+    R: Renderer,
+    enemies: Array<{
+      x: number; y: number; vx: number; vy: number;
+      kind: EnemyKind; angle: number; seed: number;
+    }>,
+    time: number
+  ) {
+    for (const e of enemies) {
+      this.drawMenuEnemy(R, e, time);
+    }
+  }
+
+  private drawMenuEnemy(
+    R: Renderer,
+    e: { x: number; y: number; vx: number; vy: number; kind: EnemyKind; angle: number; seed: number },
+    time: number
+  ) {
+    // Draw a simple ship polygon for menu enemies
+    const pts: Array<[number, number]> = [
+      [12, 0],
+      [-6, 6],
+      [-3, 0],
+      [-6, -6],
+    ];
+    this.drawShipPoly(R, e.x, e.y, e.angle, pts, rgba(C.drone, 0.7));
+    
+    // Add a small glow effect
+    const pulse = 0.7 + 0.3 * Math.sin(time * 4 + e.seed);
+    R.circle(e.x, e.y, 3 * pulse, rgba(C.riftCore, 0.3), 8);
   }
 
   /* ============================== helpers ============================== */

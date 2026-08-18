@@ -11,6 +11,7 @@ import { clamp, easeOutCubic } from "./math";
 import { Renderer } from "./render";
 
 /* Core systems */
+import { Camera } from "./core/Camera";
 import { EventBus } from "./core/EventBus";
 import { GameState } from "./core/GameState";
 
@@ -126,6 +127,18 @@ export class Game {
   private fpsEma = 60;
   private startWave = 1;
 
+  /* Menu rift & enemy animation */
+  private menuRifts: Array<{
+    x: number; y: number; t: number; state: "opening" | "spawning" | "closing";
+    queue: EnemyKind[]; timer: number; seed: number; rot: number; size: number;
+    nextSpawnT: number;
+  }> = [];
+  private menuEnemies: Array<{
+    x: number; y: number; vx: number; vy: number;
+    kind: EnemyKind; angle: number; seed: number;
+  }> = [];
+  private menuNextRiftTimer = 0;
+
   private state: "menu" | "playing" | "active" | "cleared" | "dying" | "over" = "menu";
   private paused = false;
 
@@ -187,12 +200,11 @@ export class Game {
   private popupId = 0;
   private countId = 0;
 
-  /* Camera */
+  /* Camera - управляет миром и преобразованиями координат */
   private camX = 0;
   private camY = 0;
   private zoom = 1;
-  private viewW = 800;
-  private viewH = 600;
+  private camera = new Camera();
 
   /* Entity arrays */
   private enemyList: Enemy[] = [];
@@ -205,16 +217,16 @@ export class Game {
   private minerals = 0;
 
   private onResize = () => {
-    this.viewW = window.innerWidth;
-    this.viewH = window.innerHeight;
-    this.renderer.width = this.viewW;
-    this.renderer.height = this.viewH;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    this.renderer.resize(w, h);
+    this.camera.resize(w, h, Math.min(window.devicePixelRatio || 1, 1.75));
   };
   
   private updateAimAngle() {
     // Convert mouse screen position to world position
-    const worldX = this.camX + (this.mouseX - this.viewW / 2) / this.zoom;
-    const worldY = this.camY + (this.mouseY - this.viewH / 2) / this.zoom;
+    const worldX = this.camX + (this.mouseX - window.innerWidth / 2) / this.zoom;
+    const worldY = this.camY + (this.mouseY - window.innerHeight / 2) / this.zoom;
     
     const playerPos = this.playerSystem.getState();
     const angle = Math.atan2(worldY - playerPos.y, worldX - playerPos.x);
@@ -561,8 +573,8 @@ export class Game {
     this.asteroidField.update(dtScaled, {
       camX: this.camX,
       camY: this.camY,
-      viewW: this.viewW,
-      viewH: this.viewH,
+      viewW: window.innerWidth,
+      viewH: window.innerHeight,
       zone: this.zoneOn ? { x: this.zoneX, y: this.zoneY, r: this.zoneR } : null,
     } as any);
 
@@ -608,8 +620,8 @@ export class Game {
       this.camX,
       this.camY,
       this.zoom,
-      this.viewW,
-      this.viewH
+      window.innerWidth,
+      window.innerHeight
     );
   }
 
@@ -618,77 +630,133 @@ export class Game {
     this.asteroidField.update(dt, {
       camX: 0,
       camY: 0,
-      viewW: this.viewW,
-      viewH: this.viewH,
+      viewW: window.innerWidth,
+      viewH: window.innerHeight,
       zone: null,
     } as any);
     this.fx.update(dt, dt); // Обновляем частицы и тряску экрана
     
-    // Меню враги — полностью изолированы от игрового riftField
+    this.updateMenuRifts(dt);
     this.updateMenuEnemies(dt);
     
-    this.renderer.clear();
     this.rendererSystem.renderMenu(
       this.renderer,
       this.starfield,
       this.asteroidField,
       this.riftField,
-      this.enemyMenuList,
-      this.viewW,
-      this.viewH
+      this.menuRifts,
+      this.menuEnemies,
+      window.innerWidth,
+      window.innerHeight
     );
   }
-  
-  // Menu scene enemy animation - enemies spawn from central rift
-  private enemyMenuList: Array<{
-    x: number; y: number; vx: number; vy: number;
-    kind: EnemyKind; angle: number; seed: number;
-  }> = [];
-  private menuEnemyTimer = 0;
-  
-  private updateMenuEnemies(dt: number) {
-    // ТОЛЬКО для меню — не вызываем в игре
-    if (this.state !== "menu") return;
-    
-    // Меню враги — полностью изолированы от игрового riftField
-    // Меню rift рендерится отдельно через drawMenuScene — не используем riftField
-    const cx = this.viewW / 2;
-    const cy = this.viewH / 2;
-    
-    // Spawn new enemy from rift periodically
-    this.menuEnemyTimer -= dt;
-    if (this.menuEnemyTimer <= 0 && this.enemyMenuList.length < 8) {
-      this.menuEnemyTimer = 1.5 + Math.random() * 2;
-      // ТОЛЬКО дроны в меню — они не стреляют
-      const kind: EnemyKind = "drone";
-      
-      // Spawn from center of screen
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 30 + Math.random() * 40;
-      this.enemyMenuList.push({
-        x: cx + Math.cos(angle) * 40,
-        y: cy + Math.sin(angle) * 40,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-        kind,
-        angle: angle,
-        seed: Math.random() * 100,
-      });
+
+  /* ===== Menu rift & enemy animation ===== */
+
+  private updateMenuRifts(dt: number) {
+    // Только один разлом одновременно — ждём пока полностью закроется
+    if (this.menuRifts.length === 0) {
+      this.menuNextRiftTimer -= dt;
+      if (this.menuNextRiftTimer <= 0) {
+        // Spawn a new rift at random position
+        // Рендерер использует WebGL координаты: центр (0,0), правый край = webGLWidth/2
+        const dpr = this.camera.dpr;
+        const margin = 120;
+        const w = this.camera.webGLWidth;
+        const h = this.camera.webGLHeight;
+        const x = -w / 2 + margin * dpr + Math.random() * (w - margin * 2 * dpr);
+        const y = -h / 2 + margin * dpr + Math.random() * (h - margin * 2 * dpr);
+        const count = 1 + Math.floor(Math.random() * 3); // 1-3 ships
+        const kinds: EnemyKind[] = [];
+        for (let i = 0; i < count; i++) {
+          kinds.push("drone");
+        }
+        this.menuRifts.push({
+          x, y,
+          t: 0,
+          state: "opening",
+          queue: kinds,
+          timer: 0.8,
+          seed: Math.random() * 100,
+          rot: Math.random() * Math.PI * 2,
+          size: (40 + Math.random() * 20) * dpr,
+          nextSpawnT: 8 + Math.random() * 6, // 8-14 seconds
+        });
+        // Следующий разлом только через 8-14 секунд после этого
+        this.menuNextRiftTimer = 8 + Math.random() * 6;
+      }
     }
+
+    // Update rifts (no sound)
+    for (let i = this.menuRifts.length - 1; i >= 0; i--) {
+      const rf = this.menuRifts[i];
+      rf.t += dt;
+      if (rf.state === "opening") {
+        if (rf.t >= 0.6) {
+          rf.state = "spawning";
+          rf.timer = 0.35;
+        }
+      } else if (rf.state === "spawning") {
+        rf.timer -= dt;
+        if (rf.timer <= 0 && rf.queue.length > 0) {
+          rf.timer = 0.28;
+          const kind = rf.queue.shift()!;
+          // Spawn enemy flying away from rift
+          this.spawnMenuEnemy(kind, rf.x, rf.y);
+        }
+        // Only close if queue is truly empty and timer has expired
+        if (rf.queue.length === 0 && rf.timer <= 0) {
+          rf.state = "closing";
+          rf.t = 0;
+        }
+      } else if (rf.state === "closing") {
+        if (rf.t >= 0.5) {
+          this.menuRifts.splice(i, 1);
+        }
+      }
+    }
+  }
+
+  private spawnMenuEnemy(kind: EnemyKind, x: number, y: number) {
+    // Enemy flies away from screen center (toward nearest edge)
+    const dpr = this.camera.dpr;
+    const cx = 0; // screen center = world (0,0)
+    const cy = 0;
+    let dx = x - cx;
+    let dy = y - cy;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 0.01) {
+      dx = 1; dy = 0;
+    } else {
+      dx /= len; dy /= len;
+    }
+    const speed = (80 + Math.random() * 60) * dpr;
+    const angle = Math.atan2(dy, dx);
+    this.menuEnemies.push({
+      x: x + dx * 30,
+      y: y + dy * 30,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      kind,
+      angle,
+      seed: Math.random() * 100,
+    });
+  }
+
+  private updateMenuEnemies(dt: number) {
+    const dpr = this.camera.dpr;
+    const w = this.camera.webGLWidth;
+    const h = this.camera.webGLHeight;
+    const margin = 150 * dpr;
     
-    // Update enemy positions
-    for (const e of this.enemyMenuList) {
+    for (const e of this.menuEnemies) {
       e.x += e.vx * dt;
       e.y += e.vy * dt;
-      // Gentle sine wave motion
-      e.x += Math.sin(this.time * 2 + e.seed) * 0.3;
-      e.y += Math.cos(this.time * 1.5 + e.seed) * 0.3;
     }
-    
-    // Remove enemies that are off screen (outside camera visibility)
-    const margin = 100;
-    this.enemyMenuList = this.enemyMenuList.filter(e => 
-      e.x > -margin || e.x < this.viewW + margin || e.y > -margin || e.y < this.viewH + margin
+    // Remove enemies that are off screen (in WebGL coordinates)
+    this.menuEnemies = this.menuEnemies.filter(e =>
+      e.x > -w / 2 - margin && e.x < w / 2 + margin &&
+      e.y > -h / 2 - margin && e.y < h / 2 + margin
     );
   }
 
@@ -849,7 +917,9 @@ export class Game {
     this.hooks.onPause(false);
     // Reset menu state
     this.riftField.reset();
-    this.enemyMenuList = [];
+    this.menuRifts = [];
+    this.menuEnemies = [];
+    this.menuNextRiftTimer = 2 + Math.random() * 3; // First rift appears quickly
   }
 
   setTouch(active: boolean, x: number, y: number): void {
