@@ -84,6 +84,11 @@ export class InputManager {
     this.touchY = Math.abs(y) < TOUCH_DEADZONE ? 0 : y;
   }
 
+  /** Check if a key is currently pressed. */
+  isKey(code: string): boolean {
+    return this.keys.has(code);
+  }
+
   /** Drop all held keys / touch (used on blur and pause). */
   clear() {
     this.keys.clear();

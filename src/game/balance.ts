@@ -33,8 +33,10 @@ export const PLAYER_RADIUS = 13;
 export const PLAYER_MAX_SPEED = 310;
 /** Thrust applied per second while the player holds a direction. */
 export const PLAYER_ACCEL = 1500;
+/** Zone expansion is this multiplier × PLAYER_MAX_SPEED. Must be > 1 so the player can never catch it. */
+export const ZONE_EXPAND_SPEED_MULT = 1.7;
 /** The zone wall always outpaces the ship, so it can never be caught. */
-export const ZONE_EXPAND_SPEED = PLAYER_MAX_SPEED * 1.2;
+export const ZONE_EXPAND_SPEED = PLAYER_MAX_SPEED * ZONE_EXPAND_SPEED_MULT;
 
 /* ------------------------- zone constants ------------------------- */
 

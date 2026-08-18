@@ -6,7 +6,7 @@
 
 import { t } from "../i18n";
 import { AudioEngine } from "./audio";
-import { waveTotalFor, type EnemyKind, PickupKind } from "./balance";
+import { waveTotalFor, type EnemyKind, PickupKind, PLAYER_MAX_SPEED, ZONE_EXPAND_SPEED } from "./balance";
 import { Renderer } from "./render";
 import { clamp, easeOutCubic } from "./math";
 
@@ -121,6 +121,8 @@ export class Game {
   private timeScale = 1;
 
   private debugGod = false;
+  private debugShow = false;
+  private debugToggleTimer = 0;
   private fpsEma = 60;
   private startWave = 1;
 
@@ -491,6 +493,8 @@ export class Game {
     const dtScaled = dt * this.timeScale;
     this.time += dtScaled;
 
+    this.handleDebugKeys();
+
     this.gameState.setTime(this.time);
     this.gameState.setWave(this.wave);
     this.gameState.setScore(this.score);
@@ -557,6 +561,7 @@ export class Game {
     } as any);
 
     this.render();
+    this.renderDebug();
     this.updateHud();
   }
 
@@ -727,6 +732,110 @@ export class Game {
     return Math.round(this.fpsEma);
   }
 
+  toggleDebug(): void {
+    this.debugShow = !this.debugShow;
+    this.debugToggleTimer = 1;
+    console.log(`[DEBUG] Debug overlay: ${this.debugShow ? 'ON' : 'OFF'}`);
+  }
+
+  private handleDebugKeys() {
+    // Simple key state tracking (no repeat for debug keys)
+    if (!this._debugKeys) this._debugKeys = {};
+    const keys = this._debugKeys;
+    
+    // Backtick (`) for debug overlay toggle
+    if (this.input.isKey('Backquote')) {
+      if (!keys['`']) {
+        this.toggleDebug();
+        keys['`'] = true;
+      }
+    } else {
+      keys['`'] = false;
+    }
+    
+    // G for god mode
+    if (this.input.isKey('KeyG')) {
+      if (!keys['G']) {
+        this.debugGod = !this.debugGod;
+        console.log(`[DEBUG] God mode: ${this.debugGod ? 'ON' : 'OFF'}`);
+        keys['G'] = true;
+      }
+    } else {
+      keys['G'] = false;
+    }
+  }
+  
+  private _debugKeys: Record<string, boolean> | null = null;
+
+  private renderDebug() {
+    if (!this.debugShow) return;
+    const ctx = this.renderer.canvas.getContext('2d');
+    if (!ctx) return;
+    
+    ctx.save();
+    ctx.resetTransform();
+    
+    // Background
+    ctx.fillStyle = 'rgba(0,0,0,0.75)';
+    ctx.fillRect(0, 0, 280, 320);
+    
+    // Title
+    ctx.fillStyle = '#ff3b52';
+    ctx.font = 'bold 14px monospace';
+    ctx.fillText('DEBUG OVERLAY [Tab]', 10, 22);
+    
+    // Game state info
+    ctx.fillStyle = '#eaffff';
+    ctx.font = '12px monospace';
+    let y = 50;
+    
+    const lines = [
+      `state: ${this.state}`,
+      `wave: ${this.wave}`,
+      `time: ${this.runTime.toFixed(1)}s`,
+      `fps: ${this.fps()}`,
+      ``,
+      `ZONE:`,
+      `  active: ${this.zoneOn}`,
+      `  radius: ${this.zoneR.toFixed(1)}`,
+      `  target: ${this.zoneTarget.toFixed(1)}`,
+      `  alpha: ${this.zoneAlpha.toFixed(2)}`,
+      ``,
+      `SPAWN:`,
+      `  countdown: ${this.countdownSystem?.isCountdownActive?.() ? 'YES' : 'NO'}`,
+      `  enemies: ${this.enemyList.length}`,
+      `  rifts: ${this.riftField?.list?.length ?? 0}`,
+      `  total: ${this.waveTotal}`,
+      `  killed: ${this.killed}`,
+      `  allocated: ${this.allocated}`,
+      ``,
+      `PLAYER:`,
+      `  pos: ${this.playerSystem.getPos().x.toFixed(0)}, ${this.playerSystem.getPos().y.toFixed(0)}`,
+      `  hp: ${this.playerSystem.getHp()}/${this.playerSystem.getMaxHp()}`,
+      ``,
+      `INPUT:`,
+      `  axis: ${this.input.axis.x.toFixed(2)}, ${this.input.axis.y.toFixed(2)}`,
+      `  mouse: [${this.mouseX}, ${this.mouseY}]`,
+      ``,
+      `CONTROLS:`,
+      `  Tab: toggle debug`,
+      `  G: god mode`,
+    ];
+    
+    for (const line of lines) {
+      // Color coding
+      if (line.includes('YES') || line.includes('ON')) ctx.fillStyle = '#ff5d7e';
+      else if (line.includes('NO') || line.includes('OFF')) ctx.fillStyle = '#d8ff3e';
+      else if (line.includes('ZONE:') || line.includes('S') || line.includes('PLAYER:') || line.includes('INPUT:') || line.includes('CONTROLS:')) ctx.fillStyle = '#c06bff';
+      else ctx.fillStyle = '#eaffff';
+      
+      ctx.fillText(line, 10, y);
+      y += 16;
+    }
+    
+    ctx.restore();
+  }
+
   toMenu(): void {
     if (this.state === "menu") return;
     this.state = "menu";
@@ -887,15 +996,14 @@ export class Game {
       this.zoneX = p.x;
       this.zoneY = p.y;
       this.zoneTarget = Math.max(400, 200 + this.wave * 50);
-      this.zoneR = 15; // Начальный радиус: 1.5 * 10 (радиус игрока)
+      this.zoneR = 17.25; // Начальный радиус: 1.5 * 10 * 1.15 (увеличен на 15%)
       this.zoneAlpha = 0;
       this.zoneCollapse = -1;
     }
 
-    // Скорость расширения = 120 + 20% от скорости игрока
-    const playerState = this.playerSystem.getState();
-    const playerSpeed = Math.hypot(playerState.vx, playerState.vy);
-    const expandSpeed = 120 + playerSpeed * 0.2; // базовая скорость + 20% от скорости игрока
+    // Скорость расширения = ZONE_EXPAND_SPEED (ZONE_EXPAND_SPEED_MULT × PLAYER_MAX_SPEED)
+    // Задается в balance.ts — игрок физически не может догнать зону
+    const expandSpeed = ZONE_EXPAND_SPEED;
     
     // Зона расширяется ТОЛЬКО когда отсчёт завершён
     if (this.zoneR < this.zoneTarget && !this.countdownSystem.isCountdownActive()) {

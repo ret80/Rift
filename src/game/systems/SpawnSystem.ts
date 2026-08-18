@@ -163,14 +163,23 @@ export class SpawnSystem {
   }
 
   /**
-    * Обновить спавн.
-    */
+     * Обновить спавн.
+     */
   update(dt: number, wave: number, allocated: number, killedWave: number, game: any): void {
     this.currentWave = wave;
     
     // Check if we need to spawn more enemies
     const totalNeeded = this.waveTotalCount(wave);
     const remaining = totalNeeded - killedWave;
+    
+    const inCountdown = game.countdownSystem?.isCountdownActive?.();
+    const zoneR = (game as any).zoneR ?? 0;
+    const zoneOn = (game as any).zoneOn ?? false;
+    const riftCount = game.riftField?.list?.length ?? 0;
+    
+    if (inCountdown || !zoneOn) {
+      return;
+    }
     
     if (remaining > 0 && allocated < totalNeeded) {
       // Try to spawn next enemy from queue
@@ -233,7 +242,8 @@ export class SpawnSystem {
     const zoneX = (game as any).zoneX ?? 0;
     const zoneY = (game as any).zoneY ?? 0;
     const zoneR = (game as any).zoneR ?? this.zoneRadius(game.wave);
-    if (zoneR < 50) return; // зона ещё не открылась
+    const zoneTarget = (game as any).zoneTarget ?? this.zoneRadius(game.wave);
+    if (zoneR < zoneTarget * 0.9) return; // ждём полного раскрытия зоны (90%)
     const point = this.spawnRiftPoint(zoneX, zoneY, zoneR);
     const size = 80 + Math.random() * 40;
     game.riftField.spawn(point.x, point.y, queue, 0, size);
