@@ -5,12 +5,23 @@
 
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
-import { TAU } from '../math';
+import { TAU, lerpAngle as lerpAngleMath } from '../math';
 import { C } from '../balance';
 import type { InputManager } from '../input';
 import type { Fx } from '../fx';
 import type { AudioEngine } from '../audio';
 import type { RGBA } from '../render';
+
+// Флаг для отладки вращения кораблей
+const DEBUG_ROTATION = true;
+const rotationLogCounter = { enemy: 0, player: 0 };
+const MAX_ROTATION_LOGS = 50;
+
+function logRotation(tag: string, msg: string): void {
+  if (!DEBUG_ROTATION) return;
+  if (rotationLogCounter.player >= MAX_ROTATION_LOGS) return;
+  console.log(`[ROTATION-P] ${tag}: ${msg}`);
+}
 
 interface PlayerState {
   x: number;
@@ -309,11 +320,19 @@ export class PlayerSystem {
     
     // Угол корабля следует за направлением прицеливания, а не за скоростью
     // Это предотвращает "перевороты" при ударе о границу зоны
+    const oldAngle = this.player.angle;
     if (this.aimAngle !== null) {
-      this.player.angle = lerpAngle(this.player.angle, this.aimAngle, 1 - Math.exp(-10 * dt));
+      this.player.angle = lerpAngleMath(this.player.angle, this.aimAngle, 1 - Math.exp(-10 * dt));
     } else if (sp > 20) {
       // Fallback: если нет прицеливания, следовать за скоростью
-      this.player.angle = lerpAngle(this.player.angle, Math.atan2(this.player.vy, this.player.vx), 1 - Math.exp(-8 * dt));
+      this.player.angle = lerpAngleMath(this.player.angle, Math.atan2(this.player.vy, this.player.vx), 1 - Math.exp(-8 * dt));
+    }
+    let angleDelta = this.player.angle - oldAngle;
+    while (angleDelta > Math.PI) angleDelta -= TAU;
+    while (angleDelta < -Math.PI) angleDelta += TAU;
+    if (DEBUG_ROTATION && Math.abs(angleDelta) > 0.3) {
+      rotationLogCounter.player++;
+      logRotation('turn', `angle ${oldAngle.toFixed(3)}→${this.player.angle.toFixed(3)} (delta=${angleDelta.toFixed(3)}), aim=${this.aimAngle !== null ? this.aimAngle.toFixed(3) : 'null'}, vel=(${this.player.vx.toFixed(1)},${this.player.vy.toFixed(1)})`);
     }
     
     this.player.invuln = Math.max(0, this.player.invuln - dt);
@@ -385,8 +404,12 @@ export class PlayerSystem {
       const ny = Math.sin(angle);
       const dot = this.player.vx * nx + this.player.vy * ny;
       if (dot > 0) {
+        const oldVx = this.player.vx;
+        const oldVy = this.player.vy;
         this.player.vx -= 2 * dot * nx;
         this.player.vy -= 2 * dot * ny;
+        rotationLogCounter.player++;
+        logRotation('clamped', `player vx ${oldVx.toFixed(1)}→${this.player.vx.toFixed(1)}, vy ${oldVy.toFixed(1)}→${this.player.vy.toFixed(1)}`);
       }
     }
   }
@@ -418,11 +441,6 @@ export class PlayerSystem {
 // Helper functions (should be imported from math.ts)
 function rand(min: number, max: number): number {
   return min + Math.random() * (max - min);
-}
-
-function lerpAngle(a: number, b: number, t: number): number {
-  const d = ((b - a) % TAU + TAU * 2) % TAU - TAU;
-  return a + d * t;
 }
 
 function rgba(hex: string, alpha: number): string {

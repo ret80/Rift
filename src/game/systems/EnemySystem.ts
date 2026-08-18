@@ -6,9 +6,20 @@
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { EnemyKind } from '../balance';
-import { TAU } from '../math';
+import { TAU, lerpAngle as lerpAngleMath } from '../math';
 import type { Fx } from '../fx';
 import type { AudioEngine } from '../audio';
+
+// Флаг для отладки вращения кораблей
+const DEBUG_ROTATION = true;
+const rotationLogCounter = { enemy: 0, player: 0 };
+const MAX_ROTATION_LOGS = 50;
+
+function logRotation(tag: string, msg: string): void {
+  if (!DEBUG_ROTATION) return;
+  if (rotationLogCounter.enemy >= MAX_ROTATION_LOGS) return;
+  console.log(`[ROTATION] ${tag}: ${msg}`);
+}
 
 interface Enemy {
   kind: EnemyKind;
@@ -97,6 +108,7 @@ export class EnemySystem {
     const angle = kind === "drone"
       ? Math.atan2(this.state.player.y - y, this.state.player.x - x)
       : rand(0, TAU);
+    logRotation('spawn', `${kind} at (${x.toFixed(0)},${y.toFixed(0)}) angle=${angle.toFixed(3)}`);
     this.enemies.push({
       kind,
       x,
@@ -214,7 +226,16 @@ export class EnemySystem {
           const dsp = Math.sqrt(dsp2);
           if (dsp > 5) {
             // Плавные повороты: lerp factor снижен с 9 до 5
-            e.angle = lerpAngle(e.angle, Math.atan2(e.vy, e.vx), 1 - Math.exp(-5 * dt));
+            const targetAngle = Math.atan2(e.vy, e.vx);
+            const oldAngle = e.angle;
+            e.angle = lerpAngleMath(e.angle, targetAngle, 1 - Math.exp(-5 * dt));
+            let angleDelta = e.angle - oldAngle;
+            while (angleDelta > Math.PI) angleDelta -= TAU;
+            while (angleDelta < -Math.PI) angleDelta += TAU;
+            if (DEBUG_ROTATION && Math.abs(angleDelta) > 0.3) {
+              rotationLogCounter.enemy++;
+              console.log(`[ROTATION] drone: angle ${oldAngle.toFixed(3)}→${e.angle.toFixed(3)} (delta=${angleDelta.toFixed(3)}), vel=(${e.vx.toFixed(1)},${e.vy.toFixed(1)}), spd=${dsp.toFixed(1)}`);
+            }
           }
           break;
         }
@@ -231,7 +252,16 @@ export class EnemySystem {
           const hv = Math.hypot(e.vx, e.vy);
           if (hv > 5) {
             // Плавные повороты: lerp factor снижен с 10 до 6
-            e.angle = lerpAngle(e.angle, Math.atan2(e.vy, e.vx), 1 - Math.exp(-6 * dt));
+            const targetAngle = Math.atan2(e.vy, e.vx);
+            const oldAngle = e.angle;
+            e.angle = lerpAngleMath(e.angle, targetAngle, 1 - Math.exp(-6 * dt));
+            let angleDelta = e.angle - oldAngle;
+            while (angleDelta > Math.PI) angleDelta -= TAU;
+            while (angleDelta < -Math.PI) angleDelta += TAU;
+            if (DEBUG_ROTATION && Math.abs(angleDelta) > 0.3) {
+              rotationLogCounter.enemy++;
+              console.log(`[ROTATION] hunter: angle ${oldAngle.toFixed(3)}→${e.angle.toFixed(3)} (delta=${angleDelta.toFixed(3)}), vel=(${e.vx.toFixed(1)},${e.vy.toFixed(1)})`);
+            }
           }
           break;
         }
@@ -264,7 +294,15 @@ export class EnemySystem {
             if (e.modeT <= 0) e.mode = 0;
           }
           const kAngle = 1 - Math.exp(-6 * dt);
-          e.angle = lerpAngle(e.angle, Math.atan2(e.vy, e.vx), kAngle);
+          const oldAngleF = e.angle;
+          e.angle = lerpAngleMath(e.angle, Math.atan2(e.vy, e.vx), kAngle);
+          let angleDeltaF = e.angle - oldAngleF;
+          while (angleDeltaF > Math.PI) angleDeltaF -= TAU;
+          while (angleDeltaF < -Math.PI) angleDeltaF += TAU;
+          if (DEBUG_ROTATION && Math.abs(angleDeltaF) > 0.3) {
+            rotationLogCounter.enemy++;
+            console.log(`[ROTATION] fighter(mode=${e.mode}): angle ${oldAngleF.toFixed(3)}→${e.angle.toFixed(3)} (delta=${angleDeltaF.toFixed(3)}), vel=(${e.vx.toFixed(1)},${e.vy.toFixed(1)}), modeT=${e.modeT.toFixed(2)}`);
+          }
           break;
         }
         
@@ -318,7 +356,16 @@ export class EnemySystem {
           const sp = Math.hypot(e.vx, e.vy);
           if (sp > 5) {
             // Плавные повороты: lerp factor снижен с 6 до 4
-            e.angle = lerpAngle(e.angle, Math.atan2(e.vy, e.vx), 1 - Math.exp(-4 * dt));
+            const targetAngle = Math.atan2(e.vy, e.vx);
+            const oldAngle = e.angle;
+            e.angle = lerpAngleMath(e.angle, targetAngle, 1 - Math.exp(-4 * dt));
+            let angleDelta = e.angle - oldAngle;
+            while (angleDelta > Math.PI) angleDelta -= TAU;
+            while (angleDelta < -Math.PI) angleDelta += TAU;
+            if (DEBUG_ROTATION && Math.abs(angleDelta) > 0.3) {
+              rotationLogCounter.enemy++;
+              console.log(`[ROTATION] cruiser: angle ${oldAngle.toFixed(3)}→${e.angle.toFixed(3)} (delta=${angleDelta.toFixed(3)}), vel=(${e.vx.toFixed(1)},${e.vy.toFixed(1)})`);
+            }
           }
           break;
         }
@@ -348,7 +395,16 @@ export class EnemySystem {
           e.vy += (desY - e.vy) * k;
           const sp = Math.hypot(e.vx, e.vy);
           if (sp > 5) {
-            e.angle = lerpAngle(e.angle, Math.atan2(e.vy, e.vx), 1 - Math.exp(-5 * dt));
+            const targetAngle = Math.atan2(e.vy, e.vx);
+            const oldAngle = e.angle;
+            e.angle = lerpAngleMath(e.angle, targetAngle, 1 - Math.exp(-5 * dt));
+            let angleDelta = e.angle - oldAngle;
+            while (angleDelta > Math.PI) angleDelta -= TAU;
+            while (angleDelta < -Math.PI) angleDelta += TAU;
+            if (DEBUG_ROTATION && Math.abs(angleDelta) > 0.3) {
+              rotationLogCounter.enemy++;
+              console.log(`[ROTATION] carrier: angle ${oldAngle.toFixed(3)}→${e.angle.toFixed(3)} (delta=${angleDelta.toFixed(3)}), vel=(${e.vx.toFixed(1)},${e.vy.toFixed(1)})`);
+            }
           }
           
           // spawn drones
@@ -424,6 +480,7 @@ export class EnemySystem {
     const angle = kind === "drone"
       ? Math.atan2(this.state.player.y - y, this.state.player.x - x)
       : rand(0, TAU);
+    logRotation('spawn', `${kind} at (${x.toFixed(0)},${y.toFixed(0)}) angle=${angle.toFixed(3)}`);
     const e: Enemy = {
       kind,
       x,
@@ -479,8 +536,11 @@ export class EnemySystem {
         const ny = Math.sin(angle);
         const dot = e.vx * nx + e.vy * ny;
         if (dot > 0) {
+          const oldVx = e.vx;
+          const oldVy = e.vy;
           e.vx -= 2 * dot * nx;
           e.vy -= 2 * dot * ny;
+          logRotation('clamped', `${e.kind} at (${e.x.toFixed(0)},${e.y.toFixed(0)}) vx ${oldVx.toFixed(1)}→${e.vx.toFixed(1)}, vy ${oldVy.toFixed(1)}→${e.vy.toFixed(1)}`);
         }
       }
     }
@@ -506,9 +566,4 @@ export class EnemySystem {
 
 function rand(min: number, max: number): number {
   return min + Math.random() * (max - min);
-}
-
-function lerpAngle(a: number, b: number, t: number): number {
-  const d = ((b - a) % TAU + TAU * 2) % TAU - TAU;
-  return a + d * t;
 }

@@ -18,8 +18,18 @@ export function ramp01(v: number, s: number, f: number) {
 }
 
 export function lerpAngle(a: number, b: number, k: number) {
-  let d = ((b - a) % TAU + TAU) % TAU;
+  // Нормализация разности углов на кратчайший путь
+  let d = b - a;
+  d = ((d % TAU) + TAU) % TAU;
   if (d > Math.PI) d -= TAU;
+  
+  // Защита от катастрофического сдвига > PI (угловое переполнение)
+  const maxDelta = Math.PI * 0.9;
+  if (Math.abs(d) > maxDelta && k > 0.5) {
+    // Слишком большой скачок — ограничиваем
+    d = Math.sign(d) * maxDelta;
+  }
+  
   return a + d * k;
 }
 
