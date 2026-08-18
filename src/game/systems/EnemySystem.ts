@@ -3,12 +3,12 @@
  * Отвечает за AI, движение, стрельбу и состояние врагов.
  */
 
+import type { AudioEngine } from '../audio';
+import type { EnemyKind } from '../balance';
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
-import type { EnemyKind } from '../balance';
-import { TAU, lerpAngle as lerpAngleMath } from '../math';
 import type { Fx } from '../fx';
-import type { AudioEngine } from '../audio';
+import { TAU, lerpAngle as lerpAngleMath } from '../math';
 
 // Флаг для отладки вращения кораблей
 const DEBUG_ROTATION = true;
@@ -19,6 +19,15 @@ function logRotation(tag: string, msg: string): void {
   if (!DEBUG_ROTATION) return;
   if (rotationLogCounter.enemy >= MAX_ROTATION_LOGS) return;
   console.log(`[ROTATION] ${tag}: ${msg}`);
+}
+
+interface EnemyFireData {
+  x: number;
+  y: number;
+  kind: EnemyKind;
+  angle: number;
+  r: number;
+  boltDmg: number;
 }
 
 interface Enemy {
@@ -61,7 +70,7 @@ export class EnemySystem {
   private state: GameState;
   private fx: Fx;
   private audio: AudioEngine;
-  private enemyFireCallback: (e: Enemy) => void;
+  private enemyFireCallback: (e: EnemyFireData) => void;
   private getZoneBounds: () => { x: number; y: number; radius: number; active: boolean };
   
   private enemies: Enemy[] = [];
@@ -75,7 +84,7 @@ export class EnemySystem {
     state: GameState,
     fx: Fx,
     audio: AudioEngine,
-    enemyFireCallback: (e: Enemy) => void,
+    enemyFireCallback: (e: EnemyFireData) => void,
     getZoneBounds: () => { x: number; y: number; radius: number; active: boolean }
   ) {
     this.eventBus = eventBus;

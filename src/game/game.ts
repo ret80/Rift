@@ -6,9 +6,9 @@
 
 import { t } from "../i18n";
 import { AudioEngine } from "./audio";
-import { waveTotalFor, type EnemyKind, PickupKind, PLAYER_MAX_SPEED, ZONE_EXPAND_SPEED } from "./balance";
-import { Renderer } from "./render";
+import { PickupKind, waveTotalFor, ZONE_EXPAND_SPEED, type EnemyKind } from "./balance";
 import { clamp, easeOutCubic } from "./math";
+import { Renderer } from "./render";
 
 /* Core systems */
 import { EventBus } from "./core/EventBus";
@@ -22,19 +22,19 @@ import { RiftField } from "./rifts";
 import { Starfield } from "./starfield";
 
 /* Entity types */
-import type { Enemy, Bullet, EBullet, Pickup, Mine, AllyDrone } from "./types";
+import type { AllyDrone, Bullet, EBullet, Enemy, Mine, Pickup } from "./types";
 
 /* Game systems */
-import { RendererSystem, type PlayerRenderState, type ZoneRenderState, type EnemyRenderState, type PickupRenderState, type MineRenderState, type AllyDroneRenderState, type BulletRenderState, type EBulletRenderState } from "./systems/RendererSystem";
 import { BulletSystem } from "./systems/BulletSystem";
-import { SpawnSystem } from "./systems/SpawnSystem";
+import { CollisionSystem } from "./systems/CollisionSystem";
 import { CountdownSystem } from "./systems/CountdownSystem";
-import { MineSystem } from "./systems/MineSystem";
 import { DroneSystem } from "./systems/DroneSystem";
+import { EnemySystem } from "./systems/EnemySystem";
+import { MineSystem } from "./systems/MineSystem";
 import { PickupSystem } from "./systems/PickupSystem";
 import { PlayerSystem } from "./systems/PlayerSystem";
-import { EnemySystem } from "./systems/EnemySystem";
-import { CollisionSystem } from "./systems/CollisionSystem";
+import { RendererSystem } from "./systems/RendererSystem";
+import { SpawnSystem } from "./systems/SpawnSystem";
 
 /* ============================== UI types ============================== */
 
@@ -519,7 +519,7 @@ export class Game {
     if (this.state === "playing" || this.state === "active") {
       this.updateAimAngle();
     }
-    this.playerSystem.update(dtScaled, this.state !== "menu" && this.state !== "over" && this.state !== "dying");
+    this.playerSystem.update(dtScaled, (this.state as string) !== "menu" && this.state !== "over" && this.state !== "dying");
     // Жёсткий барьер зоны: отталкивает игрока обратно, если он вышел за границу
     if (this.zoneOn && this.zoneR > 0) {
       this.playerSystem.clampPlayerToZone(this.zoneX, this.zoneY, this.zoneR, this.zoneOn, 0);
@@ -816,7 +816,7 @@ export class Game {
       `  allocated: ${this.allocated}`,
       ``,
       `PLAYER:`,
-      `  pos: ${this.playerSystem.getPos().x.toFixed(0)}, ${this.playerSystem.getPos().y.toFixed(0)}`,
+      `  pos: ${this.playerSystem.getPosition().x.toFixed(0)}, ${this.playerSystem.getPosition().y.toFixed(0)}`,
       `  hp: ${this.playerSystem.getHp()}/${this.playerSystem.getMaxHp()}`,
       ``,
       `INPUT:`,
@@ -876,7 +876,7 @@ export class Game {
     this.edgeWarned = false;
 
     // Spawn player at center of screen (not from rift)
-    this.playerSystem.reset(0, 0);
+    this.playerSystem.reset();
     this.enemyList = [];
     this.bullets = [];
     this.enemyBulletList = [];
@@ -1201,8 +1201,4 @@ export class Game {
       this.playerSystem.setIsFiring(false);
     }
   }
-}
-
-function clamp(v: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, v));
 }

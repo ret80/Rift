@@ -17,6 +17,7 @@ export type EventType =
   | 'rift_spawned'
   | 'rift_closed'
   | 'asteroid_destroyed'
+  | 'asteroid_hit'
   | 'mine_detonated'
   | 'dash_activated'
   | 'game_over'

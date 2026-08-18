@@ -3,13 +3,12 @@
  * Отвечает за движение, стрельбу, здоровье и состояние игрока.
  */
 
+import type { AudioEngine } from '../audio';
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
-import { TAU, lerpAngle as lerpAngleMath } from '../math';
-import { C } from '../balance';
-import type { InputManager } from '../input';
 import type { Fx } from '../fx';
-import type { AudioEngine } from '../audio';
+import type { InputManager } from '../input';
+import { TAU, lerpAngle as lerpAngleMath } from '../math';
 import type { RGBA } from '../render';
 
 // Флаг для отладки вращения кораблей
@@ -346,7 +345,7 @@ export class PlayerSystem {
     }
     
     // Handle shooting (manual fire with LMB)
-    if (this.isFiring && this.fireCd <= 0) {
+    if (this.isFiring && this.fireCd <= 0 && this.aimAngle !== null) {
       const fireRate = 0.12 / this.getRateMult();
       this.fireCd = fireRate;
       this.lastFireTime = fireRate;
