@@ -6,6 +6,7 @@
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { PhysicsSystem } from '../core/PhysicsSystem';
+import { dropChanceFor, type PickupKind } from '../balance';
 
 interface Collidable {
   x: number;
@@ -69,6 +70,52 @@ export class CollisionSystem {
   setPhysicsSystem(physics: PhysicsSystem): void {
     this.physics = physics;
   }
+  
+  /** Determine what kind of bonus drops from a destroyed enemy */
+  private getDropKind(enemyKind: string, seed: number): PickupKind | null {
+    // Random roll using seed + deterministic offset
+    const roll = (seed * 7.31 + 13.37) % 1;
+    const chance = dropChanceFor(enemyKind as any);
+    if (roll >= chance) return null;
+    
+    // Pick bonus type based on enemy kind
+    switch (enemyKind) {
+      case "drone":
+        // drones drop small heals and rate boost
+        return roll < 0.035 ? "rate20" : "heal25";
+      case "hunter":
+        // hunters drop rate and heal
+        return roll < 0.125 ? "rate20" : "heal25";
+      case "fighter":
+        // fighters drop gun and heal
+        return roll < 0.05 ? "gun" : "heal50";
+      case "cruiser":
+        // cruisers drop drone and dash
+        return roll < 0.125 ? "drone" : "dash";
+      case "carrier":
+        // carriers always drop something
+        const types: PickupKind[] = ["drone", "gun", "dash", "miner"];
+        return types[Math.floor(roll * types.length)];
+      default:
+        return "heal25";
+    }
+  }
+  
+  private trySpawnDrop(enemy: Enemy): void {
+    const kind = this.getDropKind(enemy.kind, enemy.seed);
+    if (!kind) return;
+    
+    const vx = (Math.random() - 0.5) * 30;
+    const vy = (Math.random() - 0.5) * 30;
+    
+    this.eventBus.publish('spawn_pickup', {
+      kind,
+      x: enemy.x + (Math.random() - 0.5) * 10,
+      y: enemy.y + (Math.random() - 0.5) * 10,
+      vx,
+      vy,
+    });
+  }
 
   /**
    * Проверить столкновение пули с целью.
@@ -93,7 +140,7 @@ export class CollisionSystem {
     enemies: Enemy[],
     bullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number }>,
     enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number; heavy: boolean }>,
-    pickups: Array<{ x: number; y: number; r: number }>,
+    pickups: Array<{ x: number; y: number; r: number; kind?: string }>,
     mines: Array<{ x: number; y: number; r: number }>,
     drones: Array<{ x: number; y: number; r: number }>,
     asteroids: Asteroid[] = []
@@ -116,6 +163,7 @@ export class CollisionSystem {
           
           if (e.hp <= 0) {
             e.dead = true;
+            this.trySpawnDrop(e);
             this.eventBus.publish('enemy_killed', {
               scoreValue: e.score,
               kind: e.kind,
@@ -180,6 +228,7 @@ export class CollisionSystem {
           });
           // Уничтожаем врага при столкновении
           e.dead = true;
+          this.trySpawnDrop(e);
           this.eventBus.publish('enemy_killed', {
             scoreValue: e.score,
             kind: e.kind,
@@ -236,6 +285,7 @@ export class CollisionSystem {
           e.hp -= 1;
           if (e.hp <= 0) {
             e.dead = true;
+            this.trySpawnDrop(e);
             this.eventBus.publish('enemy_killed', {
               scoreValue: e.score,
               kind: e.kind,

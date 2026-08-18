@@ -79,6 +79,7 @@ export interface Pickup {
   x: number; y: number;
   vx: number; vy: number;
   life: number; seed: number;
+  r: number;
 }
 
 export interface Mine {

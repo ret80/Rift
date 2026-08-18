@@ -457,6 +457,11 @@ export class Game {
       this.spawnPickup(kind as any, x, y, vx, vy);
     });
 
+    this.eventBus.on("pickup_collected", (event) => {
+      const data = event.payload as { kind: string };
+      this.applyPickup(data.kind as any);
+    });
+
     this.eventBus.on("popup", (event) => {
       const data = event.payload as { x: number; y: number; text: string; color: string };
       const { x, y, text, color } = data;
@@ -525,7 +530,6 @@ export class Game {
     this.bulletSystem.update(dtScaled, this.bullets, this.enemyBulletList, this.enemyList);
     this.mineSystem.update(dtScaled, this.mines);
     this.droneSystem.update(dtScaled, this.allyDrones, this.enemyList);
-    this.pickupSystem.update(dtScaled, this.pickups);
     const playerState = this.playerSystem.getState();
     // Get asteroids from asteroid field for collision
     const asteroids = ((this.asteroidField as any).list || []) as Array<{ x: number; y: number; r: number; vx: number; vy: number }>;
@@ -540,6 +544,8 @@ export class Game {
       this.allyDrones as any,
       asteroids
     );
+    // Collision spawns pickups, so update pickups AFTER collision
+    this.pickupSystem.update(dtScaled, this.pickups);
     this.spawnSystem.update(dtScaled, this.wave, this.allocated, this.killedWave, this);
     this.riftField.update(dtScaled);
     this.fx.update(dtScaled, dtScaled); // Обновляем частицы и тряску экрана
@@ -909,7 +915,7 @@ export class Game {
   }
 
   private spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number) {
-    this.pickups.push({ kind, x, y, vx, vy, life: 20, seed: Math.random() });
+    this.pickups.push({ kind, x, y, vx, vy, life: 20, seed: Math.random(), r: 14 });
   }
 
   private spawnEnemy(kind: EnemyKind, x: number, y: number, parent: Enemy | null) {
@@ -936,20 +942,60 @@ export class Game {
 
   private applyPickup(kind: PickupKind) {
     switch (kind) {
+      // Heals
+      case "heal25":
+        this.playerSystem.heal(25);
+        this.audio.pickupHeal();
+        break;
+      case "heal50":
+        this.playerSystem.heal(50);
+        this.audio.pickupHeal();
+        break;
+      case "heal100":
+        this.playerSystem.heal(100);
+        this.audio.pickupHeal();
+        break;
       case "hp":
         this.playerSystem.heal(25);
+        this.audio.pickupHeal();
         break;
-      case "gun":
-        this.playerSystem.addGun();
+      // Rate boosts
+      case "rate20":
+        this.playerSystem.boostRate();
+        this.audio.pickupRate();
+        break;
+      case "rate40":
+        this.playerSystem.boostRate();
+        this.audio.pickupRate();
+        break;
+      case "rate60":
+        this.playerSystem.boostRate();
+        this.audio.pickupRate();
         break;
       case "rate":
         this.playerSystem.boostRate();
+        this.audio.pickupRate();
+        break;
+      // Other
+      case "gun":
+        this.playerSystem.addGun();
+        this.audio.pickupGun();
         break;
       case "drone":
         this.droneSystem.spawn(this.allyDrones, this.getPlayerPosition());
+        this.audio.pickupDrone();
+        break;
+      case "dash":
+        this.playerSystem.setDashT(5);
+        this.audio.pickupDash();
+        break;
+      case "miner":
+        this.mineDropT = 0;
+        this.audio.pickupDash();
         break;
       case "mine":
         this.mineDropT = 0;
+        this.audio.pickupDash();
         break;
       case "mineral":
         this.minerals++;

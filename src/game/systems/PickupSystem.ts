@@ -5,7 +5,7 @@
 
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
-import type { PickupKind } from '../balance';
+import { PickupKind, ZONE_PICKUP_MAGNET } from '../balance';
 import type { AudioEngine } from '../audio';
 
 export interface PickupData {
@@ -68,12 +68,31 @@ export class PickupSystem {
     * Обновить все бонусы.
     */
   update(dt: number, pickups: Array<{ kind: PickupKind; x: number; y: number; vx: number; vy: number; life: number; seed: number }>): void {
+    const pos = this.getPlayerPosition();
+    const playerX = pos.x;
+    const playerY = pos.y;
+    
     for (let i = pickups.length - 1; i >= 0; i--) {
       const p = pickups[i];
       
       // Движение
       p.x += p.vx * dt;
       p.y += p.vy * dt;
+      
+      // Магнитное притяжение к игроку
+      const dx = playerX - p.x;
+      const dy = playerY - p.y;
+      const dist = Math.hypot(dx, dy);
+      
+      if (dist < ZONE_PICKUP_MAGNET && dist > 1) {
+        // Сила притяжения: чем ближе, тем сильнее
+        const strength = (1 - dist / ZONE_PICKUP_MAGNET) * 300;
+        const nx = dx / dist;
+        const ny = dy / dist;
+        p.vx += nx * strength * dt;
+        p.vy += ny * strength * dt;
+      }
+      
       p.life -= dt;
       
       // Удаление по времени жизни
