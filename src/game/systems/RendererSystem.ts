@@ -123,6 +123,7 @@ export interface EBulletRenderState {
   life: number;
   dmg: number;
   heavy: boolean;
+  cruiser: boolean;
 }
 
 /* ============================== RendererSystem ============================== */
@@ -647,7 +648,11 @@ export class RendererSystem {
       );
     }
     for (const b of ebullets) {
-      if (b.heavy) {
+      if (b.cruiser) {
+        // Cruiser bullets: large and ominous
+        R.circle(b.x, b.y, 5.5, rgba(C.enemyBullet, 1), 12);
+        R.circle(b.x, b.y, 3.2, rgba(C.white, 0.5), 8);
+      } else if (b.heavy) {
         R.circle(b.x, b.y, 3.4, rgba(C.enemyBullet, 0.95), 10);
       } else {
         const l = 6;

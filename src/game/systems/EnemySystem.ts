@@ -30,6 +30,8 @@ interface EnemyFireData {
   angle: number;
   r: number;
   boltDmg: number;
+  heavy: boolean;
+  cruiser: boolean;
 }
 
 interface Enemy {
@@ -57,6 +59,14 @@ interface Enemy {
   dead: boolean;
   parent: Enemy | null;
   mass: number;
+  // Cruiser dual turrets (independent cooldowns)
+  tCd1?: number;
+  tCd2?: number;
+  // Carrier burst spawning
+  burstSpawned: number; // drones spawned in current burst
+  burstActive: boolean; // is burst phase active
+  burstRestT: number; // countdown before next burst
+  burstCd: number; // cooldown between individual spawns
 }
 
 interface EnemyDef {
@@ -125,6 +135,11 @@ export class EnemySystem {
       : rand(0, TAU);
     logRotation('spawn', `${kind} at (${x.toFixed(0)},${y.toFixed(0)}) angle=${angle.toFixed(3)}`);
     const mass = massForRadius(def.r);
+    // Cruiser gets dual turrets with staggered cooldowns
+    const tStagger = rand(-0.5, 0.5);
+    // Carrier gets burst spawning logic
+    const carrierBurstActive = Math.random() < 0.5; // stagger initial state
+    const carrierBurstSpawned = carrierBurstActive ? 10 : 0;
     this.enemies.push({
       kind,
       x,
@@ -150,6 +165,12 @@ export class EnemySystem {
       dead: false,
       parent: null,
       mass,
+      tCd1: rand(0.3, 0.8) + tStagger,
+      tCd2: rand(0.3, 0.8) - tStagger,
+      burstSpawned: carrierBurstSpawned,
+      burstActive: carrierBurstActive,
+      burstRestT: carrierBurstActive ? 0 : rand(6, 10),
+      burstCd: 0.5,
     });
   }
   
@@ -369,16 +390,32 @@ export class EnemySystem {
             }
           }
           
-          // spawn drones
-          e.spawnCd -= dt;
-          if (e.spawnCd <= 0 && this.getLiveCount() < 30) {
-            e.spawnCd = rand(3, 5);
-            // Random offset so drones don't spawn exactly at carrier center
-            const angle = Math.random() * TAU;
-            const offset = e.r + 20; // carrier radius (36) + buffer
-            const spawnX = e.x + Math.cos(angle) * offset;
-            const spawnY = e.y + Math.sin(angle) * offset;
-            this.eventBus.emit('carrierSpawnDrone', { x: spawnX, y: spawnY, parent: e });
+          // spawn drones in bursts: 10 drones → rest → repeat
+          if (e.burstActive) {
+            // Burst phase: spawn drones
+            e.burstCd -= dt;
+            if (e.burstCd <= 0 && this.getLiveCount() < 30 && e.burstSpawned < 10) {
+              e.burstCd = 0.5;
+              e.burstSpawned++;
+              // Random offset so drones don't spawn exactly at carrier center
+              const angle = Math.random() * TAU;
+              const offset = e.r + 25;
+              const spawnX = e.x + Math.cos(angle) * offset;
+              const spawnY = e.y + Math.sin(angle) * offset;
+              this.eventBus.emit('carrierSpawnDrone', { x: spawnX, y: spawnY, parent: e });
+            }
+            // End of burst?
+            if (e.burstSpawned >= 10) {
+              e.burstActive = false;
+              e.burstRestT = rand(7, 12); // rest period
+            }
+          } else {
+            // Rest phase: countdown
+            e.burstRestT -= dt;
+            if (e.burstRestT <= 0) {
+              e.burstActive = true;
+              e.burstSpawned = 0;
+            }
           }
           break;
         }
@@ -390,31 +427,86 @@ export class EnemySystem {
       
       // shooting logic
       if (e.kind === "fighter" || e.kind === "cruiser" || e.kind === "carrier") {
-        e.fireCd -= dt;
         const canShoot = (e.kind === "fighter" && dist < 420) ||
                         (e.kind === "cruiser" && dist < 380) ||
                         (e.kind === "carrier" && dist < 500);
         
-        if (e.fireCd <= 0 && canShoot) {
-          const heavy = e.kind === "cruiser" || e.kind === "carrier";
-          const spread = e.kind === "fighter" ? 0.15 : e.kind === "cruiser" ? 0.1 : 0.18;
-          const life = e.kind === "fighter" ? 1.35 : 1.8;
-          const speed = e.kind === "fighter" ? 300 : e.kind === "cruiser" ? 260 : 240;
-          const rate = e.kind === "fighter" ? 2 : e.kind === "cruiser" ? 3 : 4;
-          e.fireCd = rate / (4.4 + this.wave * 0.12);
-          
-           // Вызываем callback для создания вражеской пули
-          this.enemyFireCallback({
-            x: e.x,
-            y: e.y,
-            kind: e.kind,
-            angle: e.angle + (Math.random() - 0.5) * 2 * spread,
-            r: e.r,
-            boltDmg: e.boltDmg,
-          });
-          
-          if (heavy) this.audio.heavyShoot();
-          else this.audio.enemyShoot();
+        if (canShoot) {
+          // Cruiser: dual independent turrets with staggered cooldowns
+          if (e.kind === "cruiser") {
+            const spread = 0.1;
+            const speed = 260;
+            const life = 1.8;
+            const rate = 2.2 / (4.4 + this.wave * 0.12);
+            
+            // Turret 1 (port side)
+            e.tCd1! -= dt;
+            if (e.tCd1! <= 0) {
+              e.tCd1! = rate + rand(-0.2, 0.2);
+              const perpA = e.angle + Math.PI / 2;
+              const tx = e.x - Math.sin(e.angle) * 14;
+              const ty = e.y + Math.cos(e.angle) * 14;
+              const tAngle = Math.atan2(playerY - ty, playerX - tx) + (Math.random() - 0.5) * 2 * spread;
+              
+              this.enemyFireCallback({
+                x: tx, y: ty,
+                kind: e.kind,
+                angle: tAngle,
+                r: e.r,
+                boltDmg: e.boltDmg,
+                heavy: true,
+                cruiser: true,
+              });
+              this.audio.heavyShoot();
+            }
+            
+            // Turret 2 (starboard side)
+            e.tCd2! -= dt;
+            if (e.tCd2! <= 0) {
+              e.tCd2! = rate + rand(-0.2, 0.2);
+              const perpA = e.angle + Math.PI / 2;
+              const tx = e.x + Math.sin(e.angle) * 14;
+              const ty = e.y - Math.cos(e.angle) * 14;
+              const tAngle = Math.atan2(playerY - ty, playerX - tx) + (Math.random() - 0.5) * 2 * spread;
+              
+              this.enemyFireCallback({
+                x: tx, y: ty,
+                kind: e.kind,
+                angle: tAngle,
+                r: e.r,
+                boltDmg: e.boltDmg,
+                heavy: true,
+                cruiser: true,
+              });
+              this.audio.heavyShoot();
+            }
+          } else {
+            // Fighter and carrier: single turret (unchanged)
+            e.fireCd -= dt;
+            const spread = e.kind === "fighter" ? 0.15 : 0.18;
+            const life = e.kind === "fighter" ? 1.35 : 1.8;
+            const speed = e.kind === "fighter" ? 300 : 240;
+            const rate = e.kind === "fighter" ? 2 : 4;
+            e.fireCd = rate / (4.4 + this.wave * 0.12);
+            
+            if (e.fireCd <= 0) {
+              const heavy = e.kind === "carrier";
+              
+              this.enemyFireCallback({
+                x: e.x,
+                y: e.y,
+                kind: e.kind,
+                angle: e.angle + (Math.random() - 0.5) * 2 * spread,
+                r: e.r,
+                boltDmg: e.boltDmg,
+                heavy: heavy,
+                cruiser: false,
+              });
+              
+              if (heavy) this.audio.heavyShoot();
+              else this.audio.enemyShoot();
+            }
+          }
         }
       }
     }
@@ -489,6 +581,11 @@ export class EnemySystem {
       ? Math.atan2(this.state.player.y - y, this.state.player.x - x)
       : rand(0, TAU);
     logRotation('spawn', `${kind} at (${x.toFixed(0)},${y.toFixed(0)}) angle=${angle.toFixed(3)}`);
+    // Cruiser gets dual turrets with staggered cooldowns
+    const tStagger = rand(-0.5, 0.5);
+    // Carrier gets burst spawning logic
+    const carrierBurstActive = Math.random() < 0.5;
+    const carrierBurstSpawned = carrierBurstActive ? 10 : 0;
     const e: Enemy = {
       kind,
       x,
@@ -514,6 +611,12 @@ export class EnemySystem {
       dead: false,
       parent,
       mass,
+      tCd1: rand(0.3, 0.8) + tStagger,
+      tCd2: rand(0.3, 0.8) - tStagger,
+      burstSpawned: carrierBurstSpawned,
+      burstActive: carrierBurstActive,
+      burstRestT: carrierBurstActive ? 0 : rand(6, 10),
+      burstCd: rand(0.7, 1.2),
     };
     // Добавляем И во внутренний массив И во внешний (enemyList)
     // чтобы рендерер и коллизии видели врага
@@ -564,9 +667,9 @@ export class EnemySystem {
       case "fighter":
         return { hp: 35, r: 18, speed: 110, contact: 20, score: 40, bolt: 15, mass: massForRadius(18) };
       case "cruiser":
-        return { hp: 80, r: 26, speed: 80, contact: 24, score: 80, bolt: 20, mass: massForRadius(26) };
+        return { hp: 250, r: 26, speed: 80, contact: 24, score: 80, bolt: 18, mass: massForRadius(26) };
       case "carrier":
-        return { hp: 150, r: 36, speed: 60, contact: 30, score: 150, bolt: 25, mass: massForRadius(36) };
+        return { hp: 350, r: 41, speed: 60, contact: 30, score: 150, bolt: 25, mass: massForRadius(41) };
       default:
         return { hp: 10, r: 12, speed: 80, contact: 14, score: 15, bolt: 10, mass: massForRadius(12) };
     }

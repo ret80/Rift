@@ -337,7 +337,7 @@ export class Game {
       this.gameState,
       this.fx,
       this.audio,
-      (e: any) => this.enemyFire(e),
+      (data: any) => this.enemyFire(data),
       () => this.getZoneBounds()
     );
 
@@ -463,7 +463,7 @@ export class Game {
       const data = event.payload as { x: number; y: number; vx: number; vy: number; life: number; dmg: number; isEnemy: boolean };
       const { x, y, vx, vy, life, dmg, isEnemy } = data;
       if (isEnemy) {
-        this.enemyBulletList.push({ x, y, vx, vy, life, dmg, heavy: false });
+        this.enemyBulletList.push({ x, y, vx, vy, life, dmg, heavy: false, cruiser: false });
       } else {
         this.bullets.push({ x, y, vx, vy, life, dmg });
       }
@@ -1094,8 +1094,20 @@ export class Game {
     this.bulletSystem.firePlayerBullets(this.playerSystem.getState(), angle, this.bullets);
   }
 
-  private enemyFire(e: Enemy) {
-    this.bulletSystem.fireEnemyBullet(e, this.enemyBulletList);
+  private enemyFire(data: { x: number; y: number; angle: number; boltDmg: number; cruiser: boolean; heavy: boolean }) {
+    const heavy = data.cruiser || data.heavy;
+    const speed = data.cruiser ? 260 : 300;
+    const life = data.cruiser ? 1.8 : 1.35;
+    this.enemyBulletList.push({
+      x: data.x + Math.cos(data.angle) * 14,
+      y: data.y + Math.sin(data.angle) * 14,
+      vx: Math.cos(data.angle) * speed,
+      vy: Math.sin(data.angle) * speed,
+      life,
+      dmg: data.boltDmg,
+      heavy,
+      cruiser: data.cruiser,
+    });
   }
 
   private applyPickup(kind: PickupKind) {

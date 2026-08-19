@@ -177,11 +177,11 @@ export function enemyDefFor(kind: EnemyKind, w: number): EnemyDef {
     }
     case "cruiser": {
       const r = 26;
-      return { r: 26, hp: 125 * hpS, speed: 50 + w * 1.5, contact: 22 * dmgS, score: 60, bolt: 12 * dmgS, mass: massForRadius(r) };
+      return { r: 26, hp: 155 * hpS, speed: 50 + w * 1.5, contact: 22 * dmgS, score: 60, bolt: 15 * dmgS, mass: massForRadius(r) };
     }
     case "carrier": {
-      const r = 36;
-      return { r: 36, hp: 250 * hpS, speed: 32 + w * 0.8, contact: 26 * dmgS, score: 100, bolt: 0, mass: massForRadius(r) };
+      const r = 41;
+      return { r: 41, hp: 350 * hpS, speed: 32 + w * 0.8, contact: 26 * dmgS, score: 100, bolt: 0, mass: massForRadius(r) };
     }
   }
 }

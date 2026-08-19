@@ -60,6 +60,10 @@ export interface Enemy {
   spawnCd: number; flash: number; hitCd: number;
   dead: boolean; parent: Enemy | null;
   mass: number;
+  burstSpawned: number;
+  burstActive: boolean;
+  burstRestT: number;
+  burstCd: number;
 }
 
 export interface Bullet {
@@ -73,6 +77,7 @@ export interface EBullet {
   vx: number; vy: number;
   life: number; dmg: number;
   heavy: boolean;
+  cruiser: boolean;
 }
 
 export interface Pickup {

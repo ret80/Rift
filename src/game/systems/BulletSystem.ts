@@ -27,7 +27,7 @@ export class BulletSystem {
   // Пули игрока
   private bullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number }> = [];
   // Пули врагов
-  private enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number; heavy: boolean }> = [];
+  private enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number; heavy: boolean; cruiser: boolean }> = [];
 
   constructor(eventBus: EventBus, state: GameState, fx: Fx, audio: AudioEngine) {
     this.eventBus = eventBus;
@@ -44,10 +44,10 @@ export class BulletSystem {
   }
 
   /**
-    * Создать пулю врага.
-    */
-  createEnemyBullet(x: number, y: number, vx: number, vy: number, dmg: number, life: number, heavy: boolean = false): void {
-    this.enemyBullets.push({ x, y, vx, vy, life, dmg, heavy });
+     * Создать пулю врага.
+     */
+  createEnemyBullet(x: number, y: number, vx: number, vy: number, dmg: number, life: number, heavy: boolean = false, cruiser: boolean = false): void {
+    this.enemyBullets.push({ x, y, vx, vy, life, dmg, heavy, cruiser });
   }
 
   /**
@@ -72,12 +72,13 @@ export class BulletSystem {
   }
 
   /**
-    * Создать пулю врага.
-    */
-  fireEnemyBullet(enemy: { x: number; y: number; angle: number; r: number; boltDmg: number }, enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number; heavy: boolean }>): void {
+     * Создать пулю врага.
+     */
+  fireEnemyBullet(enemy: { x: number; y: number; angle: number; r: number; boltDmg: number }, enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number; heavy: boolean; cruiser: boolean }>): void {
     const speed = 300;
     const life = 1.35;
     const heavy = false;
+    const cruiser = false;
     const a = enemy.angle;
     enemyBullets.push({
       x: enemy.x + Math.cos(a) * (enemy.r + 6),
@@ -87,13 +88,14 @@ export class BulletSystem {
       life,
       dmg: enemy.boltDmg,
       heavy,
+      cruiser,
     });
   }
 
   /**
-    * Обновить все пули.
-    */
-  update(dt: number, bullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number }>, enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number; heavy: boolean }>, enemies: Array<{ x: number; y: number; dead: boolean }>): void {
+     * Обновить все пули.
+     */
+  update(dt: number, bullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number }>, enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number; heavy: boolean; cruiser: boolean }>, enemies: Array<{ x: number; y: number; dead: boolean }>): void {
     // Обновление пуль игрока
     for (let i = bullets.length - 1; i >= 0; i--) {
       const b = bullets[i];
@@ -127,9 +129,9 @@ export class BulletSystem {
   }
 
   /**
-   * Получить все пули врагов.
-   */
-  getEnemyBullets(): Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number; heavy: boolean }> {
+    * Получить все пули врагов.
+    */
+  getEnemyBullets(): Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number; heavy: boolean; cruiser: boolean }> {
     return this.enemyBullets;
   }
 
