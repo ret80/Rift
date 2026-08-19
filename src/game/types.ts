@@ -59,6 +59,7 @@ export interface Enemy {
   strafeDir: number; seed: number;
   spawnCd: number; flash: number; hitCd: number;
   dead: boolean; parent: Enemy | null;
+  mass: number;
 }
 
 export interface Bullet {

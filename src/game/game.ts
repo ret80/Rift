@@ -6,7 +6,7 @@
 
 import { t } from "../i18n";
 import { AudioEngine } from "./audio";
-import { PickupKind, waveTotalFor, ZONE_EXPAND_SPEED, type EnemyKind } from "./balance";
+import { PickupKind, waveTotalFor, ZONE_EXPAND_SPEED, massForRadius, type EnemyKind } from "./balance";
 import { clamp, easeOutCubic } from "./math";
 import { Renderer } from "./render";
 
@@ -139,6 +139,7 @@ export class Game {
     kind: EnemyKind; angle: number; seed: number;
   }> = [];
   private menuNextRiftTimer = 0;
+  private _menuAstSpawned = false;
 
   private state: "menu" | "playing" | "active" | "cleared" | "dying" | "over" = "menu";
   private paused = false;
@@ -426,10 +427,7 @@ export class Game {
   }
 
   private setupEventListeners() {
-    this.eventBus.on("player_hit", (event) => {
-      const data = event.payload as { dmg: number };
-      this.playerSystem.hit(data.dmg);
-    });
+    // player_hit event is handled directly in PlayerSystem.hit() — no need to re-publish
 
     this.eventBus.on("enemy_killed", (event) => {
       const data = event.payload as { scoreValue: number };
@@ -453,6 +451,12 @@ export class Game {
       const data = event.payload as { kind: string; x: number; y: number; parent: Enemy | null };
       const { kind, x, y, parent } = data;
       this.spawnEnemy(kind as any, x, y, parent);
+    });
+
+    this.eventBus.on("carrierSpawnDrone", (event) => {
+      const data = event.payload as { x: number; y: number; parent: Enemy | null };
+      const { x, y, parent } = data;
+      this.spawnEnemy("drone", x, y, parent);
     });
 
     this.eventBus.on("fire_bullet", (event) => {
@@ -512,6 +516,10 @@ export class Game {
       if (this.state === "dying" || this.state === "over") return;
       this.state = "dying";
       this.deathTimer = 1.2; // 1.2 seconds of death animation
+      // Clear all enemy bullets to prevent "orphan bullets" on restart
+      // Use .length = 0 to clear in-place (EnemySystem.update() holds reference to these arrays)
+      this.enemyBulletList.length = 0;
+      this.bullets.length = 0;
       // Spawn death explosion particles
       const pos = this.getPlayerPosition();
       for (let i = 0; i < 60; i++) {
@@ -528,7 +536,7 @@ export class Game {
           size: 1 + Math.random() * 3,
         });
       }
-      this.audio.explosion();
+      this.audio.explode();
     });
   }
 
@@ -581,29 +589,33 @@ export class Game {
     if (this.zoneOn && this.zoneR > 0) {
       this.playerSystem.clampPlayerToZone(this.zoneX, this.zoneY, this.zoneR, this.zoneOn, 0);
     }
-    // Ограничиваем врагов пределами зоны волны
-    this.enemySystem.clampEnemiesToZone(this.zoneX, this.zoneY, this.zoneR, this.zoneOn);
-    this.enemySystem.update(dtScaled, this.enemyList, this.getPlayerPosition());
-    this.bulletSystem.update(dtScaled, this.bullets, this.enemyBulletList, this.enemyList);
-    this.mineSystem.update(dtScaled, this.mines);
-    this.droneSystem.update(dtScaled, this.allyDrones, this.enemyList);
+    // Stop enemies and bullets during dying/over (prevent orphan bullets)
+    const isDead = this.state === "dying" || this.state === "over";
+    if (!isDead) {
+      this.enemySystem.clampEnemiesToZone(this.zoneX, this.zoneY, this.zoneR, this.zoneOn);
+      this.enemySystem.update(dtScaled, this.enemyList, this.getPlayerPosition());
+      this.bulletSystem.update(dtScaled, this.bullets, this.enemyBulletList, this.enemyList);
+      this.mineSystem.update(dtScaled, this.mines);
+      this.droneSystem.update(dtScaled, this.allyDrones, this.enemyList);
+    }
     const playerState = this.playerSystem.getState();
     // Get asteroids from asteroid field for collision
     const asteroids = ((this.asteroidField as any).list || []) as Array<{ x: number; y: number; r: number; vx: number; vy: number; mass: number; kind: string }>;
-    this.collisionSystem.update(
-      dtScaled,
-      { x: playerState.x, y: playerState.y, r: 16, hp: playerState.hp, invuln: playerState.invuln, mass: playerState.mass || 1, vx: playerState.vx || 0, vy: playerState.vy || 0 },
-      this.enemyList as any,
-      this.bullets as any,
-      this.enemyBulletList as any,
-      this.pickups as any,
-      this.mines as any,
-      this.allyDrones as any,
-      asteroids
-    );
-    // Collision spawns pickups, so update pickups AFTER collision
-    this.pickupSystem.update(dtScaled, this.pickups);
-    this.spawnSystem.update(dtScaled, this.wave, this.allocated, this.killedWave, this);
+    if (!isDead) {
+      this.collisionSystem.update(
+        dtScaled,
+        { x: playerState.x, y: playerState.y, r: 16, hp: playerState.hp, invuln: playerState.invuln, mass: playerState.mass || 1, vx: playerState.vx || 0, vy: playerState.vy || 0 },
+        this.enemyList as any,
+        this.bullets as any,
+        this.enemyBulletList as any,
+        this.pickups as any,
+        this.mines as any,
+        this.allyDrones as any,
+        asteroids as any
+      );
+      this.pickupSystem.update(dtScaled, this.pickups);
+      this.spawnSystem.update(dtScaled, this.wave, this.allocated, this.killedWave, this);
+    }
     this.riftField.update(dtScaled);
     this.fx.update(dtScaled, dtScaled); // Обновляем частицы и тряску экрана
     
@@ -686,6 +698,12 @@ export class Game {
       viewH: window.innerHeight,
       zone: null,
     } as any);
+    
+    // Ensure initial asteroids are spawned near the menu screen center
+    if (this.asteroidField.list.length < 30 && this.state === "menu") {
+      this.ensureMenuAsteroids();
+    }
+    
     this.fx.update(dt, dt); // Обновляем частицы и тряску экрана
     
     this.updateMenuRifts(dt);
@@ -983,6 +1001,8 @@ export class Game {
     this.menuRifts = [];
     this.menuEnemies = [];
     this.menuNextRiftTimer = 2 + Math.random() * 3; // First rift appears quickly
+    this._menuAstSpawned = false;
+    this.asteroidField.reset();
   }
 
   setTouch(active: boolean, x: number, y: number): void {
@@ -1010,14 +1030,18 @@ export class Game {
 
     // Spawn player at center of screen (not from rift)
     this.playerSystem.reset();
-    this.enemyList = [];
-    this.bullets = [];
-    this.enemyBulletList = [];
-    this.pickups = [];
-    this.allyDrones = [];
-    this.mines = [];
+    this.enemyList.length = 0;
+    this.bullets.length = 0;
+    this.enemyBulletList.length = 0;
+    this.pickups.length = 0;
+    this.allyDrones.length = 0;
+    this.mines.length = 0;
     this.mineDropT = -1;
     this.minerals = 0;
+    
+    // Reset spawn and enemy system state for new game
+    this.spawnSystem.clearAnnounced();
+    this.enemySystem.reset();
 
     this.zoneOn = false;
     this.zoneX = 0;
@@ -1030,6 +1054,9 @@ export class Game {
     this.riftField.reset();
     this.asteroidField.hardReset();
     this.fx.reset();
+    // Reset menu asteroid spawn flag for next time we return to menu
+    this._menuAstSpawned = false;
+    this.asteroidField.list.length = 0;
 
     this.hooks.onBanner(null);
     this.hooks.onCountdown(null);
@@ -1299,6 +1326,68 @@ export class Game {
       this.edgeOutT = 0;
       this.edgeTickT = 0;
       this.edgeWarned = false;
+    }
+  }
+  
+  /** Spawn initial asteroids around the menu screen center with proper physics */
+  private ensureMenuAsteroids(): void {
+    if (this._menuAstSpawned) return;
+    this._menuAstSpawned = true;
+    
+    // Create asteroids around the menu screen center with proper physics
+    const count = 30;
+    const rng = (Math.random() * 200000) | 0;
+    const mulberry = (seed: number) => {
+      seed |= 0;
+      seed = seed + 0x6D2B79F5 | 0;
+      let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+    
+    for (let i = 0; i < count; i++) {
+      const angle = mulberry(i * 7 + rng) * Math.PI * 2;
+      const dist = 100 + mulberry(i * 13 + rng) * 500;
+      const x = Math.cos(angle) * dist;
+      const y = Math.sin(angle) * dist;
+      
+      // Random velocity - move across the screen
+      const speed = 20 + mulberry(i * 17 + rng) * 80;
+      const vAngle = mulberry(i * 23 + rng) * Math.PI * 2;
+      const vx = Math.cos(vAngle) * speed;
+      const vy = Math.sin(vAngle) * speed;
+      
+      // Random size - mix of all types
+      const kindRoll = mulberry(i * 31 + rng);
+      let kind: 'small' | 'medium' | 'large' = 'small';
+      if (kindRoll < 0.2) kind = 'large';
+      else if (kindRoll < 0.5) kind = 'medium';
+      
+      // Create asteroid directly in the list with all properties
+      const r = kind === 'large' ? 30 + mulberry(i * 37 + rng) * 10 :
+                kind === 'medium' ? 17 + mulberry(i * 41 + rng) * 6 :
+                                   8 + mulberry(i * 43 + rng) * 4;
+      const verts: number[] = [];
+      const n = 9 + Math.floor(mulberry(i * 47 + rng) * 3);
+      for (let j = 0; j < n; j++) verts.push(0.72 + mulberry(i * 53 + rng + j) * 0.3);
+      
+      const hp = kind === 'large' ? 140 : kind === 'medium' ? 60 : 22;
+      
+      this.asteroidField.list.push({
+        id: `menu-${i}`,
+        kind,
+        x,
+        y,
+        vx,
+        vy,
+        r,
+        angle: mulberry(i * 59 + rng) * Math.PI * 2,
+        spin: (mulberry(i * 61 + rng) - 0.5) * 0.8,
+        verts,
+        hp,
+        maxHp: hp,
+        mass: massForRadius(r),
+      });
     }
   }
   

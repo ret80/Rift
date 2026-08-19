@@ -13,7 +13,7 @@ import type { RGBA } from '../render';
 import { massForRadius, PLAYER_RADIUS } from '../balance';
 
 // Флаг для отладки вращения кораблей
-const DEBUG_ROTATION = true;
+const DEBUG_ROTATION = false;
 const rotationLogCounter = { enemy: 0, player: 0 };
 const MAX_ROTATION_LOGS = 50;
 
@@ -219,7 +219,7 @@ export class PlayerSystem {
   hit(dmg: number): void {
     if (this.player.invuln > 0) return;
     this.player.hp -= dmg;
-    this.eventBus.publish('player_damaged', { hp: this.player.hp });
+    this.eventBus.publish('player_hit', { dmg });
     if (this.player.hp <= 0) {
       this.player.hp = 0;
       this.eventBus.publish('game_over', {});

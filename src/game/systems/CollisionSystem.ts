@@ -49,6 +49,8 @@ interface PlayerBody {
   hp: number;
   invuln: number;
   mass: number;
+  vx: number;
+  vy: number;
 }
 
 interface Asteroid {

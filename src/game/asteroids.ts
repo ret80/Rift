@@ -178,6 +178,44 @@ export class AsteroidField {
         this.list.splice(i, 1);
       }
     }
+
+    // Asteroid-asteroid collisions (soft body physics with mass)
+    const astCount = this.list.length;
+    for (let i = 0; i < astCount; i++) {
+      const a1 = this.list[i];
+      for (let j = i + 1; j < astCount; j++) {
+        const a2 = this.list[j];
+        const dx = a2.x - a1.x;
+        const dy = a2.y - a1.y;
+        const dist = Math.hypot(dx, dy);
+        const minDist = a1.r + a2.r;
+        
+        if (dist < minDist && dist > 0.01) {
+          // Soft collision resolution (same as CollisionSystem)
+          const nx = dx / dist;
+          const ny = dy / dist;
+          const dvx = a1.vx - a2.vx;
+          const dvy = a1.vy - a2.vy;
+          const dvn = dvx * nx + dvy * ny;
+          
+          if (dvn > 0) {
+            const totalMass = a1.mass + a2.mass;
+            const e = 0.15;
+            const j = -(1 + e) * dvn / (1 / a1.mass + 1 / a2.mass);
+            
+            const newAvx = a1.vx + (j / a1.mass) * nx;
+            const newAvy = a1.vy + (j / a1.mass) * ny;
+            const newBvx = a2.vx - (j / a2.mass) * nx;
+            const newBvy = a2.vy - (j / a2.mass) * ny;
+            
+            a1.vx = Math.max(-200, Math.min(200, newAvx));
+            a1.vy = Math.max(-200, Math.min(200, newAvy));
+            a2.vx = Math.max(-200, Math.min(200, newBvx));
+            a2.vy = Math.max(-200, Math.min(200, newBvy));
+          }
+        }
+      }
+    }
     if (this.list.length > CAP) this.list.length = CAP;
   }
 

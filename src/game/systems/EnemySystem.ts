@@ -11,8 +11,9 @@ import type { GameState } from '../core/GameState';
 import type { Fx } from '../fx';
 import { TAU, lerpAngle as lerpAngleMath } from '../math';
 
+
 // Флаг для отладки вращения кораблей
-const DEBUG_ROTATION = true;
+const DEBUG_ROTATION = false;
 const rotationLogCounter = { enemy: 0, player: 0 };
 const MAX_ROTATION_LOGS = 50;
 
@@ -115,12 +116,15 @@ export class EnemySystem {
     return this.enemies.filter(e => !e.dead).length;
   }
   
+
+
   addEnemy(kind: EnemyKind, x: number, y: number, def: EnemyDef): void {
     // Дроны ориентируются носом к игроку при спавне
     const angle = kind === "drone"
       ? Math.atan2(this.state.player.y - y, this.state.player.x - x)
       : rand(0, TAU);
     logRotation('spawn', `${kind} at (${x.toFixed(0)},${y.toFixed(0)}) angle=${angle.toFixed(3)}`);
+    const mass = massForRadius(def.r);
     this.enemies.push({
       kind,
       x,
@@ -145,6 +149,7 @@ export class EnemySystem {
       hitCd: 0,
       dead: false,
       parent: null,
+      mass,
     });
   }
   
@@ -155,13 +160,9 @@ export class EnemySystem {
     const playerVy = 0;
     const zone = this.getZoneBounds();
     const zoneTarget = zone.radius;
-    // gather live drones for the boids flock
-    this.flock.length = 0;
-    for (const e of this.enemies) {
-      if (e.kind === "drone" && !e.dead) this.flock.push(e);
-    }
     
-    for (const e of this.enemies) {
+    for (let i = 0; i < this.enemies.length; i++) {
+      const e = this.enemies[i];
       if (e.dead) continue;
       
       e.flash = Math.max(0, e.flash - dt * 5);
@@ -175,69 +176,16 @@ export class EnemySystem {
       
       switch (e.kind) {
         case "drone": {
-          /* Boids swarm: separation + alignment + cohesion, still seeking the player. */
-          const SEP_R = 36;
-          const SEP_R2 = SEP_R * SEP_R;
-          const ALI_R2 = 85 * 85;
-          const SEP_W = 320;
-          const ALIGN = 0.35;
-          const COH = 0.7;
-          
-          let sepX = 0, sepY = 0, aliX = 0, aliY = 0, aliN = 0, cohX = 0, cohY = 0, cohN = 0;
-          
-          for (const o of this.flock) {
-            if (o === e || o.dead) continue;
-            const ddx = e.x - o.x;
-            const ddy = e.y - o.y;
-            const d2 = ddx * ddx + ddy * ddy;
-            
-            if (d2 < ALI_R2 && d2 > 0.0001) {
-              aliX += o.vx;
-              aliY += o.vy;
-              aliN++;
-              cohX += o.x;
-              cohY += o.y;
-              cohN++;
-              
-              if (d2 < SEP_R2) {
-                const d = Math.sqrt(d2);
-                const w = 1 - d / SEP_R;
-                sepX += (ddx / d) * w;
-                sepY += (ddy / d) * w;
-              }
-            }
-          }
-          
-          let desX = dirX * e.speed;
-          let desY = dirY * e.speed;
-          desX += sepX * SEP_W;
-          desY += sepY * SEP_W;
-          
-          if (aliN > 0) {
-            desX += (aliX / aliN - desX) * ALIGN;
-            desY += (aliY / aliN - desY) * ALIGN;
-          }
-          
-          if (cohN > 0) {
-            desX += (cohX / cohN - e.x) * COH;
-            desY += (cohY / cohN - e.y) * COH;
-          }
-          
+          // Simple seek player — RVO will handle avoidance
           const k = 1 - Math.exp(-3.2 * dt);
-          e.vx += (desX - e.vx) * k;
-          e.vy += (desY - e.vy) * k;
-          
-          const dsp2 = e.vx * e.vx + e.vy * e.vy;
-          const dspMax = e.speed * 1.5;
-          if (dsp2 > dspMax * dspMax) {
-            const s = dspMax / Math.sqrt(dsp2);
-            e.vx *= s;
-            e.vy *= s;
-          }
-          
-          const dsp = Math.sqrt(dsp2);
+          const prefVx = dirX * e.speed;
+          const prefVy = dirY * e.speed;
+          e.vx += (prefVx - e.vx) * k;
+           e.vy += (prefVy - e.vy) * k;
+           
+           // Rotation: face movement direction
+          const dsp = Math.hypot(e.vx, e.vy);
           if (dsp > 5) {
-            // Плавные повороты: lerp factor снижен с 9 до 5
             const targetAngle = Math.atan2(e.vy, e.vx);
             const oldAngle = e.angle;
             e.angle = lerpAngleMath(e.angle, targetAngle, 1 - Math.exp(-5 * dt));
@@ -460,6 +408,43 @@ export class EnemySystem {
           
           if (heavy) this.audio.heavyShoot();
           else this.audio.enemyShoot();
+        }
+      }
+    }
+    
+    // Simple collision avoidance between all enemies (replaces RVO)
+    this.applyAvoidance(dt);
+  }
+  
+  /** Мягко раздвигает врагов, которые слишком близко друг к другу */
+  private applyAvoidance(dt: number): void {
+    const minDist = 50; // минимальное расстояние между центрами врагов
+    
+    for (let i = 0; i < this.enemies.length; i++) {
+      const a = this.enemies[i];
+      if (a.dead) continue;
+      
+      for (let j = i + 1; j < this.enemies.length; j++) {
+        const b = this.enemies[j];
+        if (b.dead) continue;
+        
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        const distSq = dx * dx + dy * dy;
+        const minDistSq = minDist * minDist;
+        
+        if (distSq < minDistSq && distSq > 0.01) {
+          const dist = Math.sqrt(distSq);
+          // Soft push: proportional to overlap
+          const push = (minDist - dist) / minDist * 0.3;
+          const pushX = (dx / dist) * push;
+          const pushY = (dy / dist) * push;
+          
+          // Apply opposite pushes (subtract from current velocity)
+          a.vx += pushX * dt;
+          a.vy += pushY * dt;
+          b.vx -= pushX * dt;
+          b.vy -= pushY * dt;
         }
       }
     }
