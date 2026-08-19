@@ -338,6 +338,8 @@ export class EnemySystem {
           
           for (const o of this.enemies) {
             if (o === e || o.dead) continue;
+            // Исключаем parent-child коллизии: carrier не должен избегать дроны, которые он спавнит
+            if (o.parent === e || e.parent === o) continue;
             const ddx = e.x - o.x;
             const ddy = e.y - o.y;
             const d2 = ddx * ddx + ddy * ddy;
@@ -371,7 +373,12 @@ export class EnemySystem {
           e.spawnCd -= dt;
           if (e.spawnCd <= 0 && this.getLiveCount() < 30) {
             e.spawnCd = rand(3, 5);
-            this.eventBus.emit('carrierSpawnDrone', { x: e.x, y: e.y, parent: e });
+            // Random offset so drones don't spawn exactly at carrier center
+            const angle = Math.random() * TAU;
+            const offset = e.r + 20; // carrier radius (36) + buffer
+            const spawnX = e.x + Math.cos(angle) * offset;
+            const spawnY = e.y + Math.sin(angle) * offset;
+            this.eventBus.emit('carrierSpawnDrone', { x: spawnX, y: spawnY, parent: e });
           }
           break;
         }
@@ -427,6 +434,9 @@ export class EnemySystem {
       for (let j = i + 1; j < this.enemies.length; j++) {
         const b = this.enemies[j];
         if (b.dead) continue;
+        
+        // Исключаем parent-child коллизии
+        if (a.parent === b || b.parent === a) continue;
         
         const dx = a.x - b.x;
         const dy = a.y - b.y;
