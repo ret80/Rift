@@ -253,7 +253,7 @@ export class PlayerSystem {
       x: this.player.x,
       y: this.player.y,
       angle: this.player.angle,
-      aimA: this.player.aimA,
+      aimA: this.aimAngle,
       hp: this.player.hp,
       maxHp: this.player.maxHp,
       invuln: this.player.invuln,
@@ -321,21 +321,18 @@ export class PlayerSystem {
       }
     }
     
-    // Угол корабля следует за направлением прицеливания, а не за скоростью
-    // Это предотвращает "перевороты" при ударе о границу зоны
+    // Тело корабля всегда поворачивается в сторону движения (вектор скорости)
     const oldAngle = this.player.angle;
-    if (this.aimAngle !== null) {
-      this.player.angle = lerpAngleMath(this.player.angle, this.aimAngle, 1 - Math.exp(-10 * dt));
-    } else if (sp > 20) {
-      // Fallback: если нет прицеливания, следовать за скоростью
-      this.player.angle = lerpAngleMath(this.player.angle, Math.atan2(this.player.vy, this.player.vx), 1 - Math.exp(-8 * dt));
+    if (sp > 20) {
+      // Всегда следовать за направлением скорости
+      this.player.angle = lerpAngleMath(this.player.angle, Math.atan2(this.player.vy, this.player.vx), 1 - Math.exp(-10 * dt));
     }
     let angleDelta = this.player.angle - oldAngle;
     while (angleDelta > Math.PI) angleDelta -= TAU;
     while (angleDelta < -Math.PI) angleDelta += TAU;
     if (DEBUG_ROTATION && Math.abs(angleDelta) > 0.3) {
       rotationLogCounter.player++;
-      logRotation('turn', `angle ${oldAngle.toFixed(3)}→${this.player.angle.toFixed(3)} (delta=${angleDelta.toFixed(3)}), aim=${this.aimAngle !== null ? this.aimAngle.toFixed(3) : 'null'}, vel=(${this.player.vx.toFixed(1)},${this.player.vy.toFixed(1)})`);
+      logRotation('turn', `angle ${oldAngle.toFixed(3)}→${this.player.angle.toFixed(3)} (delta=${angleDelta.toFixed(3)}), vel=(${this.player.vx.toFixed(1)},${this.player.vy.toFixed(1)})`);
     }
     
     this.player.invuln = Math.max(0, this.player.invuln - dt);

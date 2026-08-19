@@ -562,9 +562,7 @@ export class Game {
 
     /* Update all systems in order */
     this.countdownSystem.update(dtScaled);
-    if (this.state === "playing" || this.state === "active") {
-      this.updateAimAngle();
-    }
+    // Remove mouse-based aiming - auto-aim handles targeting via handleAutoFire
     this.playerSystem.update(dtScaled, (this.state as string) !== "menu" && this.state !== "over" && this.state !== "dying");
     
     // Handle dying → over transition
