@@ -506,7 +506,7 @@ export class EnemySystem {
       
       // shooting logic
       if (e.kind === "fighter" || e.kind === "cruiser" || e.kind === "carrier") {
-        const canShoot = (e.kind === "fighter" && dist < 420) ||
+        const canShoot = (e.kind === "fighter" && dist < 500) ||
                         (e.kind === "cruiser" && dist < 380) ||
                         (e.kind === "carrier" && dist < 500);
         
@@ -567,11 +567,12 @@ export class EnemySystem {
             // Скорость пуль = скорости игрока (560), с малой прогрессией
             const speed = e.kind === "fighter" ? 560 + this.wave * 0.5 : 560 + this.wave * 0.5;
             const life = e.kind === "fighter" ? 1.35 : 1.8;
-            const baseRate = e.kind === "fighter" ? 1.2 : 2.5;
-            const waveBoost = Math.min(2.0, 1 + this.wave * 0.05);
-            e.fireCd = baseRate / waveBoost;
+            const baseRate = e.kind === "fighter" ? 0.8 : 1.5; //fighter = cruiser rate
+            const waveBoost = Math.min(2.5, 1 + this.wave * 0.08);
+            e.fireCd -= dt * waveBoost;
             
             if (e.fireCd <= 0) {
+              e.fireCd = baseRate; // сбрасываем на baseRate для нового цикла
               const heavy = e.kind === "carrier";
               
               this.enemyFireCallback({
@@ -767,8 +768,8 @@ export class EnemySystem {
     const w = this.wave;
     switch (kind) {
       case "drone":
-        // +40% от скорости игрока (211 * 1.4 ≈ 295): 295 + w*2, ~339 к волне 22
-        return { hp: 8, r: 14, speed: 295 + w * 2, contact: 12, score: 10, bolt: 8, mass: massForRadius(14) };
+        // +30%: 295*1.3 ≈ 384: 384 + w*2, ~426 к волне 22
+        return { hp: 8, r: 14, speed: 384 + w * 2, contact: 12, score: 10, bolt: 8, mass: massForRadius(14) };
       case "hunter":
         // Быстрее игрока: 290 + w*2, ~334 к волне 22
         return { hp: 20, r: 14, speed: 290 + w * 2, contact: 16, score: 25, bolt: 12, mass: massForRadius(14) };

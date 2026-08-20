@@ -227,7 +227,7 @@ export default function App() {
 
   // poll the engine's smoothed frame rate while the overlay is visible
   useEffect(() => {
-    if (!debugFps || screen !== "game") return;
+    if (!debugFps) return;
     const id = window.setInterval(() => {
       const g = gameRef.current;
       if (g && fpsTextRef.current) {
@@ -235,7 +235,7 @@ export default function App() {
       }
     }, 250);
     return () => window.clearInterval(id);
-  }, [debugFps, screen]);
+  }, [debugFps]);
 
   /* ---------------- actions ---------------- */
 
@@ -399,13 +399,12 @@ export default function App() {
       )}
 
       {/* FPS dev overlay */}
-      {screen === "game" && debugFps && (
+      {debugFps && (
         <div
           className="pointer-events-none absolute z-30 border border-[#7dff9e]/40 bg-[#07130c]/80 px-2 py-0.5 font-mono text-[10px] tracking-[0.15em] text-[#7dff9e]"
           style={{
-            left: "50%",
-            transform: "translateX(-50%)",
-            top: "calc(env(safe-area-inset-top) + 88px)",
+            right: "12px",
+            bottom: "calc(env(safe-area-inset-bottom) + 12px)",
           }}
         >
           <span ref={fpsTextRef}>60</span> FPS
