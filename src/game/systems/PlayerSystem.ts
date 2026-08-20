@@ -219,7 +219,6 @@ export class PlayerSystem {
   hit(dmg: number): void {
     if (this.player.invuln > 0) return;
     this.player.hp -= dmg;
-    this.eventBus.publish('player_hit', { dmg });
     if (this.player.hp <= 0) {
       this.player.hp = 0;
       this.eventBus.publish('game_over', {});
@@ -355,8 +354,9 @@ export class PlayerSystem {
     
     // Handle shooting (manual fire with LMB)
     if (this.isFiring && this.fireCd <= 0 && this.aimAngle !== null) {
-      // Reduced fire intensity by 15%: 0.144 → 0.1656 (15% longer interval)
-      const fireRate = 0.1656 / this.getRateMult();
+      // Fire rate: interval between shots.
+      // Base: 0.26s (~3.8 shots/sec), with rate boost up to ~5.8 shots/sec.
+      const fireRate = 0.26 / this.getRateMult();
       this.fireCd = fireRate;
       this.lastFireTime = fireRate;
       this.fireAll(this.aimAngle);

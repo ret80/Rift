@@ -672,7 +672,7 @@ export class Game {
         this.gameState.zone.radius,
         this.gameState.zone.active
       );
-      this.enemySystem.update(dtScaled, this.enemyList, this.getPlayerPosition());
+      this.enemySystem.update(dtScaled, this.enemyList, this.getPlayerPosition(), this.enemyBulletList);
       this.bulletSystem.update(dtScaled, this.bullets, this.enemyBulletList, this.enemyList);
       this.mineSystem.update(dtScaled, this.mines);
       this.droneSystem.update(dtScaled, this.allyDrones, this.enemyList);

@@ -71,7 +71,7 @@ export const RATE_BOOST_TIME = 20; // seconds of a fire-rate bonus
 
 export const DASH_TIME = 3; // seconds of overdrive
 export const DASH_ACCEL = 2.1; // acceleration multiplier while dashing
-export const DASH_SPEED = 1.6; // max-speed multiplier while dashing
+export const DASH_SPEED = 1.3; // max-speed multiplier while dashing (+30% over normal)
 export const DASH_DMG = 16; // ram damage per hit (throttled)
 
 /* ------------------------------ mine bonus ------------------------------ */

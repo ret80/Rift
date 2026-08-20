@@ -34,6 +34,15 @@ interface EnemyFireData {
   cruiser: boolean;
 }
 
+/** Пуля врага для уклонения от неё */
+interface EnemyBullet {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+}
+
 interface Enemy {
   kind: EnemyKind;
   x: number;
@@ -59,6 +68,8 @@ interface Enemy {
   dead: boolean;
   parent: Enemy | null;
   mass: number;
+  // Насколько сильно этот тип избегает других врагов (1.0 = база, 2.0 = сильно)
+  dodgeWeight: number;
   // Cruiser dual turrets (independent cooldowns)
   tCd1?: number;
   tCd2?: number;
@@ -140,6 +151,8 @@ export class EnemySystem {
     // Carrier gets burst spawning logic
     const carrierBurstActive = Math.random() < 0.5; // stagger initial state
     const carrierBurstSpawned = carrierBurstActive ? 10 : 0;
+    // dodgeWeight: насколько сильно враг избегает других
+    const dodgeWeight = this.getDodgeWeight(kind);
     this.enemies.push({
       kind,
       x,
@@ -165,6 +178,7 @@ export class EnemySystem {
       dead: false,
       parent: null,
       mass,
+      dodgeWeight,
       tCd1: rand(0.3, 0.8) + tStagger,
       tCd2: rand(0.3, 0.8) - tStagger,
       burstSpawned: carrierBurstSpawned,
@@ -174,13 +188,23 @@ export class EnemySystem {
     });
   }
   
-  update(dt: number, enemyList: Enemy[], playerPos: { x: number; y: number }): void {
+  update(dt: number, enemyList: Enemy[], playerPos: { x: number; y: number }, enemyBullets?: EnemyBullet[]): void {
     const playerX = playerPos.x;
     const playerY = playerPos.y;
     const playerVx = 0;
     const playerVy = 0;
     const zone = this.getZoneBounds();
     const zoneTarget = zone.radius;
+    
+    // Копируем пули врагов (только живые, с оставшейся жизнью > 0.2s)
+    const bullets: EnemyBullet[] = [];
+    if (enemyBullets) {
+      for (const b of enemyBullets) {
+        if (b.life > 0.2) {
+          bullets.push({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, life: b.life });
+        }
+      }
+    }
     
     for (let i = 0; i < this.enemies.length; i++) {
       const e = this.enemies[i];
@@ -197,13 +221,45 @@ export class EnemySystem {
       
       switch (e.kind) {
         case "drone": {
-          // Прямое преследование с фланговыми манёврами
+          // Прямое преследование с фланговыми манёврами и уклонением от пуль
           const angleToPlayer = Math.atan2(playerY - e.y, playerX - e.x);
           
           // Фланговое смещение — чем выше волна, тем агрессивнее
           const flankFactor = Math.min(0.3, 0.05 + this.wave * 0.01);
           const flankAngle = Math.sin(e.seed + this.wave * 0.5) * flankFactor;
-          const targetAngle = angleToPlayer + flankAngle;
+          let targetAngle = angleToPlayer + flankAngle;
+          
+          // Уклонение от пуль: проверяем ближайшие пули и отклоняемся
+          if (bullets.length > 0) {
+            const dodgeRadius = 160 + this.wave * 3; // радиус обнаружения пуль (больше)
+            const dodgeForce = 5.0; // сила уклонения (увеличена)
+            let dodgeX = 0;
+            let dodgeY = 0;
+            
+            for (const b of bullets) {
+              const bdx = b.x - e.x;
+              const bdy = b.y - e.y;
+              const bDist = Math.hypot(bdx, bdy);
+              
+              if (bDist < dodgeRadius) {
+                // Вектор от пули к дрону (куда бежать)
+                const invDist = 1 / (bDist || 1);
+                // Чем ближе пуля и чем быстрее она летит, тем сильнее реакция
+                const bulletSpeed = Math.hypot(b.vx, b.vy);
+                const urgency = Math.max(0, 1 - bDist / dodgeRadius) * (bulletSpeed / 500);
+                dodgeX += (bdx * invDist) * urgency * dodgeForce;
+                dodgeY += (bdy * invDist) * urgency * dodgeForce;
+              }
+            }
+            
+            if (Math.abs(dodgeX) > 0.01 || Math.abs(dodgeY) > 0.01) {
+              const dodgeAngle = Math.atan2(dodgeY, dodgeX);
+              // Смещаем целевой угол в сторону уклонения (больше веса)
+              const dodgeWeight = Math.min(1.0, Math.hypot(dodgeX, dodgeY));
+              const blendedAngle = this.lerpAngleAngle(targetAngle, dodgeAngle, dodgeWeight);
+              targetAngle = blendedAngle;
+            }
+          }
           
           // Скорость зависит от дистанции — чем дальше, тем быстрее
           const speedMult = Math.min(1.5, 0.8 + dist / 400);
@@ -459,8 +515,8 @@ export class EnemySystem {
           if (e.kind === "cruiser") {
             const accuracy = this.getAccuracy(this.wave);
             const spread = (1 - accuracy) * 0.8;
-            // Увеличена скорость: 320+w*2 → 450+w*3
-            const speed = 450 + this.wave * 3;
+            // Скорость пуль +20%: 540+w*3 → 648+w*3.6
+            const speed = 648 + this.wave * 3.6;
             const rate = 1.5 / (3 + this.wave * 0.08);
             
             // Turret 1 (port side)
@@ -508,8 +564,8 @@ export class EnemySystem {
             // Fighter and carrier: single turret
             const accuracy = this.getAccuracy(this.wave);
             const spread = (1 - accuracy) * 1.2;
-            // Увеличена скорость на 20%: fighter 588+w*3.6→706+w*4.32, carrier 480+w*3.6→576+w*4.32
-            const speed = e.kind === "fighter" ? 706 + this.wave * 4.32 : 576 + this.wave * 4.32;
+            // Скорость пуль = скорости игрока (560), с малой прогрессией
+            const speed = e.kind === "fighter" ? 560 + this.wave * 0.5 : 560 + this.wave * 0.5;
             const life = e.kind === "fighter" ? 1.35 : 1.8;
             const baseRate = e.kind === "fighter" ? 1.2 : 2.5;
             const waveBoost = Math.min(2.0, 1 + this.wave * 0.05);
@@ -543,7 +599,8 @@ export class EnemySystem {
   
   /** Мягко раздвигает врагов, которые слишком близко друг к другу */
   private applyAvoidance(dt: number): void {
-    const minDist = 50; // минимальное расстояние между центрами врагов
+    const minDist = 35; // базовая дистанция избежания
+    const basePush = 1.2; // сила отталкивания (нормализована к 60fps)
     
     for (let i = 0; i < this.enemies.length; i++) {
       const a = this.enemies[i];
@@ -563,18 +620,34 @@ export class EnemySystem {
         
         if (distSq < minDistSq && distSq > 0.01) {
           const dist = Math.sqrt(distSq);
-          // Soft push: proportional to overlap
-          const push = (minDist - dist) / minDist * 0.3;
+          // Push сильнее при близости: от 0 до basePush
+          const push = (1 - dist / minDist) * basePush;
           const pushX = (dx / dist) * push;
           const pushY = (dy / dist) * push;
           
-          // Apply opposite pushes (subtract from current velocity)
-          a.vx += pushX * dt;
-          a.vy += pushY * dt;
-          b.vx -= pushX * dt;
-          b.vy -= pushY * dt;
+          // dodgeWeight определяет насколько сильно каждый враг избегает
+          const aMult = a.dodgeWeight || 1.0;
+          const bMult = b.dodgeWeight || 1.0;
+          
+          // dt уже учтён в basePush (нормализация к 60fps)
+          a.vx += pushX * aMult;
+          a.vy += pushY * aMult;
+          b.vx -= pushX * bMult;
+          b.vy -= pushY * bMult;
         }
       }
+    }
+  }
+
+  /** Возвращает weight для avoidance: насколько сильно корабль должен избегать других */
+  private getDodgeWeight(kind: EnemyKind): number {
+    switch (kind) {
+      case 'drone':     return 2.5; // рой должен рассеиваться
+      case 'hunter':    return 1.5; // охотники маневрируют
+      case 'fighter':   return 1.2; // истребители — умеренно
+      case 'cruiser':   return 1.0; // тяжёлые — по базе
+      case 'carrier':   return 0.8; // носители — меньше избегают
+      default:          return 1.0;
     }
   }
   
@@ -637,6 +710,7 @@ export class EnemySystem {
       dead: false,
       parent,
       mass,
+      dodgeWeight: this.getDodgeWeight(kind),
       tCd1: rand(0.3, 0.8) + tStagger,
       tCd2: rand(0.3, 0.8) - tStagger,
       burstSpawned: carrierBurstSpawned,
@@ -710,6 +784,14 @@ export class EnemySystem {
       default:
         return { hp: 10, r: 12, speed: 80, contact: 14, score: 15, bolt: 10, mass: massForRadius(12) };
     }
+  }
+
+  /** Сложение двух углов с учётом весов (для blended dodge) */
+  private lerpAngleAngle(a: number, b: number, t: number): number {
+    let diff = b - a;
+    while (diff > Math.PI) diff -= TAU;
+    while (diff < -Math.PI) diff += TAU;
+    return a + diff * t;
   }
 }
 
