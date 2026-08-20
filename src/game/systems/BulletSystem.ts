@@ -23,6 +23,7 @@ export class BulletSystem {
   private state: GameState;
   private fx: Fx;
   private audio: AudioEngine;
+  private bulletDmg: number = 14;  // bullet damage, set by game when upgrades are applied
   
   // Пули игрока
   private bullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number }> = [];
@@ -34,6 +35,11 @@ export class BulletSystem {
     this.state = state;
     this.fx = fx;
     this.audio = audio;
+  }
+
+  /** Установить урон пуль игрока (из апгрейдов) */
+  setBulletDmg(dmg: number): void {
+    this.bulletDmg = dmg;
   }
 
   /**
@@ -55,14 +61,15 @@ export class BulletSystem {
     * Spread/accuracy — как у орудий врагов: случайное отклонение угла.
     */
   firePlayerBullets(playerState: { x: number; y: number; angle: number; guns: number; accuracy?: number }, angle: number, bullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number }>): void {
-    const GUN_OFFS = [0];
+    const GUN_OFFS = [0, 9, -9, 17, -17];
     const sp = 560;
     // Точность пушки игрока: accuracy ~0.98 → spread ≈ 0.006 рад (~0.34°)
     // Можно улучшать апгрейдами до 0.99-1.0 (разброс → 0)
     const accuracy = playerState.accuracy ?? 0.98;
     const spread = (1 - accuracy) * 0.3; // как у врагов: (1 - acc) * factor
     const bulletAngle = angle + (Math.random() - 0.5) * 2 * spread;
-    for (let i = 0; i < 3; i++) { // Макс 3 пули
+    const gunCount = Math.min(playerState.guns ?? 1, 5);
+    for (let i = 0; i < gunCount; i++) {
       const o = GUN_OFFS[i] ?? 0;
       const nx = playerState.x + Math.cos(angle) * 14 - Math.sin(angle) * o;
       const ny = playerState.y + Math.sin(angle) * 14 + Math.cos(angle) * o;
@@ -72,7 +79,7 @@ export class BulletSystem {
         vx: Math.cos(bulletAngle) * sp,
         vy: Math.sin(bulletAngle) * sp,
         life: 1.5,
-        dmg: 10,
+        dmg: this.bulletDmg,
       });
     }
   }

@@ -31,6 +31,7 @@ export function MainMenu(props: {
   onSettings: () => void;
   onHelp: () => void;
   onDebug: () => void;
+  onUpgrade: () => void;
 }) {
   const t = useT();
   return (
@@ -57,6 +58,7 @@ export function MainMenu(props: {
         <GameButton onClick={props.onPlay} autoFocus>
           {t("menu.play")}
         </GameButton>
+        <GameButton onClick={props.onUpgrade}>{t("menu.upgrade")}</GameButton>
         <GameButton onClick={props.onSettings}>{t("menu.settings")}</GameButton>
         <GameButton onClick={props.onHelp}>{t("menu.help")}</GameButton>
       </div>
@@ -122,6 +124,7 @@ export function SettingsScreen(props: {
   vols: Volumes;
   onChange: (v: Volumes) => void;
   onTest: () => void;
+  onReset: () => void;
   onBack: () => void;
 }) {
   const t = useT();
@@ -162,6 +165,12 @@ export function SettingsScreen(props: {
               </GameButton>
               <GameButton onClick={props.onBack} small>
                 {t("settings.back")}
+              </GameButton>
+            </div>
+
+            <div className="border-t border-[#ff3b52]/20 pt-3">
+              <GameButton onClick={props.onReset} variant="red" small>
+                {t("settings.resetProgress")}
               </GameButton>
             </div>
           </div>
@@ -585,6 +594,7 @@ export interface HudRefs {
   best: MutableRefObject<HTMLDivElement | null>;
   combo: MutableRefObject<HTMLDivElement | null>;
   minerals: MutableRefObject<HTMLDivElement | null>;
+  parts: MutableRefObject<HTMLDivElement | null>;
 }
 
 export function HudLayer(props: { r: HudRefs; godOn: boolean }) {
@@ -610,8 +620,13 @@ export function HudLayer(props: { r: HudRefs; godOn: boolean }) {
               </div>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <div ref={r.minerals} className="flex items-center gap-1 text-[9px] font-bold tracking-[0.08em] text-[#7dffb8] sm:text-[10px]">
-                <MineralGlyph /> 0
+              <div className="flex items-center gap-2">
+                <div ref={r.minerals} className="flex items-center gap-1 text-[9px] font-bold tracking-[0.08em] text-[#7dffb8] sm:text-[10px]">
+                  <MineralGlyph /> 0
+                </div>
+                <div className="parts-display flex items-center gap-1 text-[9px] font-bold tracking-[0.08em] text-[#ffb84d] sm:text-[10px]">
+                  <PartsGlyph /> <span ref={r.parts}>0</span>
+                </div>
               </div>
               <div ref={r.time} className="text-[8px] tracking-[0.14em] text-[#6f86a8] sm:text-[9px]">
                 T+0:00
@@ -674,6 +689,16 @@ function MineralGlyph() {
     <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="#7dffb8" strokeWidth="1.2">
       <polygon points="6,1 10,4.5 8.5,10.5 3.5,10.5 2,4.5" />
       <line x1="6" y1="1" x2="6" y2="10.5" strokeOpacity="0.5" />
+    </svg>
+  );
+}
+
+function PartsGlyph() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="#ffb84d" strokeWidth="1.2">
+      <polygon points="6,1 11,4 10,10 2,10 1,4" />
+      <line x1="6" y1="1" x2="6" y2="10" strokeOpacity="0.5" />
+      <line x1="2" y1="10" x2="10" y2="10" strokeOpacity="0.5" />
     </svg>
   );
 }

@@ -19,8 +19,10 @@ import {
   HudLayer,
   HudRefs,
 } from "./ui/Screens";
+import { UpgradeScreen } from "./ui/UpgradeScreen";
+import { resetUpgrades } from "./game/upgrades";
 
-type Screen = "menu" | "settings" | "help" | "debug" | "game";
+type Screen = "menu" | "settings" | "help" | "debug" | "upgrade" | "game";
 
 function formatTime(s: number) {
   const m = Math.floor(s / 60);
@@ -89,6 +91,7 @@ export default function App() {
     best: useRef<HTMLDivElement | null>(null),
     combo: useRef<HTMLDivElement | null>(null),
     minerals: useRef<HTMLDivElement | null>(null),
+    parts: useRef<HTMLDivElement | null>(null),
   };
 
   useEffect(() => {
@@ -105,6 +108,9 @@ export default function App() {
         const glyph = r.minerals.current.querySelector("svg");
         r.minerals.current.textContent = ` ${h.minerals}`;
         if (glyph) r.minerals.current.prepend(glyph);
+      }
+      if (r.parts.current) {
+        r.parts.current.textContent = String(h.parts);
       }
       if (r.progress.current)
         r.progress.current.style.width = `${h.total > 0 ? Math.min(100, (h.killed / h.total) * 100) : 0}%`;
@@ -291,6 +297,7 @@ export default function App() {
           onSettings={() => openSettings("menu")}
           onHelp={() => setScreen("help")}
           onDebug={() => setScreen("debug")}
+          onUpgrade={() => setScreen("upgrade")}
         />
       )}
 
@@ -303,6 +310,15 @@ export default function App() {
             if (g) {
               g.audio.init();
               g.audio.waveClear();
+            }
+          }}
+          onReset={() => {
+            if (window.confirm(t("settings.resetConfirm"))) {
+              resetUpgrades(); // clear localStorage
+              if (gameRef.current) {
+                gameRef.current.forceReloadUpgrades();
+              }
+              setBest(0);
             }
           }}
           onBack={() => setScreen(settingsFromRef.current === "pause" ? "game" : "menu")}
@@ -319,6 +335,13 @@ export default function App() {
           onToggleFps={toggleDebugFps}
           onToggleGod={toggleDebugGod}
           onChangeWave={changeDebugWave}
+          onBack={() => setScreen("menu")}
+        />
+      )}
+
+      {screen === "upgrade" && (
+        <UpgradeScreen
+          game={gameRef.current}
           onBack={() => setScreen("menu")}
         />
       )}

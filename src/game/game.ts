@@ -12,6 +12,17 @@ import {
   ZONE_EXPAND_SPEED,
   massForRadius,
   type EnemyKind,
+} from "./balance";
+import {
+  loadUpgrades,
+  saveUpgrades,
+  applyUpgrades,
+  defaultUpgrades,
+  type PlayerUpgrades,
+  type AppliedUpgrades,
+} from "./upgrades";
+
+import {
   // Zone constants
   ZONE_INITIAL_RADIUS,
   ZONE_EDGE_MARGIN,
@@ -104,6 +115,7 @@ export interface HudData {
   rateT: number;
   drones: number;
   minerals: number;
+  parts: number;
 }
 
 export interface BannerData {
@@ -243,6 +255,10 @@ export class Game {
   private combo = 0;
   private comboT = 0;
   private runTime = 0;
+
+  /* Persistent upgrades */
+  private playerUpgrades: PlayerUpgrades = defaultUpgrades();
+  private appliedUpgrades: AppliedUpgrades | null = null;
 
   private popupId = 0;
   private countId = 0;
@@ -451,10 +467,14 @@ export class Game {
 
     this.collisionSystem = new CollisionSystem(
       this.eventBus,
-      this.gameState
+      this.gameState,
+      (amount: number, x: number, y: number) => this.spawnParts(amount, x, y)
     );
 
     /* Subscribe to events */
+    // Load persistent upgrades
+    this.playerUpgrades = loadUpgrades();
+    this.appliedUpgrades = applyUpgrades(this.playerUpgrades);
     this.setupEventListeners();
 
     window.addEventListener("resize", this.onResize);
@@ -586,6 +606,8 @@ export class Game {
       if (this.state === "dying" || this.state === "over") return;
       this.state = "dying";
       this.deathTimer = DEATH_ANIMATION_DURATION;
+      // Save persistent upgrades (parts) before death animation
+      saveUpgrades(this.playerUpgrades);
       // Clear all enemy bullets to prevent "orphan bullets" on restart
       // Use .length = 0 to clear in-place (EnemySystem.update() holds reference to these arrays)
       this.enemyBulletList.length = 0;
@@ -926,6 +948,7 @@ export class Game {
       rateT: this.playerSystem.getRateT(),
       drones: this.allyDrones.length,
       minerals: this.minerals,
+      parts: this.playerUpgrades.parts,
     };
     this.hooks.onHud(hud);
   }
@@ -953,6 +976,37 @@ export class Game {
 
   fps(): number {
     return Math.round(this.fpsEma);
+  }
+
+  /** Get persistent player upgrades */
+  getPlayerUpgrades(): PlayerUpgrades {
+    return this.playerUpgrades;
+  }
+
+  /** Re-apply upgrades from localStorage (called after purchasing in menu) */
+  refreshUpgrades(): void {
+    this.playerUpgrades = loadUpgrades();
+    this.appliedUpgrades = applyUpgrades(this.playerUpgrades);
+    // Re-apply to active systems
+    if (this.appliedUpgrades) {
+      const up = this.appliedUpgrades;
+      this.playerSystem.setMaxHp(up.baseHp);
+      this.playerSystem.setGuns(up.gunCount);
+      this.bulletSystem.setBulletDmg(up.bulletDmg);
+    }
+  }
+
+  /** Force reload from localStorage (called after reset in settings) */
+  forceReloadUpgrades(): void {
+    this.playerUpgrades = loadUpgrades();
+    this.appliedUpgrades = applyUpgrades(this.playerUpgrades);
+    // Re-apply to active systems
+    if (this.appliedUpgrades) {
+      const up = this.appliedUpgrades;
+      this.playerSystem.setMaxHp(up.baseHp);
+      this.playerSystem.setGuns(up.gunCount);
+      this.bulletSystem.setBulletDmg(up.bulletDmg);
+    }
   }
 
   toggleDebug(): void {
@@ -1109,6 +1163,15 @@ export class Game {
 
     // Spawn player at center of screen (not from rift)
     this.playerSystem.reset();
+    
+    // Apply persistent upgrades to the player
+    if (this.appliedUpgrades) {
+      const up = this.appliedUpgrades;
+      this.playerSystem.setMaxHp(up.baseHp);
+      this.playerSystem.setGuns(up.gunCount);
+      this.bulletSystem.setBulletDmg(up.bulletDmg);
+    }
+    
     this.enemyList.length = 0;
     this.bullets.length = 0;
     this.enemyBulletList.length = 0;
@@ -1156,6 +1219,11 @@ export class Game {
 
   private spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number) {
     this.pickups.push({ kind, x, y, vx, vy, life: 20, seed: Math.random(), r: 14 });
+  }
+
+  private spawnParts(amount: number, x: number, y: number) {
+    this.playerUpgrades.parts += amount;
+    saveUpgrades(this.playerUpgrades);
   }
 
   private spawnEnemy(kind: EnemyKind, x: number, y: number, parent: Enemy | null) {

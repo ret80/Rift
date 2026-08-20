@@ -120,14 +120,28 @@ export class CollisionSystem {
   private eventBus: EventBus;
   private state: GameState;
   private physics: PhysicsSystem | null = null;
+  private spawnParts: (amount: number, x: number, y: number) => void;
 
-  constructor(eventBus: EventBus, state: GameState) {
+  constructor(eventBus: EventBus, state: GameState, spawnParts: (amount: number, x: number, y: number) => void = () => {}) {
     this.eventBus = eventBus;
     this.state = state;
+    this.spawnParts = spawnParts;
   }
 
   setPhysicsSystem(physics: PhysicsSystem): void {
     this.physics = physics;
+  }
+  
+  /** Amount of parts dropped by each enemy type */
+  private partsAmountFor(enemyKind: string): number {
+    switch (enemyKind) {
+      case "drone": return 2;
+      case "hunter": return 4;
+      case "fighter": return 5;
+      case "cruiser": return 12;
+      case "carrier": return 25;
+      default: return 1;
+    }
   }
   
   /** Determine what kind of bonus drops from a destroyed enemy */
@@ -161,6 +175,11 @@ export class CollisionSystem {
   }
   
   private trySpawnDrop(enemy: Enemy): void {
+    // Always drop parts (currency for upgrades)
+    const parts = this.partsAmountFor(enemy.kind);
+    this.spawnParts(parts, enemy.x + (Math.random() - 0.5) * 10, enemy.y + (Math.random() - 0.5) * 10);
+    
+    // Occasionally drop special pickups too
     const kind = this.getDropKind(enemy.kind, enemy.seed);
     if (!kind) return;
     
