@@ -52,10 +52,16 @@ export class BulletSystem {
 
   /**
     * Создать пули игрока (несколько направлений).
+    * Spread/accuracy — как у орудий врагов: случайное отклонение угла.
     */
-  firePlayerBullets(playerState: { x: number; y: number; angle: number; guns: number }, angle: number, bullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number }>): void {
+  firePlayerBullets(playerState: { x: number; y: number; angle: number; guns: number; accuracy?: number }, angle: number, bullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number }>): void {
     const GUN_OFFS = [0];
     const sp = 560;
+    // Точность пушки игрока: accuracy ~0.98 → spread ≈ 0.006 рад (~0.34°)
+    // Можно улучшать апгрейдами до 0.99-1.0 (разброс → 0)
+    const accuracy = playerState.accuracy ?? 0.98;
+    const spread = (1 - accuracy) * 0.3; // как у врагов: (1 - acc) * factor
+    const bulletAngle = angle + (Math.random() - 0.5) * 2 * spread;
     for (let i = 0; i < 3; i++) { // Макс 3 пули
       const o = GUN_OFFS[i] ?? 0;
       const nx = playerState.x + Math.cos(angle) * 14 - Math.sin(angle) * o;
@@ -63,8 +69,8 @@ export class BulletSystem {
       bullets.push({
         x: nx,
         y: ny,
-        vx: Math.cos(angle) * sp,
-        vy: Math.sin(angle) * sp,
+        vx: Math.cos(bulletAngle) * sp,
+        vy: Math.sin(bulletAngle) * sp,
         life: 1.5,
         dmg: 10,
       });

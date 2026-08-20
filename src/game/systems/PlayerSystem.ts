@@ -355,7 +355,8 @@ export class PlayerSystem {
     
     // Handle shooting (manual fire with LMB)
     if (this.isFiring && this.fireCd <= 0 && this.aimAngle !== null) {
-      const fireRate = 0.12 / this.getRateMult();
+      // Reduced fire intensity by 15%: 0.144 → 0.1656 (15% longer interval)
+      const fireRate = 0.1656 / this.getRateMult();
       this.fireCd = fireRate;
       this.lastFireTime = fireRate;
       this.fireAll(this.aimAngle);

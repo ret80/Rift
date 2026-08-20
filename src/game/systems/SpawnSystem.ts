@@ -83,13 +83,43 @@ export class SpawnSystem {
   }
 
   /**
-   * Построить очередь врагов для спавна.
-   * Гарантирует хотя бы минимальное количество каждого разблокированного класса.
-   */
+    * Построить очередь врагов для спавна.
+    * Гарантирует хотя бы минимальное количество каждого разблокированного класса.
+    * Прогрессивный состав: больше хитрых врагов на поздних волнах.
+    */
    buildQueue(count: number, wave: number): EnemyKind[] {
      const q: EnemyKind[] = [];
      for (let i = 0; i < count; i++) q.push(this.pickKindForWave(wave));
      return q;
+   }
+
+   /**
+    * Вес класса для волновой прогрессии.
+    * Дроны уменьшаются, охотники и истребители растут.
+    */
+   private kindWeights(w: number): Record<EnemyKind, number> {
+     return {
+       drone: Math.max(0.1, 0.6 - w * 0.015),
+       hunter: Math.max(0.1, 0.3 + w * 0.01),
+       fighter: Math.max(0.1, 0.1 + w * 0.015),
+       cruiser: Math.max(0, (w - 6) * 0.02),
+       carrier: Math.max(0, (w - 10) * 0.01),
+     };
+   }
+
+   /**
+    * Выбрать класс врага с учётом прогрессии волн и весов.
+    */
+   private pickKindForWave(w: number): EnemyKind {
+     const weights = this.kindWeights(w);
+     let total = 0;
+     for (const wt of Object.values(weights)) total += wt;
+     let roll = Math.random() * total;
+     for (const [kind, wt] of Object.entries(weights) as [EnemyKind, number][]) {
+       roll -= wt;
+       if (roll <= 0) return kind;
+     }
+     return "drone";
    }
 
   /**
@@ -156,10 +186,6 @@ export class SpawnSystem {
    */
   clearAnnounced(): void {
     this.announcedKinds.clear();
-  }
-
-  private pickKindForWave(w: number): EnemyKind {
-    return pickKindFor(w);
   }
 
   /**

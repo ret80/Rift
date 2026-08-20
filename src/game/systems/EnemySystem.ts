@@ -197,19 +197,28 @@ export class EnemySystem {
       
       switch (e.kind) {
         case "drone": {
-          // Simple seek player — RVO will handle avoidance
-          const k = 1 - Math.exp(-3.2 * dt);
-          const prefVx = dirX * e.speed;
-          const prefVy = dirY * e.speed;
-          e.vx += (prefVx - e.vx) * k;
-           e.vy += (prefVy - e.vy) * k;
-           
-           // Rotation: face movement direction
+          // Прямое преследование с фланговыми манёврами
+          const angleToPlayer = Math.atan2(playerY - e.y, playerX - e.x);
+          
+          // Фланговое смещение — чем выше волна, тем агрессивнее
+          const flankFactor = Math.min(0.3, 0.05 + this.wave * 0.01);
+          const flankAngle = Math.sin(e.seed + this.wave * 0.5) * flankFactor;
+          const targetAngle = angleToPlayer + flankAngle;
+          
+          // Скорость зависит от дистанции — чем дальше, тем быстрее
+          const speedMult = Math.min(1.5, 0.8 + dist / 400);
+          const speed = e.speed * speedMult;
+          
+          const k = 1 - Math.exp(-6 * dt);
+          e.vx += (Math.cos(targetAngle) * speed - e.vx) * k;
+          e.vy += (Math.sin(targetAngle) * speed - e.vy) * k;
+          
+          // Rotation: face movement direction
           const dsp = Math.hypot(e.vx, e.vy);
           if (dsp > 5) {
-            const targetAngle = Math.atan2(e.vy, e.vx);
+            const movementAngle = Math.atan2(e.vy, e.vx);
             const oldAngle = e.angle;
-            e.angle = lerpAngleMath(e.angle, targetAngle, 1 - Math.exp(-5 * dt));
+            e.angle = lerpAngleMath(e.angle, movementAngle, 1 - Math.exp(-5 * dt));
             let angleDelta = e.angle - oldAngle;
             while (angleDelta > Math.PI) angleDelta -= TAU;
             while (angleDelta < -Math.PI) angleDelta += TAU;
@@ -222,8 +231,10 @@ export class EnemySystem {
         }
         
         case "hunter": {
-          const leadX = playerX + playerVx * 1.0;
-          const leadY = playerY + playerVy * 1.0;
+          // Улучшенное предсказание с прогрессией — чем выше волна, тем лучше предсказание
+          const lookahead = 0.4 + this.wave * 0.03;
+          const leadX = playerX + playerVx * lookahead;
+          const leadY = playerY + playerVy * lookahead;
           const hx = leadX - e.x;
           const hy = leadY - e.y;
           const hd = Math.hypot(hx, hy) || 1;
@@ -232,7 +243,6 @@ export class EnemySystem {
           e.vy += ((hy / hd) * e.speed - e.vy) * k;
           const hv = Math.hypot(e.vx, e.vy);
           if (hv > 5) {
-            // Плавные повороты: lerp factor снижен с 10 до 6
             const targetAngle = Math.atan2(e.vy, e.vx);
             const oldAngle = e.angle;
             e.angle = lerpAngleMath(e.angle, targetAngle, 1 - Math.exp(-6 * dt));
@@ -248,32 +258,44 @@ export class EnemySystem {
         }
         
         case "fighter": {
-          e.modeT -= dt;
-          if (e.mode === 0) {
-            e.vx += (dirX * e.speed - e.vx) * (1 - Math.exp(-4 * dt));
-            e.vy += (dirY * e.speed - e.vy) * (1 - Math.exp(-4 * dt));
-            if (dist < 300) {
-              e.mode = 1;
-              e.modeT = rand(1.3, 2);
-              e.strafeDir = Math.random() < 0.5 ? -1 : 1;
-            }
-          } else if (e.mode === 1) {
-            const tx = -dirY * e.strafeDir;
-            const ty = dirX * e.strafeDir;
-            const radial = (dist - 265) * 2.2;
-            e.vx += (tx * e.speed * 0.95 + dirX * radial - e.vx) * (1 - Math.exp(-5 * dt));
-            e.vy += (ty * e.speed * 0.95 + dirY * radial - e.vy) * (1 - Math.exp(-5 * dt));
-            if (e.modeT <= 0) {
-              e.mode = 2;
-              e.modeT = rand(0.9, 1.4);
-            }
+          // Атака с дистанции: сближение → удержание идеальной дистанции → орбита
+          const angleToPlayer = Math.atan2(playerY - e.y, playerX - e.x);
+          
+          // Идеальная дистанция стрельбы — 200-280
+          const idealDist = 220 + Math.sin(e.modeT * 0.3) * 30;
+          
+          if (dist > idealDist * 1.2) {
+            // Сближение
+            const targetAngle = angleToPlayer;
+            const oldAngle = e.angle;
+            e.angle = lerpAngleMath(e.angle, targetAngle, dt * 5);
+            const speed = e.speed * 1.1;
+            e.vx += (Math.cos(targetAngle) * speed - e.vx) * (1 - Math.exp(-5 * dt));
+            e.vy += (Math.sin(targetAngle) * speed - e.vy) * (1 - Math.exp(-5 * dt));
+          } else if (dist < idealDist * 0.7) {
+            // Отступление
+            const targetAngle = angleToPlayer + Math.PI;
+            const oldAngle = e.angle;
+            e.angle = lerpAngleMath(e.angle, targetAngle, dt * 4);
+            const speed = e.speed * 0.7;
+            e.vx += (Math.cos(targetAngle) * speed - e.vx) * (1 - Math.exp(-4 * dt));
+            e.vy += (Math.sin(targetAngle) * speed - e.vy) * (1 - Math.exp(-4 * dt));
           } else {
-            const tx = -dirX * 0.7 - dirY * e.strafeDir * 0.7;
-            const ty = -dirY * 0.7 + dirX * e.strafeDir * 0.7;
-            e.vx += (tx * e.speed - e.vx) * (1 - Math.exp(-4.5 * dt));
-            e.vy += (ty * e.speed - e.vy) * (1 - Math.exp(-4.5 * dt));
-            if (e.modeT <= 0) e.mode = 0;
+            // Удержание дистанции + движение по касательной (страф)
+            const tangent = angleToPlayer + Math.PI / 2 * e.strafeDir;
+            const oldAngle = e.angle;
+            e.angle = lerpAngleMath(e.angle, tangent, dt * 3);
+            const speed = e.speed * 0.6;
+            e.vx += (Math.cos(tangent) * speed - e.vx) * (1 - Math.exp(-4 * dt));
+            e.vy += (Math.sin(tangent) * speed - e.vy) * (1 - Math.exp(-4 * dt));
           }
+          
+          e.modeT -= dt;
+          if (e.modeT <= 0) {
+            e.modeT = rand(1.5, 3);
+            e.strafeDir *= -1; // меняем направление страфа
+          }
+          
           const kAngle = 1 - Math.exp(-6 * dt);
           const oldAngleF = e.angle;
           e.angle = lerpAngleMath(e.angle, Math.atan2(e.vy, e.vx), kAngle);
@@ -282,7 +304,7 @@ export class EnemySystem {
           while (angleDeltaF < -Math.PI) angleDeltaF += TAU;
           if (DEBUG_ROTATION && Math.abs(angleDeltaF) > 0.3) {
             rotationLogCounter.enemy++;
-            console.log(`[ROTATION] fighter(mode=${e.mode}): angle ${oldAngleF.toFixed(3)}→${e.angle.toFixed(3)} (delta=${angleDeltaF.toFixed(3)}), vel=(${e.vx.toFixed(1)},${e.vy.toFixed(1)}), modeT=${e.modeT.toFixed(2)}`);
+            console.log(`[ROTATION] fighter(dist=${dist.toFixed(0)}): angle ${oldAngleF.toFixed(3)}→${e.angle.toFixed(3)} (delta=${angleDeltaF.toFixed(3)}), vel=(${e.vx.toFixed(1)},${e.vy.toFixed(1)})`);
           }
           break;
         }
@@ -390,12 +412,13 @@ export class EnemySystem {
             }
           }
           
-          // spawn drones in bursts: 10 drones → rest → repeat
+          // spawn drones in bursts: more aggressive with wave progression
+          const maxDrones = 12 + Math.floor(this.wave / 5);
           if (e.burstActive) {
             // Burst phase: spawn drones
             e.burstCd -= dt;
-            if (e.burstCd <= 0 && this.getLiveCount() < 30 && e.burstSpawned < 10) {
-              e.burstCd = 0.5;
+            if (e.burstCd <= 0 && this.getLiveCount() < 30 && e.burstSpawned < maxDrones) {
+              e.burstCd = 0.35; // faster spawn rate
               e.burstSpawned++;
               // Random offset so drones don't spawn exactly at carrier center
               const angle = Math.random() * TAU;
@@ -405,9 +428,9 @@ export class EnemySystem {
               this.eventBus.emit('carrierSpawnDrone', { x: spawnX, y: spawnY, parent: e });
             }
             // End of burst?
-            if (e.burstSpawned >= 10) {
+            if (e.burstSpawned >= maxDrones) {
               e.burstActive = false;
-              e.burstRestT = rand(7, 12); // rest period
+              e.burstRestT = rand(3, 6); // shorter rest
             }
           } else {
             // Rest phase: countdown
@@ -434,15 +457,16 @@ export class EnemySystem {
         if (canShoot) {
           // Cruiser: dual independent turrets with staggered cooldowns
           if (e.kind === "cruiser") {
-            const spread = 0.1;
-            const speed = 260;
-            const life = 1.8;
-            const rate = 2.2 / (4.4 + this.wave * 0.12);
+            const accuracy = this.getAccuracy(this.wave);
+            const spread = (1 - accuracy) * 0.8;
+            // Увеличена скорость: 320+w*2 → 450+w*3
+            const speed = 450 + this.wave * 3;
+            const rate = 1.5 / (3 + this.wave * 0.08);
             
             // Turret 1 (port side)
             e.tCd1! -= dt;
             if (e.tCd1! <= 0) {
-              e.tCd1! = rate + rand(-0.2, 0.2);
+              e.tCd1! = rate + rand(-0.15, 0.15);
               const perpA = e.angle + Math.PI / 2;
               const tx = e.x - Math.sin(e.angle) * 14;
               const ty = e.y + Math.cos(e.angle) * 14;
@@ -463,7 +487,7 @@ export class EnemySystem {
             // Turret 2 (starboard side)
             e.tCd2! -= dt;
             if (e.tCd2! <= 0) {
-              e.tCd2! = rate + rand(-0.2, 0.2);
+              e.tCd2! = rate + rand(-0.15, 0.15);
               const perpA = e.angle + Math.PI / 2;
               const tx = e.x + Math.sin(e.angle) * 14;
               const ty = e.y - Math.cos(e.angle) * 14;
@@ -481,13 +505,15 @@ export class EnemySystem {
               this.audio.heavyShoot();
             }
           } else {
-            // Fighter and carrier: single turret (unchanged)
-            e.fireCd -= dt;
-            const spread = e.kind === "fighter" ? 0.15 : 0.18;
+            // Fighter and carrier: single turret
+            const accuracy = this.getAccuracy(this.wave);
+            const spread = (1 - accuracy) * 1.2;
+            // Увеличена скорость на 20%: fighter 588+w*3.6→706+w*4.32, carrier 480+w*3.6→576+w*4.32
+            const speed = e.kind === "fighter" ? 706 + this.wave * 4.32 : 576 + this.wave * 4.32;
             const life = e.kind === "fighter" ? 1.35 : 1.8;
-            const speed = e.kind === "fighter" ? 300 : 240;
-            const rate = e.kind === "fighter" ? 2 : 4;
-            e.fireCd = rate / (4.4 + this.wave * 0.12);
+            const baseRate = e.kind === "fighter" ? 1.2 : 2.5;
+            const waveBoost = Math.min(2.0, 1 + this.wave * 0.05);
+            e.fireCd = baseRate / waveBoost;
             
             if (e.fireCd <= 0) {
               const heavy = e.kind === "carrier";
@@ -658,18 +684,29 @@ export class EnemySystem {
     }
   }
 
+  /** Меткость врагов: 0.3 на волне 1, растёт до 0.7 к волне 30. */
+  private getAccuracy(wave: number): number {
+    return Math.min(0.7, 0.3 + wave * 0.013);
+  }
+
   private getEnemyDef(kind: EnemyKind): EnemyDef {
+    const w = this.wave;
     switch (kind) {
       case "drone":
-        return { hp: 8, r: 14, speed: 60, contact: 12, score: 10, bolt: 8, mass: massForRadius(14) };
+        // +40% от скорости игрока (211 * 1.4 ≈ 295): 295 + w*2, ~339 к волне 22
+        return { hp: 8, r: 14, speed: 295 + w * 2, contact: 12, score: 10, bolt: 8, mass: massForRadius(14) };
       case "hunter":
-        return { hp: 20, r: 14, speed: 150, contact: 16, score: 25, bolt: 12, mass: massForRadius(14) };
+        // Быстрее игрока: 290 + w*2, ~334 к волне 22
+        return { hp: 20, r: 14, speed: 290 + w * 2, contact: 16, score: 25, bolt: 12, mass: massForRadius(14) };
       case "fighter":
-        return { hp: 35, r: 18, speed: 110, contact: 20, score: 40, bolt: 15, mass: massForRadius(18) };
+        // Скорость игрока (211) * 1.1 = 232 + w*0.5, ~243 к волне 22
+        return { hp: 35, r: 18, speed: 232 + w * 0.5, contact: 20, score: 40, bolt: 15, mass: massForRadius(18) };
       case "cruiser":
-        return { hp: 250, r: 26, speed: 80, contact: 24, score: 80, bolt: 18, mass: massForRadius(26) };
+        // Тяжёлый, медленный: 60 + w*1.5, ~93 к волне 22
+        return { hp: 250, r: 26, speed: 60 + w * 1.5, contact: 24, score: 80, bolt: 18, mass: massForRadius(26) };
       case "carrier":
-        return { hp: 350, r: 41, speed: 60, contact: 30, score: 150, bolt: 25, mass: massForRadius(41) };
+        // Самый медленный: 50 + w*1, ~72 к волне 22
+        return { hp: 350, r: 41, speed: 50 + w * 1, contact: 30, score: 150, bolt: 25, mass: massForRadius(41) };
       default:
         return { hp: 10, r: 12, speed: 80, contact: 14, score: 15, bolt: 10, mass: massForRadius(12) };
     }
@@ -679,3 +716,4 @@ export class EnemySystem {
 function rand(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
+

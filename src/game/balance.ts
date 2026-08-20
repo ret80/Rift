@@ -30,7 +30,8 @@ export const C = {
 /* --------------------------- player & limits --------------------------- */
 
 export const PLAYER_RADIUS = 13;
-export const PLAYER_MAX_SPEED = 310;
+/** Reduced by 15% (310→248→211) — enemies are faster and more accurate. */
+export const PLAYER_MAX_SPEED = 211;
 /** Thrust applied per second while the player holds a direction. */
 export const PLAYER_ACCEL = 1500;
 /** Zone expansion is this multiplier × PLAYER_MAX_SPEED. Must be > 1 so the player can never catch it. */
@@ -147,8 +148,12 @@ export interface EnemyDef {
 export function hpScale(w: number) {
   return 1 + 0.5 * ramp01(w, 1, 15) + 3.0 * ramp01(w, 15, 40);
 }
+/**
+ * Damage scaling: 1x at wave 1, 1.5x at wave 10, 2.5x at wave 20, 3.5x at wave 40.
+ * Errors become increasingly critical in late game.
+ */
 export function dmgScale(w: number) {
-  return 1 + 0.25 * ramp01(w, 1, 15) + 1.0 * ramp01(w, 15, 40);
+  return 1 + 0.5 * ramp01(w, 1, 10) + 1.0 * ramp01(w, 10, 20) + 1.0 * ramp01(w, 20, 40);
 }
 
 export function enemyDefFor(kind: EnemyKind, w: number): EnemyDef {

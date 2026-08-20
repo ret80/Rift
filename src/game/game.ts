@@ -478,7 +478,11 @@ export class Game {
   }
 
   private setupEventListeners() {
-    // player_hit event is handled directly in PlayerSystem.hit() — no need to re-publish
+    // Бridge: CollisionSystem.publish('player_hit') → playerSystem.hit()
+    this.eventBus.on("player_hit", (event) => {
+      const data = event.payload as { dmg: number };
+      this.playerSystem.hit(data.dmg);
+    });
 
     this.eventBus.on("enemy_killed", (event) => {
       const data = event.payload as { scoreValue: number };

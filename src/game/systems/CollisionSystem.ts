@@ -255,9 +255,12 @@ export class CollisionSystem {
 
     // Проверка пуль врагов против игрока
     if (playerState.invuln <= 0 && playerState.hp > 0) {
+      // Увеличенный радиус хитбокса для компенсации высокой скорости пуль.
+      // При 700+ px/s пуля перелетает ~10px за кадр, поэтому добавляем ~10px к радиусу.
+      const hitRadius = playerState.r + 12;
       for (let i = enemyBullets.length - 1; i >= 0; i--) {
         const b = enemyBullets[i];
-        if (this.checkBulletCollision(b.x, b.y, playerState)) {
+        if (this.checkBulletCollision(b.x, b.y, { x: playerState.x, y: playerState.y, r: hitRadius })) {
           this.eventBus.publish('player_hit', {
             dmg: b.dmg,
             x: playerState.x,
