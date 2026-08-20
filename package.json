@@ -21,7 +21,6 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.8.0",
     "recharts": "^2.10.0",
-    "rvo-js": "^0.0.2",
     "uuid": "^9.0.1"
   },
   "devDependencies": {

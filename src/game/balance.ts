@@ -223,6 +223,60 @@ export function pickKindFor(w: number): EnemyKind {
 /* --------------------------- drop chances --------------------------- */
 
 /** Chance that destroying this enemy drops any bonus at all. */
+/* ------------------------------ death animation ------------------------------ */
+
+export const DEATH_ANIMATION_DURATION = 1.2; // seconds
+export const DEATH_EXPLOSION_PARTICLES = 60;
+export const DEATH_EXPLOSION_MIN_SPEED = 50;
+export const DEATH_EXPLOSION_MAX_SPEED = 300; // 50 + 250
+export const DEATH_EXPLOSION_MIN_LIFE = 0.3;
+export const DEATH_EXPLOSION_MAX_LIFE = 1.1; // 0.3 + 0.8
+
+/* ------------------------------ zone constants ------------------------------ */
+
+export const ZONE_INITIAL_RADIUS = 17.25;
+export const ZONE_EDGE_MARGIN = 40;
+export const ZONE_EDGE_WARNING_DELAY = 0.3; // seconds before warning
+export const ZONE_EDGE_DAMAGE_INTERVAL = 0.5; // seconds between damage ticks
+export const ZONE_EDGE_DAMAGE_AMOUNT = 10; // damage per tick
+export const ZONE_EDGE_SHAKE_STRENGTH = 4; // shake intensity
+export const ZONE_EARLY_DAMAGE_THRESHOLD = 0.3; // don't damage before zone reaches 30% target
+
+export const ZONE_CLEAR_BANNER_DELAY = 1.5; // seconds before showing wave clear banner
+export const ZONE_CLEAR_EXPAND_START = 2.0; // seconds before starting zone expansion
+export const ZONE_CLEAR_NEXT_WAVE = 3.0; // seconds before next wave
+export const ZONE_CLEAR_EXPAND_DURATION = 1.0; // seconds for zone to expand during clear
+export const ZONE_CLEAR_EXPAND_MULTIPLIER = 1.5; // zone expands to 1.5x target
+
+export const ZONE_ASTEROID_PUSH_FORCE = 15; // force multiplier for pushing asteroids out
+export const ZONE_ENEMY_PUSH_FORCE_COEFF = 8; // coefficient for enemy push force
+export const ZONE_ENEMY_PUSH_FORCE_MAX = 200; // max push force for enemies
+
+export const ZONE_GUN_RANGE = 420; // range for auto-fire guns
+
+/* ------------------------------ menu animation ------------------------------ */
+
+export const MENU_ASTEROID_COUNT = 30;
+export const MENU_RIFT_OPEN_TIME = 0.6;
+export const MENU_RIFT_SPAWN_DELAY = 0.35;
+export const MENU_RIFT_SPAWN_TIME = 0.28;
+export const MENU_RIFT_CLOSE_TIME = 0.5;
+export const MENU_RIFT_MIN_INTERVAL = 8;
+export const MENU_RIFT_MAX_INTERVAL = 14;
+export const MENU_ENEMY_MIN_SPEED = 80;
+export const MENU_ENEMY_MAX_SPEED = 60; // additional speed range
+export const MENU_EDGE_MARGIN = 150; // in DPR-scaled pixels
+
+/* ------------------------------ camera ------------------------------ */
+
+export const CAMERA_SMOOTHING = 8; // camera follow smoothing factor
+
+/* ------------------------------ fps ------------------------------ */
+
+export const FPS_SMOOTHING_FACTOR = 0.08; // EMA smoothing for FPS
+
+/* ------------------------------ drop chances ------------------------------ */
+
 export function dropChanceFor(kind: EnemyKind) {
   switch (kind) {
     case "drone":

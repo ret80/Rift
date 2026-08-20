@@ -236,13 +236,34 @@ export class WaveManager {
   }
 
   /**
-   * Обработать убийство врага.
-   */
-  private onEnemyKilled(event: { type: string; payload: Record<string, unknown> }): void {
+    * Обработать убийство врага.
+    */
+  onEnemyKilled(event: { type: string; payload: Record<string, unknown> }): void {
     this.killedCount++;
     
     // Обновляем состояние
     this.state.wave.killed = this.killedCount;
+  }
+
+  /**
+   * Получить количество убитых врагов.
+   */
+  getKilledCount(): number {
+    return this.killedCount;
+  }
+
+  /**
+   * Получить количество выделенных врагов.
+   */
+  getAllocatedCount(): number {
+    return this.allocatedCount;
+  }
+
+  /**
+   * Получить номер текущей волны.
+   */
+  getCurrentWave(): number {
+    return this.currentWave;
   }
 
   /**
@@ -265,17 +286,10 @@ export class WaveManager {
   }
 
   /**
-   * Проверить, зачищена ли волна.
-   */
+    * Проверить, зачищена ли волна.
+    */
   isWaveCleared(): boolean {
     return this.waveCleared;
-  }
-
-  /**
-   * Получить номер текущей волны.
-   */
-  getCurrentWave(): number {
-    return this.currentWave;
   }
 
   /**

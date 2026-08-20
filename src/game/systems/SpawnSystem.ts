@@ -173,8 +173,13 @@ export class SpawnSystem {
     const remaining = totalNeeded - killedWave;
     
     const inCountdown = game.countdownSystem?.isCountdownActive?.();
-    const zoneR = (game as any).zoneR ?? 0;
-    const zoneOn = (game as any).zoneOn ?? false;
+    // Use GameState.zone for zone status after refactoring
+    const gameState = game.gameState;
+    const zoneR = gameState?.zone?.radius ?? 0;
+    const zoneOn = gameState?.zone?.active ?? false;
+    const zoneX = gameState?.zone?.x ?? 0;
+    const zoneY = gameState?.zone?.y ?? 0;
+    const zoneTarget = gameState?.zone?.targetRadius ?? this.zoneRadius(wave);
     const riftCount = game.riftField?.list?.length ?? 0;
     
     if (inCountdown || !zoneOn) {
@@ -239,10 +244,12 @@ export class SpawnSystem {
   private spawnRift(game: any) {
     const queue = this.buildQueue(3 + Math.floor(Math.random() * 3), game.wave);
     // Рифы спавнятся только после того как зона достаточно большая
-    const zoneX = (game as any).zoneX ?? 0;
-    const zoneY = (game as any).zoneY ?? 0;
-    const zoneR = (game as any).zoneR ?? this.zoneRadius(game.wave);
-    const zoneTarget = (game as any).zoneTarget ?? this.zoneRadius(game.wave);
+    // Use GameState.zone for zone info after refactoring
+    const gameState = game.gameState;
+    const zoneX = gameState?.zone?.x ?? 0;
+    const zoneY = gameState?.zone?.y ?? 0;
+    const zoneR = gameState?.zone?.radius ?? this.zoneRadius(game.wave);
+    const zoneTarget = gameState?.zone?.targetRadius ?? this.zoneRadius(game.wave);
     if (zoneR < zoneTarget * 0.9) return; // ждём полного раскрытия зоны (90%)
     const point = this.spawnRiftPoint(zoneX, zoneY, zoneR);
     const size = 80 + Math.random() * 40;
