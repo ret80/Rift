@@ -79,13 +79,27 @@ export class DroneSystem {
   }
 
   /**
-    * Добавить дрон.
+    * Добавить дрон (при подборе бонуса).
     */
-  spawn(drones: Array<{ x: number; y: number }>, playerPos: { x: number; y: number }): void {
-    const phase = (drones.length / 8) * Math.PI * 2;
+  spawn(drones: Array<{
+    x: number; y: number;
+    angle?: number; fireCd?: number; phase?: number;
+    hp?: number; maxHp?: number;
+    target?: any; retargetT?: number; flash?: number;
+  }>, playerPos: { x: number; y: number }): void {
+    if (drones.length >= MAX_ALLY_DRONES) return;
+    const phase = (drones.length / MAX_ALLY_DRONES) * Math.PI * 2;
     drones.push({
-      x: playerPos.x + Math.cos(phase) * 58,
-      y: playerPos.y + Math.sin(phase) * 58,
+      x: playerPos.x + Math.cos(phase) * ALLY_DRONE_ORBIT,
+      y: playerPos.y + Math.sin(phase) * ALLY_DRONE_ORBIT,
+      angle: phase,
+      fireCd: 0,
+      phase,
+      hp: 30,
+      maxHp: 30,
+      target: null,
+      retargetT: 0,
+      flash: 0,
     });
   }
 

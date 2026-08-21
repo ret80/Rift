@@ -4,7 +4,7 @@
  */
 
 import type { AudioEngine } from '../audio';
-import { EnemyKind, massForRadius, DRONE_BASE_SPEED, HUNTER_SPEED, FIGHTER_BASE_SPEED, CRUISER_BASE_SPEED, CARRIER_BASE_SPEED } from '../balance';
+import { EnemyKind, massForRadius, DRONE_BASE_SPEED, HUNTER_SPEED, FIGHTER_BASE_SPEED, CRUISER_BASE_SPEED, CARRIER_BASE_SPEED, CRUISER_FIRE_RANGE, CRUISER_BULLET_SPEED, PLAYER_BULLET_SPEED } from '../balance';
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { Fx } from '../fx';
@@ -470,7 +470,7 @@ export class EnemySystem {
       // shooting logic
       if (e.kind === EnemyKind.Fighter || e.kind === EnemyKind.Cruiser || e.kind === EnemyKind.Carrier) {
         const canShoot = (e.kind === EnemyKind.Fighter && dist < 500) ||
-                        (e.kind === EnemyKind.Cruiser && dist < 380) ||
+                        (e.kind === EnemyKind.Cruiser && dist < CRUISER_FIRE_RANGE) ||
                         (e.kind === EnemyKind.Carrier && dist < 500);
         
         if (canShoot) {
@@ -527,8 +527,8 @@ export class EnemySystem {
             // Fighter and carrier: single turret
             const accuracy = this.getAccuracy(this.wave);
             const spread = (1 - accuracy) * 1.2;
-            // Скорость пуль = скорости игрока (560), с малой прогрессией
-            const speed = e.kind === EnemyKind.Fighter ? 560 + this.wave * 0.5 : 560 + this.wave * 0.5;
+            // Скорость пуль = скорости игрока, с малой прогрессией
+            const speed = e.kind === EnemyKind.Fighter ? PLAYER_BULLET_SPEED + this.wave * 0.5 : PLAYER_BULLET_SPEED + this.wave * 0.5;
             const life = e.kind === EnemyKind.Fighter ? 1.35 : 1.8;
             const baseRate = e.kind === EnemyKind.Fighter ? 0.8 : 1.5; //fighter = cruiser rate
             const waveBoost = Math.min(2.5, 1 + this.wave * 0.08);
@@ -800,4 +800,3 @@ export class EnemySystem {
 function rand(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
-

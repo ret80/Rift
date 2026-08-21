@@ -120,6 +120,10 @@ export enum EnemyKind {
   Carrier = "carrier",
 }
 
+/* Cruiser tuning */
+export const CRUISER_FIRE_RANGE = 760; // range at which cruiser starts shooting (2× base)
+export const CRUISER_BULLET_SPEED = 364; // 260 × 1.4 — 40% faster heavy bolts
+
 /* -------------- mass based on radius (mass = π·r², scaled) -------------- */
 export function massForRadius(r: number): number {
   return Math.max(1, Math.PI * r * r * 0.02);

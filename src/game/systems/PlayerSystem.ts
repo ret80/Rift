@@ -10,7 +10,7 @@ import type { Fx } from '../fx';
 import type { InputManager } from '../input';
 import { TAU, lerpAngle as lerpAngleMath } from '../math';
 import type { RGBA } from '../render';
-import { massForRadius, PLAYER_FIRE_CD, PLAYER_MAX_SPEED, PLAYER_RADIUS } from '../balance';
+import { massForRadius, PLAYER_FIRE_CD, PLAYER_MAX_SPEED, PLAYER_RADIUS, PLAYER_BULLET_SPEED } from '../balance';
 
 // Флаг для отладки вращения кораблей
 const DEBUG_ROTATION = false;

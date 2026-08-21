@@ -7,6 +7,7 @@ import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { Fx } from '../fx';
 import type { AudioEngine } from '../audio';
+import { PLAYER_BULLET_SPEED } from '../balance';
 
 export interface BulletData {
   x: number;

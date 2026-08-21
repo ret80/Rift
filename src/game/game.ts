@@ -24,6 +24,8 @@ import {
   type AppliedUpgrades,
 } from "./upgrades";
 
+import { CRUISER_BULLET_SPEED } from "./balance";
+
 import {
   // Zone constants
   ZONE_INITIAL_RADIUS,
@@ -1267,9 +1269,9 @@ export class Game {
     this.bulletSystem.firePlayerBullets(this.playerSystem.getState(), angle, this.bullets);
   }
 
-  private enemyFire(data: { x: number; y: number; angle: number; boltDmg: number; cruiser: boolean; heavy: boolean }) {
+  private enemyFire(data: { x: number; y: number; angle: number; boltDmg: number; cruiser: boolean; heavy: boolean; boltSpeed?: number }) {
     const heavy = data.cruiser || data.heavy;
-    const speed = data.cruiser ? 260 : 300;
+    const speed = data.boltSpeed ?? (data.cruiser ? CRUISER_BULLET_SPEED : 300);
     const life = data.cruiser ? 1.8 : 1.35;
     this.enemyBulletList.push({
       x: data.x + Math.cos(data.angle) * 14,
