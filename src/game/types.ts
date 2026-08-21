@@ -97,6 +97,7 @@ export interface Mine {
 
 export interface AllyDrone {
   x: number; y: number;
+  r: number;
   angle: number;
   fireCd: number; phase: number;
   hp: number; maxHp: number;

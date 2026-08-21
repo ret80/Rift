@@ -10,7 +10,19 @@ import type { Fx } from '../fx';
 import type { InputManager } from '../input';
 import { TAU, lerpAngle as lerpAngleMath } from '../math';
 import type { RGBA } from '../render';
-import { massForRadius, PLAYER_FIRE_CD, PLAYER_MAX_SPEED, PLAYER_RADIUS, PLAYER_BULLET_SPEED } from '../balance';
+import {
+  massForRadius,
+  PLAYER_FIRE_CD,
+  PLAYER_MAX_SPEED,
+  PLAYER_RADIUS,
+  PLAYER_BULLET_SPEED,
+  MISSILE_SPEED,
+  MISSILE_LIFE,
+  MISSILE_DMG,
+  MISSILE_TURN_RATE,
+  MISSILE_LAUNCH_INTERVAL,
+} from '../balance';
+import type { Enemy } from '../types';
 
 // Флаг для отладки вращения кораблей
 const DEBUG_ROTATION = false;
@@ -39,6 +51,10 @@ interface PlayerState {
   dashT: number;
   aimA: number | null;
   mass: number;
+  // Missile launcher
+  missileActive: boolean;
+  missilePort: number;
+  missileCd: number;
 }
 
 export class PlayerSystem {
@@ -67,6 +83,10 @@ export class PlayerSystem {
     dashT: 0,
     aimA: null,
     mass: massForRadius(PLAYER_RADIUS),
+    // Missile launcher
+    missileActive: false,
+    missilePort: 0,
+    missileCd: 0,
   };
   
   private fireCd = 0;
@@ -79,6 +99,8 @@ export class PlayerSystem {
   private isFiring = false;
   private lastFireTime = 0;
   private autoFireEnabled = true;
+  // Missile launcher timer
+  private missileDurationT = 0;
   
   // Для внешних систем
   public bullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number }> = [];
@@ -123,6 +145,12 @@ export class PlayerSystem {
     };
     this.fireCd = 0;
     this.bullets = [];
+    this.player.extraGuns = 0;
+    this.player.extraGunsT = 0;
+    this.missileDurationT = 0;
+    this.player.missileActive = false;
+    this.player.missileCd = 0;
+    this.player.missilePort = 0;
     // Спавн игрока в центре экрана (не из разлома)
     const canvasWidth = typeof window !== 'undefined' ? window.innerWidth : 800;
     const canvasHeight = typeof window !== 'undefined' ? window.innerHeight : 600;
@@ -171,6 +199,7 @@ export class PlayerSystem {
     return { 
       ...this.player,
       aimA: this.aimAngle,
+      guns: Math.min(5, this.player.guns + this.player.extraGuns),
     };
   }
   
@@ -191,7 +220,7 @@ export class PlayerSystem {
   }
   
   getGuns(): number {
-    return this.player.guns;
+    return Math.min(5, this.player.guns + this.player.extraGuns);
   }
   
   getRateBoost(): number {
@@ -218,6 +247,11 @@ export class PlayerSystem {
     return this.player.aimA;
   }
 
+  /** Общее количество орудий (базовое + бонусное) */
+  getTotalGuns(): number {
+    return Math.min(5, this.player.guns + this.player.extraGuns);
+  }
+
   // Методы для вызова из game.ts
   
   hit(dmg: number): void {
@@ -241,6 +275,12 @@ export class PlayerSystem {
   boostRate(): void {
     this.player.rateBoost = Math.min(1.0, this.player.rateBoost + 0.2);
     this.player.rateT = 10; // 10 seconds boost
+  }
+
+  /** Добавить дополнительное орудие на время (например, из бонуса) */
+  addGunBonus(count: number, duration: number): void {
+    this.player.extraGuns = Math.min(5, this.player.extraGuns + count);
+    this.player.extraGunsT = duration;
   }
 
   getRateMult(): number {
@@ -347,6 +387,14 @@ export class PlayerSystem {
         this.player.rateBoost = 0;
       }
     }
+
+    // Decrease extra guns timer
+    if (this.player.extraGunsT > 0) {
+      this.player.extraGunsT -= dt;
+      if (this.player.extraGunsT <= 0) {
+        this.player.extraGuns = 0;
+      }
+    }
     
     this.fireCd = Math.max(0, this.fireCd - dt);
     if (this.fireCd < 0) this.fireCd = 0;
@@ -402,6 +450,103 @@ export class PlayerSystem {
     });
   }
   
+  /* ======================== Missile Launcher ======================== */
+
+  /** Активировать ракетную установку на duration секунд */
+  activateMissileLauncher(duration: number): void {
+    this.player.missileActive = true;
+    this.player.missileCd = 0; // готов выстрелить сразу
+    this.player.missilePort = 0;
+    this.missileDurationT = duration;
+  }
+
+  /** Обновить ракетную установку и запустить ракету если готова */
+  launchMissiles(dt: number, enemies: Array<{ x: number; y: number; dead: boolean; r: number }>): void {
+    if (!this.player.missileActive) return;
+
+    // Уменьшаем таймер активации
+    this.missileDurationT -= dt;
+    if (this.missileDurationT <= 0) {
+      this.player.missileActive = false;
+      this.missileDurationT = 0;
+      return;
+    }
+
+    this.player.missileCd = Math.max(0, this.player.missileCd - dt);
+
+    if (this.player.missileCd > 0) return;
+
+    // Находим ближайшего живого врага
+    const px = this.player.x;
+    const py = this.player.y;
+    let nearest: { x: number; y: number; r: number } | null = null;
+    let nearDist = Infinity;
+
+    for (const e of enemies) {
+      if (e.dead) continue;
+      const d = Math.hypot(e.x - px, e.y - py);
+      if (d < nearDist) {
+        nearDist = d;
+        nearest = e;
+      }
+    }
+
+    if (!nearest) return;
+
+    // Запускаем ракету
+    this.fireMissile(nearest);
+
+    // Переключаем порт и ставим cooldown
+    this.player.missilePort = 1 - this.player.missilePort;
+    this.player.missileCd = MISSILE_LAUNCH_INTERVAL;
+  }
+
+  /** Создать самонаводящуюся ракету */
+  fireMissile(target: { x: number; y: number; r: number }): void {
+    const px = this.player.x;
+    const py = this.player.y;
+    const port = this.player.missilePort;
+
+    // Смещение порта: перпендикулярно направлению движения
+    const sp = Math.hypot(this.player.vx, this.player.vy) || 1;
+    const vnx = this.player.vx / sp;
+    const vny = this.player.vy / sp;
+
+    // Порт 0 = левый борт (-), Порт 1 = правый борт (+)
+    const portSide = port === 0 ? -1 : 1;
+    const offX = -vny * portSide * 12;
+    const offY = vnx * portSide * 12;
+
+    const mx = px + offX;
+    const my = py + offY;
+
+    // Начальный вектор в сторону цели
+    const dx = target.x - mx;
+    const dy = target.y - my;
+    const dist = Math.hypot(dx, dy) || 1;
+
+    const baseVx = (dx / dist) * MISSILE_SPEED;
+    const baseVy = (dy / dist) * MISSILE_SPEED;
+
+    // Добавляем импульс от движения игрока (как у пуль)
+    const playerVx = this.player.vx * 0.25;
+    const playerVy = this.player.vy * 0.25;
+
+    this.bullets.push({
+      x: mx,
+      y: my,
+      vx: baseVx + playerVx,
+      vy: baseVy + playerVy,
+      life: MISSILE_LIFE,
+      dmg: MISSILE_DMG,
+      // Homing data
+      homingTarget: { x: target.x, y: target.y, r: target.r },
+      homingTurnRate: MISSILE_TURN_RATE,
+    });
+  }
+
+  /* ======================== Zone Clamping ======================== */
+
   /** Жёсткий барьер зоны для игрока — отталкивает обратно при выходе за границу. */
   clampPlayerToZone(zoneX: number, zoneY: number, zoneR: number, zoneOn: boolean, overdrive: number): void {
     if (!zoneOn || zoneR <= 0) return;

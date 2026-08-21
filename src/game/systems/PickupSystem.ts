@@ -79,18 +79,17 @@ export class PickupSystem {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       
-      // Магнитное притяжение к игроку
+      // Магнитное притяжение к игроку — чем ближе, тем сильнее
       const dx = playerX - p.x;
       const dy = playerY - p.y;
       const dist = Math.hypot(dx, dy);
       
-      if (dist < ZONE_PICKUP_MAGNET && dist > 1) {
-        // Сила притяжения: чем ближе, тем сильнее
-        const strength = (1 - dist / ZONE_PICKUP_MAGNET) * 300;
-        const nx = dx / dist;
-        const ny = dy / dist;
-        p.vx += nx * strength * dt;
-        p.vy += ny * strength * dt;
+      if (dist < ZONE_PICKUP_MAGNET && dist > 2) {
+        // Непосредственное смещение к игроку: доля от расстояния в секунду
+        // fraction = 12 → ~70% расстояния за 1 сек, ~95% за 0.3 сек
+        const fraction = Math.pow(1 - dist / ZONE_PICKUP_MAGNET, 0.5) * 25;
+        p.x += dx * fraction * dt;
+        p.y += dy * fraction * dt;
       }
       
       p.life -= dt;

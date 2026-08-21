@@ -145,7 +145,16 @@ export type PickupKind =
   | "mineral"
   | "hp"
   | "rate"
-  | "mine";
+  | "mine"
+  | "missile";
+
+/* Missile tuning */
+export const MISSILE_SPEED = 280;
+export const MISSILE_LIFE = 3.5;
+export const MISSILE_DMG = 55;
+export const MISSILE_TURN_RATE = 3.0; // radians/sec turning capability
+export const MISSILE_LAUNCH_INTERVAL = 0.6; // seconds between missile launches
+export const MISSILE_DURATION = 15; // seconds launcher is active
 
 /* ------------------------------ asteroids ------------------------------ */
 

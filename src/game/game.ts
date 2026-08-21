@@ -44,6 +44,10 @@ import {
   ZONE_ENEMY_PUSH_FORCE_COEFF,
   ZONE_ENEMY_PUSH_FORCE_MAX,
   ZONE_GUN_RANGE,
+  // Missile
+  MISSILE_DURATION,
+  MISSILE_LAUNCH_INTERVAL,
+  MISSILE_TURN_RATE,
   // Death animation
   DEATH_ANIMATION_DURATION,
   DEATH_EXPLOSION_PARTICLES,
@@ -574,6 +578,28 @@ export class Game {
       this.applyPickup(data.kind as any);
     });
 
+    this.eventBus.on("drone_fired", (event) => {
+      const data = event.payload as { x: number; y: number; vx: number; vy: number; damage: number };
+      this.enemyBulletList.push({
+        x: data.x,
+        y: data.y,
+        vx: data.vx,
+        vy: data.vy,
+        life: 1.5,
+        dmg: data.damage,
+        heavy: false,
+        cruiser: false,
+      });
+    });
+
+    this.eventBus.on("drone_hit", (event) => {
+      const data = event.payload as { x: number; y: number; dead: boolean };
+      if (data.dead) {
+        const idx = this.allyDrones.findIndex(d => Math.abs(d.x - data.x) < 2 && Math.abs(d.y - data.y) < 2);
+        if (idx !== -1) this.allyDrones.splice(idx, 1);
+      }
+    });
+
     this.eventBus.on("popup", (event) => {
       const data = event.payload as { x: number; y: number; text: string; color: string };
       const { x, y, text, color } = data;
@@ -660,6 +686,10 @@ export class Game {
     this.countdownSystem.update(dtScaled);
     // Remove mouse-based aiming - auto-aim handles targeting via handleAutoFire
     this.playerSystem.update(dtScaled, (this.state as string) !== "menu" && this.state !== "over" && this.state !== "dying");
+    // Автоматический запуск ракет с левого и правого борта
+    if (this.state === "active" || this.state === "dying") {
+      this.playerSystem.launchMissiles(dtScaled, this.enemyList);
+    }
     
     // Handle dying → over transition
     if (this.state === "dying") {
@@ -704,7 +734,17 @@ export class Game {
       );
       this.enemySystem.update(dtScaled, this.enemyList, this.getPlayerPosition(), this.enemyBulletList);
       this.bulletSystem.update(dtScaled, this.bullets, this.enemyBulletList, this.enemyList);
+      // Обработка самонаведения ракет
+      this.updateHomingMissiles(dtScaled);
       this.mineSystem.update(dtScaled, this.mines);
+      // Orbit drones around player (droneSystem.update handles AI/firing only)
+      const pState = this.playerSystem.getState();
+      for (const d of this.allyDrones) {
+        d.phase += dtScaled * 0.5;
+        d.x = pState.x + Math.cos(d.phase) * 58;
+        d.y = pState.y + Math.sin(d.phase) * 58;
+        if (d.r == null) d.r = 10;
+      }
       this.droneSystem.update(dtScaled, this.allyDrones, this.enemyList);
     }
     const playerState = this.playerSystem.getState();
@@ -1269,6 +1309,38 @@ export class Game {
     this.bulletSystem.firePlayerBullets(this.playerSystem.getState(), angle, this.bullets);
   }
 
+  /** Обновить самонаведение ракет */
+  private updateHomingMissiles(dt: number) {
+    for (let i = 0; i < this.bullets.length; i++) {
+      const b = this.bullets[i] as any;
+      if (!b.homingTarget) continue;
+
+      const target = b.homingTarget;
+      const dx = target.x - b.x;
+      const dy = target.y - b.y;
+      const dist = Math.hypot(dx, dy) || 1;
+
+      // Вектор к цели
+      const tx = dx / dist;
+      const ty = dy / dist;
+
+      // Текущий вектор скорости
+      const speed = Math.hypot(b.vx, b.vy) || 1;
+      const cvx = b.vx / speed;
+      const cvy = b.vy / speed;
+
+      // Lerp текущего направления к цели
+      const turnRate = (b.homingTurnRate ?? MISSILE_TURN_RATE) * dt;
+      const lerpFactor = Math.min(turnRate, 1);
+      const nx = cvx + (tx - cvx) * lerpFactor;
+      const ny = cvy + (ty - cvy) * lerpFactor;
+      const nLen = Math.hypot(nx, ny) || 1;
+
+      b.vx = (nx / nLen) * speed;
+      b.vy = (ny / nLen) * speed;
+    }
+  }
+
   private enemyFire(data: { x: number; y: number; angle: number; boltDmg: number; cruiser: boolean; heavy: boolean; boltSpeed?: number }) {
     const heavy = data.cruiser || data.heavy;
     const speed = data.boltSpeed ?? (data.cruiser ? CRUISER_BULLET_SPEED : 300);
@@ -1323,11 +1395,11 @@ export class Game {
         break;
       // Other
       case "gun":
-        this.playerSystem.addGun();
+        this.playerSystem.addGunBonus(2, 15);
         this.audio.pickupGun();
         break;
       case "drone":
-        this.droneSystem.spawn(this.allyDrones, this.getPlayerPosition());
+        this.droneSystem.spawn(this.allyDrones, this.getPlayerPosition(), this.playerSystem.getMaxHp());
         this.audio.pickupDrone();
         break;
       case "dash":
@@ -1345,6 +1417,10 @@ export class Game {
       case "mineral":
         this.minerals++;
         this.score += 50;
+        break;
+      case "missile":
+        this.playerSystem.activateMissileLauncher(MISSILE_DURATION);
+        this.audio.pickupGun();
         break;
     }
   }

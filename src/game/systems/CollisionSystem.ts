@@ -440,6 +440,31 @@ export class CollisionSystem {
         pickups.splice(i, 1);
       }
     }
+
+    // Проверка попадания вражеских пуль по дронам игрока
+    for (let i = enemyBullets.length - 1; i >= 0; i--) {
+      const b = enemyBullets[i];
+      for (let j = drones.length - 1; j >= 0; j--) {
+        const d = drones[j] as { x: number; y: number; r: number; hp?: number; maxHp?: number };
+        if (this.checkBulletCollision(b.x, b.y, { x: d.x, y: d.y, r: d.r })) {
+          if (d.hp != null && d.maxHp != null) {
+            d.hp -= b.dmg;
+            d.flash = 1;
+            this.eventBus.publish('drone_hit', {
+              x: d.x,
+              y: d.y,
+              dmg: b.dmg,
+              dead: d.hp <= 0,
+            });
+            if (d.hp <= 0) {
+              drones.splice(j, 1);
+            }
+          }
+          enemyBullets.splice(i, 1);
+          break;
+        }
+      }
+    }
   }
   
   /**

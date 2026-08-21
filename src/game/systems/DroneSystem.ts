@@ -54,22 +54,24 @@ export class DroneSystem {
   /**
    * Добавить дрон.
    */
-  addDrone(): boolean {
+  addDrone(playerMaxHp: number): boolean {
     if (this.drones.length >= MAX_ALLY_DRONES) {
       return false;
     }
     
     const playerPos = { x: this.state.player.x, y: this.state.player.y };
     const phase = (this.drones.length / MAX_ALLY_DRONES) * Math.PI * 2;
+    const droneMaxHp = Math.round(playerMaxHp * 0.25);
     
     this.drones.push({
       x: playerPos.x + Math.cos(phase) * ALLY_DRONE_ORBIT,
       y: playerPos.y + Math.sin(phase) * ALLY_DRONE_ORBIT,
+      r: 10,
       angle: phase,
       fireCd: 0,
       phase,
-      hp: 30,
-      maxHp: 30,
+      hp: droneMaxHp,
+      maxHp: droneMaxHp,
       target: null,
       retargetT: 0,
       flash: 0,
@@ -83,20 +85,23 @@ export class DroneSystem {
     */
   spawn(drones: Array<{
     x: number; y: number;
+    r?: number;
     angle?: number; fireCd?: number; phase?: number;
     hp?: number; maxHp?: number;
     target?: any; retargetT?: number; flash?: number;
-  }>, playerPos: { x: number; y: number }): void {
+  }>, playerPos: { x: number; y: number }, playerMaxHp: number): void {
     if (drones.length >= MAX_ALLY_DRONES) return;
     const phase = (drones.length / MAX_ALLY_DRONES) * Math.PI * 2;
+    const droneMaxHp = Math.round(playerMaxHp * 0.25);
     drones.push({
       x: playerPos.x + Math.cos(phase) * ALLY_DRONE_ORBIT,
       y: playerPos.y + Math.sin(phase) * ALLY_DRONE_ORBIT,
+      r: 10,
       angle: phase,
       fireCd: 0,
       phase,
-      hp: 30,
-      maxHp: 30,
+      hp: droneMaxHp,
+      maxHp: droneMaxHp,
       target: null,
       retargetT: 0,
       flash: 0,
@@ -108,11 +113,6 @@ export class DroneSystem {
     */
   update(dt: number, drones: Array<{ x: number; y: number; angle: number; fireCd: number; phase: number; hp: number; maxHp: number; target: any; retargetT: number; flash: number }>, enemies: Array<{ x: number; y: number; dead: boolean; kind: string }>): void {
     for (const drone of drones) {
-      // Орбитальное движение вокруг игрока
-      drone.phase += dt * 0.5;
-      drone.x = drone.x; // stays in place until updated by game
-      drone.y = drone.y;
-      
       // Перезарядка
       if (drone.fireCd > 0) {
         drone.fireCd -= dt;
