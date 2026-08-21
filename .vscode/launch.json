@@ -26,6 +26,20 @@
         "webpack:///*": "*",
         "webpack:///./src/*": "${webRoot}/*"
       }
+    },
+    {
+      "name": "Run & Preview",
+      "type": "pwa-chrome",
+      "request": "launch",
+      "preLaunchTask": "Vite: Full Run",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/src",
+      "sourceMaps": true,
+      "sourceMapPathOverrides": {
+        "webpack://@/*": "${webRoot}/*",
+        "webpack:///*": "*",
+        "webpack:///./src/*": "${webRoot}/*"
+      }
     }
   ],
   "compounds": [

@@ -10,7 +10,7 @@ import type { Fx } from '../fx';
 import type { InputManager } from '../input';
 import { TAU, lerpAngle as lerpAngleMath } from '../math';
 import type { RGBA } from '../render';
-import { massForRadius, PLAYER_RADIUS } from '../balance';
+import { massForRadius, PLAYER_FIRE_CD, PLAYER_MAX_SPEED, PLAYER_RADIUS } from '../balance';
 
 // Флаг для отладки вращения кораблей
 const DEBUG_ROTATION = false;
@@ -295,7 +295,7 @@ export class PlayerSystem {
     this.player.vy *= fr;
     
     const sp = Math.hypot(this.player.vx, this.player.vy);
-    const cap = 420 * (dashing ? 2.2 : 1);
+    const cap = PLAYER_MAX_SPEED * (dashing ? 2.2 : 1);
     if (sp > cap) {
       this.player.vx *= cap / sp;
       this.player.vy *= cap / sp;
@@ -355,8 +355,8 @@ export class PlayerSystem {
     // Handle shooting (manual fire with LMB)
     if (this.isFiring && this.fireCd <= 0 && this.aimAngle !== null) {
       // Fire rate: interval between shots.
-      // Base: 0.26s (~3.8 shots/sec), with rate boost up to ~5.8 shots/sec.
-      const fireRate = 0.26 / this.getRateMult();
+      // Base: 0.455s (~2.2 shots/sec), with rate boost up to ~2.75 shots/sec.
+      const fireRate = PLAYER_FIRE_CD / this.getRateMult();
       this.fireCd = fireRate;
       this.lastFireTime = fireRate;
       this.fireAll(this.aimAngle);

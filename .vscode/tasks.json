@@ -2,6 +2,55 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Vite: Build",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "build"],
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Vite: Start Server",
+      "type": "shell",
+      "command": "bash",
+      "args": ["${workspaceFolder}/scripts/start-server.sh"],
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Vite: Build & Start Server",
+      "dependsOrder": "runInSequence",
+      "dependsOn": [
+        "Vite: Build",
+        "Vite: Start Server"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Vite: Full Run",
+      "dependsOrder": "runInSequence",
+      "dependsOn": [
+        "Vite: Build & Start Server"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
       "label": "Vite: dev server",
       "type": "shell",
       "command": "npm",

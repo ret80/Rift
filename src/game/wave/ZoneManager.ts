@@ -5,12 +5,16 @@
 
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
-import { ZONE_EXPAND_SPEED, ZONE_EDGE_HYSTERESIS } from '../balance';
+import { PLAYER_MAX_SPEED, ZONE_EDGE_HYSTERESIS, zoneExpandSpeed } from '../balance';
 
 export interface ZoneConfig {
   eventBus: EventBus;
   state: GameState;
 }
+
+/** Default values for zone calculation parameters. */
+const DEFAULT_SPEED_MULT = 1.0;
+const DEFAULT_ACCEL_BONUS = 0.0;
 
 export class ZoneManager {
   private eventBus: EventBus;
@@ -20,6 +24,10 @@ export class ZoneManager {
   private edgeOutT: number = 0;
   private edgeTickT: number = 0;
   private edgeWarned: boolean = false;
+  
+  // Параметры скорости для расчёта расширения зоны
+  private speedMult: number = DEFAULT_SPEED_MULT;
+  private accelBonus: number = DEFAULT_ACCEL_BONUS;
 
   constructor(config: ZoneConfig) {
     this.eventBus = config.eventBus;
@@ -31,17 +39,23 @@ export class ZoneManager {
    * @param dt - дельта времени
    * @param playerX - позиция игрока X
    * @param playerY - позиция игрока Y
+   * @param speedMult - множитель скорости от апгрейда (1.0 + level * 0.05)
+   * @param accelBonus - бонус ускорения от бонуса (0.0 по умолчанию)
    */
-  update(dt: number, playerX: number, playerY: number): void {
+  update(dt: number, playerX: number, playerY: number, speedMult?: number, accelBonus?: number): void {
     const zone = this.state.zone;
+    
+    if (speedMult !== undefined) this.speedMult = speedMult;
+    if (accelBonus !== undefined) this.accelBonus = accelBonus;
     
     if (!zone.active) return;
 
     // Расширение зоны
     if (zone.radius < zone.targetRadius) {
+      const expandSpeed = zoneExpandSpeed(this.speedMult, PLAYER_MAX_SPEED, this.accelBonus);
       zone.radius = Math.min(
         zone.targetRadius,
-        zone.radius + ZONE_EXPAND_SPEED * dt
+        zone.radius + expandSpeed * dt
       );
       
       this.eventBus.publish('zone_expanded', {

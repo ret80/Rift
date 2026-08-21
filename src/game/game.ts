@@ -9,8 +9,9 @@ import { AudioEngine } from "./audio";
 import {
   PickupKind,
   waveTotalFor,
-  ZONE_EXPAND_SPEED,
   massForRadius,
+  zoneExpandSpeed,
+  PLAYER_MAX_SPEED,
   type EnemyKind,
 } from "./balance";
 import {
@@ -676,7 +677,11 @@ export class Game {
     }
     
     // Жёсткий барьер зоны: отталкивает игрока обратно, если он вышел за границу
-    if (this.gameState.zone.active && this.gameState.zone.radius > 0) {
+    // clamp происходит ТОЛЬКО когда зона достигла целевого радиуса (перестала расширяться)
+    // Пока зона расширяется — игрок движется свободно, так как зона быстрее (1.7× PLAYER_MAX_SPEED)
+    if (this.gameState.zone.active && 
+        this.gameState.zone.radius >= this.gameState.zone.targetRadius && 
+        this.gameState.zone.radius > 0) {
       this.playerSystem.clampPlayerToZone(
         this.gameState.zone.x,
         this.gameState.zone.y,
@@ -1372,9 +1377,9 @@ export class Game {
       this.gameState.zone.active = true;
     }
 
-    // Скорость расширения = ZONE_EXPAND_SPEED (ZONE_EXPAND_SPEED_MULT × PLAYER_MAX_SPEED)
-    // Задается в balance.ts — игрок физически не может догнать зону
-    const expandSpeed = ZONE_EXPAND_SPEED;
+    // Скорость расширения учитывает апгрейд скорости игрока и временные бонусы
+    const speedMult = this.appliedUpgrades?.speedMult ?? 1.0;
+    const expandSpeed = zoneExpandSpeed(speedMult, PLAYER_MAX_SPEED);
     
     // Зона расширяется ТОЛЬКО когда отсчёт завершён
     if (this.gameState.zone.radius < this.gameState.zone.targetRadius && !this.countdownSystem.isCountdownActive()) {

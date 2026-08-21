@@ -78,6 +78,9 @@ interface Enemy {
   burstActive: boolean; // is burst phase active
   burstRestT: number; // countdown before next burst
   burstCd: number; // cooldown between individual spawns
+  // Dodge maneuvers
+  dodgeDir: number; // 1 = right, -1 = left, 0 = none
+  dodgeTimer: number; // remaining time for dodge maneuver
 }
 
 interface EnemyDef {
@@ -185,6 +188,8 @@ export class EnemySystem {
       burstActive: carrierBurstActive,
       burstRestT: carrierBurstActive ? 0 : rand(6, 10),
       burstCd: 0.5,
+      dodgeDir: 0,
+      dodgeTimer: 0,
     });
   }
   
@@ -221,7 +226,7 @@ export class EnemySystem {
       
       switch (e.kind) {
         case "drone": {
-          // Прямое преследование с фланговыми манёврами и уклонением от пуль
+          // Прямое преследование с боковыми уклонениями от пуль
           const angleToPlayer = Math.atan2(playerY - e.y, playerX - e.x);
           
           // Фланговое смещение — чем выше волна, тем агрессивнее
@@ -229,12 +234,10 @@ export class EnemySystem {
           const flankAngle = Math.sin(e.seed + this.wave * 0.5) * flankFactor;
           let targetAngle = angleToPlayer + flankAngle;
           
-          // Уклонение от пуль: проверяем ближайшие пули и отклоняемся
+          // Уклонение от пуль: боковой манёвр влево/вправо
           if (bullets.length > 0) {
-            const dodgeRadius = 160 + this.wave * 3; // радиус обнаружения пуль (больше)
-            const dodgeForce = 5.0; // сила уклонения (увеличена)
-            let dodgeX = 0;
-            let dodgeY = 0;
+            const dodgeRadius = 180 + this.wave * 2; // радиус обнаружения пуль
+            let bestDir = 0; // 1 = вправо, -1 = влево, 0 = не уклоняемся
             
             for (const b of bullets) {
               const bdx = b.x - e.x;
@@ -242,23 +245,74 @@ export class EnemySystem {
               const bDist = Math.hypot(bdx, bdy);
               
               if (bDist < dodgeRadius) {
-                // Вектор от пули к дрону (куда бежать)
-                const invDist = 1 / (bDist || 1);
-                // Чем ближе пуля и чем быстрее она летит, тем сильнее реакция
+                // Вектор направления пули
                 const bulletSpeed = Math.hypot(b.vx, b.vy);
-                const urgency = Math.max(0, 1 - bDist / dodgeRadius) * (bulletSpeed / 500);
-                dodgeX += (bdx * invDist) * urgency * dodgeForce;
-                dodgeY += (bdy * invDist) * urgency * dodgeForce;
+                if (bulletSpeed < 50) continue;
+                const bdxN = b.vx / bulletSpeed;
+                const bdyN = b.vy / bulletSpeed;
+                
+                // Время до столкновения (если летит в дрона)
+                const relX = (playerX - e.x) - b.x + e.x;
+                const relY = (playerY - e.y) - b.y + e.y;
+                const dotProduct = bdxN * bdx + bdyN * bdy;
+                
+                // Пуля летит к дрону? (dot > 0)
+                if (dotProduct < 0) continue;
+                
+                // Расстояние до точкиclosest point на траектории пули
+                const projectedDist = bDist - (dotProduct * bDist);
+                
+                if (projectedDist < 100) {
+                  // Пуля летит в дрона — нужно уклониться
+                  // Перпендикулярный вектор (направо и налево)
+                  // Нормаль: (-vy, vx) и (vy, -vx)
+                  const perpX = -bdyN;
+                  const perpY = bdxN;
+                  
+                  // Проверяем, свободна ли сторона вправо (перпендикуляр)
+                  // и левая (обратный перпендикуляр)
+                  // Выбираем сторону, где меньше препятствий (простая эвристика)
+                  const rightSideDist = this.checkSideFree(e.x, e.y, perpX, perpY, e.vx, e.vy, bullets, this.enemies);
+                  const leftSideDist = this.checkSideFree(e.x, e.y, -perpX, -perpY, -e.vx, -e.vy, bullets, this.enemies);
+                  
+                  // Предпочитаем сторону с большим расстоянием
+                  let chooseRight = rightSideDist > leftSideDist;
+                  
+                  // Предпочитаем противоположную сторону от последнего манёвра
+                  if (e.dodgeDir !== 0) {
+                    const oppositeRight = e.dodgeDir < 0; // предыдущий влево → сейчас вправо
+                    const oppositeLeft = e.dodgeDir > 0;
+                    // Смещаем выбор в пользу противоположной стороны
+                    if (oppositeRight && chooseRight) {
+                      // обе рекомендуют вправо — оставляем
+                    } else if (oppositeRight) {
+                      chooseRight = Math.random() < 0.7; // 70% шанс вправо
+                    } else if (oppositeLeft && !chooseRight) {
+                      chooseRight = Math.random() < 0.3; // 30% шанс вправо (т.е. 70% влево)
+                    }
+                  }
+                  
+                  bestDir = chooseRight ? 1 : -1;
+                  break; // нашли угрозу — выбираем направление
+                }
               }
             }
             
-            if (Math.abs(dodgeX) > 0.01 || Math.abs(dodgeY) > 0.01) {
-              const dodgeAngle = Math.atan2(dodgeY, dodgeX);
-              // Смещаем целевой угол в сторону уклонения (больше веса)
-              const dodgeWeight = Math.min(1.0, Math.hypot(dodgeX, dodgeY));
-              const blendedAngle = this.lerpAngleAngle(targetAngle, dodgeAngle, dodgeWeight);
-              targetAngle = blendedAngle;
+            if (bestDir !== 0) {
+              // Боковое смещение перпендикулярно направлению к игроку
+              const lateralAngle = angleToPlayer + (bestDir > 0 ? Math.PI / 2 : -Math.PI / 2);
+              const dodgeForce = 0.8;
+              targetAngle = this.lerpAngleAngle(targetAngle, lateralAngle, dodgeForce);
+              e.dodgeDir = bestDir; // запоминаем направление
+              e.dodgeTimer = 0.3; // таймер на манёвр
             }
+          }
+          
+          // Таймер уклонения — после истечения возвращаемся к преследованию
+          if (e.dodgeTimer > 0) {
+            e.dodgeTimer -= dt;
+          } else {
+            e.dodgeDir = 0; // сбрасываем направление
           }
           
           // Скорость зависит от дистанции — чем дальше, тем быстрее
@@ -273,15 +327,7 @@ export class EnemySystem {
           const dsp = Math.hypot(e.vx, e.vy);
           if (dsp > 5) {
             const movementAngle = Math.atan2(e.vy, e.vx);
-            const oldAngle = e.angle;
             e.angle = lerpAngleMath(e.angle, movementAngle, 1 - Math.exp(-5 * dt));
-            let angleDelta = e.angle - oldAngle;
-            while (angleDelta > Math.PI) angleDelta -= TAU;
-            while (angleDelta < -Math.PI) angleDelta += TAU;
-            if (DEBUG_ROTATION && Math.abs(angleDelta) > 0.3) {
-              rotationLogCounter.enemy++;
-              console.log(`[ROTATION] drone: angle ${oldAngle.toFixed(3)}→${e.angle.toFixed(3)} (delta=${angleDelta.toFixed(3)}), vel=(${e.vx.toFixed(1)},${e.vy.toFixed(1)}), spd=${dsp.toFixed(1)}`);
-            }
           }
           break;
         }
@@ -718,6 +764,8 @@ export class EnemySystem {
       burstActive: carrierBurstActive,
       burstRestT: carrierBurstActive ? 0 : rand(6, 10),
       burstCd: rand(0.7, 1.2),
+      dodgeDir: 0,
+      dodgeTimer: 0,
     };
     // Добавляем И во внутренний массив И во внешний (enemyList)
     // чтобы рендерер и коллизии видели врага
@@ -793,6 +841,47 @@ export class EnemySystem {
     while (diff > Math.PI) diff -= TAU;
     while (diff < -Math.PI) diff += TAU;
     return a + diff * t;
+  }
+  
+  /**
+   * Проверяет, свободна ли сторона от столкновений.
+   * Возвращает минимальное расстояние до любой пули/врага в этом направлении.
+   */
+  private checkSideFree(
+    ex: number, ey: number,
+    nx: number, ny: number, // направление проверки (нормализованное)
+    evx: number, evy: number, // текущая скорость дрона
+    bullets: Array<{x: number; y: number; vx: number; vy: number; life: number}>,
+    allEnemies: Array<{x: number; y: number; kind: string; dead: boolean}>
+  ): number {
+    const checkDist = 120;
+    let minDist = 9999;
+    
+    // Проверяем пули
+    for (const b of bullets) {
+      const dx = b.x - ex;
+      const dy = b.y - ey;
+      const proj = dx * nx + dy * ny;
+      if (proj < 0 || proj > checkDist) continue;
+      
+      // Перпендикулярное расстояние
+      const perpDist = Math.abs(dx * ny - dy * nx);
+      if (perpDist < minDist) minDist = perpDist;
+    }
+    
+    // Проверяем других врагов
+    for (const other of allEnemies) {
+      if (other.dead) continue;
+      const dx = other.x - ex;
+      const dy = other.y - ey;
+      const proj = dx * nx + dy * ny;
+      if (proj < 0 || proj > checkDist) continue;
+      
+      const perpDist = Math.abs(dx * ny - dy * nx);
+      if (perpDist < minDist) minDist = perpDist;
+    }
+    
+    return minDist;
   }
 }
 

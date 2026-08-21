@@ -30,14 +30,22 @@ export const C = {
 /* --------------------------- player & limits --------------------------- */
 
 export const PLAYER_RADIUS = 13;
-/** Reduced by 15% (310→248→211) — enemies are faster and more accurate. */
-export const PLAYER_MAX_SPEED = 211;
+/** Reduced by 15% (310→248→211) then -20% more (211*0.8=169) — enemies are faster and more accurate. */
+export const PLAYER_MAX_SPEED = 620;
+/** Drone base speed = 1.2 × player max speed. */
+export const DRONE_BASE_SPEED = PLAYER_MAX_SPEED * 1.3;
+/** Hunter speed = 0.46 × player max speed. */
+export const HUNTER_SPEED = PLAYER_MAX_SPEED * 1.1;
+/** Fighter base speed = 0.31 × player max speed. */
+export const FIGHTER_BASE_SPEED = PLAYER_MAX_SPEED * 0.9;
+/** Cruiser speed = 0.08 × player max speed. */
+export const CRUISER_BASE_SPEED = PLAYER_MAX_SPEED * 0.5;
+/** Carrier speed = 0.05 × player max speed. */
+export const CARRIER_BASE_SPEED = PLAYER_MAX_SPEED * 0.3;
 /** Thrust applied per second while the player holds a direction. */
 export const PLAYER_ACCEL = 1500;
 /** Zone expansion is this multiplier × PLAYER_MAX_SPEED. Must be > 1 so the player can never catch it. */
 export const ZONE_EXPAND_SPEED_MULT = 1.7;
-/** The zone wall always outpaces the ship, so it can never be caught. */
-export const ZONE_EXPAND_SPEED = PLAYER_MAX_SPEED * ZONE_EXPAND_SPEED_MULT;
 
 /* ------------------------- zone constants ------------------------- */
 
@@ -53,6 +61,8 @@ export const ZONE_PICKUP_MAGNET = 150;
 export const PLAYER_BULLET_SPEED = 560;
 export const PLAYER_BULLET_LIFE = 0.85;
 export const PLAYER_BULLET_DMG = 14;
+/** Base interval between shots in seconds. ~0.364s → ~0.455s (2.2 shots/sec) before bonuses. */
+export const PLAYER_FIRE_CD = 0.455;
 
 /* ------------------------- ally drones ------------------------- */
 
@@ -162,18 +172,18 @@ export function enemyDefFor(kind: EnemyKind, w: number): EnemyDef {
   switch (kind) {
     case "drone": {
       const r = 10;
-      return { r, hp: 12 * hpS, speed: 150 + w * 4, contact: 10 * dmgS, score: 10, bolt: 0, mass: massForRadius(r) };
+      return { r, hp: 12 * hpS, speed: DRONE_BASE_SPEED + w * 4, contact: 10 * dmgS, score: 10, bolt: 0, mass: massForRadius(r) };
     }
     case "hunter": {
       const r = 9;
-      return { r: 9, hp: 30 * hpS, speed: 285, contact: 25, score: 40, bolt: 0, mass: massForRadius(r) };
+      return { r: 9, hp: 30 * hpS, speed: HUNTER_SPEED, contact: 25, score: 40, bolt: 0, mass: massForRadius(r) };
     }
     case "fighter": {
       const r = 13;
       return {
         r: 13,
-        hp: 34 * hpS,
-        speed: (195 + w * 3) * 0.8,
+      hp: 34 * hpS,
+      speed: (FIGHTER_BASE_SPEED + w * 3) * 0.8,
         contact: 9.1 * dmgS,
         score: 25,
         bolt: 4.55 * dmgS,
@@ -182,11 +192,11 @@ export function enemyDefFor(kind: EnemyKind, w: number): EnemyDef {
     }
     case "cruiser": {
       const r = 26;
-      return { r: 26, hp: 155 * hpS, speed: 50 + w * 1.5, contact: 22 * dmgS, score: 60, bolt: 15 * dmgS, mass: massForRadius(r) };
+      return { r: 26, hp: 155 * hpS, speed: CRUISER_BASE_SPEED + w * 1.5, contact: 22 * dmgS, score: 60, bolt: 15 * dmgS, mass: massForRadius(r) };
     }
     case "carrier": {
       const r = 41;
-      return { r: 41, hp: 350 * hpS, speed: 32 + w * 0.8, contact: 26 * dmgS, score: 100, bolt: 0, mass: massForRadius(r) };
+      return { r: 41, hp: 350 * hpS, speed: CARRIER_BASE_SPEED + w * 0.8, contact: 26 * dmgS, score: 100, bolt: 0, mass: massForRadius(r) };
     }
   }
 }
@@ -295,4 +305,14 @@ export function dropChanceFor(kind: EnemyKind) {
     case "carrier":
       return 0.7;
   }
+}
+/**
+ * Calculate zone expansion speed based on player upgrades and temporary bonuses.
+ * @param speedMult — multiplier from player speed upgrade (1.0 + level × 0.05)
+ * @param currentMaxSpeed — base PLAYER_MAX_SPEED (169)
+ * @param accelBonus — temporary acceleration bonus (0.0 by default, e.g. from pickup/buff)
+ * @returns zone expansion speed in units/s
+ */
+export function zoneExpandSpeed(speedMult: number, currentMaxSpeed: number, accelBonus: number = 0): number {
+  return currentMaxSpeed * speedMult * ZONE_EXPAND_SPEED_MULT * (1 + accelBonus);
 }
