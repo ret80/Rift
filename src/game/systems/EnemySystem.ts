@@ -4,7 +4,7 @@
  */
 
 import type { AudioEngine } from '../audio';
-import { EnemyKind, massForRadius } from '../balance';
+import { EnemyKind, massForRadius, DRONE_BASE_SPEED, HUNTER_SPEED, FIGHTER_BASE_SPEED, CRUISER_BASE_SPEED, CARRIER_BASE_SPEED } from '../balance';
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { Fx } from '../fx';
@@ -225,98 +225,16 @@ export class EnemySystem {
       
       switch (e.kind) {
         case EnemyKind.Drone: {
-          // Прямое преследование с боковыми уклонениями от пуль
+          // Прямое преследование игрока
           const angleToPlayer = Math.atan2(playerY - e.y, playerX - e.x);
           
-          // Фланговое смещение — чем выше волна, тем агрессивнее
+          // Фланговое смещение — лёгкое смещение для непредсказуемости
           const flankFactor = Math.min(0.3, 0.05 + this.wave * 0.01);
           const flankAngle = Math.sin(e.seed + this.wave * 0.5) * flankFactor;
           let targetAngle = angleToPlayer + flankAngle;
           
-          // Уклонение от пуль: боковой манёвр влево/вправо
-          if (bullets.length > 0) {
-            const dodgeRadius = 180 + this.wave * 2; // радиус обнаружения пуль
-            let bestDir = 0; // 1 = вправо, -1 = влево, 0 = не уклоняемся
-            
-            for (const b of bullets) {
-              const bdx = b.x - e.x;
-              const bdy = b.y - e.y;
-              const bDist = Math.hypot(bdx, bdy);
-              
-              if (bDist < dodgeRadius) {
-                // Вектор направления пули
-                const bulletSpeed = Math.hypot(b.vx, b.vy);
-                if (bulletSpeed < 50) continue;
-                const bdxN = b.vx / bulletSpeed;
-                const bdyN = b.vy / bulletSpeed;
-                
-                // Время до столкновения (если летит в дрона)
-                const relX = (playerX - e.x) - b.x + e.x;
-                const relY = (playerY - e.y) - b.y + e.y;
-                const dotProduct = bdxN * bdx + bdyN * bdy;
-                
-                // Пуля летит к дрону? (dot > 0)
-                if (dotProduct < 0) continue;
-                
-                // Расстояние до точкиclosest point на траектории пули
-                const projectedDist = bDist - (dotProduct * bDist);
-                
-                if (projectedDist < 100) {
-                  // Пуля летит в дрона — нужно уклониться
-                  // Перпендикулярный вектор (направо и налево)
-                  // Нормаль: (-vy, vx) и (vy, -vx)
-                  const perpX = -bdyN;
-                  const perpY = bdxN;
-                  
-                  // Проверяем, свободна ли сторона вправо (перпендикуляр)
-                  // и левая (обратный перпендикуляр)
-                  // Выбираем сторону, где меньше препятствий (простая эвристика)
-                  const rightSideDist = this.checkSideFree(e.x, e.y, perpX, perpY, e.vx, e.vy, bullets, this.enemies);
-                  const leftSideDist = this.checkSideFree(e.x, e.y, -perpX, -perpY, -e.vx, -e.vy, bullets, this.enemies);
-                  
-                  // Предпочитаем сторону с большим расстоянием
-                  let chooseRight = rightSideDist > leftSideDist;
-                  
-                  // Предпочитаем противоположную сторону от последнего манёвра
-                  if (e.dodgeDir !== 0) {
-                    const oppositeRight = e.dodgeDir < 0; // предыдущий влево → сейчас вправо
-                    const oppositeLeft = e.dodgeDir > 0;
-                    // Смещаем выбор в пользу противоположной стороны
-                    if (oppositeRight && chooseRight) {
-                      // обе рекомендуют вправо — оставляем
-                    } else if (oppositeRight) {
-                      chooseRight = Math.random() < 0.7; // 70% шанс вправо
-                    } else if (oppositeLeft && !chooseRight) {
-                      chooseRight = Math.random() < 0.3; // 30% шанс вправо (т.е. 70% влево)
-                    }
-                  }
-                  
-                  bestDir = chooseRight ? 1 : -1;
-                  break; // нашли угрозу — выбираем направление
-                }
-              }
-            }
-            
-            if (bestDir !== 0) {
-              // Боковое смещение перпендикулярно направлению к игроку
-              const lateralAngle = angleToPlayer + (bestDir > 0 ? Math.PI / 2 : -Math.PI / 2);
-              const dodgeForce = 0.8;
-              targetAngle = this.lerpAngleAngle(targetAngle, lateralAngle, dodgeForce);
-              e.dodgeDir = bestDir; // запоминаем направление
-              e.dodgeTimer = 0.3; // таймер на манёвр
-            }
-          }
-          
-          // Таймер уклонения — после истечения возвращаемся к преследованию
-          if (e.dodgeTimer > 0) {
-            e.dodgeTimer -= dt;
-          } else {
-            e.dodgeDir = 0; // сбрасываем направление
-          }
-          
-          // Скорость зависит от дистанции — чем дальше, тем быстрее
-          const speedMult = Math.min(1.5, 0.8 + dist / 400);
-          const speed = e.speed * speedMult;
+          // Дрон не уклоняется от пуль — он летит прямо к игроку
+          const speed = e.speed;
           
           const k = 1 - Math.exp(-6 * dt);
           e.vx += (Math.cos(targetAngle) * speed - e.vx) * k;
@@ -688,12 +606,12 @@ export class EnemySystem {
   /** Возвращает weight для avoidance: насколько сильно корабль должен избегать других */
   private getDodgeWeight(kind: EnemyKind): number {
     switch (kind) {
-      case 'drone':     return 2.5; // рой должен рассеиваться
-      case 'hunter':    return 1.5; // охотники маневрируют
-      case 'fighter':   return 1.2; // истребители — умеренно
-      case 'cruiser':   return 1.0; // тяжёлые — по базе
-      case 'carrier':   return 0.8; // носители — меньше избегают
-      default:          return 1.0;
+      case EnemyKind.Drone:     return 2.5; // рой должен рассеиваться
+      case EnemyKind.Hunter:    return 1.5; // охотники маневрируют
+      case EnemyKind.Fighter:   return 1.2; // истребители — умеренно
+      case EnemyKind.Cruiser:   return 1.0; // тяжёлые — по базе
+      case EnemyKind.Carrier:   return 0.8; // носители — меньше избегают
+      default:                  return 1.0;
     }
   }
   
@@ -815,20 +733,15 @@ export class EnemySystem {
     const w = this.wave;
     switch (kind) {
       case EnemyKind.Drone:
-        // +30%: 295*1.3 ≈ 384: 384 + w*2, ~426 к волне 22
-        return { hp: 8, r: 14, speed: 384 + w * 2, contact: 12, score: 10, bolt: 8, mass: massForRadius(14) };
+        return { hp: 8, r: 14, speed: DRONE_BASE_SPEED + w * 2, contact: 12, score: 10, bolt: 8, mass: massForRadius(14) };
       case EnemyKind.Hunter:
-        // Быстрее игрока: 290 + w*2, ~334 к волне 22
-        return { hp: 20, r: 14, speed: 290 + w * 2, contact: 16, score: 25, bolt: 12, mass: massForRadius(14) };
+        return { hp: 20, r: 14, speed: HUNTER_SPEED + w * 2, contact: 16, score: 25, bolt: 12, mass: massForRadius(14) };
       case EnemyKind.Fighter:
-        // Скорость игрока (211) * 1.1 = 232 + w*0.5, ~243 к волне 22
-        return { hp: 35, r: 18, speed: 232 + w * 0.5, contact: 20, score: 40, bolt: 15, mass: massForRadius(18) };
+        return { hp: 35, r: 18, speed: FIGHTER_BASE_SPEED + w * 0.5, contact: 20, score: 40, bolt: 15, mass: massForRadius(18) };
       case EnemyKind.Cruiser:
-        // Тяжёлый, медленный: 60 + w*1.5, ~93 к волне 22
-        return { hp: 250, r: 26, speed: 60 + w * 1.5, contact: 24, score: 80, bolt: 18, mass: massForRadius(26) };
+        return { hp: 250, r: 26, speed: CRUISER_BASE_SPEED + w * 1.5, contact: 24, score: 80, bolt: 18, mass: massForRadius(26) };
       case EnemyKind.Carrier:
-        // Самый медленный: 50 + w*1, ~72 к волне 22
-        return { hp: 350, r: 41, speed: 50 + w * 1, contact: 30, score: 150, bolt: 25, mass: massForRadius(41) };
+        return { hp: 350, r: 41, speed: CARRIER_BASE_SPEED + w * 1, contact: 30, score: 150, bolt: 25, mass: massForRadius(41) };
       default:
         return { hp: 10, r: 12, speed: 80, contact: 14, score: 15, bolt: 10, mass: massForRadius(12) };
     }

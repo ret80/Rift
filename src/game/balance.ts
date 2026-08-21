@@ -31,16 +31,16 @@ export const C = {
 
 export const PLAYER_RADIUS = 13;
 /** Reduced by 15% (310→248→211) then -20% more (211*0.8=169) — enemies are faster and more accurate. */
-export const PLAYER_MAX_SPEED = 620;
-/** Drone base speed = 1.2 × player max speed. */
-export const DRONE_BASE_SPEED = PLAYER_MAX_SPEED * 1.3;
-/** Hunter speed = 0.46 × player max speed. */
-export const HUNTER_SPEED = PLAYER_MAX_SPEED * 1.1;
-/** Fighter base speed = 0.31 × player max speed. */
-export const FIGHTER_BASE_SPEED = PLAYER_MAX_SPEED * 0.9;
-/** Cruiser speed = 0.08 × player max speed. */
+export const PLAYER_MAX_SPEED = 500;
+/** Drone base speed = 1.9 × player max speed. */
+export const DRONE_BASE_SPEED = PLAYER_MAX_SPEED * 0.85;
+/** Hunter speed = 1.1 × player max speed. */
+export const HUNTER_SPEED = PLAYER_MAX_SPEED * 0.8;
+/** Fighter base speed = 0.9 × player max speed. */
+export const FIGHTER_BASE_SPEED = PLAYER_MAX_SPEED * 0.8;
+/** Cruiser speed = 0.5 × player max speed. */
 export const CRUISER_BASE_SPEED = PLAYER_MAX_SPEED * 0.5;
-/** Carrier speed = 0.05 × player max speed. */
+/** Carrier speed = 0.3 × player max speed. */
 export const CARRIER_BASE_SPEED = PLAYER_MAX_SPEED * 0.3;
 /** Thrust applied per second while the player holds a direction. */
 export const PLAYER_ACCEL = 1500;
