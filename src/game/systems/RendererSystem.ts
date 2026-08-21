@@ -5,7 +5,7 @@
  */
 
 import type { AsteroidField } from "../asteroids";
-import { C, GUN_OFFS, MINE_LIFE, MINE_RADIUS, RATE_BOOST_TIME, type EnemyKind, type PickupKind } from "../balance";
+import { C, GUN_OFFS, MINE_LIFE, MINE_RADIUS, RATE_BOOST_TIME, EnemyKind, type PickupKind } from "../balance";
 import type { Fx } from "../fx";
 import { clamp, rgba, TAU, easeOutCubic } from "../math";
 import type { Renderer, RGBA } from "../render";
@@ -428,11 +428,11 @@ export class RendererSystem {
         1,
       ];
       switch (e.kind) {
-        case "drone": {
+        case EnemyKind.Drone: {
           this.drawShipPoly(R, e.x, e.y, e.angle, [[9, 0], [-7, 7], [-4, 0], [-7, -7]], col);
           break;
         }
-        case "hunter": {
+        case EnemyKind.Hunter: {
           this.drawShipPoly(R, e.x, e.y, e.angle, [[13, 0], [-8, 6], [-4, 0], [-8, -6]], col);
           R.circle(
             e.x + Math.cos(e.angle) * 5,
@@ -450,16 +450,16 @@ export class RendererSystem {
           );
           break;
         }
-        case "fighter": {
+        case EnemyKind.Fighter: {
           this.drawShipPoly(R, e.x, e.y, e.angle, [[14, 0], [-10, 9], [-5, 0], [-10, -9]], col);
           break;
         }
-        case "cruiser": {
+        case EnemyKind.Cruiser: {
           this.drawShipPoly(R, e.x, e.y, e.angle, [[22, 0], [8, 14], [-18, 12], [-18, -12], [8, -14]], col);
           R.circle(e.x, e.y, 8, rgba(base, 0.5), 16);
           break;
         }
-        case "carrier": {
+        case EnemyKind.Carrier: {
           this.drawShipPoly(R, e.x, e.y, e.angle, [[30, 0], [10, 20], [-24, 16], [-24, -16], [10, -20]], col);
           R.circle(e.x, e.y, 12, rgba(base, 0.4), 20);
           R.dashedCircle(e.x, e.y, 20, rgba(base, 0.3), 8, time * 0.8);
@@ -475,11 +475,11 @@ export class RendererSystem {
 
   private kindColor(kind: EnemyKind): string {
     switch (kind) {
-      case "drone": return C.drone;
-      case "hunter": return C.hunter;
-      case "fighter": return C.fighter;
-      case "cruiser": return C.cruiser;
-      case "carrier": return C.carrier;
+      case EnemyKind.Drone: return C.drone;
+      case EnemyKind.Hunter: return C.hunter;
+      case EnemyKind.Fighter: return C.fighter;
+      case EnemyKind.Cruiser: return C.cruiser;
+      case EnemyKind.Carrier: return C.carrier;
     }
   }
 

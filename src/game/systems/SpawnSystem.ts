@@ -14,7 +14,7 @@ import {
   waveTotalFor,
   zoneRadiusFor,
   pickKindFor,
-  type EnemyKind,
+  EnemyKind,
 } from "../balance";
 import { rand, TAU } from "../math";
 
@@ -119,7 +119,7 @@ export class SpawnSystem {
        roll -= wt;
        if (roll <= 0) return kind;
      }
-     return "drone";
+      return EnemyKind.Drone;
    }
 
   /**

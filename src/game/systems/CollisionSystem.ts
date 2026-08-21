@@ -4,7 +4,7 @@
  * Импульс передаётся пропорционально массе.
  */
 
-import { dropChanceFor, massForRadius, type AsteroidKind, type EnemyKind, type PickupKind } from '../balance';
+import { dropChanceFor, massForRadius, type AsteroidKind, EnemyKind, type PickupKind } from '../balance';
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { PhysicsSystem } from '../core/PhysicsSystem';
@@ -133,39 +133,39 @@ export class CollisionSystem {
   }
   
   /** Amount of parts dropped by each enemy type */
-  private partsAmountFor(enemyKind: string): number {
+  private partsAmountFor(enemyKind: EnemyKind): number {
     switch (enemyKind) {
-      case "drone": return 2;
-      case "hunter": return 4;
-      case "fighter": return 5;
-      case "cruiser": return 12;
-      case "carrier": return 25;
+      case EnemyKind.Drone: return 2;
+      case EnemyKind.Hunter: return 4;
+      case EnemyKind.Fighter: return 5;
+      case EnemyKind.Cruiser: return 12;
+      case EnemyKind.Carrier: return 25;
       default: return 1;
     }
   }
   
   /** Determine what kind of bonus drops from a destroyed enemy */
-  private getDropKind(enemyKind: string, seed: number): PickupKind | null {
+  private getDropKind(enemyKind: EnemyKind, seed: number): PickupKind | null {
     // Random roll using seed + deterministic offset
     const roll = (seed * 7.31 + 13.37) % 1;
-    const chance = dropChanceFor(enemyKind as any);
+    const chance = dropChanceFor(enemyKind);
     if (roll >= chance) return null;
     
     // Pick bonus type based on enemy kind
     switch (enemyKind) {
-      case "drone":
+      case EnemyKind.Drone:
         // drones drop small heals and rate boost
         return roll < 0.035 ? "rate20" : "heal25";
-      case "hunter":
+      case EnemyKind.Hunter:
         // hunters drop rate and heal
         return roll < 0.125 ? "rate20" : "heal25";
       case "fighter":
         // fighters drop gun and heal
         return roll < 0.05 ? "gun" : "heal50";
-      case "cruiser":
+      case EnemyKind.Cruiser:
         // cruisers drop drone and dash
         return roll < 0.125 ? "drone" : "dash";
-      case "carrier":
+      case EnemyKind.Carrier:
         // carriers always drop something
         const types: PickupKind[] = ["drone", "gun", "dash", "miner"];
         return types[Math.floor(roll * types.length)];

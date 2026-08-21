@@ -112,7 +112,13 @@ export const STAR_LAYERS: StarLayer[] = [
 
 /* ------------------------------- enemies ------------------------------- */
 
-export type EnemyKind = "drone" | "hunter" | "fighter" | "cruiser" | "carrier";
+export enum EnemyKind {
+  Drone = "drone",
+  Hunter = "hunter",
+  Fighter = "fighter",
+  Cruiser = "cruiser",
+  Carrier = "carrier",
+}
 
 /* -------------- mass based on radius (mass = π·r², scaled) -------------- */
 export function massForRadius(r: number): number {
@@ -170,31 +176,31 @@ export function enemyDefFor(kind: EnemyKind, w: number): EnemyDef {
   const hpS = hpScale(w);
   const dmgS = dmgScale(w);
   switch (kind) {
-    case "drone": {
+    case EnemyKind.Drone: {
       const r = 10;
       return { r, hp: 12 * hpS, speed: DRONE_BASE_SPEED + w * 4, contact: 10 * dmgS, score: 10, bolt: 0, mass: massForRadius(r) };
     }
-    case "hunter": {
+    case EnemyKind.Hunter: {
       const r = 9;
       return { r: 9, hp: 30 * hpS, speed: HUNTER_SPEED, contact: 25, score: 40, bolt: 0, mass: massForRadius(r) };
     }
-    case "fighter": {
+    case EnemyKind.Fighter: {
       const r = 13;
       return {
         r: 13,
-      hp: 34 * hpS,
-      speed: (FIGHTER_BASE_SPEED + w * 3) * 0.8,
+        hp: 34 * hpS,
+        speed: (FIGHTER_BASE_SPEED + w * 3) * 0.8,
         contact: 9.1 * dmgS,
         score: 25,
         bolt: 4.55 * dmgS,
         mass: massForRadius(r),
       };
     }
-    case "cruiser": {
+    case EnemyKind.Cruiser: {
       const r = 26;
       return { r: 26, hp: 155 * hpS, speed: CRUISER_BASE_SPEED + w * 1.5, contact: 22 * dmgS, score: 60, bolt: 15 * dmgS, mass: massForRadius(r) };
     }
-    case "carrier": {
+    case EnemyKind.Carrier: {
       const r = 41;
       return { r: 41, hp: 350 * hpS, speed: CARRIER_BASE_SPEED + w * 0.8, contact: 26 * dmgS, score: 100, bolt: 0, mass: massForRadius(r) };
     }
@@ -215,11 +221,11 @@ export function zoneRadiusFor(w: number) {
 /** Weighted class mix; each class ramps in over its own window. */
 export function kindWeights(w: number): Array<[EnemyKind, number]> {
   return [
-    ["drone", 1],
-    ["hunter", 0.15 * ramp01(w, 3, 18)],
-    ["fighter", 0.55 * ramp01(w, 1, 12)],
-    ["cruiser", 0.45 * ramp01(w, 4, 15)],
-    ["carrier", 0.25 * ramp01(w, 8, 16)],
+    [EnemyKind.Drone, 1],
+    [EnemyKind.Hunter, 0.15 * ramp01(w, 3, 18)],
+    [EnemyKind.Fighter, 0.55 * ramp01(w, 1, 12)],
+    [EnemyKind.Cruiser, 0.45 * ramp01(w, 4, 15)],
+    [EnemyKind.Carrier, 0.25 * ramp01(w, 8, 16)],
   ];
 }
 
@@ -232,7 +238,7 @@ export function pickKindFor(w: number): EnemyKind {
     roll -= wt;
     if (roll <= 0) return kind;
   }
-  return "drone";
+  return EnemyKind.Drone;
 }
 
 /* --------------------------- drop chances --------------------------- */
@@ -294,15 +300,15 @@ export const FPS_SMOOTHING_FACTOR = 0.08; // EMA smoothing for FPS
 
 export function dropChanceFor(kind: EnemyKind) {
   switch (kind) {
-    case "drone":
+    case EnemyKind.Drone:
       return 0.07;
-    case "hunter":
+    case EnemyKind.Hunter:
       return 0.25;
-    case "fighter":
+    case EnemyKind.Fighter:
       return 0.1;
-    case "cruiser":
+    case EnemyKind.Cruiser:
       return 0.25;
-    case "carrier":
+    case EnemyKind.Carrier:
       return 0.7;
   }
 }

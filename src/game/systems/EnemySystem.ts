@@ -4,8 +4,7 @@
  */
 
 import type { AudioEngine } from '../audio';
-import type { EnemyKind } from '../balance';
-import { massForRadius } from '../balance';
+import { EnemyKind, massForRadius } from '../balance';
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { Fx } from '../fx';
@@ -144,7 +143,7 @@ export class EnemySystem {
 
   addEnemy(kind: EnemyKind, x: number, y: number, def: EnemyDef): void {
     // Дроны ориентируются носом к игроку при спавне
-    const angle = kind === "drone"
+    const angle = kind === EnemyKind.Drone
       ? Math.atan2(this.state.player.y - y, this.state.player.x - x)
       : rand(0, TAU);
     logRotation('spawn', `${kind} at (${x.toFixed(0)},${y.toFixed(0)}) angle=${angle.toFixed(3)}`);
@@ -225,7 +224,7 @@ export class EnemySystem {
       const dirY = dy / dist;
       
       switch (e.kind) {
-        case "drone": {
+        case EnemyKind.Drone: {
           // Прямое преследование с боковыми уклонениями от пуль
           const angleToPlayer = Math.atan2(playerY - e.y, playerX - e.x);
           
@@ -332,7 +331,7 @@ export class EnemySystem {
           break;
         }
         
-        case "hunter": {
+        case EnemyKind.Hunter: {
           // Улучшенное предсказание с прогрессией — чем выше волна, тем лучше предсказание
           const lookahead = 0.4 + this.wave * 0.03;
           const leadX = playerX + playerVx * lookahead;
@@ -359,7 +358,7 @@ export class EnemySystem {
           break;
         }
         
-        case "fighter": {
+        case EnemyKind.Fighter: {
           // Атака с дистанции: сближение → удержание идеальной дистанции → орбита
           const angleToPlayer = Math.atan2(playerY - e.y, playerX - e.x);
           
@@ -411,11 +410,11 @@ export class EnemySystem {
           break;
         }
         
-        case "cruiser": {
+        case EnemyKind.Cruiser: {
           let escort: Enemy | null = null;
           let ed = 1e9;
           for (const o of this.enemies) {
-            if (o.kind !== "carrier" || o.dead) continue;
+            if (o.kind !== EnemyKind.Carrier || o.dead) continue;
             const dd = Math.hypot(e.x - o.x, e.y - o.y);
             if (dd < ed) {
               ed = dd;
@@ -475,7 +474,7 @@ export class EnemySystem {
           break;
         }
         
-        case "carrier": {
+        case EnemyKind.Carrier: {
           const HOLD = 480;
           const radial = (dist - HOLD) * 0.7;
           let desX = dirX * radial + -dirY * e.strafeDir * e.speed * 0.4;
@@ -551,14 +550,14 @@ export class EnemySystem {
       e.y += e.vy * dt;
       
       // shooting logic
-      if (e.kind === "fighter" || e.kind === "cruiser" || e.kind === "carrier") {
-        const canShoot = (e.kind === "fighter" && dist < 500) ||
-                        (e.kind === "cruiser" && dist < 380) ||
-                        (e.kind === "carrier" && dist < 500);
+      if (e.kind === EnemyKind.Fighter || e.kind === EnemyKind.Cruiser || e.kind === EnemyKind.Carrier) {
+        const canShoot = (e.kind === EnemyKind.Fighter && dist < 500) ||
+                        (e.kind === EnemyKind.Cruiser && dist < 380) ||
+                        (e.kind === EnemyKind.Carrier && dist < 500);
         
         if (canShoot) {
           // Cruiser: dual independent turrets with staggered cooldowns
-          if (e.kind === "cruiser") {
+          if (e.kind === EnemyKind.Cruiser) {
             const accuracy = this.getAccuracy(this.wave);
             const spread = (1 - accuracy) * 0.8;
             // Скорость пуль +20%: 540+w*3 → 648+w*3.6
@@ -611,15 +610,15 @@ export class EnemySystem {
             const accuracy = this.getAccuracy(this.wave);
             const spread = (1 - accuracy) * 1.2;
             // Скорость пуль = скорости игрока (560), с малой прогрессией
-            const speed = e.kind === "fighter" ? 560 + this.wave * 0.5 : 560 + this.wave * 0.5;
-            const life = e.kind === "fighter" ? 1.35 : 1.8;
-            const baseRate = e.kind === "fighter" ? 0.8 : 1.5; //fighter = cruiser rate
+            const speed = e.kind === EnemyKind.Fighter ? 560 + this.wave * 0.5 : 560 + this.wave * 0.5;
+            const life = e.kind === EnemyKind.Fighter ? 1.35 : 1.8;
+            const baseRate = e.kind === EnemyKind.Fighter ? 0.8 : 1.5; //fighter = cruiser rate
             const waveBoost = Math.min(2.5, 1 + this.wave * 0.08);
             e.fireCd -= dt * waveBoost;
             
             if (e.fireCd <= 0) {
               e.fireCd = baseRate; // сбрасываем на baseRate для нового цикла
-              const heavy = e.kind === "carrier";
+              const heavy = e.kind === EnemyKind.Carrier;
               
               this.enemyFireCallback({
                 x: e.x,
@@ -723,7 +722,7 @@ export class EnemySystem {
     const def = this.getEnemyDef(kind);
     const mass = massForRadius(def.r);
     // Дроны ориентируются носом к игроку при спавне
-    const angle = kind === "drone"
+    const angle = kind === EnemyKind.Drone
       ? Math.atan2(this.state.player.y - y, this.state.player.x - x)
       : rand(0, TAU);
     logRotation('spawn', `${kind} at (${x.toFixed(0)},${y.toFixed(0)}) angle=${angle.toFixed(3)}`);
@@ -815,19 +814,19 @@ export class EnemySystem {
   private getEnemyDef(kind: EnemyKind): EnemyDef {
     const w = this.wave;
     switch (kind) {
-      case "drone":
+      case EnemyKind.Drone:
         // +30%: 295*1.3 ≈ 384: 384 + w*2, ~426 к волне 22
         return { hp: 8, r: 14, speed: 384 + w * 2, contact: 12, score: 10, bolt: 8, mass: massForRadius(14) };
-      case "hunter":
+      case EnemyKind.Hunter:
         // Быстрее игрока: 290 + w*2, ~334 к волне 22
         return { hp: 20, r: 14, speed: 290 + w * 2, contact: 16, score: 25, bolt: 12, mass: massForRadius(14) };
-      case "fighter":
+      case EnemyKind.Fighter:
         // Скорость игрока (211) * 1.1 = 232 + w*0.5, ~243 к волне 22
         return { hp: 35, r: 18, speed: 232 + w * 0.5, contact: 20, score: 40, bolt: 15, mass: massForRadius(18) };
-      case "cruiser":
+      case EnemyKind.Cruiser:
         // Тяжёлый, медленный: 60 + w*1.5, ~93 к волне 22
         return { hp: 250, r: 26, speed: 60 + w * 1.5, contact: 24, score: 80, bolt: 18, mass: massForRadius(26) };
-      case "carrier":
+      case EnemyKind.Carrier:
         // Самый медленный: 50 + w*1, ~72 к волне 22
         return { hp: 350, r: 41, speed: 50 + w * 1, contact: 30, score: 150, bolt: 25, mass: massForRadius(41) };
       default:

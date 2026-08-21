@@ -12,7 +12,7 @@ import {
   massForRadius,
   zoneExpandSpeed,
   PLAYER_MAX_SPEED,
-  type EnemyKind,
+  EnemyKind,
 } from "./balance";
 import {
   loadUpgrades,
@@ -547,7 +547,7 @@ export class Game {
     this.eventBus.on("carrierSpawnDrone", (event) => {
       const data = event.payload as { x: number; y: number; parent: Enemy | null };
       const { x, y, parent } = data;
-      this.spawnEnemy("drone", x, y, parent);
+      this.spawnEnemy(EnemyKind.Drone, x, y, parent);
     });
 
     this.eventBus.on("fire_bullet", (event) => {
@@ -845,7 +845,7 @@ export class Game {
         const count = 1 + Math.floor(Math.random() * 3); // 1-3 ships
         const kinds: EnemyKind[] = [];
         for (let i = 0; i < count; i++) {
-          kinds.push("drone");
+          kinds.push(EnemyKind.Drone);
         }
         this.menuRifts.push({
           x, y,
