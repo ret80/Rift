@@ -159,6 +159,10 @@ export class PlayerSystem {
     this.player.hp = Math.min(this.player.hp, max);
   }
   
+  resetHp(): void {
+    this.player.hp = this.player.maxHp;
+  }
+  
   setInvuln(t: number): void {
     this.player.invuln = t;
   }

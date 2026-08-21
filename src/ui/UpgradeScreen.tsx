@@ -17,17 +17,18 @@ interface UpgradeRowProps {
   upgrades: PlayerUpgrades;
   onPurchase: (key: keyof Omit<PlayerUpgrades, "parts">) => void;
   game: Game | null;
+  detailsOn: boolean;
 }
 
 function UpgradeRow(props: UpgradeRowProps) {
   const t = useT();
-  const { upgradeKey, upgrades, onPurchase, game } = props;
+  const { upgradeKey, upgrades, onPurchase, game, detailsOn } = props;
   
   const level = upgrades[upgradeKey];
   const tier = UPGRADE_TIERS[upgradeKey];
   const maxed = level >= tier.maxLevel;
   const cost = upgradeCost(upgradeKey, level);
-  const affordable = upgrades.parts >= cost;
+  const affordable = maxed ? false : detailsOn ? true : upgrades.parts >= cost;
   
   const labelKey = `upgrade.${upgradeKey}` as string;
   const descKey = `upgrade.${upgradeKey}Desc` as string;
@@ -161,6 +162,7 @@ function UpgradeIcon(props: { kind: keyof Omit<PlayerUpgrades, "parts"> }) {
 
 export function UpgradeScreen(props: {
   game: Game | null;
+  detailsOn: boolean;
   onBack: () => void;
 }) {
   const t = useT();
@@ -180,15 +182,19 @@ export function UpgradeScreen(props: {
       console.warn('[UpgradeScreen] game is null');
       return;
     }
-    const ups = props.game.getPlayerUpgrades();
-    const canAff = ups.parts >= upgradeCost(key, ups[key]);
-    const maxed = ups[key] >= UPGRADE_TIERS[key].maxLevel;
-    console.log(`[UpgradeScreen] Buying ${key}: level=${ups[key]}, parts=${ups.parts}, cost=${upgradeCost(key, ups[key])}, affordable=${canAff}, maxed=${maxed}`);
-    if (purchaseUpgrade(ups, key)) {
-      console.log(`[UpgradeScreen] Purchase successful, new state:`, props.game.getPlayerUpgrades());
+    const success = props.detailsOn
+      ? props.game.purchaseUpgradeNoCost(key)
+      : (() => {
+          const ups = props.game.getPlayerUpgrades();
+          const maxed = ups[key] >= UPGRADE_TIERS[key].maxLevel;
+          if (maxed) {
+            console.warn(`[UpgradeScreen] ${key} is maxed`);
+            return false;
+          }
+          return purchaseUpgrade(ups, key);
+        })();
+    if (success) {
       setUpgrades(props.game.getPlayerUpgrades());
-    } else {
-      console.warn('[UpgradeScreen] purchaseUpgrade returned false');
     }
   };
   
@@ -216,6 +222,7 @@ export function UpgradeScreen(props: {
               <UpgradeRow
                 key={upgradeKey}
                 game={props.game}
+                detailsOn={props.detailsOn}
                 upgradeKey={upgradeKey}
                 upgrades={upgrades}
                 onPurchase={handlePurchase}

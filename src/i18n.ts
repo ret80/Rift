@@ -190,6 +190,8 @@ const en: Dict = {
   "debug.note": "debug tools · changes persist",
   "debug.fps": "FPS COUNTER",
   "debug.fpsDesc": "frame rate readout over the game",
+  "debug.details": "+1000 DETAILS",
+  "debug.detailsDesc": "show extra debug info",
   "debug.god": "GOD MODE",
   "debug.godDesc": "player takes no damage",
   "debug.godOn": "GOD MODE ON",

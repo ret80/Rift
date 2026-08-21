@@ -408,6 +408,8 @@ export function DebugScreen(props: {
   onToggleFps: () => void;
   onToggleGod: () => void;
   onChangeWave: (n: number) => void;
+  onToggleDetails: () => void;
+  detailsOn: boolean;
   onBack: () => void;
 }) {
   const t = useT();
@@ -439,6 +441,12 @@ export function DebugScreen(props: {
               desc={t("debug.godDesc")}
               on={props.godOn}
               onClick={props.onToggleGod}
+            />
+            <DevToggle
+              label={t("debug.details")}
+              desc={t("debug.detailsDesc")}
+              on={props.detailsOn}
+              onClick={props.onToggleDetails}
             />
           </div>
 

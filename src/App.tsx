@@ -74,6 +74,13 @@ export default function App() {
       return 1;
     }
   });
+  const [debugDetails, setDebugDetails] = useState(() => {
+    try {
+      return localStorage.getItem("rift9_debug_details") === "1";
+    } catch {
+      return false;
+    }
+  });
   const fpsTextRef = useRef<HTMLDivElement | null>(null);
 
   const [isTouch] = useState(
@@ -231,6 +238,18 @@ export default function App() {
     gameRef.current?.setStartWave(n);
   };
 
+  const toggleDebugDetails = () => {
+    setDebugDetails((v) => {
+      const nv = !v;
+      try {
+        localStorage.setItem("rift9_debug_details", nv ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      return nv;
+    });
+  };
+
   // poll the engine's smoothed frame rate while the overlay is visible
   useEffect(() => {
     if (!debugFps) return;
@@ -332,9 +351,11 @@ export default function App() {
           fpsOn={debugFps}
           godOn={debugGod}
           startWave={debugWave}
+          detailsOn={debugDetails}
           onToggleFps={toggleDebugFps}
           onToggleGod={toggleDebugGod}
           onChangeWave={changeDebugWave}
+          onToggleDetails={toggleDebugDetails}
           onBack={() => setScreen("menu")}
         />
       )}
@@ -342,6 +363,7 @@ export default function App() {
       {screen === "upgrade" && (
         <UpgradeScreen
           game={gameRef.current}
+          detailsOn={debugDetails}
           onBack={() => setScreen("menu")}
         />
       )}
@@ -426,7 +448,7 @@ export default function App() {
         <div
           className="pointer-events-none absolute z-30 border border-[#7dff9e]/40 bg-[#07130c]/80 px-2 py-0.5 font-mono text-[10px] tracking-[0.15em] text-[#7dff9e]"
           style={{
-            right: "12px",
+            left: "12px",
             bottom: "calc(env(safe-area-inset-bottom) + 12px)",
           }}
         >

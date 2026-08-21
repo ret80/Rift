@@ -19,6 +19,7 @@ import {
   saveUpgrades,
   applyUpgrades,
   defaultUpgrades,
+  UPGRADE_TIERS,
   type PlayerUpgrades,
   type AppliedUpgrades,
 } from "./upgrades";
@@ -1014,6 +1015,16 @@ export class Game {
     }
   }
 
+  /** Purchase upgrade bypassing cost check (debug: +1000 details) */
+  purchaseUpgradeNoCost(key: keyof Omit<PlayerUpgrades, "parts">): boolean {
+    const level = this.playerUpgrades[key];
+    if (level >= UPGRADE_TIERS[key].maxLevel) return false;
+    this.playerUpgrades[key]++;
+    saveUpgrades(this.playerUpgrades);
+    this.refreshUpgrades();
+    return true;
+  }
+
   toggleDebug(): void {
     this.debugShow = !this.debugShow;
     this.debugToggleTimer = 1;
@@ -1175,6 +1186,8 @@ export class Game {
       this.playerSystem.setMaxHp(up.baseHp);
       this.playerSystem.setGuns(up.gunCount);
       this.bulletSystem.setBulletDmg(up.bulletDmg);
+      // Refill HP to new max
+      this.playerSystem.resetHp();
     }
     
     this.enemyList.length = 0;
