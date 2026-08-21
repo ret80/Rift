@@ -6,7 +6,7 @@
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { Enemy } from '../entities/Enemy';
-import type { EnemyKind } from '../balance';
+import { EnemyKind } from '../balance';
 
 export interface SpawnPosition {
   x: number;
@@ -145,18 +145,18 @@ export class WaveManager {
     
     // Дроны - базовые враги, появляются всегда
     const droneCount = Math.round(total * 0.5);
-    kinds.push({ kind: 'drone', count: droneCount });
+    kinds.push({ kind: EnemyKind.Drone, count: droneCount });
     
     // Охотники - появляются с 2 волны
     if (waveNumber >= 2) {
       const hunterCount = Math.round(total * 0.3);
-      kinds.push({ kind: 'hunter', count: hunterCount });
+      kinds.push({ kind: EnemyKind.Hunter, count: hunterCount });
     }
     
     // Истребители - появляются с 4 волны
     if (waveNumber >= 4) {
       const fighterCount = Math.round(total * 0.2);
-      kinds.push({ kind: 'fighter', count: fighterCount });
+      kinds.push({ kind: EnemyKind.Fighter, count: fighterCount });
     }
     
     return { total, kinds };

@@ -60,6 +60,8 @@ export interface Enemy {
   spawnCd: number; flash: number; hitCd: number;
   dead: boolean; parent: Enemy | null;
   mass: number;
+  dodgeWeight: number;
+  dodgeDir: number; dodgeTimer: number;
   burstSpawned: number;
   burstActive: boolean;
   burstRestT: number;
