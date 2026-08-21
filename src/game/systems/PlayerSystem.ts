@@ -55,6 +55,9 @@ interface PlayerState {
   missileActive: boolean;
   missilePort: number;
   missileCd: number;
+  // Extra guns bonus (from pickup)
+  extraGuns: number;
+  extraGunsT: number;
 }
 
 export class PlayerSystem {
@@ -87,6 +90,9 @@ export class PlayerSystem {
     missileActive: false,
     missilePort: 0,
     missileCd: 0,
+    // Extra guns bonus
+    extraGuns: 0,
+    extraGunsT: 0,
   };
   
   private fireCd = 0;
@@ -103,7 +109,11 @@ export class PlayerSystem {
   private missileDurationT = 0;
   
   // Для внешних систем
-  public bullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number }> = [];
+  public bullets: Array<{
+    x: number; y: number; vx: number; vy: number; life: number; dmg: number;
+    homingTarget?: { x: number; y: number; r: number };
+    homingTurnRate?: number;
+  }> = [];
   
   constructor(
     eventBus: EventBus,
@@ -142,6 +152,13 @@ export class PlayerSystem {
       dashT: 0,
       aimA: null,
       mass: massForRadius(PLAYER_RADIUS),
+      // Missile launcher
+      missileActive: false,
+      missilePort: 0,
+      missileCd: 0,
+      // Extra guns bonus
+      extraGuns: 0,
+      extraGunsT: 0,
     };
     this.fireCd = 0;
     this.bullets = [];
@@ -245,11 +262,6 @@ export class PlayerSystem {
   
   getAimA(): number | null {
     return this.player.aimA;
-  }
-
-  /** Общее количество орудий (базовое + бонусное) */
-  getTotalGuns(): number {
-    return Math.min(5, this.player.guns + this.player.extraGuns);
   }
 
   // Методы для вызова из game.ts

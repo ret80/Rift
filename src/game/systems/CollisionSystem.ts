@@ -445,7 +445,7 @@ export class CollisionSystem {
     for (let i = enemyBullets.length - 1; i >= 0; i--) {
       const b = enemyBullets[i];
       for (let j = drones.length - 1; j >= 0; j--) {
-        const d = drones[j] as { x: number; y: number; r: number; hp?: number; maxHp?: number };
+        const d = drones[j] as { x: number; y: number; r: number; hp?: number; maxHp?: number; flash?: number };
         if (this.checkBulletCollision(b.x, b.y, { x: d.x, y: d.y, r: d.r })) {
           if (d.hp != null && d.maxHp != null) {
             d.hp -= b.dmg;

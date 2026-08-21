@@ -13,6 +13,7 @@ import { ALLY_DRONE_ORBIT, ALLY_DRONE_RANGE, ALLY_DRONE_DMG, ALLY_DRONE_FIRE_CD,
 export interface DroneData {
   x: number;
   y: number;
+  r: number;
   angle: number;
   fireCd: number;
   phase: number;
@@ -33,6 +34,7 @@ export class DroneSystem {
   private drones: Array<{
     x: number;
     y: number;
+    r: number;
     angle: number;
     fireCd: number;
     phase: number;
