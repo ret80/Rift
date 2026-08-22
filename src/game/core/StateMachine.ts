@@ -55,9 +55,7 @@ export class GameStateMachine<TContext = unknown> {
   /** Выполнить переход */
   fire(trigger: string, ctx?: TContext): boolean {
     const context = ctx ?? this.initialContext;
-    console.log('[DEBUG FSM] fire("' + trigger + '") state=', this.currentState, 'ctx=', !!context);
     if (!context) {
-      console.log('[DEBUG FSM] fire("'+ trigger + '") FAILED: no context, current =', this.currentState);
       return false;
     }
 
@@ -68,21 +66,16 @@ export class GameStateMachine<TContext = unknown> {
         (t.guard?.(context) !== false)
     );
 
-    console.log('[DEBUG FSM] allowed transitions:', allowed.map(t => t.target));
-
     if (allowed.length === 0) {
-      console.log('[DEBUG FSM] fire("'+ trigger + '") NO MATCH: current =', this.currentState, 'all triggers:', this.transitions.map(t => t.trigger));
       return false;
     }
 
     for (const t of allowed) {
       // Переход в то же состояние — noop (защита от двойного входа)
       if (t.target === this.currentState) {
-        console.log('[DEBUG FSM] fire("'+ trigger + '") same state, calling onEnter. state =', this.currentState);
         if (t.onEnter) t.onEnter(context);
         return true;
       }
-      console.log('[DEBUG FSM] fire("'+ trigger + '") transitioning from', this.currentState, 'to', t.target);
       this.currentState = t.target;
       if (t.onEnter) t.onEnter(context);
       this.notifyEnter(t.target, context);

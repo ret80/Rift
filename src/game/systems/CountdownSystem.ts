@@ -86,11 +86,9 @@ export class CountdownSystem {
 
     // Когда countdown заканчивается — скрываем и вызываем callback
     if (this.cdT <= 0) {
-      console.log('[DEBUG Countdown] cdT <= 0, calling countdownDone. cdT =', this.cdT);
       this.hooks.onCountdown(null);
       if (this.hooks.countdownDone) {
         this.hooks.countdownDone();
-        console.log('[DEBUG Countdown] countdownDone called');
       }
       // Больше не обновляем
       return;

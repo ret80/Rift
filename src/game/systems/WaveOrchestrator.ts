@@ -241,15 +241,12 @@ export class WaveOrchestrator {
     countdownActive: boolean
   ): void {
     const currentState = this.waveFSM.state;
-    console.log('[DEBUG WaveOrchestrator] update called: waveFSM.state =', currentState, 'zone.active =', this.zone.active, 'countdownActive =', countdownActive);
     if (currentState !== "active" && currentState !== "cleared") {
-      console.log('[DEBUG WaveOrchestrator] returning early: state =', currentState);
       return;
     }
 
     // Initialize zone when countdown ends
     if (!this.zone.active && currentState === "active" && !countdownActive) {
-      console.log('[DEBUG WaveOrchestrator] ACTIVATING ZONE!');
       this.activateZone(playerPos.x, playerPos.y);
     }
 

@@ -75,6 +75,7 @@ import { CollisionSystem } from "./systems/CollisionSystem";
 import { CountdownSystem } from "./systems/CountdownSystem";
 import { DroneSystem } from "./systems/DroneSystem";
 import { EnemySystem } from "./systems/EnemySystem";
+import { InputSystem } from "./systems/InputSystem";
 import { MineSystem } from "./systems/MineSystem";
 import { PickupSystem } from "./systems/PickupSystem";
 import { PlayerSystem } from "./systems/PlayerSystem";
@@ -154,12 +155,7 @@ export class Game {
   readonly audio = new AudioEngine();
   private renderer: Renderer;
   private hooks: Hooks;
-  private touchActive = false;
-  private touchX = 0;
-  private touchY = 0;
-  private mouseX = 0;
-  private mouseY = 0;
-  private mouseDown = false;
+  private inputSystem: InputSystem;
 
   private raf = 0;
   private lastT = 0;
@@ -248,22 +244,28 @@ export class Game {
     this.renderer.resize(w, h);
     this.camera.resize(w, h, Math.min(window.devicePixelRatio || 1, 1.75));
   };
-  
-  private updateAimAngle() {
-    // Convert mouse screen position to world position
-    const worldX = this.camX + (this.mouseX - window.innerWidth / 2) / this.zoom;
-    const worldY = this.camY + (this.mouseY - window.innerHeight / 2) / this.zoom;
-    
-    const playerPos = this.playerSystem.getState();
-    const angle = Math.atan2(worldY - playerPos.y, worldX - playerPos.x);
-    this.playerSystem.setAim(angle);
-  }
 
   constructor(canvas: HTMLCanvasElement, hooks: Hooks) {
     this.renderer = new Renderer(canvas);
     this.hooks = hooks;
     this.scoringSystem = new ScoringSystem();
     this.onResize();
+
+    /* Initialize input system (mouse/touch for aiming and firing) */
+    this.inputSystem = new InputSystem(canvas, {
+      onAimUpdate: (mouseX, mouseY, winW, winH) => {
+        // Convert mouse screen position to world position
+        const worldX = this.camX + (mouseX - winW / 2) / this.zoom;
+        const worldY = this.camY + (mouseY - winH / 2) / this.zoom;
+        
+        const playerPos = this.playerSystem.getState();
+        const angle = Math.atan2(worldY - playerPos.y, worldX - playerPos.x);
+        this.playerSystem.setAim(angle);
+      },
+      onFiringChanged: (firing) => {
+        this.playerSystem.setIsFiring(firing);
+      },
+    });
 
     /* Initialize core systems */
     this.eventBus = new EventBus();
@@ -320,34 +322,6 @@ export class Game {
     this.fx = new Fx();
     this.starfield = new Starfield();
     
-    // Setup mouse/touch controls for aiming and firing
-    const gameCanvas = this.renderer.canvas;
-    gameCanvas.addEventListener('mousemove', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      this.mouseX = e.clientX - rect.left;
-      this.mouseY = e.clientY - rect.top;
-      this.updateAimAngle();
-    });
-    canvas.addEventListener('mousedown', (e) => {
-      this.mouseDown = true;
-      this.playerSystem.setIsFiring(true);
-    });
-    canvas.addEventListener('mouseup', () => {
-      this.mouseDown = false;
-      this.playerSystem.setIsFiring(false);
-    });
-    canvas.addEventListener('mouseleave', () => {
-      this.mouseDown = false;
-      this.playerSystem.setIsFiring(false);
-    });
-    canvas.addEventListener('touchstart', (e) => {
-      this.mouseDown = true;
-      this.playerSystem.setIsFiring(true);
-    }, { passive: true });
-    canvas.addEventListener('touchend', () => {
-      this.mouseDown = false;
-      this.playerSystem.setIsFiring(false);
-    });
     this.asteroidField = new AsteroidField({
       addScore: (n) => this.scoringSystem.add(n),
       spawnPickup: (kind, x, y, vx, vy) => this.spawnPickup(kind, x, y, vx, vy),
@@ -593,6 +567,7 @@ export class Game {
   destroy() {
     cancelAnimationFrame(this.raf);
     window.removeEventListener("resize", this.onResize);
+    this.inputSystem.destroy();
     this.input.destroy();
     this.audio.destroy();
   }
@@ -1100,7 +1075,7 @@ export class Game {
       ``,
       `INPUT:`,
       `  axis: ${this.input.axis.x.toFixed(2)}, ${this.input.axis.y.toFixed(2)}`,
-      `  mouse: [${this.mouseX}, ${this.mouseY}]`,
+      `  mouse: [${this.inputSystem.mouse.x}, ${this.inputSystem.mouse.y}]`,
       ``,
       `CONTROLS:`,
       `  Tab: toggle debug`,
@@ -1409,7 +1384,7 @@ export class Game {
       const targetAngle = Math.atan2(nearestEnemy.y - playerPos.y, nearestEnemy.x - playerPos.x);
       this.playerSystem.setAim(targetAngle);
       this.playerSystem.setIsFiring(true);
-    } else if (!this.mouseDown) {
+    } else if (!this.inputSystem.isDown) {
       // Если нет врагов и игрок не нажал кнопку мыши, прекращаем стрельбу
       this.playerSystem.setIsFiring(false);
     }
