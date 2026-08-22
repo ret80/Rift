@@ -76,6 +76,7 @@ import { CollisionSystem } from "./systems/CollisionSystem";
 import { CountdownSystem } from "./systems/CountdownSystem";
 import { DroneSystem } from "./systems/DroneSystem";
 import { EnemySystem } from "./systems/EnemySystem";
+import { EntityPoolSystem } from "./systems/EntityPoolSystem";
 import { InputSystem } from "./systems/InputSystem";
 import { MineSystem } from "./systems/MineSystem";
 import { PickupSystem } from "./systems/PickupSystem";
@@ -234,13 +235,10 @@ export class Game {
   /* Debug */
   private debugSystem: DebugSystem;
 
-  /* Entity arrays */
-  private enemyList: Enemy[] = [];
-  private bullets: Bullet[] = [];
-  private enemyBulletList: EBullet[] = [];
-  private pickups: Pickup[] = [];
-  private allyDrones: AllyDrone[] = [];
-  private mines: Mine[] = [];
+  /* Entity pools */
+  private entityPool: EntityPoolSystem;
+
+  /* Game state */
   private mineDropT = -1;
   private minerals = 0;
 
@@ -259,6 +257,7 @@ export class Game {
     /* Initialize camera system first (needed by onResize) */
     this.cameraSystem = new CameraSystem();
     this.debugSystem = new DebugSystem();
+    this.entityPool = new EntityPoolSystem();
 
     this.onResize();
 
@@ -462,8 +461,8 @@ export class Game {
         // Save persistent upgrades (parts) before death animation
         saveUpgrades(this.playerUpgrades);
         // Clear all enemy bullets to prevent "orphan bullets" on restart
-        this.enemyBulletList.length = 0;
-        this.bullets.length = 0;
+        this.entityPool.enemyBulletList.length = 0;
+        this.entityPool.bullets.length = 0;
         // Spawn death explosion particles
         const pos = this.getPlayerPosition();
         for (let i = 0; i < DEATH_EXPLOSION_PARTICLES; i++) {
@@ -611,9 +610,9 @@ export class Game {
       const data = event.payload as { x: number; y: number; vx: number; vy: number; life: number; dmg: number; isEnemy: boolean };
       const { x, y, vx, vy, life, dmg, isEnemy } = data;
       if (isEnemy) {
-        this.enemyBulletList.push({ x, y, vx, vy, life, dmg, heavy: false, cruiser: false });
+        this.entityPool.enemyBulletList.push({ x, y, vx, vy, life, dmg, heavy: false, cruiser: false });
       } else {
-        this.bullets.push({ x, y, vx, vy, life, dmg });
+        this.entityPool.bullets.push({ x, y, vx, vy, life, dmg });
       }
     });
 
@@ -630,7 +629,7 @@ export class Game {
 
     this.eventBus.on("drone_fired", (event) => {
       const data = event.payload as { x: number; y: number; vx: number; vy: number; damage: number };
-      this.enemyBulletList.push({
+      this.entityPool.enemyBulletList.push({
         x: data.x,
         y: data.y,
         vx: data.vx,
@@ -645,8 +644,7 @@ export class Game {
     this.eventBus.on("drone_hit", (event) => {
       const data = event.payload as { x: number; y: number; dead: boolean };
       if (data.dead) {
-        const idx = this.allyDrones.findIndex(d => Math.abs(d.x - data.x) < 2 && Math.abs(d.y - data.y) < 2);
-        if (idx !== -1) this.allyDrones.splice(idx, 1);
+        this.entityPool.removeAllyDroneAt(data.x, data.y);
       }
     });
 
@@ -714,7 +712,7 @@ export class Game {
     this.playerSystem.update(dtScaled, this.fsm.not("menu", "over", "dying"));
     // Автоматический запуск ракет с левого и правого борта
     if (this.fsm.is("active", "dying")) {
-      this.playerSystem.launchMissiles(dtScaled, this.enemyList);
+      this.playerSystem.launchMissiles(dtScaled, this.entityPool.enemyList);
     }
     
     // Handle dying → over transition
@@ -748,20 +746,20 @@ export class Game {
         this.gameState.zone.radius,
         this.gameState.zone.active
       );
-      this.enemySystem.update(dtScaled, this.enemyList, this.getPlayerPosition(), this.enemyBulletList);
-      this.bulletSystem.update(dtScaled, this.bullets, this.enemyBulletList, this.enemyList);
+      this.enemySystem.update(dtScaled, this.entityPool.enemyList, this.getPlayerPosition(), this.entityPool.enemyBulletList);
+      this.bulletSystem.update(dtScaled, this.entityPool.bullets, this.entityPool.enemyBulletList, this.entityPool.enemyList);
       // Обработка самонаведения ракет
       this.updateHomingMissiles(dtScaled);
-      this.mineSystem.update(dtScaled, this.mines);
+      this.mineSystem.update(dtScaled, this.entityPool.mines);
       // Orbit drones around player (droneSystem.update handles AI/firing only)
       const pState = this.playerSystem.getState();
-      for (const d of this.allyDrones) {
+      for (const d of this.entityPool.allyDrones) {
         d.phase += dtScaled * 0.5;
         d.x = pState.x + Math.cos(d.phase) * 58;
         d.y = pState.y + Math.sin(d.phase) * 58;
         if (d.r == null) d.r = 10;
       }
-      this.droneSystem.update(dtScaled, this.allyDrones, this.enemyList);
+      this.droneSystem.update(dtScaled, this.entityPool.allyDrones, this.entityPool.enemyList);
     }
     const playerState = this.playerSystem.getState();
     // Get asteroids from asteroid field for collision
@@ -770,15 +768,15 @@ export class Game {
       this.collisionSystem.update(
         dtScaled,
         { x: playerState.x, y: playerState.y, r: 16, hp: playerState.hp, invuln: playerState.invuln, mass: playerState.mass || 1, vx: playerState.vx || 0, vy: playerState.vy || 0 },
-        this.enemyList as any,
-        this.bullets as any,
-        this.enemyBulletList as any,
-        this.pickups as any,
-        this.mines as any,
-        this.allyDrones as any,
+        this.entityPool.enemyList as any,
+        this.entityPool.bullets as any,
+        this.entityPool.enemyBulletList as any,
+        this.entityPool.pickups as any,
+        this.entityPool.mines as any,
+        this.entityPool.allyDrones as any,
         asteroids as any
       );
-      this.pickupSystem.update(dtScaled, this.pickups);
+      this.pickupSystem.update(dtScaled, this.entityPool.pickups);
       this.spawnSystem.update(dtScaled, this.wave, this.allocated, this.killedWave, this);
     }
     this.riftField.update(dtScaled);
@@ -840,12 +838,12 @@ export class Game {
         score: this.scoringSystem.score,
       },
       playerRender,
-      this.enemyList,
-      this.bullets,
-      this.enemyBulletList,
-      this.pickups,
-      this.mines,
-      this.allyDrones,
+      this.entityPool.enemyList,
+      this.entityPool.bullets,
+      this.entityPool.enemyBulletList,
+      this.entityPool.pickups,
+      this.entityPool.mines,
+      this.entityPool.allyDrones,
       {
         active: this.gameState.zone.active,
         x: this.gameState.zone.x,
@@ -878,13 +876,13 @@ export class Game {
       maxHp: this.playerSystem.getMaxHp(),
       killed: this.killedWave,
       total: this.waveTotal,
-      enemies: this.enemyList.length,
+      enemies: this.entityPool.enemyList.length,
       comboMult: s.comboMult,
       time: s.runTime,
       guns: this.playerSystem.getGuns(),
       rateMult: this.playerSystem.getRateMult(),
       rateT: this.playerSystem.getRateT(),
-      drones: this.allyDrones.length,
+      drones: this.entityPool.allyDrones.length,
       minerals: this.minerals,
       parts: this.playerUpgrades.parts,
     };
@@ -979,7 +977,7 @@ export class Game {
       zoneTargetRadius: this.gameState.zone.targetRadius,
       zoneAlpha: this.gameState.zone.alpha,
       countdownActive: this.countdownSystem.isCountdownActive(),
-      enemyCount: this.enemyList.length,
+      enemyCount: this.entityPool.enemyList.length,
       riftCount: this.riftField.list.length,
       waveTotal: this.waveTotal,
       kills: this.scoringSystem.getState().killed,
@@ -1034,12 +1032,12 @@ export class Game {
       this.playerSystem.resetHp();
     }
     
-    this.enemyList.length = 0;
-    this.bullets.length = 0;
-    this.enemyBulletList.length = 0;
-    this.pickups.length = 0;
-    this.allyDrones.length = 0;
-    this.mines.length = 0;
+    this.entityPool.enemyList.length = 0;
+    this.entityPool.bullets.length = 0;
+    this.entityPool.enemyBulletList.length = 0;
+    this.entityPool.pickups.length = 0;
+    this.entityPool.allyDrones.length = 0;
+    this.entityPool.mines.length = 0;
     this.mineDropT = -1;
     this.minerals = 0;
     
@@ -1065,7 +1063,7 @@ export class Game {
   }
 
   private spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number) {
-    this.pickups.push({ kind, x, y, vx, vy, life: 20, seed: Math.random(), r: 14 });
+    this.entityPool.spawnPickup(kind, x, y, vx, vy);
   }
 
   private spawnParts(amount: number, x: number, y: number) {
@@ -1074,7 +1072,7 @@ export class Game {
   }
 
   private spawnEnemy(kind: EnemyKind, x: number, y: number, parent: Enemy | null) {
-    this.enemySystem.spawn(kind, x, y, parent, this.enemyList);
+    this.enemySystem.spawn(kind, x, y, parent, this.entityPool.enemyList);
     this.allocated++;
   }
 
@@ -1093,13 +1091,13 @@ export class Game {
   }
 
   private fireAll(angle: number) {
-    this.bulletSystem.firePlayerBullets(this.playerSystem.getState(), angle, this.bullets);
+    this.bulletSystem.firePlayerBullets(this.playerSystem.getState(), angle, this.entityPool.bullets);
   }
 
   /** Обновить самонаведение ракет */
   private updateHomingMissiles(dt: number) {
-    for (let i = 0; i < this.bullets.length; i++) {
-      const b = this.bullets[i] as any;
+    for (let i = 0; i < this.entityPool.bullets.length; i++) {
+      const b = this.entityPool.bullets[i] as any;
       if (!b.homingTarget) continue;
 
       const target = b.homingTarget;
@@ -1132,7 +1130,7 @@ export class Game {
     const heavy = data.cruiser || data.heavy;
     const speed = data.boltSpeed ?? (data.cruiser ? CRUISER_BULLET_SPEED : 300);
     const life = data.cruiser ? 1.8 : 1.35;
-    this.enemyBulletList.push({
+    this.entityPool.enemyBulletList.push({
       x: data.x + Math.cos(data.angle) * 14,
       y: data.y + Math.sin(data.angle) * 14,
       vx: Math.cos(data.angle) * speed,
@@ -1165,7 +1163,7 @@ export class Game {
         this.playerSystem.addGunBonus(2, 15);
         break;
       case "drone":
-        this.droneSystem.spawn(this.allyDrones, this.getPlayerPosition(), this.playerSystem.getMaxHp());
+        this.droneSystem.spawn(this.entityPool.allyDrones, this.getPlayerPosition(), this.playerSystem.getMaxHp());
         break;
       case "dash":
         this.playerSystem.setDashT(5);
@@ -1199,7 +1197,7 @@ export class Game {
     // Если оркестратор уже в cleared — переход к следующей волне, игнорируем убийства
     if (this.waveOrchestrator.waveState === "cleared") return;
     
-    const alive = this.enemyList.filter((e) => !e.dead).length;
+    const alive = this.entityPool.enemyList.filter((e) => !e.dead).length;
     if (alive === 0) {
       // Проверяем что все враги действительно спавнятся (спавновая очередь пуста)
       // и все враги убиты
@@ -1222,7 +1220,7 @@ export class Game {
     const playerPos = this.getPlayerPosition();
     const asteroids = ((this.asteroidField as any).list || []) as any[];
     const countdownActive = this.countdownSystem.isCountdownActive();
-    this.waveOrchestrator.update(dt, playerPos, this.enemyList, asteroids, countdownActive);
+    this.waveOrchestrator.update(dt, playerPos, this.entityPool.enemyList, asteroids, countdownActive);
   }
 
   /** Delegate menu asteroid spawning to MenuScene */
@@ -1240,7 +1238,7 @@ export class Game {
     let nearestEnemy: { x: number; y: number; dist: number } | null = null;
     let nearestDist = gunRange;
     
-    for (const e of this.enemyList) {
+    for (const e of this.entityPool.enemyList) {
       if (e.dead) continue;
       const dx = e.x - playerPos.x;
       const dy = e.y - playerPos.y;
