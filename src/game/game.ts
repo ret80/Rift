@@ -37,8 +37,6 @@ import {
   DEATH_EXPLOSION_MAX_SPEED,
   DEATH_EXPLOSION_MIN_LIFE,
   DEATH_EXPLOSION_MAX_LIFE,
-  // Camera
-  CAMERA_SMOOTHING,
   // FPS
   FPS_SMOOTHING_FACTOR,
   // Zone gun range (still used by Game for autofire)
@@ -50,7 +48,6 @@ import { MenuScene } from "./systems/MenuScene";
 import { ScoringSystem } from "./systems/ScoringSystem";
 
 /* Core systems */
-import { Camera } from "./core/Camera";
 import { EventBus } from "./core/EventBus";
 import { GameState } from "./core/GameState";
 import { createGameFSM, type GameFSMContext } from "./core/GameFSM";
@@ -72,6 +69,7 @@ import type { AllyDrone, Bullet, EBullet, Enemy, Mine, Pickup } from "./types";
 
 /* Game systems */
 import { BulletSystem } from "./systems/BulletSystem";
+import { CameraSystem } from "./systems/CameraSystem";
 import { CollisionSystem } from "./systems/CollisionSystem";
 import { CountdownSystem } from "./systems/CountdownSystem";
 import { DroneSystem } from "./systems/DroneSystem";
@@ -223,11 +221,8 @@ export class Game {
   private popupId = 0;
   private countId = 0;
 
-  /* Camera - управляет миром и преобразованиями координат */
-  private camX = 0;
-  private camY = 0;
-  private zoom = 1;
-  private camera = new Camera();
+  /* Camera - система управления камерой (smooth follow) */
+  private cameraSystem: CameraSystem;
 
   /* Entity arrays */
   private enemyList: Enemy[] = [];
@@ -243,21 +238,26 @@ export class Game {
     const w = window.innerWidth;
     const h = window.innerHeight;
     this.renderer.resize(w, h);
-    this.camera.resize(w, h, Math.min(window.devicePixelRatio || 1, 1.75));
+    this.cameraSystem.resize(w, h, Math.min(window.devicePixelRatio || 1, 1.75));
   };
 
   constructor(canvas: HTMLCanvasElement, hooks: Hooks) {
     this.renderer = new Renderer(canvas);
     this.hooks = hooks;
     this.scoringSystem = new ScoringSystem();
+
+    /* Initialize camera system first (needed by onResize) */
+    this.cameraSystem = new CameraSystem();
+
     this.onResize();
 
     /* Initialize input system (mouse/touch for aiming and firing) */
     this.inputSystem = new InputSystem(canvas, {
       onAimUpdate: (mouseX, mouseY, winW, winH) => {
         // Convert mouse screen position to world position
-        const worldX = this.camX + (mouseX - winW / 2) / this.zoom;
-        const worldY = this.camY + (mouseY - winH / 2) / this.zoom;
+        const cp = this.cameraSystem.getPosition();
+        const worldX = cp.x + (mouseX - winW / 2) / cp.zoom;
+        const worldY = cp.y + (mouseY - winH / 2) / cp.zoom;
         
         const playerPos = this.playerSystem.getState();
         const angle = Math.atan2(worldY - playerPos.y, worldX - playerPos.x);
@@ -349,7 +349,7 @@ export class Game {
       this.riftField,
       this.rendererSystem,
       this.renderer,
-      this.camera,
+      this.cameraSystem.getRawCamera(),
     );
 
     /* Initialize game logic systems with dependency injection */
@@ -729,7 +729,7 @@ export class Game {
     }
 
     if (this.paused) {
-      this.render();
+      this.render(dt);
       return;
     }
 
@@ -834,27 +834,26 @@ export class Game {
     this.gameState.zone.collapseT = wz.collapseT;
     
     // Update asteroid field with camera and zone info
+    const cp = this.cameraSystem.getPosition();
     this.asteroidField.update(dtScaled, {
-      camX: this.camX,
-      camY: this.camY,
+      camX: cp.x,
+      camY: cp.y,
       viewW: window.innerWidth,
       viewH: window.innerHeight,
       zone: this.gameState.zone.active ? { x: this.gameState.zone.x, y: this.gameState.zone.y, r: this.gameState.zone.radius } : null,
     } as any);
 
-    this.render();
+    this.render(dt);
     this.renderDebug();
     this.updateHud();
   }
 
-  private render() {
+  private render(dt: number) {
     const playerState = this.playerSystem.getState();
     
-    // Camera follows player with smooth interpolation
-    const targetCamX = playerState.x;
-    const targetCamY = playerState.y;
-    this.camX += (targetCamX - this.camX) * Math.min(1, CAMERA_SMOOTHING * FPS_SMOOTHING_FACTOR);
-    this.camY += (targetCamY - this.camY) * Math.min(1, CAMERA_SMOOTHING * FPS_SMOOTHING_FACTOR);
+    // Smooth camera follow (delegated to CameraSystem)
+    this.cameraSystem.update(playerState, dt);
+    const pos = this.cameraSystem.getPosition();
     
     const playerRender = this.playerSystem.getRenderState();
     
@@ -881,9 +880,9 @@ export class Game {
         targetRadius: this.gameState.zone.targetRadius,
         alpha: this.gameState.zone.alpha,
       },
-      this.camX,
-      this.camY,
-      this.zoom,
+      pos.x,
+      pos.y,
+      pos.zoom,
       window.innerWidth,
       window.innerHeight
     );
