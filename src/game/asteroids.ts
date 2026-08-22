@@ -3,7 +3,7 @@
    Every rock can drop a mineral. The wave zone repels rocks. */
 
 import type { Renderer } from "./render";
-import type { AudioEngine } from "./audio";
+import type { AudioManager } from "./systems/AudioManager";
 import type { Fx } from "./fx";
 import { TAU, rand, clamp, mulberry32, rgba } from "./math";
 import type { AsteroidKind, PickupKind } from "./balance";
@@ -38,7 +38,7 @@ export interface AsteroidHooks {
   addScore(n: number): void;
   spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number): void;
   fx: Fx;
-  audio: AudioEngine;
+  audio: AudioManager;
 }
 
 const CHUNK = 1000;

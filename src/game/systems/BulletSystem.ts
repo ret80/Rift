@@ -6,7 +6,7 @@
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { Fx } from '../fx';
-import type { AudioEngine } from '../audio';
+import type { AudioManager } from './AudioManager';
 import { PLAYER_BULLET_SPEED } from '../balance';
 
 export interface BulletData {
@@ -23,7 +23,7 @@ export class BulletSystem {
   private eventBus: EventBus;
   private state: GameState;
   private fx: Fx;
-  private audio: AudioEngine;
+  private audio: AudioManager;
   private bulletDmg: number = 14;  // bullet damage, set by game when upgrades are applied
   
   // Пули игрока
@@ -31,7 +31,7 @@ export class BulletSystem {
   // Пули врагов
   private enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number; heavy: boolean; cruiser: boolean }> = [];
 
-  constructor(eventBus: EventBus, state: GameState, fx: Fx, audio: AudioEngine) {
+  constructor(eventBus: EventBus, state: GameState, fx: Fx, audio: AudioManager) {
     this.eventBus = eventBus;
     this.state = state;
     this.fx = fx;

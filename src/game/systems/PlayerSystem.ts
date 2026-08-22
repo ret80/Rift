@@ -3,7 +3,7 @@
  * Отвечает за движение, стрельбу, здоровье и состояние игрока.
  */
 
-import type { AudioEngine } from '../audio';
+import type { AudioManager } from './AudioManager';
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { Fx } from '../fx';
@@ -65,7 +65,7 @@ export class PlayerSystem {
   private state: GameState;
   private input: InputManager;
   private fx: Fx;
-  private audio: AudioEngine;
+  private audio: AudioManager;
   private getZoneBounds: () => { x: number; y: number; radius: number; active: boolean };
   private spawnPickup: (kind: string, x: number, y: number, vx: number, vy: number) => void;
   private fireAllCallback: (angle: number) => void;
@@ -120,7 +120,7 @@ export class PlayerSystem {
     state: GameState,
     input: InputManager,
     fx: Fx,
-    audio: AudioEngine,
+    audio: AudioManager,
     getZoneBounds: () => { x: number; y: number; radius: number; active: boolean },
     spawnPickup: (kind: string, x: number, y: number, vx: number, vy: number) => void,
     fireAllCallback: (angle: number) => void

@@ -3,7 +3,7 @@
  * Отвечает за AI, движение, стрельбу и состояние врагов.
  */
 
-import type { AudioEngine } from '../audio';
+import type { AudioManager } from './AudioManager';
 import { EnemyKind, massForRadius, DRONE_BASE_SPEED, HUNTER_SPEED, FIGHTER_BASE_SPEED, CRUISER_BASE_SPEED, CARRIER_BASE_SPEED, CRUISER_FIRE_RANGE, CRUISER_BULLET_SPEED, PLAYER_BULLET_SPEED } from '../balance';
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
@@ -96,7 +96,7 @@ export class EnemySystem {
   private eventBus: EventBus;
   private state: GameState;
   private fx: Fx;
-  private audio: AudioEngine;
+  private audio: AudioManager;
   private enemyFireCallback: (e: EnemyFireData) => void;
   private getZoneBounds: () => { x: number; y: number; radius: number; active: boolean };
   
@@ -110,7 +110,7 @@ export class EnemySystem {
     eventBus: EventBus,
     state: GameState,
     fx: Fx,
-    audio: AudioEngine,
+    audio: AudioManager,
     enemyFireCallback: (e: EnemyFireData) => void,
     getZoneBounds: () => { x: number; y: number; radius: number; active: boolean }
   ) {

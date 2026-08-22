@@ -6,7 +6,7 @@
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import { PickupKind, ZONE_PICKUP_MAGNET } from '../balance';
-import type { AudioEngine } from '../audio';
+import type { AudioManager } from './AudioManager';
 
 export interface PickupData {
   kind: PickupKind;
@@ -21,7 +21,7 @@ export interface PickupData {
 export class PickupSystem {
   private eventBus: EventBus;
   private state: GameState;
-  private audio: AudioEngine;
+  private audio: AudioManager;
   private applyPickup: (kind: PickupKind) => void;
   private getPlayerPosition: () => { x: number; y: number };
   
@@ -38,7 +38,7 @@ export class PickupSystem {
   constructor(
     eventBus: EventBus,
     state: GameState,
-    audio: AudioEngine,
+    audio: AudioManager,
     applyPickup: (kind: PickupKind) => void,
     getPlayerPosition: () => { x: number; y: number }
   ) {

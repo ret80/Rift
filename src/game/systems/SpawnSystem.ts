@@ -8,7 +8,7 @@ import { t } from "../../i18n";
 import type { EventBus } from "../core/EventBus";
 import type { RiftField } from "../rifts";
 import type { Fx } from "../fx";
-import type { AudioEngine } from "../audio";
+import type { AudioManager } from "./AudioManager";
 import {
   C,
   waveTotalFor,
@@ -20,7 +20,7 @@ import { rand, TAU } from "../math";
 
 export interface SpawnHooks {
   fx: Fx;
-  audio: AudioEngine;
+  audio: AudioManager;
 }
 
 /** Данные о текущей волне для спавна. */
@@ -39,7 +39,7 @@ export class SpawnSystem {
   private eventBus: EventBus;
   private riftField: RiftField;
   private fx: Fx;
-  private audio: AudioEngine;
+  private audio: AudioManager;
   private currentWave = 1;
   private announcedKinds = new Set<EnemyKind>();
   private lastSpawnTime = 0;
@@ -52,7 +52,7 @@ export class SpawnSystem {
     eventBus: EventBus;
     riftField: RiftField;
     fx: Fx;
-    audio: AudioEngine;
+    audio: AudioManager;
   }) {
     this.hooks = config.hooks;
     this.eventBus = config.eventBus;

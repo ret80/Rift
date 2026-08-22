@@ -7,7 +7,7 @@ import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { Enemy } from '../types';
 import type { Fx } from '../fx';
-import type { AudioEngine } from '../audio';
+import type { AudioManager } from './AudioManager';
 import { ALLY_DRONE_ORBIT, ALLY_DRONE_RANGE, ALLY_DRONE_DMG, ALLY_DRONE_FIRE_CD, MAX_ALLY_DRONES } from '../balance';
 
 export interface DroneData {
@@ -28,7 +28,7 @@ export class DroneSystem {
   private eventBus: EventBus;
   private state: GameState;
   private fx: Fx;
-  private audio: AudioEngine;
+  private audio: AudioManager;
   private spawnEnemy: (kind: string, x: number, y: number, parent: any) => void;
   
   private drones: Array<{
@@ -45,7 +45,7 @@ export class DroneSystem {
     flash: number;
   }> = [];
 
-  constructor(eventBus: EventBus, state: GameState, fx: Fx, audio: AudioEngine, spawnEnemy: (kind: string, x: number, y: number, parent: any) => void) {
+  constructor(eventBus: EventBus, state: GameState, fx: Fx, audio: AudioManager, spawnEnemy: (kind: string, x: number, y: number, parent: any) => void) {
     this.eventBus = eventBus;
     this.state = state;
     this.fx = fx;

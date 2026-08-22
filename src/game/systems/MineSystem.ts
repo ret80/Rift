@@ -6,7 +6,7 @@
 import type { EventBus } from '../core/EventBus';
 import type { GameState, EnemyEntity } from '../core/GameState';
 import type { Fx } from '../fx';
-import type { AudioEngine } from '../audio';
+import type { AudioManager } from './AudioManager';
 import { MINE_DELAY, MINE_RADIUS, MINE_DMG, MINE_LIFE } from '../balance';
 
 export interface MineData {
@@ -20,7 +20,7 @@ export class MineSystem {
   private eventBus: EventBus;
   private state: GameState;
   private fx: Fx;
-  private audio: AudioEngine;
+  private audio: AudioManager;
   
   private mines: Array<{ 
     x: number; 
@@ -30,7 +30,7 @@ export class MineSystem {
     armed: boolean;
   }> = [];
 
-  constructor(eventBus: EventBus, state: GameState, fx: Fx, audio: AudioEngine) {
+  constructor(eventBus: EventBus, state: GameState, fx: Fx, audio: AudioManager) {
     this.eventBus = eventBus;
     this.state = state;
     this.fx = fx;

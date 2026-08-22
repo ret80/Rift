@@ -5,7 +5,7 @@
    orientation and a size matched to its biggest passenger. */
 
 import type { Renderer } from "./render";
-import type { AudioEngine } from "./audio";
+import type { AudioManager } from "./systems/AudioManager";
 import type { Fx } from "./fx";
 import { TAU, rand, clamp, easeOutCubic, rgba } from "./math";
 import { C, type EnemyKind } from "./balance";
@@ -16,7 +16,7 @@ export { Rift };
 export interface RiftHooks {
   spawnEnemy(kind: EnemyKind, x: number, y: number): void;
   fx: Fx;
-  audio: AudioEngine;
+  audio: AudioManager;
 }
 
 export class RiftField {

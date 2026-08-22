@@ -5,7 +5,7 @@
  */
 
 import { t } from "../i18n";
-import { AudioEngine } from "./audio";
+import { AudioManager } from "./systems/AudioManager";
 import {
   PickupKind,
   waveTotalFor,
@@ -152,7 +152,7 @@ interface Hooks {
 /* ============================== Game Orchestrator ============================== */
 
 export class Game {
-  readonly audio = new AudioEngine();
+  readonly audio = new AudioManager();
   private renderer: Renderer;
   private hooks: Hooks;
   private inputSystem: InputSystem;
@@ -504,7 +504,7 @@ export class Game {
           size: 1 + Math.random() * 3,
         });
       }
-      this.audio.explode();
+      this.audio.playExplosion();
     };
     fsmContext.onDeathAnimationEnd = () => {
       const best = this.scoringSystem.checkNewBest();
@@ -1176,58 +1176,31 @@ export class Game {
     switch (kind) {
       // Heals
       case "heal25":
-        this.playerSystem.heal(25);
-        this.audio.pickupHeal();
-        break;
       case "heal50":
-        this.playerSystem.heal(50);
-        this.audio.pickupHeal();
-        break;
       case "heal100":
-        this.playerSystem.heal(100);
-        this.audio.pickupHeal();
-        break;
       case "hp":
-        this.playerSystem.heal(25);
-        this.audio.pickupHeal();
+        this.playerSystem.heal(kind === "hp" ? 25 : parseInt(kind.slice(4)));
         break;
       // Rate boosts
       case "rate20":
-        this.playerSystem.boostRate();
-        this.audio.pickupRate();
-        break;
       case "rate40":
-        this.playerSystem.boostRate();
-        this.audio.pickupRate();
-        break;
       case "rate60":
-        this.playerSystem.boostRate();
-        this.audio.pickupRate();
-        break;
       case "rate":
         this.playerSystem.boostRate();
-        this.audio.pickupRate();
         break;
       // Other
       case "gun":
         this.playerSystem.addGunBonus(2, 15);
-        this.audio.pickupGun();
         break;
       case "drone":
         this.droneSystem.spawn(this.allyDrones, this.getPlayerPosition(), this.playerSystem.getMaxHp());
-        this.audio.pickupDrone();
         break;
       case "dash":
         this.playerSystem.setDashT(5);
-        this.audio.pickupDash();
         break;
       case "miner":
-        this.mineDropT = 0;
-        this.audio.pickupDash();
-        break;
       case "mine":
         this.mineDropT = 0;
-        this.audio.pickupDash();
         break;
       case "mineral":
         this.minerals++;
@@ -1235,9 +1208,10 @@ export class Game {
         break;
       case "missile":
         this.playerSystem.activateMissileLauncher(MISSILE_DURATION);
-        this.audio.pickupGun();
         break;
     }
+    // Звукособimestый вызов вынесен в AudioManager
+    this.audio.playPickupSound(kind);
   }
 
   private showCountdown(data: { label: string; value: string }) {
