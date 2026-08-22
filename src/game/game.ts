@@ -51,7 +51,8 @@ import { DebugSystem } from "./systems/DebugSystem";
 /* Core systems */
 import { EventBus } from "./core/EventBus";
 import { GameState } from "./core/GameState";
-import { createGameFSM, type GameFSMContext } from "./core/GameFSM";
+import { type GameFSMContext } from "./core/GameFSM";
+import { FSMBridge } from "./core/FSMBridge";
 import { GameStateMachine } from "./core/StateMachine";
 
 /* Wave & zone management */
@@ -172,7 +173,15 @@ export class Game {
   private deathTimer = 0;
 
   /* FSM */
-  private fsm: ReturnType<typeof createGameFSM>;
+  private fsmBridge: FSMBridge | null = null;
+  private fsmCtx: GameFSMContext;
+  
+  /** Shorthand for FSM machine — used throughout Game */
+  private get fsm(): GameStateMachine<GameFSMContext> {
+    const b = this.fsmBridge;
+    if (!b) throw new Error("FSM not initialized");
+    return b.fsmMachine;
+  }
 
   /* Core systems */
   private eventBus: EventBus;
@@ -397,20 +406,6 @@ export class Game {
     // Load persistent upgrades
     this.playerUpgrades = loadUpgrades();
     this.appliedUpgrades = applyUpgrades(this.playerUpgrades);
-    
-    // Create fsmContext BEFORE CountdownSystem so it can reference it
-    const fsmContext: GameFSMContext = {
-      onPlayerDeath: () => {},
-      onDeathAnimationEnd: () => {},
-      onGameOver: () => {},
-      onReturnToMenu: () => {},
-      onStartRun: () => {},
-      onWaveStart: () => {},
-      countdownDone: () => {},
-      onPause: () => {},
-      onWaveComplete: () => {},
-      onWaveAdvanced: () => {},
-    };
 
     this.countdownSystem = new CountdownSystem({
       hooks: {
@@ -425,7 +420,7 @@ export class Game {
           }
         },
         countdownDone: () => {
-          if (fsmContext.countdownDone) fsmContext.countdownDone();
+          this.fsmBridge?.context.countdownDone?.();
         },
       },
       eventBus: this.eventBus,
@@ -460,97 +455,74 @@ export class Game {
       (amount: number, x: number, y: number) => this.spawnParts(amount, x, y)
     );
 
-    /* Subscribe to events */
-    // Load persistent upgrades
-    this.playerUpgrades = loadUpgrades();
-    this.appliedUpgrades = applyUpgrades(this.playerUpgrades);
-    
-    // Initialize FSM — используем уже созданный fsmContext
-    this.fsm = new GameStateMachine<GameFSMContext>("menu", 
-      [
-        { trigger: "start", target: "playing", guard: () => true, onEnter: () => {} },
-        { trigger: "to_menu", target: "menu", guard: () => true, onEnter: () => fsmContext.onReturnToMenu() },
-        { trigger: "countdown_done", target: "active", guard: () => this.fsm.is("playing"), onEnter: () => {} },
-        { trigger: "wave_cleared", target: "cleared", guard: () => true, onEnter: () => fsmContext.onWaveComplete() },
-        { trigger: "next_wave", target: "playing", guard: () => true, onEnter: () => {} },
-        { trigger: "player_died", target: "dying", guard: () => true, onEnter: () => fsmContext.onPlayerDeath() },
-        { trigger: "death_anim_done", target: "over", guard: () => true, onEnter: () => fsmContext.onDeathAnimationEnd() },
-        { trigger: "restart", target: "playing", guard: () => true, onEnter: () => fsmContext.onStartRun(1) },
-      ] as any,
-      fsmContext
-    );
-    
-    // Теперь когда fsm создан, заполняем контекст
-    fsmContext.onPlayerDeath = () => {
-      this.deathTimer = DEATH_ANIMATION_DURATION;
-      // Save persistent upgrades (parts) before death animation
-      saveUpgrades(this.playerUpgrades);
-      // Clear all enemy bullets to prevent "orphan bullets" on restart
-      this.enemyBulletList.length = 0;
-      this.bullets.length = 0;
-      // Spawn death explosion particles
-      const pos = this.getPlayerPosition();
-      for (let i = 0; i < DEATH_EXPLOSION_PARTICLES; i++) {
-        const angle = Math.random() * Math.PI * 2;
-        const speed = DEATH_EXPLOSION_MIN_SPEED + Math.random() * (DEATH_EXPLOSION_MAX_SPEED - DEATH_EXPLOSION_MIN_SPEED);
-        this.fx.emit({
-          x: pos.x,
-          y: pos.y,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed,
-          life: DEATH_EXPLOSION_MIN_LIFE + Math.random() * (DEATH_EXPLOSION_MAX_LIFE - DEATH_EXPLOSION_MIN_LIFE),
-          maxLife: DEATH_EXPLOSION_MAX_LIFE,
-          c: Math.random() > 0.5 ? [1, 0.3, 0.1, 1] : [1, 0.8, 0.2, 1],
-          size: 1 + Math.random() * 3,
+    // Initialize FSM bridge with lifecycle hooks
+    this.fsmBridge = new FSMBridge({
+      onPlayerDeath: () => {
+        this.deathTimer = DEATH_ANIMATION_DURATION;
+        // Save persistent upgrades (parts) before death animation
+        saveUpgrades(this.playerUpgrades);
+        // Clear all enemy bullets to prevent "orphan bullets" on restart
+        this.enemyBulletList.length = 0;
+        this.bullets.length = 0;
+        // Spawn death explosion particles
+        const pos = this.getPlayerPosition();
+        for (let i = 0; i < DEATH_EXPLOSION_PARTICLES; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = DEATH_EXPLOSION_MIN_SPEED + Math.random() * (DEATH_EXPLOSION_MAX_SPEED - DEATH_EXPLOSION_MIN_SPEED);
+          this.fx.emit({
+            x: pos.x,
+            y: pos.y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: DEATH_EXPLOSION_MIN_LIFE + Math.random() * (DEATH_EXPLOSION_MAX_LIFE - DEATH_EXPLOSION_MIN_LIFE),
+            maxLife: DEATH_EXPLOSION_MAX_LIFE,
+            c: Math.random() > 0.5 ? [1, 0.3, 0.1, 1] : [1, 0.8, 0.2, 1],
+            size: 1 + Math.random() * 3,
+          });
+        }
+        this.audio.playExplosion();
+      },
+      onDeathAnimationEnd: () => {
+        const best = this.scoringSystem.checkNewBest();
+        const s = this.scoringSystem.getState();
+        this.hooks.onStats({
+          score: s.score,
+          best: s.best,
+          isBest: best,
+          wave: this.wave,
+          kills: s.killed,
+          time: s.runTime,
         });
-      }
-      this.audio.playExplosion();
-    };
-    fsmContext.onDeathAnimationEnd = () => {
-      const best = this.scoringSystem.checkNewBest();
-      const s = this.scoringSystem.getState();
-      this.hooks.onStats({
-        score: s.score,
-        best: s.best,
-        isBest: best,
-        wave: this.wave,
-        kills: s.killed,
-        time: s.runTime,
-      });
-    };
-    fsmContext.onGameOver = () => {
-      this.hooks.onGameOver();
-    };
-    fsmContext.onReturnToMenu = () => {
-      // Menu state is handled by toMenu() caller
-    };
-    fsmContext.onStartRun = (wave: number) => {
-      this.startRun();
-    };
-    fsmContext.onWaveStart = (wave: number) => {
-      this.countdownSystem.startWave(this.wave);
-    };
-    fsmContext.countdownDone = () => {
-      this.fsm.fire("countdown_done");
-    };
-    fsmContext.onPause = (paused: boolean) => {
-      this.hooks.onPause(paused);
-      this.audio.setSuspended(paused);
-    };
-    fsmContext.onWaveComplete = () => {
-      // Wave complete handled by WaveOrchestrator
-    };
-    fsmContext.onWaveAdvanced = (wave: number) => {
-      // Handled by waveOrchestrator hooks
-    };
+      },
+      onGameOver: () => {
+        this.hooks.onGameOver();
+      },
+      onReturnToMenu: () => {
+        // Menu state is handled by toMenu() caller
+      },
+      onStartRun: (wave: number) => {
+        this.startRun();
+      },
+      onWaveStart: (wave: number) => {
+        this.countdownSystem.startWave(this.wave);
+      },
+      countdownDone: () => {
+        if (this.fsmBridge) this.fsmBridge.fsmMachine.fire("countdown_done");
+      },
+      onPause: (paused: boolean) => {
+        this.hooks.onPause(paused);
+        this.audio.setSuspended(paused);
+      },
+      onWaveComplete: () => {
+        // Wave complete handled by WaveOrchestrator
+      },
+      onWaveAdvanced: (wave: number) => {
+        // Handled by waveOrchestrator hooks
+      },
+    });
     
-    // Subscribe to FSM events for wave lifecycle
-    this.fsm.on("countdown_done", () => {
-      // Countdown finished, game is now active
-    });
-    this.fsm.on("wave_cleared", () => {
-      // Wave cleared, orchestrator will advance after delay
-    });
+    // Store context reference for direct access
+    this.fsmCtx = this.fsmBridge.context;
     
     this.setupEventListeners();
 
