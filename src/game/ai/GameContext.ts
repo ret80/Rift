@@ -56,19 +56,20 @@ export class GameContext implements GameContextData {
   }
 
   /**
-   * Обновить контекст перед каждым кадром.
-   */
-  update(dt: number): void {
+    * Update context before each frame.
+    * Player position is now passed from external systems (PlayerSystem).
+    */
+  update(dt: number, playerX: number, playerY: number, playerVx: number, playerVy: number, playerAngle: number, playerHp: number, playerMaxHp: number): void {
     this.deltaTime = dt;
     
-    // Синхронизация с состоянием
-    this.playerX = this.state.player.x;
-    this.playerY = this.state.player.y;
-    this.playerVx = this.state.player.vx;
-    this.playerVy = this.state.player.vy;
-    this.playerAngle = this.state.player.angle;
-    this.playerHp = this.state.player.hp;
-    this.playerMaxHp = this.state.player.maxHp;
+    // Sync with state
+    this.playerX = playerX;
+    this.playerY = playerY;
+    this.playerVx = playerVx;
+    this.playerVy = playerVy;
+    this.playerAngle = playerAngle;
+    this.playerHp = playerHp;
+    this.playerMaxHp = playerMaxHp;
     
     this.zoneX = this.state.zone.x;
     this.zoneY = this.state.zone.y;

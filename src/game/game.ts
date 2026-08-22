@@ -1020,7 +1020,8 @@ export class Game {
   }
 
   private spawnEnemy(kind: EnemyKind, x: number, y: number, parent: Enemy | null) {
-    this.enemySystem.spawn(kind, x, y, parent, this.entityPool.enemyList);
+    const playerPos = this.getPlayerPosition();
+    this.enemySystem.spawn(kind, x, y, parent, this.entityPool.enemyList, playerPos);
     this.allocated++;
   }
 

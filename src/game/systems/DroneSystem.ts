@@ -54,14 +54,12 @@ export class DroneSystem {
   }
 
   /**
-   * Добавить дрон.
-   */
-  addDrone(playerMaxHp: number): boolean {
+    * Добавить дрон.
+    */
+  addDrone(playerMaxHp: number, playerPos: { x: number; y: number }): boolean {
     if (this.drones.length >= MAX_ALLY_DRONES) {
       return false;
     }
-    
-    const playerPos = { x: this.state.player.x, y: this.state.player.y };
     const phase = (this.drones.length / MAX_ALLY_DRONES) * Math.PI * 2;
     const droneMaxHp = Math.round(playerMaxHp * 0.25);
     

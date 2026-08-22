@@ -1,29 +1,13 @@
 /**
- * GameState - иммутабельное состояние игры.
- * Централизованное хранилище состояния для всех систем.
+ * GameState - immutable game state.
+ * Centralized metadata storage for all systems.
+ * Entity pools are managed by EntityPoolSystem.
  */
 
-import type { EnemyKind } from '../balance';
 import type { ZoneData } from './ZoneTypes';
 
 // Alias for backward compatibility
 export type ZoneState = ZoneData;
-
-export interface PlayerState {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  angle: number;
-  hp: number;
-  maxHp: number;
-  invuln: number;
-  guns: number;
-  rateBoost: number;
-  rateT: number;
-  dashT: number;
-  mineDropT: number;
-}
 
 export interface WaveState {
   wave: number;
@@ -44,102 +28,12 @@ export interface ScoreState {
   minerals: number;
 }
 
-export interface EnemyEntity {
-  kind: EnemyKind;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  angle: number;
-  hp: number;
-  maxHp: number;
-  r: number;
-  speed: number;
-  contact: number;
-  score: number;
-  boltDmg: number;
-  fireCd: number;
-  mode: number;
-  modeT: number;
-  strafeDir: number;
-  seed: number;
-  spawnCd: number;
-  flash: number;
-  hitCd: number;
-  dead: boolean;
-  parentIndex: number | null;
-}
-
 export type GameStateType = 'menu' | 'playing' | 'active' | 'cleared' | 'dying' | 'over';
-
-export interface WorldState {
-  enemies: EnemyEntity[];
-  bullets: Array<{
-    x: number;
-    y: number;
-    vx: number;
-    vy: number;
-    life: number;
-    dmg: number;
-  }>;
-  enemyBullets: Array<{
-    x: number;
-    y: number;
-    vx: number;
-    vy: number;
-    life: number;
-    dmg: number;
-    heavy: boolean;
-  }>;
-  pickups: Array<{
-    kind: string;
-    x: number;
-    y: number;
-    vx: number;
-    vy: number;
-    life: number;
-    seed: number;
-  }>;
-  allyDrones: Array<{
-    x: number;
-    y: number;
-    angle: number;
-    fireCd: number;
-    phase: number;
-    hp: number;
-    maxHp: number;
-    targetIndex: number | null;
-    retargetT: number;
-    flash: number;
-  }>;
-  mines: Array<{
-    x: number;
-    y: number;
-    fuse: number;
-    seed: number;
-  }>;
-}
 
 export class GameState {
   public type: GameStateType = 'menu';
   public paused: boolean = false;
   public time: number = 0;
-  
-  public player: PlayerState = {
-    x: 0,
-    y: 0,
-    vx: 0,
-    vy: 0,
-    angle: -Math.PI / 2,
-    hp: 100,
-    maxHp: 100,
-    invuln: 0,
-    guns: 1,
-    rateBoost: 0,
-    rateT: 0,
-    dashT: 0,
-    mineDropT: -1,
-  };
 
   public wave: WaveState = {
     wave: 1,
@@ -170,37 +64,12 @@ export class GameState {
     minerals: 0,
   };
 
-  public world: WorldState = {
-    enemies: [],
-    bullets: [],
-    enemyBullets: [],
-    pickups: [],
-    allyDrones: [],
-    mines: [],
-  };
-
   /**
-   * Сбросить состояние для нового раунда.
+   * Reset state for a new round.
    */
   reset(startWave: number = 1): void {
     this.type = 'playing';
     this.paused = false;
-    
-    this.player = {
-      x: 0,
-      y: 0,
-      vx: 0,
-      vy: 0,
-      angle: -Math.PI / 2,
-      hp: 100,
-      maxHp: 100,
-      invuln: 0,
-      guns: 1,
-      rateBoost: 0,
-      rateT: 0,
-      dashT: 0,
-      mineDropT: -1,
-    };
 
     this.wave = {
       wave: startWave,
@@ -224,41 +93,26 @@ export class GameState {
 
     this.score = {
       score: 0,
-      best: this.score.best, // сохраняем рекорд
+      best: this.score.best, // preserve record
       kills: 0,
       combo: 0,
       comboT: 0,
       minerals: 0,
     };
-
-    this.world = {
-      enemies: [],
-      bullets: [],
-      enemyBullets: [],
-      pickups: [],
-      allyDrones: [],
-      mines: [],
-    };
   }
 
   /**
-    * Перейти в меню.
-    */
+   * Go to menu.
+   */
   toMenu(): void {
     this.type = 'menu';
     this.paused = false;
     this.zone.active = false;
     this.zone.alpha = 0;
     this.zone.collapseT = -1;
-    this.world.enemies = [];
-    this.world.bullets = [];
-    this.world.enemyBullets = [];
-    this.world.pickups = [];
-    this.world.allyDrones = [];
-    this.world.mines = [];
   }
 
-  // ===== Алиасы для совместимости с game.ts =====
+  // ===== Aliases for compatibility with game.ts =====
 
   setTime(t: number): void {
     this.time = t;
@@ -274,13 +128,5 @@ export class GameState {
 
   setBest(b: number): void {
     this.score.best = b;
-  }
-
-  getPlayerX(): number {
-    return this.player.x;
-  }
-
-  getPlayerY(): number {
-    return this.player.y;
   }
 }

@@ -4,7 +4,8 @@
  */
 
 import type { EventBus } from '../core/EventBus';
-import type { GameState, EnemyEntity } from '../core/GameState';
+import type { GameState } from '../core/GameState';
+import type { Enemy } from '../types';
 import type { Fx } from '../fx';
 import type { AudioManager } from './AudioManager';
 import { MINE_DELAY, MINE_RADIUS, MINE_DMG, MINE_LIFE } from '../balance';
@@ -72,7 +73,7 @@ export class MineSystem {
   /**
    * Детонировать мину.
    */
-  private detonate(mine: { x: number; y: number; seed: number }, index: number): void {
+  private detonate(mine: { x: number; y: number; seed: number }, index: number, enemies: Enemy[]): void {
     // Удаление мины
     this.mines.splice(index, 1);
     
@@ -85,7 +86,6 @@ export class MineSystem {
     });
     
     // Нанесение урона врагам в радиусе
-    const enemies = this.state.world.enemies;
     for (const enemy of enemies) {
       if (enemy.dead) continue;
       const dist = Math.hypot(enemy.x - mine.x, enemy.y - mine.y);

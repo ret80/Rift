@@ -141,10 +141,10 @@ export class EnemySystem {
   
 
 
-  addEnemy(kind: EnemyKind, x: number, y: number, def: EnemyDef): void {
+  addEnemy(kind: EnemyKind, x: number, y: number, def: EnemyDef, playerPos?: { x: number; y: number }): void {
     // Дроны ориентируются носом к игроку при спавне
-    const angle = kind === EnemyKind.Drone
-      ? Math.atan2(this.state.player.y - y, this.state.player.x - x)
+    const angle = kind === EnemyKind.Drone && playerPos
+      ? Math.atan2(playerPos.y - y, playerPos.x - x)
       : rand(0, TAU);
     logRotation('spawn', `${kind} at (${x.toFixed(0)},${y.toFixed(0)}) angle=${angle.toFixed(3)}`);
     const mass = massForRadius(def.r);
@@ -636,12 +636,12 @@ export class EnemySystem {
     this.enemies = this.enemies.filter(e => !e.dead);
   }
 
-  spawn(kind: EnemyKind, x: number, y: number, parent: Enemy | null, enemyList: any[]): void {
+  spawn(kind: EnemyKind, x: number, y: number, parent: Enemy | null, enemyList: any[], playerPos?: { x: number; y: number }): void {
     const def = this.getEnemyDef(kind);
     const mass = massForRadius(def.r);
     // Дроны ориентируются носом к игроку при спавне
-    const angle = kind === EnemyKind.Drone
-      ? Math.atan2(this.state.player.y - y, this.state.player.x - x)
+    const angle = kind === EnemyKind.Drone && playerPos
+      ? Math.atan2(playerPos.y - y, playerPos.x - x)
       : rand(0, TAU);
     logRotation('spawn', `${kind} at (${x.toFixed(0)},${y.toFixed(0)}) angle=${angle.toFixed(3)}`);
     // Cruiser gets dual turrets with staggered cooldowns
