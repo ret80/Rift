@@ -22,13 +22,6 @@ import {
   MISSILE_DURATION,
   MISSILE_LAUNCH_INTERVAL,
   MISSILE_TURN_RATE,
-  // Death animation
-  DEATH_ANIMATION_DURATION,
-  DEATH_EXPLOSION_PARTICLES,
-  DEATH_EXPLOSION_MIN_SPEED,
-  DEATH_EXPLOSION_MAX_SPEED,
-  DEATH_EXPLOSION_MIN_LIFE,
-  DEATH_EXPLOSION_MAX_LIFE,
   // FPS
   FPS_SMOOTHING_FACTOR,
   // Zone gun range (still used by Game for autofire)
@@ -65,6 +58,7 @@ import { BulletSystem } from "./systems/BulletSystem";
 import { CameraSystem } from "./systems/CameraSystem";
 import { CollisionSystem } from "./systems/CollisionSystem";
 import { CountdownSystem } from "./systems/CountdownSystem";
+import { DeathSystem } from "./systems/DeathSystem";
 import { DroneSystem } from "./systems/DroneSystem";
 import { EnemySystem } from "./systems/EnemySystem";
 import { EntityPoolSystem } from "./systems/EntityPoolSystem";
@@ -164,7 +158,9 @@ export class Game {
   private menuScene: MenuScene;
 
   private paused = false;
-  private deathTimer = 0;
+
+  /* Death system */
+  private deathSystem!: DeathSystem;
 
   /* FSM */
   private fsmBridge: FSMBridge | null = null;
@@ -449,47 +445,32 @@ export class Game {
       (amount: number, x: number, y: number) => this.spawnParts(amount, x, y)
     );
 
+    // Initialize death system
+    this.deathSystem = new DeathSystem(
+      () => this.getPlayerPosition(),
+      this.fx,
+      this.audio,
+      this.entityPool,
+      this.scoringSystem,
+      (n) => this.spawnParts(n, 0, 0),
+      {
+        onGameOver: () => this.hooks.onGameOver(),
+        onStats: (score, best, isBest, wave, kills, time) => {
+          this.hooks.onStats({ score, best, isBest, wave: this.wave, kills, time });
+        },
+      },
+    );
+
     // Initialize FSM bridge with lifecycle hooks
     this.fsmBridge = new FSMBridge({
       onPlayerDeath: () => {
-        this.deathTimer = DEATH_ANIMATION_DURATION;
-        // Save persistent upgrades (parts) before death animation
-        this.upgradeSystem.addParts(0); // persist current state
-        // Clear all enemy bullets to prevent "orphan bullets" on restart
-        this.entityPool.enemyBulletList.length = 0;
-        this.entityPool.bullets.length = 0;
-        // Spawn death explosion particles
-        const pos = this.getPlayerPosition();
-        for (let i = 0; i < DEATH_EXPLOSION_PARTICLES; i++) {
-          const angle = Math.random() * Math.PI * 2;
-          const speed = DEATH_EXPLOSION_MIN_SPEED + Math.random() * (DEATH_EXPLOSION_MAX_SPEED - DEATH_EXPLOSION_MIN_SPEED);
-          this.fx.emit({
-            x: pos.x,
-            y: pos.y,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
-            life: DEATH_EXPLOSION_MIN_LIFE + Math.random() * (DEATH_EXPLOSION_MAX_LIFE - DEATH_EXPLOSION_MIN_LIFE),
-            maxLife: DEATH_EXPLOSION_MAX_LIFE,
-            c: Math.random() > 0.5 ? [1, 0.3, 0.1, 1] : [1, 0.8, 0.2, 1],
-            size: 1 + Math.random() * 3,
-          });
-        }
-        this.audio.playExplosion();
+        this.deathSystem.startDeath();
       },
       onDeathAnimationEnd: () => {
-        const best = this.scoringSystem.checkNewBest();
-        const s = this.scoringSystem.getState();
-        this.hooks.onStats({
-          score: s.score,
-          best: s.best,
-          isBest: best,
-          wave: this.wave,
-          kills: s.killed,
-          time: s.runTime,
-        });
+        this.deathSystem.onFinishDeath();
       },
       onGameOver: () => {
-        this.hooks.onGameOver();
+        // No-op — handled by DeathSystem
       },
       onReturnToMenu: () => {
         // Menu state is handled by toMenu() caller
@@ -712,8 +693,7 @@ export class Game {
     
     // Handle dying → over transition
     if (this.fsm.is("dying")) {
-      this.deathTimer -= dtScaled;
-      if (this.deathTimer <= 0) {
+      if (this.deathSystem.update(dtScaled)) {
         this.fsm.fire("death_anim_done");
       }
     }
@@ -1015,6 +995,20 @@ export class Game {
     this.riftField.reset();
     this.asteroidField.hardReset();
     this.fx.reset();
+    this.deathSystem = new DeathSystem(
+      () => this.getPlayerPosition(),
+      this.fx,
+      this.audio,
+      this.entityPool,
+      this.scoringSystem,
+      (n) => this.spawnParts(n, 0, 0),
+      {
+        onGameOver: () => this.hooks.onGameOver(),
+        onStats: (score, best, isBest, wave, kills, time) => {
+          this.hooks.onStats({ score, best, isBest, wave: this.wave, kills, time });
+        },
+      },
+    );
     this.asteroidField.list.length = 0;
 
     this.hooks.onBanner(null);
