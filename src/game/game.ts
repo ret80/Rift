@@ -13,15 +13,7 @@ import {
   PLAYER_MAX_SPEED,
   EnemyKind,
 } from "./balance";
-import {
-  loadUpgrades,
-  saveUpgrades,
-  applyUpgrades,
-  defaultUpgrades,
-  UPGRADE_TIERS,
-  type PlayerUpgrades,
-  type AppliedUpgrades,
-} from "./upgrades";
+import type { PlayerUpgrades } from "./upgrades";
 
 import { CRUISER_BULLET_SPEED } from "./balance";
 
@@ -82,6 +74,7 @@ import { PickupSystem } from "./systems/PickupSystem";
 import { PlayerSystem } from "./systems/PlayerSystem";
 import { RendererSystem } from "./systems/RendererSystem";
 import { SpawnSystem } from "./systems/SpawnSystem";
+import { UpgradeSystem } from "./systems/UpgradeSystem";
 import { WaveOrchestrator } from "./systems/WaveOrchestrator";
 import { ZoneSystem } from "./systems/ZoneSystem";
 
@@ -223,8 +216,7 @@ export class Game {
   private peakAlive = 0;
 
   /* Persistent upgrades */
-  private playerUpgrades: PlayerUpgrades = defaultUpgrades();
-  private appliedUpgrades: AppliedUpgrades | null = null;
+  private upgradeSystem: UpgradeSystem;
 
   private popupId = 0;
   private countId = 0;
@@ -253,6 +245,7 @@ export class Game {
     this.renderer = new Renderer(canvas);
     this.hooks = hooks;
     this.scoringSystem = new ScoringSystem();
+    this.upgradeSystem = UpgradeSystem.create();
 
     /* Initialize camera system first (needed by onResize) */
     this.cameraSystem = new CameraSystem();
@@ -407,9 +400,6 @@ export class Game {
     });
 
     /* Subscribe to events */
-    // Load persistent upgrades
-    this.playerUpgrades = loadUpgrades();
-    this.appliedUpgrades = applyUpgrades(this.playerUpgrades);
 
     this.countdownSystem = new CountdownSystem({
       hooks: {
@@ -464,7 +454,7 @@ export class Game {
       onPlayerDeath: () => {
         this.deathTimer = DEATH_ANIMATION_DURATION;
         // Save persistent upgrades (parts) before death animation
-        saveUpgrades(this.playerUpgrades);
+        this.upgradeSystem.addParts(0); // persist current state
         // Clear all enemy bullets to prevent "orphan bullets" on restart
         this.entityPool.enemyBulletList.length = 0;
         this.entityPool.bullets.length = 0;
@@ -577,7 +567,7 @@ export class Game {
         // Initialize orchestrator for this wave
         const pos = this.getPlayerPosition();
         this.waveOrchestrator.initWave(pos.x, pos.y, this.wave, this.waveTotal);
-        this.waveOrchestrator.setSpeedMult(this.appliedUpgrades?.speedMult ?? 1.0);
+        this.waveOrchestrator.setSpeedMult(this.upgradeSystem.getApplied("speedMult"));
       }
     });
 
@@ -864,7 +854,7 @@ export class Game {
       rateT: this.playerSystem.getRateT(),
       drones: this.entityPool.allyDrones.length,
       minerals: this.minerals,
-      parts: this.playerUpgrades.parts,
+      parts: this.upgradeSystem.getParts(),
     };
     this.hooks.onHud(hud);
   }
@@ -896,43 +886,38 @@ export class Game {
 
   /** Get persistent player upgrades */
   getPlayerUpgrades(): PlayerUpgrades {
-    return this.playerUpgrades;
+    return this.upgradeSystem.playerUpgrades;
   }
 
   /** Re-apply upgrades from localStorage (called after purchasing in menu) */
   refreshUpgrades(): void {
-    this.playerUpgrades = loadUpgrades();
-    this.appliedUpgrades = applyUpgrades(this.playerUpgrades);
+    this.upgradeSystem.refresh();
     // Re-apply to active systems
-    if (this.appliedUpgrades) {
-      const up = this.appliedUpgrades;
-      this.playerSystem.setMaxHp(up.baseHp);
-      this.playerSystem.setGuns(up.gunCount);
-      this.bulletSystem.setBulletDmg(up.bulletDmg);
-    }
+    this.upgradeSystem.applyToSystems(
+      (v) => this.playerSystem.setMaxHp(v),
+      (v) => this.playerSystem.setGuns(v),
+      (v) => this.bulletSystem.setBulletDmg(v)
+    );
   }
 
   /** Force reload from localStorage (called after reset in settings) */
   forceReloadUpgrades(): void {
-    this.playerUpgrades = loadUpgrades();
-    this.appliedUpgrades = applyUpgrades(this.playerUpgrades);
+    this.upgradeSystem.forceReload();
     // Re-apply to active systems
-    if (this.appliedUpgrades) {
-      const up = this.appliedUpgrades;
-      this.playerSystem.setMaxHp(up.baseHp);
-      this.playerSystem.setGuns(up.gunCount);
-      this.bulletSystem.setBulletDmg(up.bulletDmg);
-    }
+    this.upgradeSystem.applyToSystems(
+      (v) => this.playerSystem.setMaxHp(v),
+      (v) => this.playerSystem.setGuns(v),
+      (v) => this.bulletSystem.setBulletDmg(v)
+    );
   }
 
   /** Purchase upgrade bypassing cost check (debug: +1000 details) */
   purchaseUpgradeNoCost(key: keyof Omit<PlayerUpgrades, "parts">): boolean {
-    const level = this.playerUpgrades[key];
-    if (level >= UPGRADE_TIERS[key].maxLevel) return false;
-    this.playerUpgrades[key]++;
-    saveUpgrades(this.playerUpgrades);
-    this.refreshUpgrades();
-    return true;
+    const success = this.upgradeSystem.purchaseNoCost(key);
+    if (success) {
+      this.refreshUpgrades();
+    }
+    return success;
   }
 
   private handleDebugKeys(dt: number) {
@@ -1003,14 +988,12 @@ export class Game {
     this.playerSystem.reset();
     
     // Apply persistent upgrades to the player
-    if (this.appliedUpgrades) {
-      const up = this.appliedUpgrades;
-      this.playerSystem.setMaxHp(up.baseHp);
-      this.playerSystem.setGuns(up.gunCount);
-      this.bulletSystem.setBulletDmg(up.bulletDmg);
-      // Refill HP to new max
-      this.playerSystem.resetHp();
-    }
+    this.upgradeSystem.applyToSystems(
+      (v) => this.playerSystem.setMaxHp(v),
+      (v) => this.playerSystem.setGuns(v),
+      (v) => this.bulletSystem.setBulletDmg(v),
+      () => this.playerSystem.resetHp()
+    );
     
     this.entityPool.enemyList.length = 0;
     this.entityPool.bullets.length = 0;
@@ -1047,8 +1030,7 @@ export class Game {
   }
 
   private spawnParts(amount: number, x: number, y: number) {
-    this.playerUpgrades.parts += amount;
-    saveUpgrades(this.playerUpgrades);
+    this.upgradeSystem.addParts(amount);
   }
 
   private spawnEnemy(kind: EnemyKind, x: number, y: number, parent: Enemy | null) {
@@ -1194,7 +1176,7 @@ export class Game {
     this.scoringSystem.addRunTime(dt);
 
     // Apply speed multiplier
-    this.waveOrchestrator.setSpeedMult(this.appliedUpgrades?.speedMult ?? 1.0);
+    this.waveOrchestrator.setSpeedMult(this.upgradeSystem.getApplied("speedMult"));
 
     // Update orchestrator (handles zone expansion, clear transition, edge danger, constraints)
     const playerPos = this.getPlayerPosition();
