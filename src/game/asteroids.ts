@@ -5,6 +5,7 @@
 import type { Renderer } from "./render";
 import type { AudioManager } from "./systems/AudioManager";
 import type { Fx } from "./fx";
+import type { EventBus } from "./core/EventBus";
 import { TAU, rand, clamp, mulberry32, rgba } from "./math";
 import type { AsteroidKind, PickupKind } from "./balance";
 import { massForRadius } from "./balance";
@@ -95,7 +96,15 @@ export class AsteroidField {
   private boundsKey = "";
   private fragSeq = 0;
 
-  constructor(private h: AsteroidHooks) {}
+  constructor(private h: AsteroidHooks, eventBus?: EventBus) {
+    if (eventBus) {
+      // Subscribe to asteroid hit events
+      eventBus.on('asteroid_hit', (event) => {
+        const data = event.payload as { index: number; dmg: number; vx: number; vy: number; x: number; y: number };
+        this.damageAt(data.index, data.dmg, data.x ?? 0, data.y ?? 0);
+      });
+    }
+  }
 
   private genChunk(cx: number, cy: number): Asteroid[] {
     const seed = (Math.imul(cx, 91733) ^ Math.imul(cy, 46511) ^ 0x5eed) >>> 0;

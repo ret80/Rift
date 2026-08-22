@@ -51,6 +51,14 @@ export class DroneSystem {
     this.fx = fx;
     this.audio = audio;
     this.spawnEnemy = spawnEnemy;
+
+    // Subscribe to drone hit events
+    eventBus.on('drone_hit', (event) => {
+      const data = event.payload as { x: number; y: number; dead: boolean };
+      if (data.dead) {
+        this.removeDroneAt(data.x, data.y);
+      }
+    });
   }
 
   /**
@@ -106,6 +114,20 @@ export class DroneSystem {
       retargetT: 0,
       flash: 0,
     });
+  }
+
+  /**
+    * Удалить дрон по позиции (из внешнего пула).
+    */
+  removeDroneAt(x: number, y: number, pool?: Array<{ x: number; y: number; r?: number }>): void {
+    // If an external pool is provided, remove from there
+    if (pool) {
+      const idx = pool.findIndex(d => Math.abs(d.x - x) < 2 && Math.abs(d.y - y) < 2);
+      if (idx !== -1) pool.splice(idx, 1);
+    }
+    // Also remove from internal drones list
+    const internalIdx = this.drones.findIndex(d => Math.abs(d.x - x) < 2 && Math.abs(d.y - y) < 2);
+    if (internalIdx !== -1) this.drones.splice(internalIdx, 1);
   }
 
   /**

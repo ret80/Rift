@@ -36,11 +36,48 @@ export class BulletSystem {
     this.state = state;
     this.fx = fx;
     this.audio = audio;
+
+    // Subscribe to bullet spawning events
+    eventBus.on('fire_bullet', (event) => {
+      const data = event.payload as { x: number; y: number; vx: number; vy: number; life: number; dmg: number; isEnemy: boolean };
+      const { x, y, vx, vy, life, dmg, isEnemy } = data;
+      if (isEnemy) {
+        this.enemyBullets.push({ x, y, vx, vy, life, dmg, heavy: false, cruiser: false });
+      } else {
+        this.bullets.push({ x, y, vx, vy, life, dmg });
+      }
+    });
+
+    eventBus.on('drone_fired', (event) => {
+      const data = event.payload as { x: number; y: number; vx: number; vy: number; damage: number };
+      this.enemyBullets.push({
+        x: data.x,
+        y: data.y,
+        vx: data.vx,
+        vy: data.vy,
+        life: 1.5,
+        dmg: data.damage,
+        heavy: false,
+        cruiser: false,
+      });
+    });
   }
 
   /** Установить урон пуль игрока (из апгрейдов) */
   setBulletDmg(dmg: number): void {
     this.bulletDmg = dmg;
+  }
+
+  // ── Public API — spawn bullets into external pools ──────────────
+
+  /** Spawn an enemy bullet into the given pool */
+  spawnEnemyBullet(x: number, y: number, vx: number, vy: number, life: number, dmg: number, heavy: boolean, cruiser: boolean): void {
+    this.enemyBullets.push({ x, y, vx, vy, life, dmg, heavy, cruiser });
+  }
+
+  /** Spawn an ally (player) bullet into the given pool */
+  spawnAllyBullet(x: number, y: number, vx: number, vy: number, life: number, dmg: number): void {
+    this.bullets.push({ x, y, vx, vy, life, dmg });
   }
 
   /**

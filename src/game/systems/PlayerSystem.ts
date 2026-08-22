@@ -128,6 +128,12 @@ export class PlayerSystem {
     this.getZoneBounds = getZoneBounds;
     this.spawnPickup = spawnPickup;
     this.fireAllCallback = fireAllCallback;
+
+    // Subscribe to player hit events
+    eventBus.on('player_hit', (event) => {
+      const data = event.payload as { dmg: number };
+      this.hit(data.dmg);
+    });
   }
   
   reset(): void {

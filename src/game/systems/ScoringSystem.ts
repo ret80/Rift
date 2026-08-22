@@ -3,6 +3,8 @@
  * Отвечает за score, best (localStorage), killed, combo timer/multiplier.
  */
 
+import type { EventBus } from '../core/EventBus';
+
 const BEST_KEY = "voxbest";
 
 export interface ScoringState {
@@ -29,6 +31,7 @@ export class ScoringSystem {
   private _runTime = 0;
 
   private readonly hooks: ScoringHooks;
+  private _killedWave = 0;
 
   constructor(hooks: ScoringHooks = {}) {
     this.hooks = hooks;
@@ -39,6 +42,14 @@ export class ScoringSystem {
         return 0;
       }
     })();
+  }
+
+  /** Subscribe to enemy_killed events and auto-update score/kills/combo */
+  subscribeToEvents(eventBus: EventBus): void {
+    eventBus.on('enemy_killed', (event) => {
+      const data = event.payload as { scoreValue: number };
+      this._killedWave = this.onKill(data.scoreValue, this._killedWave);
+    });
   }
 
   // ── Core scoring ──────────────────────────────────────────────
@@ -58,7 +69,18 @@ export class ScoringSystem {
     this._killed++;
     this._combo++;
     this._comboT = 3;
-    return killedWave + 1;
+    this._killedWave = killedWave + 1;
+    return this._killedWave;
+  }
+
+  /** Get current killed wave count for wave clear checks */
+  get killedWave(): number {
+    return this._killedWave;
+  }
+
+  /** Set killed wave from outside (for initialisation) */
+  setKilledWave(v: number): void {
+    this._killedWave = v;
   }
 
   // ── Combo ─────────────────────────────────────────────────────
@@ -131,6 +153,7 @@ export class ScoringSystem {
   reset(): void {
     this._score = 0;
     this._killed = 0;
+    this._killedWave = 0;
     this._combo = 0;
     this._comboT = 0;
     this._runTime = 0;

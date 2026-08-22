@@ -203,7 +203,6 @@ export class Game {
   private wave = 1;
   private waveTotal = 0;
   private allocated = 0;
-  private killedWave = 0;
   private peakAlive = 0;
 
   /* Persistent upgrades */
@@ -324,7 +323,7 @@ export class Game {
       spawnPickup: (kind, x, y, vx, vy) => this.spawnPickup(kind, x, y, vx, vy),
       fx: this.fx,
       audio: this.audio,
-    });
+    }, this.eventBus);
     this.riftField = new RiftField({
       spawnEnemy: (kind, x, y) => this.spawnEnemy(kind, x, y, null),
       fx: this.fx,
@@ -491,6 +490,9 @@ export class Game {
     // Store context reference for direct access
     this.fsmCtx = this.fsmBridge.context;
     
+    // Subscribe scoring system to events FIRST so it increments killedWave before Game.checkWaveClear()
+    this.scoringSystem.subscribeToEvents(this.eventBus);
+
     this.setupEventListeners();
 
     window.addEventListener("resize", this.onResize);
@@ -515,18 +517,7 @@ export class Game {
   }
 
   private setupEventListeners() {
-    // Бridge: CollisionSystem.publish('player_hit') → playerSystem.hit()
-    this.eventBus.on("player_hit", (event) => {
-      const data = event.payload as { dmg: number };
-      this.playerSystem.hit(data.dmg);
-    });
-
-    this.eventBus.on("enemy_killed", (event) => {
-      const data = event.payload as { scoreValue: number };
-      const { scoreValue } = data;
-      this.killedWave = this.scoringSystem.onKill(scoreValue, this.killedWave);
-      this.checkWaveClear();
-    });
+    // === FSM coordination events (remain in Game) ===
 
     this.eventBus.on("wave_started", (event) => {
       // Запускаем волну при начале обратного отсчёта
@@ -536,7 +527,7 @@ export class Game {
         this.waveTotal = waveTotalFor(this.wave);
         // Сброс счётчиков для новой волны
         this.allocated = 0;
-        this.killedWave = 0;
+        this.scoringSystem.setKilledWave(0);
         // Initialize orchestrator for this wave
         const pos = this.getPlayerPosition();
         this.waveOrchestrator.initWave(pos.x, pos.y, this.wave, this.waveTotal);
@@ -551,105 +542,14 @@ export class Game {
       }
     });
 
-    this.eventBus.on("zone_update", (event) => {
-      const data = event.payload as { x: number; y: number; radius: number; targetRadius: number; alpha: number; active: boolean };
-      const { x, y, radius, targetRadius, alpha, active } = data;
-      this.gameState.zone.x = x;
-      this.gameState.zone.y = y;
-      this.gameState.zone.radius = radius;
-      this.gameState.zone.targetRadius = targetRadius;
-      this.gameState.zone.alpha = alpha;
-      this.gameState.zone.active = active;
-    });
-
-    this.eventBus.on("spawn_enemy", (event) => {
-      // Событие spawn_enemy публикуется из EnemySystem.spawn(),
-      // который уже вызывается напрямую из Game.spawnEnemy().
-      // Ничего не делаем чтобы избежать двойного спавна.
-    });
-
-    this.eventBus.on("carrierSpawnDrone", (event) => {
-      const data = event.payload as { x: number; y: number; parent: Enemy | null };
-      const { x, y, parent } = data;
-      this.spawnEnemy(EnemyKind.Drone, x, y, parent);
-    });
-
-    this.eventBus.on("fire_bullet", (event) => {
-      const data = event.payload as { x: number; y: number; vx: number; vy: number; life: number; dmg: number; isEnemy: boolean };
-      const { x, y, vx, vy, life, dmg, isEnemy } = data;
-      if (isEnemy) {
-        this.entityPool.enemyBulletList.push({ x, y, vx, vy, life, dmg, heavy: false, cruiser: false });
-      } else {
-        this.entityPool.bullets.push({ x, y, vx, vy, life, dmg });
-      }
-    });
-
-    this.eventBus.on("spawn_pickup", (event) => {
-      const data = event.payload as { kind: string; x: number; y: number; vx: number; vy: number };
-      const { kind, x, y, vx, vy } = data;
-      this.spawnPickup(kind as any, x, y, vx, vy);
-    });
-
-    this.eventBus.on("pickup_collected", (event) => {
-      const data = event.payload as { kind: string };
-      this.applyPickup(data.kind as any);
-    });
-
-    this.eventBus.on("drone_fired", (event) => {
-      const data = event.payload as { x: number; y: number; vx: number; vy: number; damage: number };
-      this.entityPool.enemyBulletList.push({
-        x: data.x,
-        y: data.y,
-        vx: data.vx,
-        vy: data.vy,
-        life: 1.5,
-        dmg: data.damage,
-        heavy: false,
-        cruiser: false,
-      });
-    });
-
-    this.eventBus.on("drone_hit", (event) => {
-      const data = event.payload as { x: number; y: number; dead: boolean };
-      if (data.dead) {
-        this.entityPool.removeAllyDroneAt(data.x, data.y);
-      }
-    });
-
-    this.eventBus.on("popup", (event) => {
-      const data = event.payload as { x: number; y: number; text: string; color: string };
-      const { x, y, text, color } = data;
-      this.popupId++;
-      this.hooks.onPopup({ id: this.popupId, x, y, text, color });
-    });
-
-    this.eventBus.on("camera_shake", (event) => {
-      const data = event.payload as { strength: number; duration: number };
-      const { strength, duration } = data;
-      this.fx.addShake(strength);
-    });
-
-    this.eventBus.on("zone_update", (event) => {
-      const data = event.payload as { x: number; y: number; radius: number; targetRadius: number; alpha: number; active: boolean };
-      const { x, y, radius, targetRadius, alpha, active } = data;
-      this.gameState.zone.x = x;
-      this.gameState.zone.y = y;
-      this.gameState.zone.radius = radius;
-      this.gameState.zone.targetRadius = targetRadius;
-      this.gameState.zone.alpha = alpha;
-      this.gameState.zone.active = active;
-    });
-
-    this.eventBus.on("asteroid_hit", (event) => {
-      const data = event.payload as { index: number; dmg: number; vx: number; vy: number; x: number; y: number };
-      const { index, dmg, x, y } = data;
-      // Delegate damage/destruction to asteroidField
-      this.asteroidField.damageAt(index, dmg, x ?? 0, y ?? 0);
-    });
-
     this.eventBus.on("game_over", (event) => {
       // FSM handles the transition — no double-entry possible
       this.fsm.fire("player_died");
+    });
+
+    // === Wave clear check (Game-level coordination) ===
+    this.eventBus.on("enemy_killed", () => {
+      this.checkWaveClear();
     });
   }
 
@@ -724,7 +624,7 @@ export class Game {
         asteroids as any
       );
       this.pickupSystem.update(dtScaled, this.entityPool.pickups);
-      this.spawnSystem.update(dtScaled, this.wave, this.allocated, this.killedWave, this);
+      this.spawnSystem.update(dtScaled, this.wave, this.allocated, this.scoringSystem.killedWave, this);
     }
     this.riftField.update(dtScaled);
     this.fx.update(dtScaled, dtScaled); // Обновляем частицы и тряску экрана
@@ -816,7 +716,7 @@ export class Game {
       best: s.best,
       hp: this.playerSystem.getHp(),
       maxHp: this.playerSystem.getMaxHp(),
-      killed: this.killedWave,
+      killed: this.scoringSystem.killedWave,
       total: this.waveTotal,
       enemies: this.entityPool.enemyList.length,
       comboMult: s.comboMult,
@@ -953,7 +853,7 @@ export class Game {
     this.wave = this.startWave;
     this.waveTotal = 0;
     this.allocated = 0;
-    this.killedWave = 0;
+    this.scoringSystem.setKilledWave(0);
     this.peakAlive = 0;
 
     // Spawn player at center of screen (not from rift)
@@ -1012,7 +912,7 @@ export class Game {
   }
 
   private spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number) {
-    this.entityPool.spawnPickup(kind, x, y, vx, vy);
+    this.pickupSystem.spawn(kind, x, y, vx, vy);
   }
 
   private spawnParts(amount: number, x: number, y: number) {
@@ -1079,16 +979,16 @@ export class Game {
     const heavy = data.cruiser || data.heavy;
     const speed = data.boltSpeed ?? (data.cruiser ? CRUISER_BULLET_SPEED : 300);
     const life = data.cruiser ? 1.8 : 1.35;
-    this.entityPool.enemyBulletList.push({
-      x: data.x + Math.cos(data.angle) * 14,
-      y: data.y + Math.sin(data.angle) * 14,
-      vx: Math.cos(data.angle) * speed,
-      vy: Math.sin(data.angle) * speed,
+    this.bulletSystem.spawnEnemyBullet(
+      data.x + Math.cos(data.angle) * 14,
+      data.y + Math.sin(data.angle) * 14,
+      Math.cos(data.angle) * speed,
+      Math.sin(data.angle) * speed,
       life,
-      dmg: data.boltDmg,
+      data.boltDmg,
       heavy,
-      cruiser: data.cruiser,
-    });
+      data.cruiser,
+    );
   }
 
   private applyPickup(kind: PickupKind) {
@@ -1151,7 +1051,7 @@ export class Game {
       // Проверяем что все враги действительно спавнятся (спавновая очередь пуста)
       // и все враги убиты
       const allSpawned = this.allocated >= this.waveTotal;
-      const allKilled = this.killedWave >= this.waveTotal;
+      const allKilled = this.scoringSystem.killedWave >= this.waveTotal;
       
       this.waveOrchestrator.tryCheckWaveClear(allSpawned, allKilled);
     }
