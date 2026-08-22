@@ -40,9 +40,6 @@ import { type GameFSMContext } from "./core/GameFSM";
 import { FSMBridge } from "./core/FSMBridge";
 import { GameStateMachine } from "./core/StateMachine";
 
-/* Wave & zone management */
-import { WaveManager } from "./wave/WaveManager";
-
 /* Subsystems */
 import { AsteroidField } from "./asteroids";
 import { Fx } from "./fx";
@@ -196,8 +193,6 @@ export class Game {
   private pickupSystem: PickupSystem;
   private collisionSystem: CollisionSystem;
 
-  /* Wave & zone management */
-  private waveManager: WaveManager;
   private zoneSystem: ZoneSystem;
   private waveOrchestrator: WaveOrchestrator;
 
@@ -270,9 +265,6 @@ export class Game {
     /* Initialize core systems */
     this.eventBus = new EventBus();
     this.gameState = new GameState();
-
-    /* Initialize wave & zone managers */
-    this.waveManager = new WaveManager(this.eventBus, this.gameState);
 
     /* Initialize wave orchestrator */
     this.waveOrchestrator = new WaveOrchestrator({
