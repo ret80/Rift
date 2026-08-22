@@ -46,6 +46,7 @@ import { clamp } from "./math";
 import { Renderer } from "./render";
 import { MenuScene } from "./systems/MenuScene";
 import { ScoringSystem } from "./systems/ScoringSystem";
+import { DebugSystem } from "./systems/DebugSystem";
 
 /* Core systems */
 import { EventBus } from "./core/EventBus";
@@ -161,9 +162,6 @@ export class Game {
   private time = 0;
   private timeScale = 1;
 
-  private debugGod = false;
-  private debugShow = false;
-  private debugToggleTimer = 0;
   private fpsEma = 60;
   private startWave = 1;
 
@@ -224,6 +222,9 @@ export class Game {
   /* Camera - система управления камерой (smooth follow) */
   private cameraSystem: CameraSystem;
 
+  /* Debug */
+  private debugSystem: DebugSystem;
+
   /* Entity arrays */
   private enemyList: Enemy[] = [];
   private bullets: Bullet[] = [];
@@ -248,6 +249,7 @@ export class Game {
 
     /* Initialize camera system first (needed by onResize) */
     this.cameraSystem = new CameraSystem();
+    this.debugSystem = new DebugSystem();
 
     this.onResize();
 
@@ -717,7 +719,7 @@ export class Game {
     const dtScaled = dt * this.timeScale;
     this.time += dtScaled;
 
-    this.handleDebugKeys();
+    this.handleDebugKeys(dt);
 
     this.gameState.setTime(this.time);
     this.gameState.setWave(this.wave);
@@ -931,7 +933,7 @@ export class Game {
   }
 
   setDebugGod(on: boolean): void {
-    this.debugGod = on;
+    this.debugSystem.setGodMode(on);
   }
 
   setStartWave(wave: number): void {
@@ -983,117 +985,42 @@ export class Game {
     return true;
   }
 
-  toggleDebug(): void {
-    this.debugShow = !this.debugShow;
-    this.debugToggleTimer = 1;
+  private handleDebugKeys(dt: number) {
+    // Debug key handling delegated to DebugSystem
+    this.debugSystem.handleDebugKeys(
+      (key) => this.input.isKey(key),
+      this.fsm.is("over"),
+      () => this.fsm.fire("restart")
+    );
   }
-
-  private handleDebugKeys() {
-    // Simple key state tracking (no repeat for debug keys)
-    if (!this._debugKeys) this._debugKeys = {};
-    const keys = this._debugKeys;
-    
-    // Backtick (`) for debug overlay toggle
-    if (this.input.isKey('Backquote')) {
-      if (!keys['`']) {
-        this.toggleDebug();
-        keys['`'] = true;
-      }
-    } else {
-      keys['`'] = false;
-    }
-    
-    // G for god mode
-    if (this.input.isKey('KeyG')) {
-      if (!keys['G']) {
-        this.debugGod = !this.debugGod;
-        keys['G'] = true;
-      }
-    } else {
-      keys['G'] = false;
-    }
-    
-    // R or Enter or Space to restart from "over" state
-    if (this.fsm.is("over")) {
-      const restartKey = this.input.isKey('KeyR') || this.input.isKey('Enter') || this.input.isKey('Space');
-      if (restartKey && !keys['restart']) {
-        this.fsm.fire("restart");
-        keys['restart'] = true;
-      }
-    } else {
-      keys['restart'] = false;
-    }
-  }
-  
-  private _debugKeys: Record<string, boolean> | null = null;
 
   private renderDebug() {
-    if (!this.debugShow) return;
-    const ctx = this.renderer.canvas.getContext('2d');
-    if (!ctx) return;
-    
-    ctx.save();
-    ctx.resetTransform();
-    
-    // Background
-    ctx.fillStyle = 'rgba(0,0,0,0.75)';
-    ctx.fillRect(0, 0, 280, 320);
-    
-    // Title
-    ctx.fillStyle = '#ff3b52';
-    ctx.font = 'bold 14px monospace';
-    ctx.fillText('DEBUG OVERLAY [Tab]', 10, 22);
-    
-    // Game state info
-    ctx.fillStyle = '#eaffff';
-    ctx.font = '12px monospace';
-    let y = 50;
-    
-    const lines = [
-      `state: ${this.fsm.state}`,
-      `wave: ${this.wave}`,
-      `time: ${this.scoringSystem.runTime.toFixed(1)}s`,
-      `fps: ${this.fps()}`,
-      ``,
-      `ZONE:`,
-      `  active: ${this.gameState.zone.active}`,
-      `  radius: ${this.gameState.zone.radius.toFixed(1)}`,
-      `  target: ${this.gameState.zone.targetRadius.toFixed(1)}`,
-      `  alpha: ${this.gameState.zone.alpha.toFixed(2)}`,
-      ``,
-      `SPAWN:`,
-      `  countdown: ${this.countdownSystem?.isCountdownActive?.() ? 'YES' : 'NO'}`,
-      `  enemies: ${this.enemyList.length}`,
-      `  rifts: ${this.riftField?.list?.length ?? 0}`,
-      `  total: ${this.waveTotal}`,
-      `  killed: ${this.scoringSystem.getState().killed}`,
-      `  allocated: ${this.allocated}`,
-      ``,
-      `PLAYER:`,
-      `  pos: ${this.playerSystem.getPosition().x.toFixed(0)}, ${this.playerSystem.getPosition().y.toFixed(0)}`,
-      `  hp: ${this.playerSystem.getHp()}/${this.playerSystem.getMaxHp()}`,
-      ``,
-      `INPUT:`,
-      `  axis: ${this.input.axis.x.toFixed(2)}, ${this.input.axis.y.toFixed(2)}`,
-      `  mouse: [${this.inputSystem.mouse.x}, ${this.inputSystem.mouse.y}]`,
-      ``,
-      `CONTROLS:`,
-      `  Tab: toggle debug`,
-      `  G: god mode`,
-    ];
-    
-    for (const line of lines) {
-      // Color coding
-      if (line.includes('YES') || line.includes('ON')) ctx.fillStyle = '#ff5d7e';
-      else if (line.includes('NO') || line.includes('OFF')) ctx.fillStyle = '#d8ff3e';
-      else if (line.includes('ZONE:') || line.includes('S') || line.includes('PLAYER:') || line.includes('INPUT:') || line.includes('CONTROLS:')) ctx.fillStyle = '#c06bff';
-      else ctx.fillStyle = '#eaffff';
-      
-      ctx.fillText(line, 10, y);
-      y += 16;
-    }
-    
-    ctx.restore();
+    // Delegate rendering to DebugSystem
+    this.debugSystem.renderDebug({
+      canvas: this.renderer.canvas,
+      fsmState: this.fsm.state,
+      wave: this.wave,
+      runTime: this.scoringSystem.runTime,
+      fps: this.fps(),
+      zoneActive: this.gameState.zone.active,
+      zoneRadius: this.gameState.zone.radius,
+      zoneTargetRadius: this.gameState.zone.targetRadius,
+      zoneAlpha: this.gameState.zone.alpha,
+      countdownActive: this.countdownSystem.isCountdownActive(),
+      enemyCount: this.enemyList.length,
+      riftCount: this.riftField.list.length,
+      waveTotal: this.waveTotal,
+      kills: this.scoringSystem.getState().killed,
+      allocated: this.allocated,
+      playerX: this.playerSystem.getPosition().x,
+      playerY: this.playerSystem.getPosition().y,
+      playerHp: this.playerSystem.getHp(),
+      playerMaxHp: this.playerSystem.getMaxHp(),
+      inputAxisX: this.input.axis.x,
+      inputAxisY: this.input.axis.y,
+      mouseX: this.inputSystem.mouse.x,
+      mouseY: this.inputSystem.mouse.y,
+    });
   }
 
   toMenu(): void {
