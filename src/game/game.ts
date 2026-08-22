@@ -10,7 +10,6 @@ import {
   PickupKind,
   waveTotalFor,
   massForRadius,
-  zoneExpandSpeed,
   PLAYER_MAX_SPEED,
   EnemyKind,
 } from "./balance";
@@ -27,23 +26,6 @@ import {
 import { CRUISER_BULLET_SPEED } from "./balance";
 
 import {
-  // Zone constants
-  ZONE_INITIAL_RADIUS,
-  ZONE_EDGE_MARGIN,
-  ZONE_EDGE_WARNING_DELAY,
-  ZONE_EDGE_DAMAGE_INTERVAL,
-  ZONE_EDGE_DAMAGE_AMOUNT,
-  ZONE_EDGE_SHAKE_STRENGTH,
-  ZONE_EARLY_DAMAGE_THRESHOLD,
-  ZONE_CLEAR_BANNER_DELAY,
-  ZONE_CLEAR_EXPAND_START,
-  ZONE_CLEAR_NEXT_WAVE,
-  ZONE_CLEAR_EXPAND_DURATION,
-  ZONE_CLEAR_EXPAND_MULTIPLIER,
-  ZONE_ASTEROID_PUSH_FORCE,
-  ZONE_ENEMY_PUSH_FORCE_COEFF,
-  ZONE_ENEMY_PUSH_FORCE_MAX,
-  ZONE_GUN_RANGE,
   // Missile
   MISSILE_DURATION,
   MISSILE_LAUNCH_INTERVAL,
@@ -70,8 +52,10 @@ import {
   CAMERA_SMOOTHING,
   // FPS
   FPS_SMOOTHING_FACTOR,
+  // Zone gun range (still used by Game for autofire)
+  ZONE_GUN_RANGE,
 } from "./balance";
-import { clamp, easeOutCubic } from "./math";
+import { clamp } from "./math";
 import { Renderer } from "./render";
 
 /* Core systems */
@@ -104,6 +88,7 @@ import { PickupSystem } from "./systems/PickupSystem";
 import { PlayerSystem } from "./systems/PlayerSystem";
 import { RendererSystem } from "./systems/RendererSystem";
 import { SpawnSystem } from "./systems/SpawnSystem";
+import { WaveOrchestrator } from "./systems/WaveOrchestrator";
 
 /* ============================== UI types ============================== */
 
@@ -240,21 +225,14 @@ export class Game {
   /* Wave & zone management */
   private waveManager: WaveManager;
   private zoneManager: ZoneManager;
-  
+  private waveOrchestrator: WaveOrchestrator;
+
   // Wave tracking (used by SpawnSystem)
   private wave = 1;
   private waveTotal = 0;
   private allocated = 0;
   private killedWave = 0;
   private peakAlive = 0;
-
-  private clearT = 0;
-  private waveClearSent = false;
-  
-  // Edge danger tracking
-  private edgeOutT = 0;
-  private edgeTickT = 0;
-  private edgeWarned = false;
 
   /* Scoring */
   private score = 0;
@@ -325,6 +303,29 @@ export class Game {
     this.zoneManager = new ZoneManager({
       eventBus: this.eventBus,
       state: this.gameState,
+    });
+
+    /* Initialize wave orchestrator */
+    this.waveOrchestrator = new WaveOrchestrator({
+      hooks: {
+        onBanner: (title, sub, color) => {
+          this.hooks.onBanner({ title, sub, color });
+        },
+        onToast: (text, color) => {
+          this.hooks.onToast({ text, color });
+        },
+        hitPlayer: (amount) => {
+          this.playerSystem.hit(amount);
+        },
+        shakeScreen: (strength, duration) => {
+          this.fx.shake(strength, duration);
+        },
+        onWaveAdvanced: (wave) => {
+          this.wave = wave;
+          this.countdownSystem.startWave(this.wave);
+        },
+      },
+      playerMaxSpeed: PLAYER_MAX_SPEED,
     });
 
     /* Initialize input */
@@ -529,8 +530,13 @@ export class Game {
         const waveData = event.payload as { wave: number };
         this.wave = waveData.wave;
         this.waveTotal = waveTotalFor(this.wave);
+        // Сброс счётчиков для новой волны
         this.allocated = 0;
         this.killedWave = 0;
+        // Initialize orchestrator for this wave
+        const pos = this.getPlayerPosition();
+        this.waveOrchestrator.initWave(pos.x, pos.y, this.wave, this.waveTotal);
+        this.waveOrchestrator.setSpeedMult(this.appliedUpgrades?.speedMult ?? 1.0);
       }
     });
 
@@ -771,7 +777,6 @@ export class Game {
     // Stop zone damage and autofire when dying or dead
     if (this.state !== "dying" && this.state !== "over") {
       this.updateZoneAndWaves(dtScaled);
-      this.updateEdgeDanger(dtScaled);
       
       // Авто-стрельба по ближайшему врагу в зоне поражения
       if (this.state === "playing" || this.state === "active") {
@@ -781,6 +786,16 @@ export class Game {
       // Still render zone effects but don't damage player
       this.updateZoneAndWaves(dtScaled);
     }
+    
+    // Sync zone state from orchestrator to gameState for rendering
+    const wz = this.waveOrchestrator.zoneState;
+    this.gameState.zone.x = wz.x;
+    this.gameState.zone.y = wz.y;
+    this.gameState.zone.radius = wz.radius;
+    this.gameState.zone.targetRadius = wz.targetRadius;
+    this.gameState.zone.alpha = wz.alpha;
+    this.gameState.zone.active = wz.active;
+    this.gameState.zone.collapseT = wz.collapseT;
     
     // Update asteroid field with camera and zone info
     this.asteroidField.update(dtScaled, {
@@ -986,7 +1001,7 @@ export class Game {
       best: this.best,
       hp: this.playerSystem.getHp(),
       maxHp: this.playerSystem.getMaxHp(),
-      killed: this.killed,
+      killed: this.killedWave,
       total: this.waveTotal,
       enemies: this.enemyList.length,
       comboMult: Math.min(10, 1 + Math.floor(this.combo / 5)),
@@ -1213,11 +1228,6 @@ export class Game {
     this.peakAlive = 0;
     this.combo = 0;
     this.comboT = 0;
-    this.clearT = 0;
-    this.waveClearSent = false;
-    this.edgeOutT = 0;
-    this.edgeTickT = 0;
-    this.edgeWarned = false;
 
     // Spawn player at center of screen (not from rift)
     this.playerSystem.reset();
@@ -1245,14 +1255,9 @@ export class Game {
     this.spawnSystem.clearAnnounced();
     this.enemySystem.reset();
 
-    // Reset zone state
-    this.gameState.zone.active = false;
-    this.gameState.zone.x = 0;
-    this.gameState.zone.y = 0;
-    this.gameState.zone.radius = 0;
-    this.gameState.zone.targetRadius = 0;
-    this.gameState.zone.alpha = 0;
-    this.gameState.zone.collapseT = -1;
+    // Reset zone state via orchestrator
+    const pos = this.getPlayerPosition();
+    this.waveOrchestrator.reset();
 
     this.riftField.reset();
     this.asteroidField.hardReset();
@@ -1435,6 +1440,9 @@ export class Game {
     // Не проверяем завершение если всё ещё спавнятся враги
     if (this.state !== "active") return;
     
+    // Если оркестратор уже в cleared — переход к следующей волне, игнорируем убийства
+    if (this.waveOrchestrator.waveState === "cleared") return;
+    
     const alive = this.enemyList.filter((e) => !e.dead).length;
     if (alive === 0) {
       // Проверяем что все враги действительно спавнятся (спавновая очередь пуста)
@@ -1442,11 +1450,7 @@ export class Game {
       const allSpawned = this.allocated >= this.waveTotal;
       const allKilled = this.killedWave >= this.waveTotal;
       
-      if (allSpawned && allKilled) {
-        this.state = "cleared";
-        this.clearT = 0;
-        this.waveClearSent = false;
-      }
+      this.waveOrchestrator.tryCheckWaveClear(allSpawned, allKilled);
     }
   }
 
@@ -1455,141 +1459,16 @@ export class Game {
 
     this.runTime += dt;
 
-    // Zone activates AFTER countdown ends (not during countdown)
-    if (!this.gameState.zone.active && !this.countdownSystem.isCountdownActive()) {
-      // Initialize zone for this wave
-      const p = this.playerSystem.getState();
-      this.gameState.zone.x = p.x;
-      this.gameState.zone.y = p.y;
-      this.gameState.zone.targetRadius = Math.max(400, 200 + this.wave * 50);
-      this.gameState.zone.radius = ZONE_INITIAL_RADIUS;
-      this.gameState.zone.alpha = 0;
-      this.gameState.zone.collapseT = -1;
-      this.gameState.zone.active = true;
-    }
+    // Apply speed multiplier
+    this.waveOrchestrator.setSpeedMult(this.appliedUpgrades?.speedMult ?? 1.0);
 
-    // Скорость расширения учитывает апгрейд скорости игрока и временные бонусы
-    const speedMult = this.appliedUpgrades?.speedMult ?? 1.0;
-    const expandSpeed = zoneExpandSpeed(speedMult, PLAYER_MAX_SPEED);
-    
-    // Зона расширяется ТОЛЬКО когда отсчёт завершён
-    if (this.gameState.zone.radius < this.gameState.zone.targetRadius && !this.countdownSystem.isCountdownActive()) {
-      this.gameState.zone.radius = Math.min(
-        this.gameState.zone.targetRadius,
-        this.gameState.zone.radius + expandSpeed * dt
-      );
-      this.gameState.zone.alpha = Math.min(0.5, this.gameState.zone.alpha + dt * 1.2);
-    } else if (this.state === "cleared") {
-      this.clearT += dt;
-      if (this.clearT >= ZONE_CLEAR_BANNER_DELAY && !this.waveClearSent) {
-        this.waveClearSent = true;
-        this.hooks.onBanner({
-          title: t("game.waveClear"),
-          sub: t("game.nextWave", { wave: this.wave + 1 }),
-          color: "#6f6",
-        });
-        setTimeout(() => this.hooks.onBanner(null), 2000);
-      }
-      // Плавно увеличиваем зону и уменьшаем альфа перед исчезновением
-      if (this.clearT >= ZONE_CLEAR_EXPAND_START) {
-        const expandProgress = clamp((this.clearT - ZONE_CLEAR_EXPAND_START) / ZONE_CLEAR_EXPAND_DURATION, 0, 1);
-        const eased = easeOutCubic(expandProgress);
-        // Зона расширяется в 1.5 раза
-        this.gameState.zone.radius = this.gameState.zone.targetRadius * (1 + ZONE_CLEAR_EXPAND_MULTIPLIER * eased);
-        // Альфа уменьшается от 0.5 до 0
-        this.gameState.zone.alpha = 0.5 * (1 - eased);
-      }
-      // Переход к следующей волне только после полного исчезновения зоны
-      if (this.clearT >= ZONE_CLEAR_NEXT_WAVE) {
-        this.wave++;
-        this.killedWave = 0;
-        this.allocated = 0;
-        this.clearT = 0;
-        this.state = "active";
-        // Сброс зоны — она начнёт раскрываться ПОСЛЕ отсчёта
-        this.gameState.zone.active = false;
-        this.countdownSystem.startWave(this.wave);
-      }
-    }
-    
-    // Apply zone boundary constraints
-    this.applyZoneConstraints(dt);
+    // Update orchestrator (handles zone expansion, clear transition, edge danger, constraints)
+    const playerPos = this.getPlayerPosition();
+    const asteroids = ((this.asteroidField as any).list || []) as any[];
+    const countdownActive = this.countdownSystem.isCountdownActive();
+    this.waveOrchestrator.update(dt, playerPos, this.enemyList, asteroids, countdownActive);
   }
 
-  // Zone boundary enforcement - keep enemies inside, asteroids outside
-  private applyZoneConstraints(dt: number) {
-    if (!this.gameState.zone.active || this.gameState.zone.radius <= 0) return;
-    
-    const zoneRadius = this.gameState.zone.radius;
-    const zoneCenterX = this.gameState.zone.x;
-    const zoneCenterY = this.gameState.zone.y;
-    
-    // Constrain asteroids - keep them outside the zone
-    for (const asteroid of (this.asteroidField as any).list || []) {
-      const dx = asteroid.x - zoneCenterX;
-      const dy = asteroid.y - zoneCenterY;
-      const dist = Math.hypot(dx, dy);
-      
-      // If asteroid is inside zone boundary, push it out strongly
-      if (dist < zoneRadius - asteroid.r * 0.5) {
-        const pushDir = dist > 0.01 ? 1 / dist : 0;
-        const pushForce = (zoneRadius - asteroid.r * 0.5 - dist) * ZONE_ASTEROID_PUSH_FORCE;
-        asteroid.vx += (dx * pushDir) * pushForce;
-        asteroid.vy += (dy * pushDir) * pushForce;
-      }
-    }
-    
-    // Constrain enemies - keep them inside the zone
-    for (const enemy of this.enemyList) {
-      if (enemy.dead) continue;
-      const dx = enemy.x - zoneCenterX;
-      const dy = enemy.y - zoneCenterY;
-      const dist = Math.hypot(dx, dy);
-      const enemyR = enemy.r || 15;
-      
-      // If enemy is outside zone boundary, push it back inside
-      // Используем мягкую силу отталкивания, чтобы не вызывать колебания скорости/угла
-      if (dist > zoneRadius - enemyR) {
-        const pushDir = dist > 0.01 ? 1 / dist : 0;
-        const penetration = dist - (zoneRadius - enemyR);
-        const pushForce = Math.min(penetration * ZONE_ENEMY_PUSH_FORCE_COEFF, ZONE_ENEMY_PUSH_FORCE_MAX);
-        enemy.vx -= (dx * pushDir) * pushForce * dt;
-        enemy.vy -= (dy * pushDir) * pushForce * dt;
-      }
-    }
-  }
-
-  private updateEdgeDanger(dt: number) {
-    if (!this.gameState.zone.active) return;
-
-    const p = this.playerSystem.getState();
-    const dx = p.x - this.gameState.zone.x;
-    const dy = p.y - this.gameState.zone.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    
-    // Не наносим урон пока зона не раскрылась хотя бы наполовину
-    if (this.gameState.zone.radius < this.gameState.zone.targetRadius * ZONE_EARLY_DAMAGE_THRESHOLD) return;
-    
-    if (dist > this.gameState.zone.radius - ZONE_EDGE_MARGIN) {
-      this.edgeOutT += dt;
-      this.edgeTickT += dt;
-      if (!this.edgeWarned && this.edgeOutT > ZONE_EDGE_WARNING_DELAY) {
-        this.edgeWarned = true;
-        this.hooks.onToast({ text: t("game.zoneWarning"), color: "#fa5" });
-        setTimeout(() => this.hooks.onToast(null), 1500);
-      }
-      if (this.edgeTickT > ZONE_EDGE_DAMAGE_INTERVAL) {
-        this.edgeTickT = 0;
-        this.playerSystem.hit(ZONE_EDGE_DAMAGE_AMOUNT);
-        this.fx.shake(ZONE_EDGE_SHAKE_STRENGTH, 0.2);
-      }
-    } else {
-      this.edgeOutT = 0;
-      this.edgeTickT = 0;
-      this.edgeWarned = false;
-    }
-  }
-  
   /** Spawn initial asteroids around the menu screen center with proper physics */
   private ensureMenuAsteroids(): void {
     if (this._menuAstSpawned) return;
