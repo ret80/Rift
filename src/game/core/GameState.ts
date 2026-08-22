@@ -4,6 +4,10 @@
  */
 
 import type { EnemyKind } from '../balance';
+import type { ZoneData } from './ZoneTypes';
+
+// Alias for backward compatibility
+export type ZoneState = ZoneData;
 
 export interface PlayerState {
   x: number;
@@ -29,16 +33,6 @@ export interface WaveState {
   stepSize: number;
   dropThreshold: number;
   peakAlive: number;
-}
-
-export interface ZoneState {
-  active: boolean;
-  x: number;
-  y: number;
-  radius: number;
-  targetRadius: number;
-  alpha: number;
-  collapseT: number; // -1 = не схлопывается, >=0 = время схлопывания
 }
 
 export interface ScoreState {

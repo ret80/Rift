@@ -1,7 +1,7 @@
 /**
  * WaveOrchestrator - оркестратор волн и зон.
  * Управляет жизненным циклом волны, поведением зоны,
- * ограничениями границ и уроном на краю зоны.
+ * уроном на краю зоны.
  * 
  * FSM States:
  *   inactive → active → cleared → (next wave)
@@ -21,14 +21,11 @@ import {
   ZONE_CLEAR_NEXT_WAVE,
   ZONE_CLEAR_EXPAND_DURATION,
   ZONE_CLEAR_EXPAND_MULTIPLIER,
-  ZONE_ASTEROID_PUSH_FORCE,
-  ZONE_ENEMY_PUSH_FORCE_COEFF,
-  ZONE_ENEMY_PUSH_FORCE_MAX,
   zoneExpandSpeed,
   massForRadius,
 } from "../balance";
 import { clamp, easeOutCubic } from "../math";
-import type { Enemy } from "../types";
+import type { ZoneData } from "../core/ZoneTypes";
 import { GameStateMachine } from "../core/StateMachine";
 
 export interface WaveOrchestratorHooks {
@@ -44,15 +41,8 @@ export interface WaveOrchestratorConfig {
   playerMaxSpeed: number;
 }
 
-export interface ZoneState {
-  active: boolean;
-  x: number;
-  y: number;
-  radius: number;
-  targetRadius: number;
-  alpha: number;
-  collapseT: number;
-}
+// Re-export for backward compatibility
+export type ZoneState = ZoneData;
 
 export interface AsteroidLike {
   x: number;
@@ -104,7 +94,7 @@ export interface WaveFSMContext {
 export class WaveOrchestrator {
   private hooks: WaveOrchestratorHooks;
   private playerMaxSpeed: number;
-  private zone: ZoneState;
+  private zone: ZoneData;
   private speedMult: number = 1.0;
 
   // Wave tracking
@@ -229,15 +219,14 @@ export class WaveOrchestrator {
   }
 
   /**
-   * Update zone expansion, wave transitions, and edge danger.
-   * Called every frame during active/cleared states.
-   * @param countdownActive — true во время обратного отсчёта; зона НЕ активируется.
-   */
+    * Update zone expansion and wave transitions.
+    * Called every frame during active/cleared states.
+    * Zone constraints are handled by ZoneSystem.
+    * @param countdownActive — true во время обратного отсчёта; зона НЕ активируется.
+    */
   update(
     dt: number,
     playerPos: PlayerPosition,
-    enemyList: Enemy[],
-    asteroids: AsteroidLike[],
     countdownActive: boolean
   ): void {
     const currentState = this.waveFSM.state;
@@ -254,10 +243,8 @@ export class WaveOrchestrator {
     if (currentState === "active") {
       this.updateZoneExpansion(dt);
       this.updateEdgeDanger(dt, playerPos);
-      this.applyZoneConstraints(dt, enemyList, asteroids);
     } else if (currentState === "cleared") {
       this.updateClearTransition(dt);
-      this.applyZoneConstraints(dt, enemyList, asteroids);
     }
   }
 
@@ -364,52 +351,4 @@ export class WaveOrchestrator {
     }
   }
 
-  private applyZoneConstraints(
-    dt: number,
-    enemies: Enemy[],
-    asteroids: AsteroidLike[]
-  ): void {
-    if (!this.zone.active || this.zone.radius <= 0) return;
-
-    const zoneRadius = this.zone.radius;
-    const zoneCenterX = this.zone.x;
-    const zoneCenterY = this.zone.y;
-
-    // Constrain asteroids - keep them outside the zone
-    for (const asteroid of asteroids) {
-      const adx = asteroid.x - zoneCenterX;
-      const ady = asteroid.y - zoneCenterY;
-      const dist = Math.hypot(adx, ady);
-
-      // If asteroid is inside zone boundary, push it out strongly
-      if (dist < zoneRadius - asteroid.r * 0.5) {
-        const pushDir = dist > 0.01 ? 1 / dist : 0;
-        const pushForce =
-          (zoneRadius - asteroid.r * 0.5 - dist) * ZONE_ASTEROID_PUSH_FORCE;
-        asteroid.vx += (adx * pushDir) * pushForce;
-        asteroid.vy += (ady * pushDir) * pushForce;
-      }
-    }
-
-    // Constrain enemies - keep them inside the zone
-    for (const enemy of enemies) {
-      if (enemy.dead) continue;
-      const edx = enemy.x - zoneCenterX;
-      const edy = enemy.y - zoneCenterY;
-      const dist = Math.hypot(edx, edy);
-      const enemyR = enemy.r || 15;
-
-      // If enemy is outside zone boundary, push it back inside
-      if (dist > zoneRadius - enemyR) {
-        const pushDir = dist > 0.01 ? 1 / dist : 0;
-        const penetration = dist - (zoneRadius - enemyR);
-        const pushForce = Math.min(
-          penetration * ZONE_ENEMY_PUSH_FORCE_COEFF,
-          ZONE_ENEMY_PUSH_FORCE_MAX
-        );
-        enemy.vx -= (edx * pushDir) * pushForce * dt;
-        enemy.vy -= (edy * pushDir) * pushForce * dt;
-      }
-    }
-  }
 }

@@ -1172,11 +1172,11 @@ export class Game {
     // Apply speed multiplier
     this.waveOrchestrator.setSpeedMult(this.upgradeSystem.getApplied("speedMult"));
 
-    // Update orchestrator (handles zone expansion, clear transition, edge danger, constraints)
+    // Update orchestrator (handles zone expansion, clear transition, edge danger)
+    // Zone constraints are handled by ZoneSystem
     const playerPos = this.getPlayerPosition();
-    const asteroids = ((this.asteroidField as any).list || []) as any[];
     const countdownActive = this.countdownSystem.isCountdownActive();
-    this.waveOrchestrator.update(dt, playerPos, this.entityPool.enemyList, asteroids, countdownActive);
+    this.waveOrchestrator.update(dt, playerPos, countdownActive);
   }
 
   /** Delegate menu asteroid spawning to MenuScene */

@@ -692,37 +692,6 @@ export class EnemySystem {
       parent.spawnCd = 0;
     }
   }
-  
-  /** Ограничивает врагов пределами зоны волны */
-  clampEnemiesToZone(zoneX: number, zoneY: number, zoneR: number, zoneOn: boolean): void {
-    if (!zoneOn || zoneR <= 0) return;
-    
-    for (const e of this.enemies) {
-      if (e.dead) continue;
-      
-      const dx = e.x - zoneX;
-      const dy = e.y - zoneY;
-      const dist = Math.hypot(dx, dy);
-      const limit = zoneR - e.r;
-      
-      if (dist > limit) {
-        const angle = Math.atan2(dy, dx);
-        e.x = zoneX + Math.cos(angle) * limit;
-        e.y = zoneY + Math.sin(angle) * limit;
-        
-        const nx = Math.cos(angle);
-        const ny = Math.sin(angle);
-        const dot = e.vx * nx + e.vy * ny;
-        if (dot > 0) {
-          const oldVx = e.vx;
-          const oldVy = e.vy;
-          e.vx -= 2 * dot * nx;
-          e.vy -= 2 * dot * ny;
-          logRotation('clamped', `${e.kind} at (${e.x.toFixed(0)},${e.y.toFixed(0)}) vx ${oldVx.toFixed(1)}→${e.vx.toFixed(1)}, vy ${oldVy.toFixed(1)}→${e.vy.toFixed(1)}`);
-        }
-      }
-    }
-  }
 
   /** Меткость врагов: 0.3 на волне 1, растёт до 0.7 к волне 30. */
   private getAccuracy(wave: number): number {

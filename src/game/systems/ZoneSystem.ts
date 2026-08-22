@@ -12,6 +12,7 @@ import {
   ZONE_ENEMY_PUSH_FORCE_COEFF,
   ZONE_ENEMY_PUSH_FORCE_MAX,
 } from "../balance";
+import type { ZoneData } from "../core/ZoneTypes";
 import type { Enemy } from "../types";
 
 /* ============================== Types ============================== */
@@ -27,16 +28,6 @@ export interface ZoneSystemConfig {
   getEnemyList: () => Enemy[];
   /** reference to asteroids for constraints */
   getAsteroids: () => Array<{ x: number; y: number; r: number; vx: number; vy: number }>;
-}
-
-export interface ZoneData {
-  active: boolean;
-  x: number;
-  y: number;
-  radius: number;
-  targetRadius: number;
-  alpha: number;
-  collapseT: number;
 }
 
 /* ============================== ZoneSystem ============================== */
@@ -62,10 +53,10 @@ export class ZoneSystem {
     if (!zone.active || zone.radius <= 0) return;
 
     // Clamp player to zone boundary
-    this.clampPlayerToZone(zone);
+    this.clampPlayer(zone);
 
     // Clamp enemies to zone boundary
-    this.clampEnemiesToZone(zone);
+    this.clampEnemies(zone);
 
     // Apply zone constraints (asteroids out, enemies in)
     this.applyZoneConstraints(dt, zone);
@@ -91,7 +82,7 @@ export class ZoneSystem {
    * Clamp player to zone boundary.
    * Pushes player back inside if outside, reflects outward velocity.
    */
-  private clampPlayerToZone(zone: ZoneData): void {
+  clampPlayer(zone: ZoneData): void {
     const playerRef = this.config.getPlayerRef();
     const dx = playerRef.x - zone.x;
     const dy = playerRef.y - zone.y;
@@ -119,7 +110,7 @@ export class ZoneSystem {
    * Clamp all enemies to zone boundary.
    * Pushes enemies back inside if outside, reflects outward velocity.
    */
-  private clampEnemiesToZone(zone: ZoneData): void {
+  clampEnemies(zone: ZoneData): void {
     const enemies = this.config.getEnemyList();
 
     for (const enemy of enemies) {
@@ -148,6 +139,31 @@ export class ZoneSystem {
     }
   }
 
+  /**
+   * Clamp any object to zone boundary.
+   * Utility method for generic position clamping.
+   */
+  clampToZone(obj: { x: number; y: number; vx: number; vy: number }, zone: ZoneData, overdrive: number = 0): void {
+    const dx = obj.x - zone.x;
+    const dy = obj.y - zone.y;
+    const dist = Math.hypot(dx, dy);
+    const limit = zone.radius - overdrive;
+
+    if (dist > limit) {
+      const angle = Math.atan2(dy, dx);
+      obj.x = zone.x + Math.cos(angle) * limit;
+      obj.y = zone.y + Math.sin(angle) * limit;
+
+      const nx = Math.cos(angle);
+      const ny = Math.sin(angle);
+      const dot = obj.vx * nx + obj.vy * ny;
+      if (dot > 0) {
+        obj.vx -= 2 * dot * nx;
+        obj.vy -= 2 * dot * ny;
+      }
+    }
+  }
+
   // ============================== Constraints ==============================
 
   /**
@@ -155,7 +171,7 @@ export class ZoneSystem {
    *  - Asteroids: push OUT of zone if inside boundary
    *  - Enemies: push IN to zone if outside boundary
    */
-  private applyZoneConstraints(dt: number, zone: ZoneData): void {
+  applyZoneConstraints(dt: number, zone: ZoneData): void {
     const zoneRadius = zone.radius;
     const zoneCenterX = zone.x;
     const zoneCenterY = zone.y;

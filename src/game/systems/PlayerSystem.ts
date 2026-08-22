@@ -96,11 +96,6 @@ export class PlayerSystem {
   };
   
   private fireCd = 0;
-  private zoneX = 0;
-  private zoneY = 0;
-  private zoneR = 0;
-  private zoneOn = false;
-  private zoneAlpha = 0;
   private aimAngle: number | null = null;
   private isFiring = false;
   private lastFireTime = 0;
@@ -173,14 +168,6 @@ export class PlayerSystem {
     const canvasHeight = typeof window !== 'undefined' ? window.innerHeight : 600;
     this.player.x = 0;
     this.player.y = 0;
-  }
-  
-  setZone(x: number, y: number, r: number, on: boolean, alpha: number): void {
-    this.zoneX = x;
-    this.zoneY = y;
-    this.zoneR = r;
-    this.zoneOn = on;
-    this.zoneAlpha = alpha;
   }
   
   setGuns(n: number): void {
@@ -562,55 +549,6 @@ export class PlayerSystem {
     });
   }
 
-  /* ======================== Zone Clamping ======================== */
-
-  /** Жёсткий барьер зоны для игрока — отталкивает обратно при выходе за границу. */
-  clampPlayerToZone(zoneX: number, zoneY: number, zoneR: number, zoneOn: boolean, overdrive: number): void {
-    if (!zoneOn || zoneR <= 0) return;
-    const dx = this.player.x - zoneX;
-    const dy = this.player.y - zoneY;
-    const dist = Math.hypot(dx, dy);
-    const limit = zoneR - overdrive;
-    if (dist > limit) {
-      const angle = Math.atan2(dy, dx);
-      this.player.x = zoneX + Math.cos(angle) * limit;
-      this.player.y = zoneY + Math.sin(angle) * limit;
-      const nx = Math.cos(angle);
-      const ny = Math.sin(angle);
-      const dot = this.player.vx * nx + this.player.vy * ny;
-      if (dot > 0) {
-        const oldVx = this.player.vx;
-        const oldVy = this.player.vy;
-        this.player.vx -= 2 * dot * nx;
-        this.player.vy -= 2 * dot * ny;
-        rotationLogCounter.player++;
-        logRotation('clamped', `player vx ${oldVx.toFixed(1)}→${this.player.vx.toFixed(1)}, vy ${oldVy.toFixed(1)}→${this.player.vy.toFixed(1)}`);
-      }
-    }
-  }
-
-  clampToZone(obj: { x: number; y: number; vx: number; vy: number }, overdrive: number): void {
-    if (!this.zoneOn) return;
-    
-    const dx = obj.x - this.zoneX;
-    const dy = obj.y - this.zoneY;
-    const dist = Math.hypot(dx, dy);
-    const limit = this.zoneR - overdrive;
-    
-    if (dist > limit) {
-      const angle = Math.atan2(dy, dx);
-      obj.x = this.zoneX + Math.cos(angle) * limit;
-      obj.y = this.zoneY + Math.sin(angle) * limit;
-      
-      const nx = Math.cos(angle);
-      const ny = Math.sin(angle);
-      const dot = obj.vx * nx + obj.vy * ny;
-      if (dot > 0) {
-        obj.vx -= 2 * dot * nx;
-        obj.vy -= 2 * dot * ny;
-      }
-    }
-  }
 }
 
 // Helper functions (should be imported from math.ts)
