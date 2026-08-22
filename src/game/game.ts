@@ -53,6 +53,7 @@ import { ScoringSystem } from "./systems/ScoringSystem";
 import { Camera } from "./core/Camera";
 import { EventBus } from "./core/EventBus";
 import { GameState } from "./core/GameState";
+import { createGameFSM, type GameFSMContext } from "./core/GameFSM";
 import { GameStateMachine } from "./core/StateMachine";
 
 /* Wave & zone management */
