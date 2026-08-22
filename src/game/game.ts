@@ -47,6 +47,7 @@ import {
 import { clamp } from "./math";
 import { Renderer } from "./render";
 import { MenuScene } from "./systems/MenuScene";
+import { ScoringSystem } from "./systems/ScoringSystem";
 
 /* Core systems */
 import { Camera } from "./core/Camera";
@@ -147,8 +148,6 @@ interface Hooks {
   onGameOver: () => void;
 }
 
-const BEST_KEY = "voxbest";
-
 /* ============================== Game Orchestrator ============================== */
 
 export class Game {
@@ -210,20 +209,15 @@ export class Game {
   private zoneManager: ZoneManager;
   private waveOrchestrator: WaveOrchestrator;
 
+  /* Scoring */
+  private scoringSystem: ScoringSystem;
+
   // Wave tracking (used by SpawnSystem)
   private wave = 1;
   private waveTotal = 0;
   private allocated = 0;
   private killedWave = 0;
   private peakAlive = 0;
-
-  /* Scoring */
-  private score = 0;
-  private best = 0;
-  private killed = 0;
-  private combo = 0;
-  private comboT = 0;
-  private runTime = 0;
 
   /* Persistent upgrades */
   private playerUpgrades: PlayerUpgrades = defaultUpgrades();
@@ -268,13 +262,7 @@ export class Game {
   constructor(canvas: HTMLCanvasElement, hooks: Hooks) {
     this.renderer = new Renderer(canvas);
     this.hooks = hooks;
-    this.best = (() => {
-      try {
-        return Number(localStorage.getItem(BEST_KEY)) || 0;
-      } catch {
-        return 0;
-      }
-    })();
+    this.scoringSystem = new ScoringSystem();
     this.onResize();
 
     /* Initialize core systems */
@@ -361,7 +349,7 @@ export class Game {
       this.playerSystem.setIsFiring(false);
     });
     this.asteroidField = new AsteroidField({
-      addScore: (n) => this.addScore(n),
+      addScore: (n) => this.scoringSystem.add(n),
       spawnPickup: (kind, x, y, vx, vy) => this.spawnPickup(kind, x, y, vx, vy),
       fx: this.fx,
       audio: this.audio,
@@ -542,15 +530,15 @@ export class Game {
       this.audio.explode();
     };
     fsmContext.onDeathAnimationEnd = () => {
-      const best = this.best;
-      const isNewBest = this.score > best;
+      const best = this.scoringSystem.checkNewBest();
+      const s = this.scoringSystem.getState();
       this.hooks.onStats({
-        score: this.score,
-        best: Math.max(best, this.score),
-        isBest: isNewBest,
+        score: s.score,
+        best: s.best,
+        isBest: best,
         wave: this.wave,
-        kills: this.killed,
-        time: this.runTime,
+        kills: s.killed,
+        time: s.runTime,
       });
     };
     fsmContext.onGameOver = () => {
@@ -566,7 +554,6 @@ export class Game {
       this.countdownSystem.startWave(this.wave);
     };
     fsmContext.countdownDone = () => {
-      console.log('[DEBUG Game] countdownDone calling fsm.fire("countdown_done")');
       this.fsm.fire("countdown_done");
     };
     fsmContext.onPause = (paused: boolean) => {
@@ -620,11 +607,7 @@ export class Game {
     this.eventBus.on("enemy_killed", (event) => {
       const data = event.payload as { scoreValue: number };
       const { scoreValue } = data;
-      this.score += scoreValue;
-      this.killed++;
-      this.killedWave++;
-      this.combo++;
-      this.comboT = 3;
+      this.killedWave = this.scoringSystem.onKill(scoreValue, this.killedWave);
       this.checkWaveClear();
     });
 
@@ -750,7 +733,6 @@ export class Game {
 
     this.eventBus.on("game_over", (event) => {
       // FSM handles the transition — no double-entry possible
-      console.log('[DEBUG Game] game_over event received, firing player_died');
       this.fsm.fire("player_died");
     });
   }
@@ -763,7 +745,7 @@ export class Game {
 
     this.gameState.setTime(this.time);
     this.gameState.setWave(this.wave);
-    this.gameState.setScore(this.score);
+    this.gameState.setScore(this.scoringSystem.getState().score);
 
     if (this.fsm.is("menu")) {
       this.updateMenu(dtScaled);
@@ -777,6 +759,7 @@ export class Game {
 
     /* Update all systems in order */
     this.countdownSystem.update(dtScaled);
+    this.scoringSystem.updateCombo(dtScaled);
     // Remove mouse-based aiming - auto-aim handles targeting via handleAutoFire
     this.playerSystem.update(dtScaled, this.fsm.not("menu", "over", "dying"));
     // Автоматический запуск ракет с левого и правого борта
@@ -852,7 +835,6 @@ export class Game {
     this.fx.update(dtScaled, dtScaled); // Обновляем частицы и тряску экрана
     
     // Stop zone damage and autofire when dying or dead
-    console.log('[DEBUG Game step] fsm.state =', this.fsm.state, 'fsm.not("dying","over") =', this.fsm.not("dying", "over"));
     if (this.fsm.not("dying", "over")) {
       this.updateZoneAndWaves(dtScaled);
       
@@ -906,7 +888,7 @@ export class Game {
         type: this.fsm.state as any,
         time: this.time,
         wave: this.wave,
-        score: this.score,
+        score: this.scoringSystem.score,
       },
       playerRender,
       this.enemyList,
@@ -938,17 +920,18 @@ export class Game {
   }
 
   private updateHud() {
+    const s = this.scoringSystem.getState();
     const hud: HudData = {
       wave: this.wave,
-      score: this.score,
-      best: this.best,
+      score: s.score,
+      best: s.best,
       hp: this.playerSystem.getHp(),
       maxHp: this.playerSystem.getMaxHp(),
       killed: this.killedWave,
       total: this.waveTotal,
       enemies: this.enemyList.length,
-      comboMult: Math.min(10, 1 + Math.floor(this.combo / 5)),
-      time: this.runTime,
+      comboMult: s.comboMult,
+      time: s.runTime,
       guns: this.playerSystem.getGuns(),
       rateMult: this.playerSystem.getRateMult(),
       rateT: this.playerSystem.getRateT(),
@@ -1028,7 +1011,6 @@ export class Game {
   toggleDebug(): void {
     this.debugShow = !this.debugShow;
     this.debugToggleTimer = 1;
-    console.log(`[DEBUG] Debug overlay: ${this.debugShow ? 'ON' : 'OFF'}`);
   }
 
   private handleDebugKeys() {
@@ -1050,7 +1032,6 @@ export class Game {
     if (this.input.isKey('KeyG')) {
       if (!keys['G']) {
         this.debugGod = !this.debugGod;
-        console.log(`[DEBUG] God mode: ${this.debugGod ? 'ON' : 'OFF'}`);
         keys['G'] = true;
       }
     } else {
@@ -1096,7 +1077,7 @@ export class Game {
     const lines = [
       `state: ${this.fsm.state}`,
       `wave: ${this.wave}`,
-      `time: ${this.runTime.toFixed(1)}s`,
+      `time: ${this.scoringSystem.runTime.toFixed(1)}s`,
       `fps: ${this.fps()}`,
       ``,
       `ZONE:`,
@@ -1110,7 +1091,7 @@ export class Game {
       `  enemies: ${this.enemyList.length}`,
       `  rifts: ${this.riftField?.list?.length ?? 0}`,
       `  total: ${this.waveTotal}`,
-      `  killed: ${this.killed}`,
+      `  killed: ${this.scoringSystem.getState().killed}`,
       `  allocated: ${this.allocated}`,
       ``,
       `PLAYER:`,
@@ -1159,16 +1140,12 @@ export class Game {
     this.fsm.fire("start");
     
     this.time = 0;
-    this.runTime = 0;
-    this.score = 0;
-    this.killed = 0;
+    this.scoringSystem.reset();
     this.wave = this.startWave;
     this.waveTotal = 0;
     this.allocated = 0;
     this.killedWave = 0;
     this.peakAlive = 0;
-    this.combo = 0;
-    this.comboT = 0;
 
     // Spawn player at center of screen (not from rift)
     this.playerSystem.reset();
@@ -1211,10 +1188,6 @@ export class Game {
 
     // Start countdown immediately
     this.countdownSystem.startWave(this.wave);
-  }
-
-  private addScore(n: number) {
-    this.score += n;
   }
 
   private spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number) {
@@ -1356,7 +1329,7 @@ export class Game {
         break;
       case "mineral":
         this.minerals++;
-        this.score += 50;
+        this.scoringSystem.add(50);
         break;
       case "missile":
         this.playerSystem.activateMissileLauncher(MISSILE_DURATION);
@@ -1390,10 +1363,9 @@ export class Game {
   }
 
   private updateZoneAndWaves(dt: number) {
-    console.log('[DEBUG Game] updateZoneAndWaves: fsm.state =', this.fsm.state, 'not("active","cleared") =', this.fsm.not("active", "cleared"));
     if (this.fsm.not("active", "cleared")) return;
 
-    this.runTime += dt;
+    this.scoringSystem.addRunTime(dt);
 
     // Apply speed multiplier
     this.waveOrchestrator.setSpeedMult(this.appliedUpgrades?.speedMult ?? 1.0);
@@ -1402,9 +1374,7 @@ export class Game {
     const playerPos = this.getPlayerPosition();
     const asteroids = ((this.asteroidField as any).list || []) as any[];
     const countdownActive = this.countdownSystem.isCountdownActive();
-    console.log('[DEBUG Game] calling waveOrchestrator.update: countdownActive =', countdownActive);
     this.waveOrchestrator.update(dt, playerPos, this.enemyList, asteroids, countdownActive);
-    console.log('[DEBUG Game] after update: gameState.zone.active =', this.gameState.zone.active, 'radius =', this.gameState.zone.radius);
   }
 
   /** Delegate menu asteroid spawning to MenuScene */
