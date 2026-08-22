@@ -224,6 +224,11 @@ export class PlayerSystem {
     return { x: this.player.x, y: this.player.y };
   }
   
+  /** Returns mutable reference to player state for clamping/constraints */
+  getPlayerRef(): { x: number; y: number; vx: number; vy: number } {
+    return this.player;
+  }
+  
   getVelocity(): { vx: number; vy: number } {
     return { vx: this.player.vx, vy: this.player.vy };
   }

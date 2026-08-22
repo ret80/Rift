@@ -57,7 +57,6 @@ import { GameStateMachine } from "./core/StateMachine";
 
 /* Wave & zone management */
 import { WaveManager } from "./wave/WaveManager";
-import { ZoneManager } from "./wave/ZoneManager";
 
 /* Subsystems */
 import { AsteroidField } from "./asteroids";
@@ -84,6 +83,7 @@ import { PlayerSystem } from "./systems/PlayerSystem";
 import { RendererSystem } from "./systems/RendererSystem";
 import { SpawnSystem } from "./systems/SpawnSystem";
 import { WaveOrchestrator } from "./systems/WaveOrchestrator";
+import { ZoneSystem } from "./systems/ZoneSystem";
 
 /* ============================== UI types ============================== */
 
@@ -209,7 +209,7 @@ export class Game {
 
   /* Wave & zone management */
   private waveManager: WaveManager;
-  private zoneManager: ZoneManager;
+  private zoneSystem: ZoneSystem;
   private waveOrchestrator: WaveOrchestrator;
 
   /* Scoring */
@@ -284,10 +284,6 @@ export class Game {
 
     /* Initialize wave & zone managers */
     this.waveManager = new WaveManager(this.eventBus, this.gameState);
-    this.zoneManager = new ZoneManager({
-      eventBus: this.eventBus,
-      state: this.gameState,
-    });
 
     /* Initialize wave orchestrator */
     this.waveOrchestrator = new WaveOrchestrator({
@@ -313,6 +309,15 @@ export class Game {
         },
       },
       playerMaxSpeed: PLAYER_MAX_SPEED,
+    });
+
+    /* Initialize zone system (sync, clamp, constraints) */
+    this.zoneSystem = new ZoneSystem({
+      getZoneState: () => this.waveOrchestrator.zoneState,
+      gameStateZone: this.gameState.zone,
+      getPlayerRef: () => this.playerSystem.getPlayerRef(),
+      getEnemyList: () => this.entityPool.enemyList,
+      getAsteroids: () => ((this.asteroidField as any).list || []) as Array<{ x: number; y: number; r: number; vx: number; vy: number }>,
     });
 
     /* Initialize input */
@@ -723,29 +728,9 @@ export class Game {
       }
     }
     
-    // Жёсткий барьер зоны: отталкивает игрока обратно, если он вышел за границу
-    // clamp происходит ТОЛЬКО когда зона достигла целевого радиуса (перестала расширяться)
-    // Пока зона расширяется — игрок движется свободно, так как зона быстрее (1.7× PLAYER_MAX_SPEED)
-    if (this.gameState.zone.active && 
-        this.gameState.zone.radius >= this.gameState.zone.targetRadius && 
-        this.gameState.zone.radius > 0) {
-      this.playerSystem.clampPlayerToZone(
-        this.gameState.zone.x,
-        this.gameState.zone.y,
-        this.gameState.zone.radius,
-        this.gameState.zone.active,
-        0
-      );
-    }
     // Stop enemies and bullets during dying/over (prevent orphan bullets)
     const isDead = this.fsm.is("dying", "over");
     if (!isDead) {
-      this.enemySystem.clampEnemiesToZone(
-        this.gameState.zone.x,
-        this.gameState.zone.y,
-        this.gameState.zone.radius,
-        this.gameState.zone.active
-      );
       this.enemySystem.update(dtScaled, this.entityPool.enemyList, this.getPlayerPosition(), this.entityPool.enemyBulletList);
       this.bulletSystem.update(dtScaled, this.entityPool.bullets, this.entityPool.enemyBulletList, this.entityPool.enemyList);
       // Обработка самонаведения ракет
@@ -795,15 +780,10 @@ export class Game {
       this.updateZoneAndWaves(dtScaled);
     }
     
-    // Sync zone state from orchestrator to gameState for rendering
-    const wz = this.waveOrchestrator.zoneState;
-    this.gameState.zone.x = wz.x;
-    this.gameState.zone.y = wz.y;
-    this.gameState.zone.radius = wz.radius;
-    this.gameState.zone.targetRadius = wz.targetRadius;
-    this.gameState.zone.alpha = wz.alpha;
-    this.gameState.zone.active = wz.active;
-    this.gameState.zone.collapseT = wz.collapseT;
+    // Update zone system: sync, clamp, constraints (after orchestrator update)
+    if (!isDead) {
+      this.zoneSystem.update(dtScaled);
+    }
     
     // Update asteroid field with camera and zone info
     const cp = this.cameraSystem.getPosition();
