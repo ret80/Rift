@@ -54,6 +54,7 @@ import type { AllyDrone, Bullet, EBullet, Enemy, Mine, Pickup } from "./types";
 import { BulletSystem } from "./systems/BulletSystem";
 import { CameraSystem } from "./systems/CameraSystem";
 import { CollisionSystem } from "./systems/CollisionSystem";
+import { PickupDropSystem } from "./systems/PickupDropSystem";
 import { CountdownSystem } from "./systems/CountdownSystem";
 import { DeathSystem } from "./systems/DeathSystem";
 import { DroneSystem } from "./systems/DroneSystem";
@@ -192,6 +193,7 @@ export class Game {
   private droneSystem: DroneSystem;
   private pickupSystem: PickupSystem;
   private collisionSystem: CollisionSystem;
+  private dropSystem!: PickupDropSystem;
 
   private zoneSystem: ZoneSystem;
   private waveOrchestrator: WaveOrchestrator;
@@ -430,11 +432,20 @@ export class Game {
       () => this.getPlayerPosition()
     );
 
+    this.dropSystem = new PickupDropSystem(this.eventBus);
+
     this.collisionSystem = new CollisionSystem(
       this.eventBus,
-      this.gameState,
-      (amount: number, x: number, y: number) => this.spawnParts(amount, x, y)
+      this.gameState
     );
+
+    // Wire drop system callback to collision system
+    this.collisionSystem.setOnEnemyKilled((enemy) => {
+      this.dropSystem.onEnemyKilled(enemy,
+        (kind, x, y, vx, vy) => this.spawnPickup(kind, x, y, vx, vy),
+        (n, x, y) => this.upgradeSystem.addParts(n)
+      );
+    });
 
     // Initialize death system
     this.deathSystem = new DeathSystem(
@@ -912,7 +923,7 @@ export class Game {
   }
 
   private spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number) {
-    this.pickupSystem.spawn(kind, x, y, vx, vy);
+    this.entityPool.pickups.push({ kind, x, y, vx, vy, life: 20, seed: Math.random(), r: 14 });
   }
 
   private spawnParts(amount: number, x: number, y: number) {

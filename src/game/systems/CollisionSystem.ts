@@ -4,7 +4,7 @@
  * Импульс передаётся пропорционально массе.
  */
 
-import { dropChanceFor, massForRadius, type AsteroidKind, EnemyKind, type PickupKind } from '../balance';
+import { massForRadius, type AsteroidKind, EnemyKind } from '../balance';
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { PhysicsSystem } from '../core/PhysicsSystem';
@@ -120,79 +120,20 @@ export class CollisionSystem {
   private eventBus: EventBus;
   private state: GameState;
   private physics: PhysicsSystem | null = null;
-  private spawnParts: (amount: number, x: number, y: number) => void;
+  private onEnemyKilledCb: ((enemy: Enemy) => void) | null = null;
 
-  constructor(eventBus: EventBus, state: GameState, spawnParts: (amount: number, x: number, y: number) => void = () => {}) {
+  constructor(eventBus: EventBus, state: GameState) {
     this.eventBus = eventBus;
     this.state = state;
-    this.spawnParts = spawnParts;
+  }
+
+  /** Set callback for enemy death events (used by PickupDropSystem) */
+  setOnEnemyKilled(cb: (enemy: Enemy) => void): void {
+    this.onEnemyKilledCb = cb;
   }
 
   setPhysicsSystem(physics: PhysicsSystem): void {
     this.physics = physics;
-  }
-  
-  /** Amount of parts dropped by each enemy type */
-  private partsAmountFor(enemyKind: EnemyKind): number {
-    switch (enemyKind) {
-      case EnemyKind.Drone: return 2;
-      case EnemyKind.Hunter: return 4;
-      case EnemyKind.Fighter: return 5;
-      case EnemyKind.Cruiser: return 12;
-      case EnemyKind.Carrier: return 25;
-      default: return 1;
-    }
-  }
-  
-  /** Determine what kind of bonus drops from a destroyed enemy */
-  private getDropKind(enemyKind: EnemyKind, seed: number): PickupKind | null {
-    // Random roll using seed + deterministic offset
-    const roll = (seed * 7.31 + 13.37) % 1;
-    const chance = dropChanceFor(enemyKind);
-    if (roll >= chance) return null;
-    
-    // Pick bonus type based on enemy kind
-    switch (enemyKind) {
-      case EnemyKind.Drone:
-        // drones drop small heals and rate boost
-        return roll < 0.035 ? "rate20" : "heal25";
-      case EnemyKind.Hunter:
-        // hunters drop rate and heal
-        return roll < 0.125 ? "rate20" : "heal25";
-      case "fighter":
-        // fighters drop gun and heal
-        return roll < 0.05 ? "gun" : "heal50";
-      case EnemyKind.Cruiser:
-        // cruisers drop drone and dash
-        return roll < 0.125 ? "drone" : "dash";
-      case EnemyKind.Carrier:
-        // carriers always drop something
-        const types: PickupKind[] = ["drone", "gun", "dash", "miner"];
-        return types[Math.floor(roll * types.length)];
-      default:
-        return "heal25";
-    }
-  }
-  
-  private trySpawnDrop(enemy: Enemy): void {
-    // Always drop parts (currency for upgrades)
-    const parts = this.partsAmountFor(enemy.kind);
-    this.spawnParts(parts, enemy.x + (Math.random() - 0.5) * 10, enemy.y + (Math.random() - 0.5) * 10);
-    
-    // Occasionally drop special pickups too
-    const kind = this.getDropKind(enemy.kind, enemy.seed);
-    if (!kind) return;
-    
-    const vx = (Math.random() - 0.5) * 30;
-    const vy = (Math.random() - 0.5) * 30;
-    
-    this.eventBus.publish('spawn_pickup', {
-      kind,
-      x: enemy.x + (Math.random() - 0.5) * 10,
-      y: enemy.y + (Math.random() - 0.5) * 10,
-      vx,
-      vy,
-    });
   }
 
   /**
@@ -241,7 +182,7 @@ export class CollisionSystem {
           
           if (e.hp <= 0) {
             e.dead = true;
-            this.trySpawnDrop(e);
+            this.onEnemyKilledCb?.(e);
             this.eventBus.publish('enemy_killed', {
               scoreValue: e.score,
               kind: e.kind,
@@ -309,7 +250,7 @@ export class CollisionSystem {
           });
           // Уничтожаем врага при столкновении
           e.dead = true;
-          this.trySpawnDrop(e);
+          this.onEnemyKilledCb?.(e);
           this.eventBus.publish('enemy_killed', {
             scoreValue: e.score,
             kind: e.kind,
@@ -383,7 +324,7 @@ export class CollisionSystem {
           e.hp -= 1;
           if (e.hp <= 0) {
             e.dead = true;
-            this.trySpawnDrop(e);
+            this.onEnemyKilledCb?.(e);
             this.eventBus.publish('enemy_killed', {
               scoreValue: e.score,
               kind: e.kind,
