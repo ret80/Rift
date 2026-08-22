@@ -62,6 +62,7 @@ import { Renderer } from "./render";
 import { Camera } from "./core/Camera";
 import { EventBus } from "./core/EventBus";
 import { GameState } from "./core/GameState";
+import { GameStateMachine } from "./core/StateMachine";
 
 /* Wave & zone management */
 import { WaveManager } from "./wave/WaveManager";
@@ -195,9 +196,11 @@ export class Game {
   private menuNextRiftTimer = 0;
   private _menuAstSpawned = false;
 
-  private state: "menu" | "playing" | "active" | "cleared" | "dying" | "over" = "menu";
   private paused = false;
   private deathTimer = 0;
+
+  /* FSM */
+  private fsm: ReturnType<typeof createGameFSM>;
 
   /* Core systems */
   private eventBus: EventBus;
@@ -321,7 +324,10 @@ export class Game {
           this.fx.shake(strength, duration);
         },
         onWaveAdvanced: (wave) => {
+          // Wave orchestrator triggers this when clear transition is done
+          // Go from cleared → playing for new wave countdown
           this.wave = wave;
+          this.fsm.fire("next_wave");
           this.countdownSystem.startWave(this.wave);
         },
       },
@@ -333,10 +339,7 @@ export class Game {
       onPauseKey: () => this.togglePause(),
       onLoseFocus: () => {
         if (
-          (this.state === "playing" ||
-            this.state === "active" ||
-            this.state === "cleared" ||
-            this.state === "dying") &&
+          (this.fsm.is("playing", "active", "cleared", "dying")) &&
           !this.paused
         ) {
           this.togglePause();
@@ -435,6 +438,25 @@ export class Game {
       audio: this.audio,
     });
 
+    /* Subscribe to events */
+    // Load persistent upgrades
+    this.playerUpgrades = loadUpgrades();
+    this.appliedUpgrades = applyUpgrades(this.playerUpgrades);
+    
+    // Create fsmContext BEFORE CountdownSystem so it can reference it
+    const fsmContext: GameFSMContext = {
+      onPlayerDeath: () => {},
+      onDeathAnimationEnd: () => {},
+      onGameOver: () => {},
+      onReturnToMenu: () => {},
+      onStartRun: () => {},
+      onWaveStart: () => {},
+      countdownDone: () => {},
+      onPause: () => {},
+      onWaveComplete: () => {},
+      onWaveAdvanced: () => {},
+    };
+
     this.countdownSystem = new CountdownSystem({
       hooks: {
         onBanner: (b) => this.hooks.onBanner(b),
@@ -446,6 +468,9 @@ export class Game {
           } else {
             this.hooks.onCountdown(null);
           }
+        },
+        countdownDone: () => {
+          if (fsmContext.countdownDone) fsmContext.countdownDone();
         },
       },
       eventBus: this.eventBus,
@@ -484,6 +509,95 @@ export class Game {
     // Load persistent upgrades
     this.playerUpgrades = loadUpgrades();
     this.appliedUpgrades = applyUpgrades(this.playerUpgrades);
+    
+    // Initialize FSM — используем уже созданный fsmContext
+    this.fsm = new GameStateMachine<GameFSMContext>("menu", 
+      [
+        { trigger: "start", target: "playing", guard: () => true, onEnter: () => {} },
+        { trigger: "to_menu", target: "menu", guard: () => true, onEnter: () => fsmContext.onReturnToMenu() },
+        { trigger: "countdown_done", target: "active", guard: () => this.fsm.is("playing"), onEnter: () => {} },
+        { trigger: "wave_cleared", target: "cleared", guard: () => true, onEnter: () => fsmContext.onWaveComplete() },
+        { trigger: "next_wave", target: "playing", guard: () => true, onEnter: () => {} },
+        { trigger: "player_died", target: "dying", guard: () => true, onEnter: () => fsmContext.onPlayerDeath() },
+        { trigger: "death_anim_done", target: "over", guard: () => true, onEnter: () => fsmContext.onDeathAnimationEnd() },
+        { trigger: "restart", target: "playing", guard: () => true, onEnter: () => fsmContext.onStartRun(1) },
+      ] as any,
+      fsmContext
+    );
+    
+    // Теперь когда fsm создан, заполняем контекст
+    fsmContext.onPlayerDeath = () => {
+      this.deathTimer = DEATH_ANIMATION_DURATION;
+      // Save persistent upgrades (parts) before death animation
+      saveUpgrades(this.playerUpgrades);
+      // Clear all enemy bullets to prevent "orphan bullets" on restart
+      this.enemyBulletList.length = 0;
+      this.bullets.length = 0;
+      // Spawn death explosion particles
+      const pos = this.getPlayerPosition();
+      for (let i = 0; i < DEATH_EXPLOSION_PARTICLES; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = DEATH_EXPLOSION_MIN_SPEED + Math.random() * (DEATH_EXPLOSION_MAX_SPEED - DEATH_EXPLOSION_MIN_SPEED);
+        this.fx.emit({
+          x: pos.x,
+          y: pos.y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: DEATH_EXPLOSION_MIN_LIFE + Math.random() * (DEATH_EXPLOSION_MAX_LIFE - DEATH_EXPLOSION_MIN_LIFE),
+          maxLife: DEATH_EXPLOSION_MAX_LIFE,
+          c: Math.random() > 0.5 ? [1, 0.3, 0.1, 1] : [1, 0.8, 0.2, 1],
+          size: 1 + Math.random() * 3,
+        });
+      }
+      this.audio.explode();
+    };
+    fsmContext.onDeathAnimationEnd = () => {
+      const best = this.best;
+      const isNewBest = this.score > best;
+      this.hooks.onStats({
+        score: this.score,
+        best: Math.max(best, this.score),
+        isBest: isNewBest,
+        wave: this.wave,
+        kills: this.killed,
+        time: this.runTime,
+      });
+    };
+    fsmContext.onGameOver = () => {
+      this.hooks.onGameOver();
+    };
+    fsmContext.onReturnToMenu = () => {
+      // Menu state is handled by toMenu() caller
+    };
+    fsmContext.onStartRun = (wave: number) => {
+      this.startRun();
+    };
+    fsmContext.onWaveStart = (wave: number) => {
+      this.countdownSystem.startWave(this.wave);
+    };
+    fsmContext.countdownDone = () => {
+      console.log('[DEBUG Game] countdownDone calling fsm.fire("countdown_done")');
+      this.fsm.fire("countdown_done");
+    };
+    fsmContext.onPause = (paused: boolean) => {
+      this.hooks.onPause(paused);
+      this.audio.setSuspended(paused);
+    };
+    fsmContext.onWaveComplete = () => {
+      // Wave complete handled by WaveOrchestrator
+    };
+    fsmContext.onWaveAdvanced = (wave: number) => {
+      // Handled by waveOrchestrator hooks
+    };
+    
+    // Subscribe to FSM events for wave lifecycle
+    this.fsm.on("countdown_done", () => {
+      // Countdown finished, game is now active
+    });
+    this.fsm.on("wave_cleared", () => {
+      // Wave cleared, orchestrator will advance after delay
+    });
+    
     this.setupEventListeners();
 
     window.addEventListener("resize", this.onResize);
@@ -526,7 +640,7 @@ export class Game {
 
     this.eventBus.on("wave_started", (event) => {
       // Запускаем волну при начале обратного отсчёта
-      if (this.state === "playing" || this.state === "active") {
+      if (this.fsm.is("playing")) {
         const waveData = event.payload as { wave: number };
         this.wave = waveData.wave;
         this.waveTotal = waveTotalFor(this.wave);
@@ -537,6 +651,13 @@ export class Game {
         const pos = this.getPlayerPosition();
         this.waveOrchestrator.initWave(pos.x, pos.y, this.wave, this.waveTotal);
         this.waveOrchestrator.setSpeedMult(this.appliedUpgrades?.speedMult ?? 1.0);
+      }
+    });
+
+    this.eventBus.on("wave_cleared", (event) => {
+      // Wave completed - FSM handles transition to cleared state
+      if (this.fsm.is("active")) {
+        this.fsm.fire("wave_cleared");
       }
     });
 
@@ -638,33 +759,9 @@ export class Game {
     });
 
     this.eventBus.on("game_over", (event) => {
-      // Prevent double-trigger if already dying or over
-      if (this.state === "dying" || this.state === "over") return;
-      this.state = "dying";
-      this.deathTimer = DEATH_ANIMATION_DURATION;
-      // Save persistent upgrades (parts) before death animation
-      saveUpgrades(this.playerUpgrades);
-      // Clear all enemy bullets to prevent "orphan bullets" on restart
-      // Use .length = 0 to clear in-place (EnemySystem.update() holds reference to these arrays)
-      this.enemyBulletList.length = 0;
-      this.bullets.length = 0;
-      // Spawn death explosion particles
-      const pos = this.getPlayerPosition();
-      for (let i = 0; i < DEATH_EXPLOSION_PARTICLES; i++) {
-        const angle = Math.random() * Math.PI * 2;
-        const speed = DEATH_EXPLOSION_MIN_SPEED + Math.random() * (DEATH_EXPLOSION_MAX_SPEED - DEATH_EXPLOSION_MIN_SPEED);
-        this.fx.emit({
-          x: pos.x,
-          y: pos.y,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed,
-          life: DEATH_EXPLOSION_MIN_LIFE + Math.random() * (DEATH_EXPLOSION_MAX_LIFE - DEATH_EXPLOSION_MIN_LIFE),
-          maxLife: DEATH_EXPLOSION_MAX_LIFE,
-          c: Math.random() > 0.5 ? [1, 0.3, 0.1, 1] : [1, 0.8, 0.2, 1],
-          size: 1 + Math.random() * 3,
-        });
-      }
-      this.audio.explode();
+      // FSM handles the transition — no double-entry possible
+      console.log('[DEBUG Game] game_over event received, firing player_died');
+      this.fsm.fire("player_died");
     });
   }
 
@@ -678,7 +775,7 @@ export class Game {
     this.gameState.setWave(this.wave);
     this.gameState.setScore(this.score);
 
-    if (this.state === "menu") {
+    if (this.fsm.is("menu")) {
       this.updateMenu(dtScaled);
       return;
     }
@@ -691,27 +788,17 @@ export class Game {
     /* Update all systems in order */
     this.countdownSystem.update(dtScaled);
     // Remove mouse-based aiming - auto-aim handles targeting via handleAutoFire
-    this.playerSystem.update(dtScaled, (this.state as string) !== "menu" && this.state !== "over" && this.state !== "dying");
+    this.playerSystem.update(dtScaled, this.fsm.not("menu", "over", "dying"));
     // Автоматический запуск ракет с левого и правого борта
-    if (this.state === "active" || this.state === "dying") {
+    if (this.fsm.is("active", "dying")) {
       this.playerSystem.launchMissiles(dtScaled, this.enemyList);
     }
     
     // Handle dying → over transition
-    if (this.state === "dying") {
+    if (this.fsm.is("dying")) {
       this.deathTimer -= dtScaled;
       if (this.deathTimer <= 0) {
-        this.state = "over";
-        const best = this.best;
-        const isNewBest = this.score > best;
-        this.hooks.onStats({
-          score: this.score,
-          best: Math.max(best, this.score),
-          isBest: isNewBest,
-          wave: this.wave,
-          kills: this.killed,
-          time: this.runTime,
-        });
+        this.fsm.fire("death_anim_done");
       }
     }
     
@@ -730,7 +817,7 @@ export class Game {
       );
     }
     // Stop enemies and bullets during dying/over (prevent orphan bullets)
-    const isDead = this.state === "dying" || this.state === "over";
+    const isDead = this.fsm.is("dying", "over");
     if (!isDead) {
       this.enemySystem.clampEnemiesToZone(
         this.gameState.zone.x,
@@ -775,11 +862,12 @@ export class Game {
     this.fx.update(dtScaled, dtScaled); // Обновляем частицы и тряску экрана
     
     // Stop zone damage and autofire when dying or dead
-    if (this.state !== "dying" && this.state !== "over") {
+    console.log('[DEBUG Game step] fsm.state =', this.fsm.state, 'fsm.not("dying","over") =', this.fsm.not("dying", "over"));
+    if (this.fsm.not("dying", "over")) {
       this.updateZoneAndWaves(dtScaled);
       
       // Авто-стрельба по ближайшему врагу в зоне поражения
-      if (this.state === "playing" || this.state === "active") {
+      if (this.fsm.is("playing", "active")) {
         this.handleAutoFire(dtScaled);
       }
     } else {
@@ -825,7 +913,7 @@ export class Game {
     this.rendererSystem.render(
       this.renderer,
       {
-        type: this.state,
+        type: this.fsm.state as any,
         time: this.time,
         wave: this.wave,
         score: this.score,
@@ -864,7 +952,7 @@ export class Game {
     } as any);
     
     // Ensure initial asteroids are spawned near the menu screen center
-    if (this.asteroidField.list.length < MENU_ASTEROID_COUNT && this.state === "menu") {
+    if (this.asteroidField.list.length < MENU_ASTEROID_COUNT && this.fsm.is("menu")) {
       this.ensureMenuAsteroids();
     }
     
@@ -1017,7 +1105,7 @@ export class Game {
   }
 
   public togglePause() {
-    if (this.state === "menu" || this.state === "over") return;
+    if (this.fsm.is("menu", "over")) return;
     this.paused = !this.paused;
     this.hooks.onPause(this.paused);
     this.audio.setSuspended(this.paused);
@@ -1115,10 +1203,10 @@ export class Game {
     }
     
     // R or Enter or Space to restart from "over" state
-    if (this.state === "over") {
+    if (this.fsm.is("over")) {
       const restartKey = this.input.isKey('KeyR') || this.input.isKey('Enter') || this.input.isKey('Space');
       if (restartKey && !keys['restart']) {
-        this.startRun();
+        this.fsm.fire("restart");
         keys['restart'] = true;
       }
     } else {
@@ -1151,7 +1239,7 @@ export class Game {
     let y = 50;
     
     const lines = [
-      `state: ${this.state}`,
+      `state: ${this.fsm.state}`,
       `wave: ${this.wave}`,
       `time: ${this.runTime.toFixed(1)}s`,
       `fps: ${this.fps()}`,
@@ -1198,8 +1286,8 @@ export class Game {
   }
 
   toMenu(): void {
-    if (this.state === "menu") return;
-    this.state = "menu";
+    if (this.fsm.is("menu")) return;
+    this.fsm.fire("to_menu");
     this.paused = false;
     this.hooks.onPause(false);
     // Reset menu state
@@ -1216,7 +1304,9 @@ export class Game {
   }
 
   startRun() {
-    this.state = "playing";
+    // FSM will fire "start" which transitions to "playing" state
+    this.fsm.fire("start");
+    
     this.time = 0;
     this.runTime = 0;
     this.score = 0;
@@ -1272,10 +1362,6 @@ export class Game {
 
     // Start countdown immediately
     this.countdownSystem.startWave(this.wave);
-    
-    setTimeout(() => {
-      this.state = "active";
-    }, 1000);
   }
 
   private addScore(n: number) {
@@ -1438,7 +1524,7 @@ export class Game {
 
   private checkWaveClear() {
     // Не проверяем завершение если всё ещё спавнятся враги
-    if (this.state !== "active") return;
+    if (this.fsm.not("active")) return;
     
     // Если оркестратор уже в cleared — переход к следующей волне, игнорируем убийства
     if (this.waveOrchestrator.waveState === "cleared") return;
@@ -1455,7 +1541,8 @@ export class Game {
   }
 
   private updateZoneAndWaves(dt: number) {
-    if (this.state !== "active" && this.state !== "cleared") return;
+    console.log('[DEBUG Game] updateZoneAndWaves: fsm.state =', this.fsm.state, 'not("active","cleared") =', this.fsm.not("active", "cleared"));
+    if (this.fsm.not("active", "cleared")) return;
 
     this.runTime += dt;
 
@@ -1466,7 +1553,9 @@ export class Game {
     const playerPos = this.getPlayerPosition();
     const asteroids = ((this.asteroidField as any).list || []) as any[];
     const countdownActive = this.countdownSystem.isCountdownActive();
+    console.log('[DEBUG Game] calling waveOrchestrator.update: countdownActive =', countdownActive);
     this.waveOrchestrator.update(dt, playerPos, this.enemyList, asteroids, countdownActive);
+    console.log('[DEBUG Game] after update: gameState.zone.active =', this.gameState.zone.active, 'radius =', this.gameState.zone.radius);
   }
 
   /** Spawn initial asteroids around the menu screen center with proper physics */

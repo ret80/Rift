@@ -2,6 +2,9 @@
  * WaveOrchestrator - оркестратор волн и зон.
  * Управляет жизненным циклом волны, поведением зоны,
  * ограничениями границ и уроном на краю зоны.
+ * 
+ * FSM States:
+ *   inactive → active → cleared → (next wave)
  */
 
 import { t } from "../../i18n";
@@ -26,6 +29,7 @@ import {
 } from "../balance";
 import { clamp, easeOutCubic } from "../math";
 import type { Enemy } from "../types";
+import { GameStateMachine } from "../core/StateMachine";
 
 export interface WaveOrchestratorHooks {
   onBanner: (title: string, sub?: string, color?: string) => void;
@@ -63,6 +67,40 @@ export interface PlayerPosition {
   y: number;
 }
 
+// ============================== Wave FSM Types ==============================
+
+export type WaveStateId = "inactive" | "active" | "cleared";
+
+// ============================== Wave FSM Transitions ==============================
+
+const WAVE_TRANSITIONS = [
+  {
+    trigger: "start",
+    target: "active",
+    guard: () => true,
+    onEnter: () => {},
+  },
+  {
+    trigger: "cleared",
+    target: "cleared",
+    guard: () => true,
+    onEnter: () => {},
+  },
+  {
+    trigger: "restart",
+    target: "active",
+    guard: () => true,
+    onEnter: () => {},
+  },
+] as const;
+
+export interface WaveFSMContext {
+  wave: number;
+  waveTotal: number;
+  allocated: number;
+  killedWave: number;
+}
+
 export class WaveOrchestrator {
   private hooks: WaveOrchestratorHooks;
   private playerMaxSpeed: number;
@@ -74,9 +112,11 @@ export class WaveOrchestrator {
   private waveTotal: number = 0;
   private allocated: number = 0;
   private killedWave: number = 0;
-  private state: "active" | "cleared" = "active";
   private clearT: number = 0;
   private waveClearSent: boolean = false;
+
+  // Wave FSM
+  private waveFSM: GameStateMachine<WaveFSMContext>;
 
   // Edge danger tracking
   private edgeOutT: number = 0;
@@ -95,6 +135,16 @@ export class WaveOrchestrator {
       alpha: 0,
       collapseT: -1,
     };
+
+    // Initialize Wave FSM
+    const waveContext: WaveFSMContext = {
+      wave: 1,
+      waveTotal: 0,
+      allocated: 0,
+      killedWave: 0,
+    };
+    
+    this.waveFSM = new GameStateMachine<WaveFSMContext>("active", WAVE_TRANSITIONS as any, waveContext);
   }
 
   // ============================== Public API ==============================
@@ -103,8 +153,8 @@ export class WaveOrchestrator {
     return this.zone;
   }
 
-  get waveState(): "active" | "cleared" {
-    return this.state;
+  get waveState(): WaveStateId {
+    return this.waveFSM.state as WaveStateId;
   }
 
   initWave(
@@ -117,12 +167,14 @@ export class WaveOrchestrator {
     this.waveTotal = waveTotal;
     this.allocated = 0;
     this.killedWave = 0;
-    this.state = "active";
     this.clearT = 0;
     this.waveClearSent = false;
     this.edgeOutT = 0;
     this.edgeTickT = 0;
     this.edgeWarned = false;
+
+    // Initialize FSM - wave starts as "active" (zone expansion begins after countdown)
+    this.waveFSM = new GameStateMachine<WaveFSMContext>("active", WAVE_TRANSITIONS as any, { wave, waveTotal, allocated: 0, killedWave: 0 });
 
     // Zone not active yet — will be initialized after countdown
     this.zone.active = false;
@@ -153,7 +205,8 @@ export class WaveOrchestrator {
     this.killedWave = 0;
     this.allocated = 0;
     this.clearT = 0;
-    this.state = "active";
+    // Transition from cleared back to active via FSM
+    this.waveFSM.fire("restart");
     // Zone will be reactivated after next countdown
     this.zone.active = false;
     // Notify Game to start countdown
@@ -166,10 +219,10 @@ export class WaveOrchestrator {
   }
 
   tryCheckWaveClear(allSpawned: boolean, allKilled: boolean): void {
-    if (this.state !== "active") return;
+    if (this.waveFSM.state !== "active") return;
 
     if (allSpawned && allKilled) {
-      this.state = "cleared";
+      this.waveFSM.fire("cleared");
       this.clearT = 0;
       this.waveClearSent = false;
     }
@@ -187,19 +240,25 @@ export class WaveOrchestrator {
     asteroids: AsteroidLike[],
     countdownActive: boolean
   ): void {
-    if (this.state !== "active" && this.state !== "cleared") return;
+    const currentState = this.waveFSM.state;
+    console.log('[DEBUG WaveOrchestrator] update called: waveFSM.state =', currentState, 'zone.active =', this.zone.active, 'countdownActive =', countdownActive);
+    if (currentState !== "active" && currentState !== "cleared") {
+      console.log('[DEBUG WaveOrchestrator] returning early: state =', currentState);
+      return;
+    }
 
     // Initialize zone when countdown ends
-    if (!this.zone.active && this.state === "active" && !countdownActive) {
+    if (!this.zone.active && currentState === "active" && !countdownActive) {
+      console.log('[DEBUG WaveOrchestrator] ACTIVATING ZONE!');
       this.activateZone(playerPos.x, playerPos.y);
     }
 
     // Expand zone or handle clear transition
-    if (this.state === "active") {
+    if (currentState === "active") {
       this.updateZoneExpansion(dt);
       this.updateEdgeDanger(dt, playerPos);
       this.applyZoneConstraints(dt, enemyList, asteroids);
-    } else if (this.state === "cleared") {
+    } else if (currentState === "cleared") {
       this.updateClearTransition(dt);
       this.applyZoneConstraints(dt, enemyList, asteroids);
     }
@@ -219,12 +278,14 @@ export class WaveOrchestrator {
     this.waveTotal = 0;
     this.allocated = 0;
     this.killedWave = 0;
-    this.state = "active";
     this.clearT = 0;
     this.waveClearSent = false;
     this.edgeOutT = 0;
     this.edgeTickT = 0;
     this.edgeWarned = false;
+    
+    // Reset wave FSM
+    this.waveFSM = new GameStateMachine<WaveFSMContext>("active", WAVE_TRANSITIONS as any, { wave: 1, waveTotal: 0, allocated: 0, killedWave: 0 });
   }
 
   // ============================== Private methods ==============================

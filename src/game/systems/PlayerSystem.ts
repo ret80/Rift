@@ -269,8 +269,10 @@ export class PlayerSystem {
   hit(dmg: number): void {
     if (this.player.invuln > 0) return;
     this.player.hp -= dmg;
+    console.log('[DEBUG Player] hit: dmg=' + dmg + ' hp=' + this.player.hp);
     if (this.player.hp <= 0) {
       this.player.hp = 0;
+      console.log('[DEBUG Player] hp <= 0, publishing game_over');
       this.eventBus.publish('game_over', {});
     }
   }

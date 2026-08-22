@@ -27,6 +27,7 @@ export interface CountdownHooks {
   onBanner: (b: BannerData | null) => void;
   onToast: (toast: ToastData | null) => void;
   onCountdown: (c: CountData | null) => void;
+  countdownDone?: () => void;
 }
 
 export class CountdownSystem {
@@ -64,8 +65,6 @@ export class CountdownSystem {
     * Обновить отсчёт.
     */
   update(dt: number): void {
-    if (this.cdT <= 0) return;
-
     this.cdT -= dt;
     const c = Math.ceil(this.cdT);
 
@@ -75,6 +74,7 @@ export class CountdownSystem {
       this.eventBus.publish("wave_started", { wave: this.currentWave });
     }
 
+    // Показываем цифры 5, 4, 3, 2, 1
     if (c !== this.cdLast && c > 0) {
       this.cdLast = c;
       this.hooks.onCountdown({
@@ -84,8 +84,16 @@ export class CountdownSystem {
       });
     }
 
+    // Когда countdown заканчивается — скрываем и вызываем callback
     if (this.cdT <= 0) {
+      console.log('[DEBUG Countdown] cdT <= 0, calling countdownDone. cdT =', this.cdT);
       this.hooks.onCountdown(null);
+      if (this.hooks.countdownDone) {
+        this.hooks.countdownDone();
+        console.log('[DEBUG Countdown] countdownDone called');
+      }
+      // Больше не обновляем
+      return;
     }
   }
 
