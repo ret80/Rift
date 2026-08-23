@@ -1,139 +1,85 @@
-# ref_01 — Убрать «God Object» Game.ts (разделение ответственности)
-
-## Проблема
-
-`game.ts` содержит 1219 строк и нарушает принцип единственной ответственности (SRP). Вместо чистой оркестрации система хранит бизнес-логику, которая должна жить в отдельных модулях:
-
-- `handleAutoFire()` — авто-стрельба по ближайшему врагу (строки 1188–1217)
-- `updateHomingMissiles()` — самонаведение ракет (строки 1054–1083)
-- `applyPickup()` — применение 12 типов бонусов switch/case (строки 1101–1141)
-- `checkWaveClear()` — логика завершения волны (строки 1149–1165)
-- `updateZoneAndWaves()` — обновление зоны и волн (строки 1167–1180)
-- `enemyFire()` — создание вражеских пуль (строки 1085–1099)
-- `setupEventListeners()` — 10+ обработчиков событий, дублирующих логику систем
+# ref_01 — Удаление мёртвого кода (Фаза 1)
 
 ## Цель
+Удалить все неиспользуемые файлы и дубликаты — ~850 строк мёртвого кода.
 
-Снизить `game.ts` до ~550 строк. Game.ts должен только: инициализировать системы, вызывать `step(dt)`, триггерить FSM-переходы, передавать HUD/UI данные через callbacks.
+## Обоснование (проверено анализом импортов)
+
+### ✅ Мёртвые файлы (0 импортов)
+
+| Файл | Строки | Проверка |
+|------|--------|----------|
+| `src/game/entities/Player.ts` | 273 | 0 импортов. `game.ts` использует `systems/PlayerSystem.ts` |
+| `src/game/entities/Enemy.ts` | 133 | 0 импортов. `game.ts` использует `types.ts` (interface Enemy) |
+| `src/game/progression/ScoreManager.ts` | 174 | 0 импортов. `game.ts` использует `systems/ScoringSystem.ts` |
+| `src/game/core/PhysicsSystem.ts` | 222 | Импорт только как тип в `CollisionSystem.ts`, но `setPhysicsSystem()` НИКОГДА не вызывается. Экземпляры не создаются. |
+
+### ⚠️ НЕ мёртвые файлы (ИСПОЛЬЗУЮТСЯ)
+
+| Файл | Строки | Статус | Почему НЕ удалять |
+|------|--------|--------|-------------------|
+| `src/game/core/GameFSM.ts` | 154 | **Используется** | Импорт в `game.ts:39` (`GameFSMContext`) и `FSMBridge.ts:14` |
+| `src/game/core/FSMBridge.ts` | 108 | **Используется** | Импорт в `game.ts:40`. Это активный FSM мост |
+
+### Вывод по GameFSM
+`GameFSM.ts` **НЕЛЬЗЯ УДАЛЯТЬ** — он экспортирует `GameFSMContext` и `GameStateId`, которые импортируются в `game.ts` и `FSMBridge.ts`.
+
+**Решение:** Переместить интерфейсы из `GameFSM.ts` в `FSMBridge.ts`, удалить `createGameFSM` (не используется) и `TRANSITIONS` (дублируются в FSMBridge).
 
 ## Задачи
 
-### 1. Создать `AutoFireSystem.ts`
-
-Переместить логику авто-стрельбы из `Game.handleAutoFire()`:
-
-```typescript
-class AutoFireSystem {
-  update(dt: number, playerPos, entityPool, playerSystem) {
-    // Найти ближайшего врага в ZONE_GUN_RANGE
-    // Установить aim и firing через playerSystem
-  }
-}
+### Task 1.1: Удалить `entities/Player.ts`
+```bash
+rm src/game/entities/Player.ts
+# Проверить что директория пуста (кроме возможно Enemy.ts)
 ```
 
-**Удалить:** `Game.handleAutoFire()` (30 строк)
-
-### 2. Создать `MissileSystem.ts`
-
-Переместить логику ракет из `Game.updateHomingMissiles()` и `PlayerSystem.launchMissiles()`:
-
-```typescript
-class MissileSystem {
-  launchMissiles(dt: number, playerState, entityPool) {
-    // Найти ближайшего врага
-    // Создать ракету (fireMissile)
-  }
-  
-  updateHoming(dt: number, bullets) {
-    // Lerp направления к цели для ракет с homingTarget
-  }
-}
+### Task 1.2: Удалить `entities/Enemy.ts`  
+```bash
+rm src/game/entities/Enemy.ts
+rmdir src/game/entities/  # если пусто
 ```
 
-**Удалить:** `Game.updateHomingMissiles()` (30 строк), часть `PlayerSystem.launchMissiles()` и `fireMissile()`
-
-### 3. Расширить `PickupSystem.ts`
-
-Переместить switch/case из `Game.applyPickup()`:
-
-```typescript
-class PickupSystem {
-  apply(kind: PickupKind, playerSystem, droneSystem, mineSystem, scoringSystem, audio) {
-    switch (kind) {
-      case 'heal25': case 'heal50': case 'heal100': case 'hp':
-        playerSystem.heal(...)
-        break;
-      case 'rate20': case 'rate40': ...
-      case 'gun': ...
-      case 'drone': ...
-      case 'miner': case 'mine': ...
-      case 'mineral': ...
-      case 'missile': ...
-    }
-    audio.playPickupSound(kind);
-  }
-}
+### Task 1.3: Удалить `progression/ScoreManager.ts`
+```bash
+rm src/game/progression/ScoreManager.ts
+rmdir src/game/progression/  # если пусто
 ```
 
-**Удалить:** `Game.applyPickup()` (40 строк)
-
-### 4. Создать `WaveClearSystem.ts`
-
-Переместить проверку завершения волны:
-
-```typescript
-class WaveClearSystem {
-  check(weaponOrchestrator, entityPool, scoringSystem) {
-    // Проверить allSpawned && allKilled
-    // Вызвать orchestrator.tryCheckWaveClear()
-  }
-}
+### Task 1.4: Удалить `core/PhysicsSystem.ts`
+```bash
+rm src/game/core/PhysicsSystem.ts
+# CollisionSystem.ts имеет import type { PhysicsSystem } — оставить (type import, безопасен)
 ```
 
-**Удалить:** `Game.checkWaveClear()` (16 строк)
+### Task 1.5: Рефакторить `GameFSM.ts` → `FSMBridge.ts`
 
-### 5. Создать `ZoneSystem.ts` (расширить)
+**Текущее состояние:**
+- `GameFSM.ts` экспортирует: `GameStateId`, `GameFSMContext`, `createGameFSM`
+- `FSMBridge.ts` импортирует: `GameFSMContext`, `GameStateId` из `GameFSM.ts`
+- `game.ts` импортирует: `GameFSMContext` из `GameFSM.ts`
+- `createGameFSM()` нигде не используется
+- `TRANSITIONS` в GameFSM.ts дублируются в FSMBridge.ts
 
-Переместить `Game.updateZoneAndWaves()`:
-
-```typescript
-class ZoneSystem {
-  update(dt: playerPos, enemies, asteroids, countdownActive) {
-    // waveOrchestrator.update(...)
-    // scoringSystem.addRunTime(dt)
-    // waveOrchestrator.setSpeedMult(...)
-  }
-}
-```
-
-**Удалить:** `Game.updateZoneAndWaves()` (14 строк)
-
-### 6. Переместить `Game.enemyFire()` в `BulletSystem`
-
-```typescript
-// BulletSystem.ts
-createEnemyBullet(x, y, angle, dmg, heavy, cruiser, speed, life) {
-  enemyBulletList.push({
-    x: x + Math.cos(angle) * 14,
-    y: y + Math.sin(angle) * 14,
-    vx: Math.cos(angle) * speed,
-    vy: Math.sin(angle) * speed,
-    life, dmg, heavy, cruiser
-  });
-}
-```
-
-**Удалить:** `Game.enemyFire()` (14 строк)
+**Действия:**
+1. Переместить интерфейс `GameFSMContext` из `GameFSM.ts` в `FSMBridge.ts`
+2. Переместить type `GameStateId` из `GameFSM.ts` в `FSMBridge.ts`
+3. Удалить `GameFSM.ts` полностью
+4. Обновить `FSMBridge.ts`:
+   - Удалить `import type { GameFSMContext, GameStateId } from "./GameFSM"`
+   - Добавить интерфейсы локально
+5. Обновить `game.ts`:
+   - Удалить `import { type GameFSMContext } from "./core/GameFSM"`
+   - Добавить `import type { GameFSMContext, GameStateId } from "./core/FSMBridge"`
 
 ## Критерии готовности
+- [ ] 4 мёртвых файла удалены
+- [ ] 2 пустые директории удалены (`entities/`, `progression/`)
+- [ ] `GameFSM.ts` удалён, типы перемещены в `FSMBridge.ts`
+- [ ] `npm run typecheck` без ошибок
+- [ ] `npm run build` без ошибок
 
-- [ ] Game.ts < 600 строк
-- [ ] Все системы получают данные только через свои интерфейсы
-- [ ] Game.ts не содержит switch/case для бонусов
-- [ ] Game.ts не содержит логику клампинга ракет
-- [ ] Авто-стрельба через AutoFireSystem.update(dt)
-- [ ] Применено: `npm run typecheck` без ошибок
-
-## Зависимости
-
-Эта задача — фундамент для ref_02, ref_03, ref_05. Нужно сделать первой.
+## Ожидаемый результат
+- Удалено: ~930 строк мёртвого кода
+- Файлов удалено: 5
+- Директорий удалено: 2

@@ -1,117 +1,119 @@
-# ref_02 — Убрать дублирование WaveOrchestrator ↔ ZoneSystem
-
-## Проблема
-
-Две системы дублируют одинаковую логику управления зоной:
-
-| Функция | WaveOrchestrator | ZoneSystem |
-|---------|:---:|:---:|
-| `applyZoneConstraints()` | ✅ строки 367–414 | ✅ строки 158–202 |
-| `clampPlayerToZone()` | ❌ | ✅ строки 94–116 |
-| `clampEnemiesToZone()` | ❌ | ✅ строки 122–149 |
-| push астероидов от зоны | ✅ строки 379–392 | ✅ строки 164–178 |
-| push врагов в зону | ✅ строки 394–413 | ✅ строки 180–201 |
-| `ZoneState` | ✅ строки 47–55 | ✅ строки 32–40 |
-
-**Итог:** ~120 строк полностью идентичного кода.
-
-Кроме того, `PlayerSystem.clampPlayerToZone()` (строки 568–590) и `EnemySystem.clampEnemiesToZone()` (строки 697–725) — это третья копия логики клампинга.
+# ref_02 — Унификация naming conventions и дублирование утилит
 
 ## Цель
-
-Один владелец зоны — `ZoneSystem`. Остальные системы вызывают его методы, а не дублируют.
+Единый стандарт именования коллекций + удаление дубликатов `rand()` и `rgba()`.
 
 ## Задачи
 
-### 1. Расширить `ZoneSystem` до единственного центра управления
+### Task 2.1: EntityPoolSystem — суффикс `List`
 
+**Текущее состояние:**
 ```typescript
-class ZoneSystem {
-  // Текущий интерфейс
-  update(dt): void;
-  
-  // НОВЫЕ методы:
-  clampPlayer(playerRef, zone): void;      // вместо PlayerSystem
-  clampEnemies(enemies, zone): void;        // вместо EnemySystem
-  clampToZone(obj, zone, overdrive): void;  // общая утилита
-}
+// ✅ Правильно:
+enemyList: Enemy[] = [];
+enemyBulletList: EBullet[] = [];
+
+// ❌ Нужно переименовать:
+bulletList: Bullet[] = [];          // → bulletList (УЖЕ ОК! но проверим use-site)
+pickups: Pickup[] = [];             // → pickupList
+allyDrones: AllyDrone[] = [];       // → allyDroneList
+mines: Mine[] = [];                 // → mineList
 ```
 
-Переместить логику из:
-- `WaveOrchestrator.applyZoneConstraints()` → `ZoneSystem.applyZoneConstraints()`
-- `PlayerSystem.clampPlayerToZone()` → `ZoneSystem.clampPlayer()`
-- `EnemySystem.clampEnemiesToZone()` → `ZoneSystem.clampEnemies()`
-
-### 2. Убрать `WaveOrchestrator.applyZoneConstraints()`
-
-WaveOrchestrator остаётся только с логикой жизненного цикла волны:
-- `initWave()` — инициализация новой волны
-- `activateZone()` — активация зоны после countdown
-- `updateClearTransition()` — анимация зачистки
-- `updateEdgeDanger()` — урон на краю зоны (это **поведение волны**, не зоны)
-- `advanceWave()` — переход к следующей волне
-
-**Удалить:** `WaveOrchestrator.applyZoneConstraints()` (48 строк)
-
-### 3. Убрать `PlayerSystem.clampPlayerToZone()`
-
-Заменить вызовы в `game.ts` на:
+**Проверка фактических именований в `EntityPoolSystem.ts`:**
+Файл уже использует правильное именование! Все поля уже имеют суффикс `List`:
 ```typescript
-// Было:
-playerSystem.clampPlayerToZone(zoneX, zoneY, zoneR, zoneOn, overdrive);
-
-// Стало:
-zoneSystem.clampPlayer(playerSystem.getPlayerRef(), zone);
+enemyList: Enemy[] = [];         ✅
+bulletList: Bullet[] = [];       ✅
+enemyBulletList: EBullet[] = []; ✅
+pickupList: Pickup[] = [];       ✅
+allyDroneList: AllyDrone[] = []; ✅
+mineList: Mine[] = [];           ✅
 ```
 
-**Удалить:** `PlayerSystem.clampPlayerToZone()` (25 строк)
+**Вывод:** ref_10 уже частично выполнен. EntityPoolSystem в порядке.
 
-### 4. Убрать `EnemySystem.clampEnemiesToZone()`
+### Task 2.2: Публичные поля → приватные с getters
 
-Заменить вызовы в `game.ts` на:
+**Проблема:** `EntityPoolSystem` имеет публичные массивы, которые можно мутировать напрямую.
+
+**Решение:**
 ```typescript
-// Было:
-enemySystem.clampEnemiesToZone(zoneX, zoneY, zoneR, zoneOn);
+// БЫЛО:
+enemyList: Enemy[] = [];
 
-// Стало:
-zoneSystem.clampEnemies(entityPool.enemyList, zone);
+// СТАЛО:
+private enemyList: Enemy[] = [];
+get enemyList(): Enemy[] { return this.enemyList; }
 ```
 
-**Удалить:** `EnemySystem.clampEnemiesToZone()` (29 строк)
+Это не требует изменения use-sites — чтение всё ещё `this.entityPool.enemyList`, но `push()` вызовет ошибку TS.
 
-### 5. Унифицировать `ZoneData`
+### Task 2.3: Удалить дублирование `rand()` 
 
-Сейчас `ZoneState` определён в 3 местах:
-- `GameState.ts` (строки 34–42)
-- `WaveOrchestrator.ts` (строки 47–55)
-- `ZoneSystem.ts` (строки 32–40)
+**Найдено дублирование:**
 
-**Создать:** `src/game/core/ZoneTypes.ts`:
-```typescript
-export interface ZoneData {
-  active: boolean;
-  x: number;
-  y: number;
-  radius: number;
-  targetRadius: number;
-  alpha: number;
-  collapseT: number;
-}
-```
+| Файл | Статус |
+|------|--------|
+| `src/game/math.ts` | ✅ Источник |
+| `src/game/systems/PlayerSystem.ts` | ❌ Lines 546-548 |
+| `src/game/systems/EnemySystem.ts` | ❌ Line 454-456 |
 
-Импортировать отовсюду. Удалить локальные определения.
+**Действия:**
+1. В `PlayerSystem.ts`:
+   ```typescript
+   // УДАЛИТЬ (lines 546-548):
+   function rand(min: number, max: number): number {
+     return min + Math.random() * (max - min);
+   }
+   
+   // ДОБАВИТЬ в imports:
+   import { rand, TAU } from '../math';
+   ```
+
+2. В `EnemySystem.ts`:
+   ```typescript
+   // УДАЛИТЬ (lines 454-456):
+   function rand(min: number, max: number): number {
+     return min + Math.random() * (max - min);
+   }
+   
+   // ДОБАВИТЬ в imports:
+   import { rand, TAU } from '../math';
+   ```
+
+### Task 2.4: Удалить дублирование `rgba()`
+
+**Найдено дублирование:**
+
+| Файл | Статус |
+|------|--------|
+| `src/game/math.ts` | ✅ Источник (возвращает `string`) |
+| `src/game/systems/PlayerSystem.ts` | ❌ Lines 550-554 |
+| `src/game/render.ts` | ✅ Возвращает `RGBA` (другой тип) |
+
+**Важно:** `math.ts` возвращает `string`, `render.ts` возвращает `RGBA` (tuple).
+
+**Действия:**
+1. В `PlayerSystem.ts`:
+   ```typescript
+   // УДАЛИТЬ (lines 550-554):
+   function rgba(hex: string, alpha: number): string {
+     const r = parseInt(hex.slice(1, 3), 16);
+     const g = parseInt(hex.slice(3, 5), 16);
+     const b = parseInt(hex.slice(5, 7), 16);
+     return `rgba(${r},${g},${b},${alpha})`;
+   }
+   
+   // УБЕДИТЬСЯ что используется import из math.ts
+   // math.ts имеет: export function rgba(hex: string, a: number): RGBA
+   // PlayerSystem использует string-версию
+   ```
+
+**ВНИМАНИЕ:** `math.ts` `rgba()` возвращает `RGBA` (tuple), но `PlayerSystem.ts` использует string-rgba для FX. Нужно проверить совместимость.
 
 ## Критерии готовности
-
-- [ ] `ZoneData` определён ровно в одном файле
-- [ ] `WaveOrchestrator.applyZoneConstraints()` удалён
-- [ ] `PlayerSystem.clampPlayerToZone()` удалён
-- [ ] `EnemySystem.clampEnemiesToZone()` удалён
-- [ ] Все клампинги идут через `ZoneSystem`
-- [ ] Применено: `npm run typecheck` без ошибок
-
-## Ожидаемый эффект
-
-- Удалить ~120 строк дублирующегося кода
-- Устранить рассинхронизацию логики зоны
-- Единая точка модификации поведения зоны
+- [ ] Все коллекции в EntityPool имеют приватные поля с getters
+- [ ] `rand()` удалён из `PlayerSystem.ts` и `EnemySystem.ts`
+- [ ] `rgba()` удалён из `PlayerSystem.ts`
+- [ ] `npm run typecheck` без ошибок
