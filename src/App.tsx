@@ -20,15 +20,10 @@ import {
   HudRefs,
 } from "./ui/Screens";
 import { UpgradeScreen } from "./ui/UpgradeScreen";
+import { formatTime } from "./ui/utils/formatTime";
 import { resetUpgrades } from "./game/upgrades";
 
 type Screen = "menu" | "settings" | "help" | "debug" | "upgrade" | "game";
-
-function formatTime(s: number) {
-  const m = Math.floor(s / 60);
-  const ss = Math.floor(s % 60);
-  return `${m}:${ss < 10 ? "0" : ""}${ss}`;
-}
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);

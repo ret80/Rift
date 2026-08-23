@@ -5,13 +5,25 @@
  */
 
 import type { AsteroidField } from "../asteroids";
-import { C, GUN_OFFS, MINE_LIFE, MINE_RADIUS, RATE_BOOST_TIME, EnemyKind, type PickupKind } from "../balance";
+import {
+  C,
+  GUN_OFFS,
+  MINE_LIFE,
+  MINE_RADIUS,
+  RATE_BOOST_TIME,
+  EnemyKind,
+  type PickupKind,
+} from "../balance";
 import type { Fx } from "../fx";
-import { clamp, rgba, TAU, easeOutCubic } from "../math";
+import { clamp, rgba, easeOutCubic, TAU } from "../math";
 import type { Renderer, RGBA } from "../render";
 import { RiftField } from "../rifts";
 import type { Starfield } from "../starfield";
 import type { GameState } from "../core/GameState";
+import { renderPickups, type PickupRenderState as PRS } from "./Renderers/PickupRenderer";
+import { renderEnemies, type EnemyRenderState as ERS } from "./Renderers/EnemyRenderer";
+import { drawShipPoly } from "./Renderers/ShipRenderer";
+import { calcMenuRiftAnim, calcRiftAnim, drawRift } from "./Renderers/RiftAnimation";
 
 /* ============================== config ============================== */
 
@@ -23,6 +35,8 @@ export interface RendererSystemConfig {
 }
 
 /* ============================== render state interfaces ============================== */
+
+/* EnemyRenderState and PickupRenderState are imported from ./Renderers */
 
 export interface PlayerRenderState {
   x: number;
@@ -50,42 +64,6 @@ export interface ZoneRenderState {
   alpha: number;
 }
 
-export interface EnemyRenderState {
-  kind: EnemyKind;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  angle: number;
-  hp: number;
-  maxHp: number;
-  r: number;
-  speed: number;
-  contact: number;
-  score: number;
-  boltDmg: number;
-  fireCd: number;
-  mode: number;
-  modeT: number;
-  strafeDir: number;
-  seed: number;
-  spawnCd: number;
-  flash: number;
-  hitCd: number;
-  dead: boolean;
-  parent: EnemyRenderState | null;
-}
-
-export interface PickupRenderState {
-  kind: PickupKind;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  seed: number;
-}
-
 export interface MineRenderState {
   x: number;
   y: number;
@@ -101,7 +79,7 @@ export interface AllyDroneRenderState {
   phase: number;
   hp: number;
   maxHp: number;
-  target: EnemyRenderState | null;
+  target: ERS | null;
   retargetT: number;
   flash: number;
 }
@@ -141,10 +119,10 @@ export class RendererSystem {
     R: Renderer,
     gameState: { type: string; time: number; wave: number; score: number },
     player: PlayerRenderState | null,
-    enemies: EnemyRenderState[],
+    enemies: ERS[],
     bullets: BulletRenderState[],
     ebullets: EBulletRenderState[],
-    pickups: PickupRenderState[],
+    pickups: PRS[],
     mines: MineRenderState[],
     allyDrones: AllyDroneRenderState[],
     zone: ZoneRenderState | null,
@@ -216,10 +194,10 @@ export class RendererSystem {
     zoom: number,
     state: "menu" | "playing" | "active" | "cleared" | "dying" | "over",
     player: PlayerRenderState | null,
-    enemies: EnemyRenderState[],
+    enemies: ERS[],
     bullets: BulletRenderState[],
     ebullets: EBulletRenderState[],
-    pickups: PickupRenderState[],
+    pickups: PRS[],
     mines: MineRenderState[],
     allyDrones: AllyDroneRenderState[],
     zone: ZoneRenderState | null,
@@ -239,9 +217,9 @@ export class RendererSystem {
     } else {
       if (zone) this.drawZone(R, zone, time);
       this.drawRifts(R, time);
-      this.drawPickups(R, pickups, time);
+      renderPickups(R, pickups, time);
       this.drawMines(R, mines, time);
-      this.drawEnemies(R, enemies, time);
+      renderEnemies(R, enemies, time);
       this.drawAllyDrones(R, allyDrones, time, player);
       if (player && state !== "dying" && state !== "over") {
         this.drawPlayer(R, player, time);
@@ -298,95 +276,6 @@ export class RendererSystem {
     this.config.riftField.draw(R, time);
   }
 
-  /* ============================== pickups ============================== */
-
-  private drawPickups(R: Renderer, pickups: PickupRenderState[], time: number) {
-    for (const p of pickups) {
-      const blinkA = p.life < 3 ? 0.35 + 0.65 * Math.abs(Math.sin(p.life * 7)) : 1;
-      const rot = time * 1.4 + p.seed;
-      const col =
-        p.kind === "heal25" || p.kind === "heal50" || p.kind === "heal100"
-          ? C.heal
-          : p.kind === "rate20" || p.kind === "rate40" || p.kind === "rate60"
-            ? C.fighter
-            : p.kind === "gun"
-              ? C.player
-              : p.kind === "dash"
-                ? C.dash
-                : p.kind === "miner"
-                  ? C.mine
-                  : p.kind === "mineral"
-                    ? C.heal
-                    : C.mint;
-      const pr = 15 + Math.sin(time * 4 + p.seed) * 2;
-      R.circle(p.x, p.y, pr, rgba(col, 0.35 * blinkA), 26);
-      const c1 = Math.cos(rot);
-      const s1 = Math.sin(rot);
-      switch (p.kind) {
-        case "heal25":
-        case "heal50":
-        case "heal100": {
-          const s = p.kind === "heal100" ? 7.5 : p.kind === "heal50" ? 6.5 : 5.5;
-          R.pushLine(p.x - s * c1, p.y - s * s1, p.x + s * c1, p.y + s * s1, rgba(col, blinkA));
-          R.pushLine(p.x + s * s1, p.y - s * c1, p.x - s * s1, p.y + s * c1, rgba(col, blinkA));
-          break;
-        }
-        case "rate20":
-        case "rate40":
-        case "rate60": {
-          R.pushLine(p.x + 3, p.y - 8, p.x - 4, p.y + 1, rgba(col, blinkA));
-          R.pushLine(p.x - 4, p.y + 1, p.x + 1, p.y + 1, rgba(col, blinkA));
-          R.pushLine(p.x + 1, p.y + 1, p.x - 3, p.y + 8, rgba(col, blinkA));
-          break;
-        }
-        case "gun": {
-          R.pushLine(p.x - 6, p.y - 3, p.x + 7, p.y - 3, rgba(col, blinkA));
-          R.pushLine(p.x - 6, p.y + 3, p.x + 7, p.y + 3, rgba(col, blinkA));
-          R.pushLine(p.x - 6, p.y - 3, p.x - 6, p.y + 3, rgba(col, blinkA));
-          break;
-        }
-        case "drone": {
-          this.drawShipPoly(R, p.x, p.y, rot, [[6, 0], [-4, 4], [-4, -4]], rgba(col, blinkA));
-          R.circle(p.x, p.y, 9.5, rgba(col, 0.4 * blinkA), 18);
-          break;
-        }
-        case "dash": {
-          const L = 10;
-          const Wd = 7;
-          const tx = p.x + L * c1;
-          const ty = p.y + L * s1;
-          R.pushLine(tx, ty, p.x - L * 0.5 * c1 - Wd * s1, p.y - L * 0.5 * s1 + Wd * c1, rgba(col, blinkA));
-          R.pushLine(tx, ty, p.x - L * 0.5 * c1 + Wd * s1, p.y - L * 0.5 * s1 - Wd * c1, rgba(col, blinkA));
-          break;
-        }
-        case "miner": {
-          const s = 5.5;
-          R.polyline(
-            [[p.x, p.y - s], [p.x + s, p.y], [p.x, p.y + s], [p.x - s, p.y]],
-            true,
-            rgba(col, blinkA)
-          );
-          const sp = s + 3.5;
-          R.pushLine(p.x, p.y - s, p.x, p.y - sp, rgba(col, blinkA));
-          R.pushLine(p.x + s, p.y, p.x + sp, p.y, rgba(col, blinkA));
-          R.pushLine(p.x, p.y + s, p.x, p.y + sp, rgba(col, blinkA));
-          R.pushLine(p.x - s, p.y, p.x - sp, p.y, rgba(col, blinkA));
-          break;
-        }
-        case "mineral": {
-          const s = 6.5;
-          R.polyline(
-            [[p.x, p.y - s], [p.x + s, p.y - s * 0.3], [p.x + s * 0.6, p.y + s], [p.x - s * 0.6, p.y + s], [p.x - s, p.y - s * 0.3]],
-            true,
-            rgba(col, blinkA)
-          );
-          R.pushLine(p.x, p.y - s, p.x, p.y + s, rgba(col, 0.4 * blinkA));
-          break;
-        }
-      }
-    }
-  }
-
   /* ============================== mines ============================== */
 
   private drawMines(R: Renderer, mines: MineRenderState[], time: number) {
@@ -410,76 +299,6 @@ export class RendererSystem {
       R.pushLine(m.x - s, m.y, m.x - sp, m.y, c);
       R.pushLine(m.x - 2.5, m.y, m.x + 2.5, m.y, rgba(C.white, 0.9 * blink));
       R.pushLine(m.x, m.y - 2.5, m.x, m.y + 2.5, rgba(C.white, 0.9 * blink));
-    }
-  }
-
-  /* ============================== enemies ============================== */
-
-  private drawEnemies(R: Renderer, enemies: EnemyRenderState[], time: number) {
-    for (const e of enemies) {
-      if (e.dead) continue;
-      const base = this.kindColor(e.kind);
-      const flash = e.flash > 0 ? 1 : 0;
-      const [r, g, b] = rgba(base, 1);
-      const col: RGBA = [
-        Math.min(1, r + flash * 0.6),
-        Math.min(1, g + flash * 0.6),
-        Math.min(1, b + flash * 0.6),
-        1,
-      ];
-      switch (e.kind) {
-        case EnemyKind.Drone: {
-          this.drawShipPoly(R, e.x, e.y, e.angle, [[9, 0], [-7, 7], [-4, 0], [-7, -7]], col);
-          break;
-        }
-        case EnemyKind.Hunter: {
-          this.drawShipPoly(R, e.x, e.y, e.angle, [[13, 0], [-8, 6], [-4, 0], [-8, -6]], col);
-          R.circle(
-            e.x + Math.cos(e.angle) * 5,
-            e.y + Math.sin(e.angle) * 5,
-            2,
-            rgba(C.hunter, 0.95),
-            8
-          );
-          R.pushLine(
-            e.x + Math.cos(e.angle) * 16,
-            e.y + Math.sin(e.angle) * 16,
-            e.x + Math.cos(e.angle) * 24,
-            e.y + Math.sin(e.angle) * 24,
-            rgba(C.hunter, 0.45)
-          );
-          break;
-        }
-        case EnemyKind.Fighter: {
-          this.drawShipPoly(R, e.x, e.y, e.angle, [[14, 0], [-10, 9], [-5, 0], [-10, -9]], col);
-          break;
-        }
-        case EnemyKind.Cruiser: {
-          this.drawShipPoly(R, e.x, e.y, e.angle, [[22, 0], [8, 14], [-18, 12], [-18, -12], [8, -14]], col);
-          R.circle(e.x, e.y, 8, rgba(base, 0.5), 16);
-          break;
-        }
-        case EnemyKind.Carrier: {
-          this.drawShipPoly(R, e.x, e.y, e.angle, [[30, 0], [10, 20], [-24, 16], [-24, -16], [10, -20]], col);
-          R.circle(e.x, e.y, 12, rgba(base, 0.4), 20);
-          R.dashedCircle(e.x, e.y, 20, rgba(base, 0.3), 8, time * 0.8);
-          break;
-        }
-      }
-      if (e.maxHp > 40 && e.hp < e.maxHp) {
-        const f = clamp(e.hp / e.maxHp, 0, 1);
-        R.dashedCircle(e.x, e.y, e.r + 6, rgba(base, 0.4), Math.max(3, Math.round(10 * f)), time, 0.4);
-      }
-    }
-  }
-
-  private kindColor(kind: EnemyKind): string {
-    switch (kind) {
-      case EnemyKind.Drone: return C.drone;
-      case EnemyKind.Hunter: return C.hunter;
-      case EnemyKind.Fighter: return C.fighter;
-      case EnemyKind.Cruiser: return C.cruiser;
-      case EnemyKind.Carrier: return C.carrier;
     }
   }
 
@@ -508,7 +327,7 @@ export class RendererSystem {
         Math.min(1, cb + flash * 0.5),
         0.95,
       ];
-      this.drawShipPoly(
+      drawShipPoly(
         R, d.x, d.y, d.angle,
         [[7, 0], [-5, 5], [-2, 0], [-5, -5]],
         col
@@ -549,7 +368,7 @@ export class RendererSystem {
     }
 
     // hull
-    this.drawShipPoly(
+    drawShipPoly(
       R, player.x, player.y, player.angle,
       [[16, 0], [-11, 10], [-6, 0], [-11, -10]],
       rgba(C.player, blink)
@@ -676,67 +495,16 @@ export class RendererSystem {
 
   private drawMenuScene(R: Renderer, time: number) {
     // Animate rift through opening → spawning → closing lifecycle
-    const cycleDuration = 4.0; // full cycle time
-    const cyclePos = time % cycleDuration;
+    const cyclePos = time % 4.0;
+    const { lenP, widP, alpha, snake } = calcMenuRiftAnim(cyclePos, time);
     
-    let lenP = 1;
-    let widP = 1;
-    let alpha = 1;
-    let snake = 1;
-    
-    // Opening phase: 0.0 - 0.6s
-    if (cyclePos < 0.6) {
-      const p = cyclePos / 0.6;
-      if (p < 0.42) {
-        const q = p / 0.42; // easeOutCubic approx
-        lenP = q;
-        widP = 0;
-        snake = 0;
-        alpha = 0.35 + 0.65 * q;
-      } else {
-        const q = (p - 0.42) / 0.58;
-        lenP = 1;
-        widP = q;
-        snake = 1.7 - 0.7 * q;
-        alpha = 1;
-      }
-    } else if (cyclePos < 2.6) {
-      // Spawning phase: 0.6 - 2.6s (stabilized with slight writhing)
-      lenP = 1 + 0.04 * Math.sin(time * 6);
-      widP = 1 + 0.06 * Math.sin(time * 6 + 1.4);
-      snake = 1.0;
-      alpha = 1;
-    } else if (cyclePos < 3.6) {
-      // Closing phase: 2.6 - 3.6s
-      const closeTime = cyclePos - 2.6;
-      const p = closeTime / 1.0;
-      if (p < 0.6) {
-        const q = p / 0.6;
-        lenP = 1;
-        widP = 1 - q;
-        snake = 1 + q * 0.8;
-        alpha = 1;
-      } else {
-        const q = (p - 0.6) / 0.4;
-        lenP = 1 - q;
-        widP = 0;
-        snake = 0;
-        alpha = 1 - q;
-      }
-    } else {
-      // Brief pause before restart
-      lenP = 0;
-      widP = 0;
-      alpha = 0;
-    }
-    
-    RiftField.drawShape(R, 0, -30, 130 * lenP, 40 * widP, 7, time, alpha, time * 0.05, snake);
+    drawRift(R, { x: 0, y: -30, size: 130, seed: 7, rot: time * 0.05, time }, lenP, widP, alpha, snake);
     
     for (let i = 0; i < 3; i++) {
       const a = time * (0.5 + i * 0.12) + (i * TAU) / 3;
       const ox = Math.cos(a) * (200 + i * 46);
       const oy = -30 + Math.sin(a) * (115 + i * 28);
-      this.drawShipPoly(
+      drawShipPoly(
         R, ox, oy, a + Math.PI / 2,
         [[10, 0], [-8, 8], [-4, 0], [-8, -8]],
         rgba(C.drone, 0.35)
@@ -755,64 +523,9 @@ export class RendererSystem {
     time: number
   ) {
     for (const rf of rifts) {
-      this.drawMenuRift(R, rf, time);
+      const { lenP, widP, alpha, snake } = calcRiftAnim(rf.state, rf.t);
+      drawRift(R, { x: rf.x, y: rf.y, size: rf.size, seed: rf.seed, rot: rf.rot, time }, lenP, widP, alpha, snake);
     }
-  }
-
-  private drawMenuRift(
-    R: Renderer,
-    rf: { x: number; y: number; t: number; state: "opening" | "spawning" | "closing"; seed: number; rot: number; size: number },
-    time: number
-  ) {
-    let lenP = 1;
-    let widP = 1;
-    let alpha = 1;
-    let snake = 1;
-
-    if (rf.state === "opening") {
-      if (rf.t < 0) return;
-      const p = clamp(rf.t / 0.6, 0, 1);
-      if (p < 0.42) {
-        const q = easeOutCubic(p / 0.42);
-        lenP = q;
-        widP = 0;
-        snake = 0;
-        alpha = 0.35 + 0.65 * q;
-      } else {
-        const q = easeOutCubic((p - 0.42) / 0.58);
-        lenP = 1;
-        widP = q;
-        snake = 1.7 - 0.7 * q;
-        alpha = 1;
-      }
-    } else if (rf.state === "closing") {
-      const p = clamp(rf.t / 0.5, 0, 1);
-      if (p < 0.6) {
-        const q = easeOutCubic(p / 0.6);
-        lenP = 1;
-        widP = 1 - q;
-        snake = 1 + q * 0.8;
-        alpha = 1;
-      } else {
-        const q = easeOutCubic((p - 0.6) / 0.4);
-        lenP = 1 - q;
-        widP = 0;
-        snake = 0;
-        alpha = 1 - q;
-      }
-    } else {
-      lenP = 1 + 0.04 * Math.sin(rf.t * 6);
-      widP = 1 + 0.06 * Math.sin(rf.t * 6 + 1.4);
-    }
-
-    if (alpha <= 0.01) return;
-    if (lenP <= 0.03) {
-      const pr = 3 + 1.6 * Math.sin(time * 18 + rf.seed);
-      R.circle(rf.x, rf.y, Math.max(1.5, pr * lenP), rgba(C.riftCore, 0.9 * alpha), 10);
-      return;
-    }
-
-    RiftField.drawShape(R, rf.x, rf.y, rf.size * lenP, rf.size * 0.227 * widP, rf.seed, time, alpha, rf.rot, snake);
   }
 
   private drawMenuEnemies(
@@ -833,36 +546,9 @@ export class RendererSystem {
     e: { x: number; y: number; vx: number; vy: number; kind: EnemyKind; angle: number; seed: number },
     time: number
   ) {
-    // Draw a simple ship polygon for menu enemies
-    const pts: Array<[number, number]> = [
-      [12, 0],
-      [-6, 6],
-      [-3, 0],
-      [-6, -6],
-    ];
-    this.drawShipPoly(R, e.x, e.y, e.angle, pts, rgba(C.drone, 0.7));
+    drawShipPoly(R, e.x, e.y, e.angle, [[12, 0], [-6, 6], [-3, 0], [-6, -6]], rgba(C.drone, 0.7));
     
-    // Add a small glow effect
     const pulse = 0.7 + 0.3 * Math.sin(time * 4 + e.seed);
     R.circle(e.x, e.y, 3 * pulse, rgba(C.riftCore, 0.3), 8);
-  }
-
-  /* ============================== helpers ============================== */
-
-  private drawShipPoly(
-    R: Renderer,
-    x: number,
-    y: number,
-    angle: number,
-    pts: Array<[number, number]>,
-    c: RGBA
-  ) {
-    const cos = Math.cos(angle);
-    const sin = Math.sin(angle);
-    const world: Array<[number, number]> = pts.map(([px, py]) => [
-      x + px * cos - py * sin,
-      y + px * sin + py * cos,
-    ]);
-    R.polyline(world, true, c);
   }
 }

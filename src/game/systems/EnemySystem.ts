@@ -13,6 +13,13 @@ import type { GameState } from '../core/GameState';
 import type { Fx } from '../fx';
 import { TAU, rand } from '../math';
 
+/* ── Magic numbers ── */
+const MIN_DIST = 35;
+const BASE_PUSH = 1.2;
+const SHOOT_RANGE = 500;
+const ACCURACY_MIN = 0.3;
+const ACCURACY_MAX = 0.7;
+const ACCURACY_RAMP = 0.013;
 
 export interface EnemyFireData {
   x: number;
@@ -96,56 +103,38 @@ export class EnemySystem {
     return this.enemyList.filter(e => !e.dead).length;
   }
 
-
-
-  addEnemy(kind: EnemyKind, x: number, y: number, def: EnemyDef, playerPos?: { x: number; y: number }): void {
-    // Дроны ориентируются носом к игроку при спавне
+  /** Factory для создания врага с общими полями */
+  private createEnemy(
+    kind: EnemyKind, x: number, y: number, def: EnemyDef,
+    playerPos?: { x: number; y: number },
+    parent: Enemy | null = null
+  ): Enemy {
     const angle = kind === EnemyKind.Drone && playerPos
       ? Math.atan2(playerPos.y - y, playerPos.x - x)
       : rand(0, TAU);
     const mass = massForRadius(def.r);
-    // Cruiser gets dual turrets with staggered cooldowns
     const tStagger = rand(-0.5, 0.5);
-    // Carrier gets burst spawning logic
-    const carrierBurstActive = Math.random() < 0.5; // stagger initial state
+    const carrierBurstActive = Math.random() < 0.5;
     const carrierBurstSpawned = carrierBurstActive ? 10 : 0;
-    // dodgeWeight: насколько сильно враг избегает других
-    const dodgeWeight = this.getDodgeWeight(kind);
-    this.enemyList.push({
-      kind,
-      x,
-      y,
-      vx: 0,
-      vy: 0,
-      angle,
-      hp: def.hp,
-      maxHp: def.hp,
-      r: def.r,
-      speed: def.speed,
-      contact: def.contact,
-      score: def.score,
-      boltDmg: def.bolt,
-      fireCd: rand(0.3, 1),
-      mode: 0,
-      modeT: 0,
+    return {
+      kind, x, y, vx: 0, vy: 0, angle,
+      hp: def.hp, maxHp: def.hp, r: def.r, speed: def.speed,
+      contact: def.contact, score: def.score, boltDmg: def.bolt,
+      fireCd: rand(0.3, 1), mode: 0, modeT: 0,
       strafeDir: Math.random() < 0.5 ? -1 : 1,
-      seed: Math.random() * 100,
-      spawnCd: rand(1, 2),
-      flash: 0,
-      hitCd: 0,
-      dead: false,
-      parent: null,
-      mass,
-      dodgeWeight,
+      seed: Math.random() * 100, spawnCd: rand(1, 2),
+      flash: 0, hitCd: 0, dead: false, parent, mass,
+      dodgeWeight: this.getDodgeWeight(kind),
       tCd1: rand(0.3, 0.8) + tStagger,
       tCd2: rand(0.3, 0.8) - tStagger,
-      burstSpawned: carrierBurstSpawned,
-      burstActive: carrierBurstActive,
+      burstSpawned: carrierBurstSpawned, burstActive: carrierBurstActive,
       burstRestT: carrierBurstActive ? 0 : rand(6, 10),
-      burstCd: 0.5,
-      dodgeDir: 0,
-      dodgeTimer: 0,
-    });
+      burstCd: 0.5, dodgeDir: 0, dodgeTimer: 0,
+    };
+  }
+
+  addEnemy(kind: EnemyKind, x: number, y: number, def: EnemyDef, playerPos?: { x: number; y: number }): void {
+    this.enemyList.push(this.createEnemy(kind, x, y, def, playerPos));
   }
   
   update(dt: number, enemyList: Enemy[], playerPos: { x: number; y: number }, enemyBullets?: EnemyBullet[]): void {
@@ -199,9 +188,9 @@ export class EnemySystem {
       const dy = this.context.playerY - e.y;
       const dist = Math.hypot(dx, dy) || 1;
       
-      const canShoot = (e.kind === EnemyKind.Fighter && dist < 500) ||
+      const canShoot = (e.kind === EnemyKind.Fighter && dist < SHOOT_RANGE) ||
                        (e.kind === EnemyKind.Cruiser && dist < CRUISER_FIRE_RANGE) ||
-                       (e.kind === EnemyKind.Carrier && dist < 500);
+                       (e.kind === EnemyKind.Carrier && dist < SHOOT_RANGE);
       
       if (!canShoot) continue;
       
@@ -255,8 +244,7 @@ export class EnemySystem {
 
   /** Мягко раздвигает врагов, которые слишком близко друг к другу */
   private applyAvoidance(enemyList: Enemy[], dt: number): void {
-    const minDist = 35;
-    const basePush = 1.2;
+    const minDistSq = MIN_DIST * MIN_DIST;
     
     for (let i = 0; i < enemyList.length; i++) {
       const a = enemyList[i];
@@ -271,11 +259,10 @@ export class EnemySystem {
         const dx = a.x - b.x;
         const dy = a.y - b.y;
         const distSq = dx * dx + dy * dy;
-        const minDistSq = minDist * minDist;
         
-        if (distSq < minDistSq && distSq > 0.01) {
+        if (distSq < MIN_DIST * MIN_DIST && distSq > 0.01) {
           const dist = Math.sqrt(distSq);
-          const push = (1 - dist / minDist) * basePush;
+          const push = (1 - dist / MIN_DIST) * BASE_PUSH;
           const pushX = (dx / dist) * push;
           const pushY = (dy / dist) * push;
           
@@ -291,16 +278,16 @@ export class EnemySystem {
     }
   }
   
-  /** Возвращает weight для avoidance: насколько сильно корабль должен избегать других */  /** Возвращает weight для avoidance: насколько сильно корабль должен избегать других */
+  /** Возвращает weight для avoidance: насколько сильно корабль должен избегать других */
   private getDodgeWeight(kind: EnemyKind): number {
-    switch (kind) {
-      case EnemyKind.Drone:     return 2.5; // рой должен рассеиваться
-      case EnemyKind.Hunter:    return 1.5; // охотники маневрируют
-      case EnemyKind.Fighter:   return 1.2; // истребители — умеренно
-      case EnemyKind.Cruiser:   return 1.0; // тяжёлые — по базе
-      case EnemyKind.Carrier:   return 0.8; // носители — меньше избегают
-      default:                  return 1.0;
-    }
+    const weights: Record<EnemyKind, number> = {
+      [EnemyKind.Drone]: 2.5,
+      [EnemyKind.Hunter]: 1.5,
+      [EnemyKind.Fighter]: 1.2,
+      [EnemyKind.Cruiser]: 1.0,
+      [EnemyKind.Carrier]: 0.8,
+    };
+    return weights[kind] ?? 1.0;
   }
   
   damageEnemy(index: number, dmg: number): boolean {
@@ -326,52 +313,7 @@ export class EnemySystem {
 
   spawn(kind: EnemyKind, x: number, y: number, parent: Enemy | null, enemyList: any[], playerPos?: { x: number; y: number }): void {
     const def = this.getEnemyDef(kind);
-    const mass = massForRadius(def.r);
-    // Дроны ориентируются носом к игроку при спавне
-    const angle = kind === EnemyKind.Drone && playerPos
-      ? Math.atan2(playerPos.y - y, playerPos.x - x)
-      : rand(0, TAU);
-    // Cruiser gets dual turrets with staggered cooldowns
-    const tStagger = rand(-0.5, 0.5);
-    // Carrier gets burst spawning logic
-    const carrierBurstActive = Math.random() < 0.5;
-    const carrierBurstSpawned = carrierBurstActive ? 10 : 0;
-    const e: Enemy = {
-      kind,
-      x,
-      y,
-      vx: 0,
-      vy: 0,
-      angle,
-      hp: def.hp,
-      maxHp: def.hp,
-      r: def.r,
-      speed: def.speed,
-      contact: def.contact,
-      score: def.score,
-      boltDmg: def.bolt,
-      fireCd: rand(0.3, 1),
-      mode: 0,
-      modeT: 0,
-      strafeDir: Math.random() < 0.5 ? -1 : 1,
-      seed: Math.random() * 100,
-      spawnCd: rand(1, 2),
-      flash: 0,
-      hitCd: 0,
-      dead: false,
-      parent,
-      mass,
-      dodgeWeight: this.getDodgeWeight(kind),
-      tCd1: rand(0.3, 0.8) + tStagger,
-      tCd2: rand(0.3, 0.8) - tStagger,
-      burstSpawned: carrierBurstSpawned,
-      burstActive: carrierBurstActive,
-      burstRestT: carrierBurstActive ? 0 : rand(6, 10),
-      burstCd: rand(0.7, 1.2),
-      dodgeDir: 0,
-      dodgeTimer: 0,
-    };
-    // Добавляем во внутренний массив и во внешний (enemyList)
+    const e = this.createEnemy(kind, x, y, def, playerPos, parent);
     this.enemyList.push(e);
     enemyList.push(e);
     if (parent) {
@@ -379,9 +321,9 @@ export class EnemySystem {
     }
   }
 
-  /** Меткость врагов: 0.3 на волне 1, растёт до 0.7 к волне 30. */
+  /** Меткость врагов: ACCURACY_MIN на волне 1, растёт до ACCURACY_MAX к волне 30. */
   private getAccuracy(wave: number): number {
-    return Math.min(0.7, 0.3 + wave * 0.013);
+    return Math.min(ACCURACY_MAX, ACCURACY_MIN + wave * ACCURACY_RAMP);
   }
 
   private getEnemyDef(kind: EnemyKind): EnemyDef {
@@ -408,46 +350,5 @@ export class EnemySystem {
     while (diff > Math.PI) diff -= TAU;
     while (diff < -Math.PI) diff += TAU;
     return a + diff * t;
-  }
-  
-  /**
-   * Проверяет, свободна ли сторона от столкновений.
-   * Возвращает минимальное расстояние до любой пули/врага в этом направлении.
-   */
-  private checkSideFree(
-    ex: number, ey: number,
-    nx: number, ny: number, // направление проверки (нормализованное)
-    evx: number, evy: number, // текущая скорость дрона
-    bullets: Array<{x: number; y: number; vx: number; vy: number; life: number}>,
-    allEnemies: Array<{x: number; y: number; kind: string; dead: boolean}>
-  ): number {
-    const checkDist = 120;
-    let minDist = 9999;
-    
-    // Проверяем пули
-    for (const b of bullets) {
-      const dx = b.x - ex;
-      const dy = b.y - ey;
-      const proj = dx * nx + dy * ny;
-      if (proj < 0 || proj > checkDist) continue;
-      
-      // Перпендикулярное расстояние
-      const perpDist = Math.abs(dx * ny - dy * nx);
-      if (perpDist < minDist) minDist = perpDist;
-    }
-    
-    // Проверяем других врагов
-    for (const other of allEnemies) {
-      if (other.dead) continue;
-      const dx = other.x - ex;
-      const dy = other.y - ey;
-      const proj = dx * nx + dy * ny;
-      if (proj < 0 || proj > checkDist) continue;
-      
-      const perpDist = Math.abs(dx * ny - dy * nx);
-      if (perpDist < minDist) minDist = perpDist;
-    }
-    
-    return minDist;
   }
 }
