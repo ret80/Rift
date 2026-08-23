@@ -29,6 +29,8 @@ export interface EnemyRenderState {
   flash: number;
   hitCd: number;
   dead: boolean;
+  droneState?: 'orbiting' | 'attacking' | 'none' | 'accumulating' | 'waiting';
+  orbitRadius?: number;
   parent: EnemyRenderState | null;
 }
 
@@ -37,6 +39,11 @@ export function renderEnemies(
   enemies: EnemyRenderState[],
   _time: number
 ) {
+  // Debug: log enemy types
+  const droneCount = enemies.filter(e => e.kind === EnemyKind.Drone).length;
+  if (droneCount > 0 && Math.random() < 0.01) {
+    console.log(`[RENDER] Rendering ${enemies.length} enemies, ${droneCount} drones`);
+  }
   for (const e of enemies) {
     if (e.dead) continue;
     const base = kindColor(e.kind);
@@ -50,7 +57,17 @@ export function renderEnemies(
     ];
     switch (e.kind) {
       case EnemyKind.Drone: {
-        drawShipPoly(R, e.x, e.y, e.angle, [[9, 0], [-7, 7], [-4, 0], [-7, -7]], col);
+        // Атакующий дрон — яркий, орбитальный — тусклый
+        let droneCol = col;
+        if (e.droneState === 'attacking') {
+          droneCol = [
+            Math.min(1, col[0] + 0.4),
+            Math.min(1, col[1] + 0.2),
+            Math.min(1, col[2] + 0.2),
+            col[3],
+          ];
+        }
+        drawShipPoly(R, e.x, e.y, e.angle, [[9, 0], [-7, 7], [-4, 0], [-7, -7]], droneCol);
         break;
       }
       case EnemyKind.Hunter: {
@@ -84,6 +101,8 @@ export function renderEnemies(
         drawShipPoly(R, e.x, e.y, e.angle, [[30, 0], [10, 20], [-24, 16], [-24, -16], [10, -20]], col);
         R.circle(e.x, e.y, 12, rgba(base, 0.4), 20);
         R.dashedCircle(e.x, e.y, 20, rgba(base, 0.3), 8, _time * 0.8);
+        // Визуализация орбиты для дронов (всегда рисуется вокруг Carrier)
+        R.dashedCircle(e.x, e.y, e.orbitRadius || 121, rgba(base, 0.15), 12, _time * 0.3);
         break;
       }
     }

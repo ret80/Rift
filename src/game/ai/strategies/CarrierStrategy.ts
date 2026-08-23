@@ -1,6 +1,20 @@
 /**
  * CarrierStrategy - носитель дронов.
- * Удерживает позицию на большом расстоянии, спавнит дронов burst-ами.
+ * Цикл работы CARRIER:
+ * 
+ * ФАЗА 1: НАКОПЛЕНИЕ
+ * - Carrier спавнит ровно 10 дронов на орбите (интервал 0.5с).
+ * - После спавна всех 10 дронов переходит к ФАЗЕ 2.
+ * 
+ * ФАЗА 2: ОЖИДАНИЕ (5-8 секунд)
+ * - Carrier ждёт 5-8 секунд. Дроны ждут на орбите.
+ * 
+ * ФАЗА 3: АТАКА
+ * - Carrier отпускает всех дронов — они срываются и атакуют игрока.
+ * - Carrier очищает свой список детей.
+ * 
+ * ФАЗА 4: СБРОС
+ * - Carrier очищает счётчики и начинает цикл заново (возврат к ФАЗЕ 1).
  */
 
 import type { Enemy } from '../../types';
@@ -9,6 +23,9 @@ import type { IEnemyStrategy } from '../IEnemyStrategy';
 import { lerpAngle } from '../../math';
 
 export class CarrierStrategy implements IEnemyStrategy {
+  /** Максимальное количество дронов у одного Carrier */
+  public static readonly MAX_DRONES = 10;
+
   update(enemy: Enemy, context: GameContext, dt: number): void {
     const { playerX, playerY } = context;
 
@@ -53,26 +70,68 @@ export class CarrierStrategy implements IEnemyStrategy {
       enemy.angle = lerpAngle(enemy.angle, targetAngle, 1 - Math.exp(-5 * dt));
     }
 
-    // Burst spawn: carrier управляет своими таймерами сам
-    // (стратегия только обновляет состояние, спавн обрабатывается в EnemySystem)
-    const maxDrones = 12 + Math.floor(context.wave / 5);
+    // === ЦИКЛ РАБОТЫ CARRIER ===
+    const maxDrones = CarrierStrategy.MAX_DRONES;
 
-    if (enemy.burstActive) {
-      enemy.burstCd -= dt;
-      if (enemy.burstCd <= 0 && enemy.burstSpawned < maxDrones) {
-        enemy.burstCd = 0.35;
-        enemy.burstSpawned++;
+    if (enemy.droneState === 'accumulating') {
+      // ФАЗА 1: НАКОПЛЕНИЕ — спавним дронов по одному раз в 0.5с
+      if (enemy.orbitTimer > 0) {
+        enemy.orbitTimer -= dt;
+        return; // ждём задержку
       }
-      if (enemy.burstSpawned >= maxDrones) {
-        enemy.burstActive = false;
-        enemy.burstRestT = Math.random() * (6 - 3) + 3;
+      enemy.orbitTimer -= dt;
+      if (enemy.orbitTimer <= 0 && enemy.carrierChildren < maxDrones) {
+        const angle = Math.random() * Math.PI * 2;
+        const offset = enemy.r + 80;
+        context.carrierSpawns.push({
+          x: enemy.x + Math.cos(angle) * offset,
+          y: enemy.y + Math.sin(angle) * offset,
+        });
+        enemy.orbitTimer = 0.5;
+        enemy.carrierChildren++;
+        console.log(`[CARRIER] [НАКОПЛЕНИЕ] Спавн дрон #${enemy.carrierChildren}/${maxDrones}`);
       }
-    } else {
-      enemy.burstRestT -= dt;
-      if (enemy.burstRestT <= 0) {
-        enemy.burstActive = true;
-        enemy.burstSpawned = 0;
+      // Когда все 10 дронов спавнены — переходим к ОЖИДАНИЮ
+      if (enemy.carrierChildren >= maxDrones) {
+        enemy.waitTimer = Math.random() * (8 - 5) + 5;
+        enemy.droneState = 'waiting';
+        console.log(`[CARRIER] [ОЖИДАНИЕ] Все ${maxDrones} дронов спавнены. Ждём ${enemy.waitTimer.toFixed(1)}с`);
+      }
+    } 
+    else if (enemy.droneState === 'waiting') {
+      // ФАЗА 2: ОЖИДАНИЕ — Carrier ждёт, дроны ждут на орбите
+      enemy.waitTimer -= dt;
+      if (enemy.waitTimer <= 0) {
+        // Таймер истёк — переходим в атаку (сигнал дронам выполнится в state attacking)
+        enemy.droneState = 'attacking';
       }
     }
+    else if (enemy.droneState === 'attacking') {
+      // ФАЗА 3: АТАКА — сигнал дронам + мгновенный сброс
+      this.triggerAttack(context.enemies, enemy);
+      enemy.carrierChildren = 0;
+      enemy.waitTimer = 0;
+      enemy.droneState = 'accumulating';
+      console.log(`[CARRIER] [СБРОС] Цикл завершён. Начинаю накопление заново.`);
+    }
+    else {
+      // ИНИЦИАЛИЗАЦИЯ — первая инициализация
+      enemy.droneState = 'accumulating';
+      enemy.orbitTimer = 0;
+      enemy.carrierChildren = 0;
+      console.log(`[CARRIER] Инициализация. Начинаю фазу накопления.`);
+    }
+  }
+
+  /**
+   * Перевести все орбитальные дроны в режим атаки
+   */
+  private triggerAttack(enemies: Enemy[], carrier: Enemy): void {
+    for (const e of enemies) {
+      if (e.parent === carrier && !e.dead && e.droneState === 'orbiting') {
+        e.droneState = 'attacking';
+      }
+    }
+    console.log(`[CARRIER] [ОТПУСК] Дроны отпущены. Перехожу в накопление.`);
   }
 }

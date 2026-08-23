@@ -180,5 +180,5 @@ export function pickKindForEnabled(
     roll -= wt;
     if (roll <= 0) return kind;
   }
-  return enabledEnemies[0] ?? EnemyKind.Drone;
+  return enabledEnemies?.[0] ?? EnemyKind.Drone;
 }

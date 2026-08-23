@@ -72,6 +72,17 @@ export interface Enemy {
   tCd2?: number;
   // AI strategy (set by EnemyAI)
   strategy?: IEnemyStrategy | null;
+  // Drone orbit/attack state (Carrier drones)
+  droneState: 'orbiting' | 'attacking' | 'none' | 'accumulating' | 'waiting';
+  orbitAngle: number;
+  orbitRadius: number;
+  // Carrier orbit/release timer
+  orbitTimer: number;
+  // Carrier wait timer (5-8 seconds during waiting phase)
+  waitTimer: number;
+  phaseDrones: number;
+  // Carrier children tracking (count of spawned drones)
+  carrierChildren: number;
 }
 
 export interface Bullet {

@@ -30,6 +30,9 @@ export interface GameContextData {
   // Для AI стратегий
   wave: number;
   enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number }>;
+  
+  // Carrier spawn queue (для передачи в EnemySystem)
+  carrierSpawns: Array<{ x: number; y: number }>;
 }
 
 export class GameContext implements GameContextData {
@@ -53,6 +56,7 @@ export class GameContext implements GameContextData {
   
   public wave: number = 1;
   public enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number }> = [];
+  public carrierSpawns: Array<{ x: number; y: number }> = [];
 
   constructor(
     state: GameState,
@@ -95,6 +99,7 @@ export class GameContext implements GameContextData {
     
     this.wave = wave;
     this.enemyBullets = enemyBullets;
+    this.carrierSpawns = [];
   }
 
   /**

@@ -231,6 +231,7 @@ export default function DebugScreen(props: {
   godOn: boolean;
   startWave: number;
   onToggleFps: () => void;
+  onToggleGod: () => void;
   onChangeWave: (n: number) => void;
   onToggleDetails: () => void;
   detailsOn: boolean;

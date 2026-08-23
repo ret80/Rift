@@ -12,6 +12,7 @@ import { HunterStrategy } from './strategies/HunterStrategy';
 import { FighterStrategy } from './strategies/FighterStrategy';
 import { CruiserStrategy } from './strategies/CruiserStrategy';
 import { CarrierStrategy } from './strategies/CarrierStrategy';
+import { TAU } from '../math';
 
 export class EnemyAI {
   private strategies: Map<string, IEnemyStrategy> = new Map();
@@ -77,45 +78,10 @@ export class EnemyAI {
     enemy.angle = angleToPlayer;
   }
 
-  /**
-   * Обработать спавн дронов от Carrier.
-   * Возвращает массив координат для спавна.
-   */
+  /** Максимальное количество дронов у одного Carrier */
+  private static readonly MAX_DRONES = 10;
+
   processCarrierSpawns(enemies: Enemy[], context: GameContext, dt: number): Array<{ x: number; y: number }> {
-    const spawns: Array<{ x: number; y: number }> = [];
-
-    for (const carrier of enemies) {
-      if (carrier.kind !== EnemyKind.Carrier || carrier.dead) continue;
-
-      const maxDrones = 12 + Math.floor(context.wave / 5);
-
-      if (carrier.burstActive) {
-        carrier.burstCd -= dt;
-        if (carrier.burstCd <= 0 && carrier.burstSpawned < maxDrones) {
-          carrier.burstCd = 0.35;
-          carrier.burstSpawned++;
-          // Случайный оффсет чтобы дроны не спавнились в центре
-          const angle = Math.random() * Math.PI * 2;
-          const offset = carrier.r + 25;
-          spawns.push({
-            x: carrier.x + Math.cos(angle) * offset,
-            y: carrier.y + Math.sin(angle) * offset,
-          });
-        }
-        // Конец бурста?
-        if (carrier.burstSpawned >= maxDrones) {
-          carrier.burstActive = false;
-          carrier.burstRestT = Math.random() * (6 - 3) + 3;
-        }
-      } else {
-        carrier.burstRestT -= dt;
-        if (carrier.burstRestT <= 0) {
-          carrier.burstActive = true;
-          carrier.burstSpawned = 0;
-        }
-      }
-    }
-
-    return spawns;
+    return context.carrierSpawns || [];
   }
 }

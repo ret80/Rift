@@ -1,6 +1,9 @@
 /**
- * DroneStrategy - прямое преследование игрока с фланговым смещением.
- * Дроны летят к игроку с лёгким хаотичным смещением для непредсказуемости.
+ * DroneStrategy - поведение дронов.
+ * 
+ * - droneState === 'orbiting': вращается на орбите вокруг parent (Carrier)
+ * - droneState === 'attacking': преследует игрока
+ * - droneState === 'none': обычное поведение (прямое преследование)
  */
 
 import type { Enemy } from '../../types';
@@ -10,24 +13,91 @@ import { lerpAngle } from '../../math';
 
 export class DroneStrategy implements IEnemyStrategy {
   update(enemy: Enemy, context: GameContext, dt: number): void {
-    const { playerX, playerY } = context;
+    // Режим атаки — преследование игрока
+    if (enemy.droneState === 'attacking') {
+      this.updateAttacking(enemy, context, dt);
+      return;
+    }
 
-    // Прямое преследование игрока
-    const angleToPlayer = Math.atan2(playerY - enemy.y, playerX - enemy.x);
+    // Режим орбиты — вращение вокруг Carrier
+    if (enemy.droneState === 'orbiting') {
+      this.updateOrbiting(enemy, context, dt);
+      return;
+    }
 
-    // Фланговое смещение — лёгкое смещение для непредсказуемости
+    // Обычное поведение (без parent)
+    this.updateNormal(enemy, context, dt);
+  }
+
+  /**
+    * Орбитальное движение вокруг Carrier
+    */
+   private updateOrbiting(enemy: Enemy, context: GameContext, dt: number): void {
+     const carrier = enemy.parent;
+     if (!carrier || carrier.dead) {
+       // Carrier мёртв — переходим к атаке
+       enemy.droneState = 'attacking';
+       this.updateAttacking(enemy, context, dt);
+       return;
+     }
+
+     const orbitSpeed = 1.5; // радиан в секунду
+     enemy.orbitAngle += orbitSpeed * dt;
+
+     // Устанавливаем позицию напрямую на орбите
+     enemy.x = carrier.x + Math.cos(enemy.orbitAngle) * enemy.orbitRadius;
+     enemy.y = carrier.y + Math.sin(enemy.orbitAngle) * enemy.orbitRadius;
+
+     // Вычисляем velocity для отрисовки и collision
+     const tangentX = -Math.sin(enemy.orbitAngle);
+     const tangentY = Math.cos(enemy.orbitAngle);
+     enemy.vx = tangentX * enemy.speed;
+     enemy.vy = tangentY * enemy.speed;
+
+     // Вращение: смотреть по касательной
+     enemy.angle = Math.atan2(enemy.vy, enemy.vx);
+   }
+
+  /**
+    * Атака — преследование игрока
+    */
+   private updateAttacking(enemy: Enemy, context: GameContext, dt: number): void {
+     const { playerX, playerY } = context;
+     const angleToPlayer = Math.atan2(playerY - enemy.y, playerX - enemy.x);
+
+    // Фланговое смещение
     const flankFactor = Math.min(0.3, 0.05 + context.wave * 0.01);
     const flankAngle = Math.sin(enemy.seed + context.wave * 0.5) * flankFactor;
     const targetAngle = angleToPlayer + flankAngle;
 
     const speed = enemy.speed;
 
-    // Плавное ускорение к целевому вектору
     const k = 1 - Math.exp(-6 * dt);
     enemy.vx += (Math.cos(targetAngle) * speed - enemy.vx) * k;
     enemy.vy += (Math.sin(targetAngle) * speed - enemy.vy) * k;
 
-    // Вращение: смотреть по направлению движения
+    const dsp = Math.hypot(enemy.vx, enemy.vy);
+    if (dsp > 5) {
+      const movementAngle = Math.atan2(enemy.vy, enemy.vx);
+      enemy.angle = lerpAngle(enemy.angle, movementAngle, 1 - Math.exp(-5 * dt));
+    }
+  }
+
+  /**
+    * Обычное поведение — прямое преследование (без parent)
+    */
+   private updateNormal(enemy: Enemy, context: GameContext, dt: number): void {
+     const { playerX, playerY } = context;
+     const angleToPlayer = Math.atan2(playerY - enemy.y, playerX - enemy.x);
+    const flankFactor = Math.min(0.3, 0.05 + context.wave * 0.01);
+    const flankAngle = Math.sin(enemy.seed + context.wave * 0.5) * flankFactor;
+    const targetAngle = angleToPlayer + flankAngle;
+
+    const speed = enemy.speed;
+    const k = 1 - Math.exp(-6 * dt);
+    enemy.vx += (Math.cos(targetAngle) * speed - enemy.vx) * k;
+    enemy.vy += (Math.sin(targetAngle) * speed - enemy.vy) * k;
+
     const dsp = Math.hypot(enemy.vx, enemy.vy);
     if (dsp > 5) {
       const movementAngle = Math.atan2(enemy.vy, enemy.vx);

@@ -116,6 +116,23 @@ export class EnemySystem {
     const tStagger = rand(-0.5, 0.5);
     const carrierBurstActive = Math.random() < 0.5;
     const carrierBurstSpawned = carrierBurstActive ? 10 : 0;
+
+    // Инициализация полей орбиты: только для дронов Carrier
+    let droneState: 'orbiting' | 'attacking' | 'none' = 'none';
+    let orbitAngle = rand(0, TAU);
+    let orbitRadius = 0; // 0 = без орбиты
+
+    if (kind === EnemyKind.Drone && parent) {
+      droneState = 'orbiting';
+      orbitRadius = parent.r + 80;
+    }
+
+    // Орбитальные дроны имеют низкий dodgeWeight чтобы avoidance их не толкал
+    let dodgeWeight = this.getDodgeWeight(kind);
+    if (kind === EnemyKind.Drone && parent) {
+      dodgeWeight = 0.1; // Практически не реагирует на avoidance
+    }
+
     return {
       kind, x, y, vx: 0, vy: 0, angle,
       hp: def.hp, maxHp: def.hp, r: def.r, speed: def.speed,
@@ -130,6 +147,11 @@ export class EnemySystem {
       burstSpawned: carrierBurstSpawned, burstActive: carrierBurstActive,
       burstRestT: carrierBurstActive ? 0 : rand(6, 10),
       burstCd: 0.5, dodgeDir: 0, dodgeTimer: 0,
+      droneState, orbitAngle, orbitRadius,
+      orbitTimer: carrierBurstActive ? 0 : rand(5, 8),
+      waitTimer: 0,
+      phaseDrones: 0,
+      carrierChildren: 0,
     };
   }
 
@@ -154,6 +176,7 @@ export class EnemySystem {
     );
     
     // AI movement via strategy pattern
+    this.context.enemies = enemyList;
     this.ai.updateAI(enemyList, this.context, dt);
     
     // Apply velocity and update state
@@ -164,10 +187,56 @@ export class EnemySystem {
       e.flash = Math.max(0, e.flash - dt * 5);
       e.hitCd = Math.max(0, e.hitCd - dt);
       
+      // skip velocity apply for orbiting drones — they control their own position
+      if (e.droneState === 'orbiting') continue;
+      
       // apply velocity
       e.x += e.vx * dt;
       e.y += e.vy * dt;
     }
+    
+    // processing carrier drone spawns
+    const carrierSpawns = this.ai.processCarrierSpawns(enemyList, this.context, dt);
+    if (carrierSpawns.length > 0) {
+      console.log(`[SPAWN] Carrier spawned ${carrierSpawns.length} drone(s). Total enemies before: ${enemyList.length}`);
+    }
+    for (const spawn of carrierSpawns) {
+      const droneDef = this.getEnemyDef(EnemyKind.Drone);
+      const drone = this.createEnemy(EnemyKind.Drone, spawn.x, spawn.y, droneDef, playerPos, null);
+      // Set parent to carrier for proper tracking
+      const carrier = this.findCarrierForDrone(enemyList, spawn);
+      if (carrier) {
+        drone.parent = carrier;
+        // Дрон начинается на орбите вокруг Carrier
+        drone.droneState = 'orbiting';
+        drone.orbitRadius = carrier.r + 80;
+        drone.orbitAngle = Math.random() * Math.PI * 2;
+        const totalParentDrones = enemyList.filter(e => e.parent === carrier && !e.dead).length;
+        console.log(
+          `[DRONE] Created orbiting drone #${totalParentDrones} ` +
+          `@(${spawn.x.toFixed(0)},${spawn.y.toFixed(0)}) ` +
+          `parent=(${carrier.x.toFixed(0)},${carrier.y.toFixed(0)}) ` +
+          `burstSpawned=${carrier.burstSpawned}`
+        );
+      }
+      this.enemyList.push(drone);
+      enemyList.push(drone);
+    }
+    // === ЛОГ: сводка по всем Carrier и их дронам ===
+    if (Math.random() < 0.005) {
+      const carriers = enemyList.filter(e => e.kind === EnemyKind.Carrier && !e.dead);
+      for (const c of carriers) {
+        const parentDrones = enemyList.filter(e => e.parent === c && !e.dead).length;
+        const orbiting = enemyList.filter(e => e.parent === c && !e.dead && e.droneState === 'orbiting').length;
+        const attacking = enemyList.filter(e => e.parent === c && !e.dead && e.droneState === 'attacking').length;
+        console.log(
+          `[SUMMARY] Carrier@(${c.x.toFixed(0)},${c.y.toFixed(0)}) ` +
+          `burstActive=${c.burstActive} burstSpawned=${c.burstSpawned}/10 ` +
+          `totalDrones=${parentDrones} (orbiting=${orbiting}, attacking=${attacking})`
+        );
+      }
+    }
+    console.log(`[SPAWN] Total enemies after spawn: ${enemyList.length}`);
     
     // shooting logic
     this.updateFiring(enemyList, dt);
@@ -250,11 +319,17 @@ export class EnemySystem {
       const a = enemyList[i];
       if (a.dead) continue;
       
+      // Орбитальные дроны полностью игнорируют avoidance
+      if (a.droneState === 'orbiting') continue;
+      
       for (let j = i + 1; j < enemyList.length; j++) {
         const b = enemyList[j];
         if (b.dead) continue;
         
         if (a.parent === b || b.parent === a) continue;
+        
+        // Орбитальные дроны игнорируют avoidance полностью
+        if (b.droneState === 'orbiting') continue;
         
         const dx = a.x - b.x;
         const dy = a.y - b.y;
@@ -313,7 +388,18 @@ export class EnemySystem {
 
   spawn(kind: EnemyKind, x: number, y: number, parent: Enemy | null, enemyList: any[], playerPos?: { x: number; y: number }): void {
     const def = this.getEnemyDef(kind);
-    const e = this.createEnemy(kind, x, y, def, playerPos, parent);
+    let spawnX = x;
+    let spawnY = y;
+
+    // Если дрон спавнится от Carrier — размещаем на орбите
+    if (kind === EnemyKind.Drone && parent && parent.kind === EnemyKind.Carrier) {
+      const orbitAngle = Math.random() * TAU;
+      const orbitRadius = parent.r + 80;
+      spawnX = parent.x + Math.cos(orbitAngle) * orbitRadius;
+      spawnY = parent.y + Math.sin(orbitAngle) * orbitRadius;
+    }
+
+    const e = this.createEnemy(kind, spawnX, spawnY, def, playerPos, parent);
     this.enemyList.push(e);
     enemyList.push(e);
     if (parent) {
@@ -350,5 +436,20 @@ export class EnemySystem {
     while (diff > Math.PI) diff -= TAU;
     while (diff < -Math.PI) diff += TAU;
     return a + diff * t;
+  }
+
+  /** Найти ближайшего живого Carrier для дрона */
+  private findCarrierForDrone(enemies: Enemy[], spawnPos: { x: number; y: number }): Enemy | null {
+    let closest: Enemy | null = null;
+    let closestDist = Infinity;
+    for (const e of enemies) {
+      if (e.kind !== EnemyKind.Carrier || e.dead) continue;
+      const d = Math.hypot(e.x - spawnPos.x, e.y - spawnPos.y);
+      if (d < closestDist) {
+        closestDist = d;
+        closest = e;
+      }
+    }
+    return closest;
   }
 }
