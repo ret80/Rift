@@ -800,6 +800,14 @@ export class Game {
     this.startWave = wave;
   }
 
+  setEnabledEnemies(enemies: EnemyKind[] | null): void {
+    this.spawnSystem.setEnabledEnemies(enemies);
+  }
+
+  setEnabledPickups(pickups: PickupKind[] | null): void {
+    this.dropSystem.setEnabledPickups(pickups);
+  }
+
   fps(): number {
     return Math.round(this.fpsEma);
   }

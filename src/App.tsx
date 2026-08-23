@@ -26,6 +26,9 @@ import { usePersistedState } from "./hooks/usePersistedState";
 import { useHudUpdater } from "./hooks/useHudUpdater";
 import { resetGameState } from "./game/resetGameState";
 import { resetUpgrades } from "./game/upgrades";
+import { EnemyKind } from "./game/balance/enemies";
+import { ALL_PICKUP_KINDS, pickupDisplayKey } from "./game/balance/drops";
+import type { PickupKind } from "./game/balance";
 
 type Screen = "menu" | "settings" | "help" | "debug" | "upgrade" | "game";
 
@@ -104,6 +107,14 @@ export default function App() {
   const [debugGod, setDebugGod] = usePersistedState("rift9_debug_god", false);
   const [debugWave, setDebugWave] = usePersistedState("rift9_debug_wave", 1);
   const [debugDetails, setDebugDetails] = usePersistedState("rift9_debug_details", false);
+  const [enabledEnemies, setEnabledEnemies] = usePersistedState<EnemyKind[]>(
+    "rift9_debug_enemies",
+    [EnemyKind.Drone, EnemyKind.Hunter, EnemyKind.Fighter, EnemyKind.Cruiser, EnemyKind.Carrier]
+  );
+  const [enabledPickups, setEnabledPickups] = usePersistedState<PickupKind[]>(
+    "rift9_debug_pickups",
+    [...ALL_PICKUP_KINDS]
+  );
 
   /* Touch detection (runtime only, not persisted) */
   const [isTouch] = useState(
@@ -158,6 +169,7 @@ export default function App() {
       },
     });
     game.setVolumes(vols);
+    game.setEnabledEnemies(enabledEnemies.length === 5 ? null : enabledEnemies);
     gameRef.current = game;
     setBest(Number(localStorage.getItem("rift9_best")) || 0);
 
@@ -210,6 +222,43 @@ export default function App() {
 
   const toggleDebugDetails = () => setDebugDetails((v) => !v);
 
+  // Sync enabled enemies/pickups to game when changing from persisted state
+  useEffect(() => {
+    if (screen === "debug") {
+      gameRef.current?.setEnabledEnemies(
+        enabledEnemies.length === 5 ? null : enabledEnemies
+      );
+      gameRef.current?.setEnabledPickups(
+        enabledPickups.length === ALL_PICKUP_KINDS.length ? null : enabledPickups
+      );
+    }
+  }, [screen, enabledEnemies, enabledPickups]);
+
+  const toggleEnemy = (kind: EnemyKind) => {
+    setEnabledEnemies((prev) => {
+      const next = prev.includes(kind)
+        ? prev.filter((k) => k !== kind)
+        : [...prev, kind];
+      // Update game immediately if running
+      gameRef.current?.setEnabledEnemies(
+        next.length === 5 ? null : next
+      );
+      return next;
+    });
+  };
+
+  const togglePickup = (kind: PickupKind) => {
+    setEnabledPickups((prev) => {
+      const next = prev.includes(kind)
+        ? prev.filter((k) => k !== kind)
+        : [...prev, kind];
+      gameRef.current?.setEnabledPickups(
+        next.length === ALL_PICKUP_KINDS.length ? null : next
+      );
+      return next;
+    });
+  };
+
   // poll the engine's smoothed frame rate while the overlay is visible
   useEffect(() => {
     if (!debugFps) return;
@@ -230,6 +279,7 @@ export default function App() {
     g.audio.init();
     g.audio.startMusic();
     g.setStartWave(debugWave);
+    g.setEnabledEnemies(enabledEnemies.length === 5 ? null : enabledEnemies);
     resetGameState({
       setStats: (s) => dispatch({ type: "SET_STATS", stats: s }),
       setBanner: (b) => dispatch({ type: "SET_BANNER", banner: b }),
@@ -320,6 +370,10 @@ export default function App() {
           godOn={debugGod}
           startWave={debugWave}
           detailsOn={debugDetails}
+          enabledEnemies={enabledEnemies}
+          onToggleEnemy={toggleEnemy}
+          enabledPickups={enabledPickups}
+          onTogglePickup={togglePickup}
           onToggleFps={toggleDebugFps}
           onToggleGod={toggleDebugGod}
           onChangeWave={changeDebugWave}

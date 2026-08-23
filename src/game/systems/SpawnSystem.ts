@@ -14,6 +14,7 @@ import {
   waveTotalFor,
   zoneRadiusFor,
   pickKindFor,
+  pickKindForEnabled,
   EnemyKind,
 } from "../balance";
 import { rand, TAU } from "../math";
@@ -84,6 +85,7 @@ export class SpawnSystem {
   private riftSpawnTimers = 0;
   private spawnQueue: EnemyKind[] = [];
   private spawnIdx = 0;
+  private enabledEnemies: EnemyKind[] | null = null;
 
   constructor(config: {
     hooks: SpawnHooks;
@@ -149,6 +151,9 @@ export class SpawnSystem {
    * Select enemy class with wave progression and weights.
    */
   private pickKindForWave(w: number): EnemyKind {
+    if (this.enabledEnemies && this.enabledEnemies.length > 0) {
+      return pickKindForEnabled(w, this.enabledEnemies);
+    }
     const weights = this.kindWeights(w);
     let total = 0;
     for (const wt of Object.values(weights)) total += wt;
@@ -158,6 +163,14 @@ export class SpawnSystem {
       if (roll <= 0) return kind;
     }
     return EnemyKind.Drone;
+  }
+
+  /**
+   * Set which enemy kinds are allowed to spawn.
+   * Null means all enemies enabled (default).
+   */
+  setEnabledEnemies(enemies: EnemyKind[] | null): void {
+    this.enabledEnemies = enemies;
   }
 
   /**

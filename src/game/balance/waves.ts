@@ -139,6 +139,19 @@ export function kindWeights(w: number): Array<[EnemyKind, number]> {
   ];
 }
 
+/**
+ * Weighted class mix with optional enemy filter.
+ * Disabled enemies get zero weight.
+ */
+export function kindWeightsForEnabled(
+  w: number,
+  enabledEnemies: EnemyKind[] | null
+): Array<[EnemyKind, number]> {
+  const base = kindWeights(w);
+  if (!enabledEnemies || enabledEnemies.length === 0) return base;
+  return base.filter(([kind]) => enabledEnemies.includes(kind));
+}
+
 export function pickKindFor(w: number): EnemyKind {
   const weights = kindWeights(w);
   let total = 0;
@@ -149,4 +162,23 @@ export function pickKindFor(w: number): EnemyKind {
     if (roll <= 0) return kind;
   }
   return EnemyKind.Drone;
+}
+
+/**
+ * Pick enemy kind respecting the enabled enemies filter.
+ */
+export function pickKindForEnabled(
+  w: number,
+  enabledEnemies: EnemyKind[] | null
+): EnemyKind {
+  const weights = kindWeightsForEnabled(w, enabledEnemies);
+  let total = 0;
+  for (const [, wt] of weights) total += wt;
+  if (total <= 0) return EnemyKind.Drone;
+  let roll = Math.random() * total;
+  for (const [kind, wt] of weights) {
+    roll -= wt;
+    if (roll <= 0) return kind;
+  }
+  return enabledEnemies[0] ?? EnemyKind.Drone;
 }

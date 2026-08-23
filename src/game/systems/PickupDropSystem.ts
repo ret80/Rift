@@ -25,9 +25,18 @@ interface Enemy {
 
 export class PickupDropSystem {
   private eventBus: EventBus;
+  private enabledPickups: PickupKind[] | null = null;
 
   constructor(eventBus: EventBus) {
     this.eventBus = eventBus;
+  }
+
+  /**
+   * Set which pickup types are allowed to drop.
+   * Null means all pickups enabled (default).
+   */
+  setEnabledPickups(pickups: PickupKind[] | null): void {
+    this.enabledPickups = pickups;
   }
 
   /** Amount of parts dropped by each enemy type */
@@ -50,21 +59,34 @@ export class PickupDropSystem {
     if (roll >= chance) return null;
 
     // Pick bonus type based on enemy kind
+    let kind: PickupKind;
     switch (enemyKind) {
       case "drone":
-        return roll < DRONE_DROP_CHANCE ? "rate20" : "heal25";
+        kind = roll < DRONE_DROP_CHANCE ? "rate20" : "heal25";
+        break;
       case "hunter":
-        return roll < HUNTER_DROP_CHANCE ? "rate20" : "heal25";
+        kind = roll < HUNTER_DROP_CHANCE ? "rate20" : "heal25";
+        break;
       case "fighter":
-        return roll < FIGHTER_DROP_CHANCE ? "gun" : "heal50";
+        kind = roll < FIGHTER_DROP_CHANCE ? "gun" : "heal50";
+        break;
       case "cruiser":
-        return roll < CRUISER_DROP_CHANCE ? "drone" : "dash";
+        kind = roll < CRUISER_DROP_CHANCE ? "drone" : "dash";
+        break;
       case "carrier":
         const types: PickupKind[] = ["drone", "gun", "dash", "miner"];
-        return types[Math.floor(roll * types.length)];
+        kind = types[Math.floor(roll * types.length)];
+        break;
       default:
-        return "heal25";
+        kind = "heal25";
     }
+
+    // Check if this pickup type is enabled
+    if (this.enabledPickups && !this.enabledPickups.includes(kind)) {
+      return null;
+    }
+
+    return kind;
    }
 
   /**

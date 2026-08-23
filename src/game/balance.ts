@@ -73,7 +73,9 @@ export {
   waveTotalFor,
   zoneRadiusFor,
   kindWeights,
+  kindWeightsForEnabled,
   pickKindFor,
+  pickKindForEnabled,
 } from "./balance/waves";
 export type { StarLayer } from "./balance/waves";
 
@@ -112,5 +114,5 @@ export {
 } from "./balance/zones";
 
 // Drop chances, pickup kinds, asteroid kinds
-export { dropChanceFor } from "./balance/drops";
+export { dropChanceFor, ALL_PICKUP_KINDS, pickupDisplayKey } from "./balance/drops";
 export type { PickupKind, AsteroidKind } from "./balance/drops";
