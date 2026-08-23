@@ -8,7 +8,7 @@ import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { Fx } from '../fx';
 import type { InputManager } from '../input';
-import { TAU, lerpAngle as lerpAngleMath } from '../math';
+import { TAU, lerpAngle as lerpAngleMath, rand } from '../math';
 import type { RGBA } from '../render';
 import {
   massForRadius,
@@ -540,16 +540,4 @@ export class PlayerSystem {
     });
   }
 
-}
-
-// Helper functions (should be imported from math.ts)
-function rand(min: number, max: number): number {
-  return min + Math.random() * (max - min);
-}
-
-function rgba(hex: string, alpha: number): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
 }

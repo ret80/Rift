@@ -11,7 +11,7 @@ import type { Enemy } from '../types';
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { Fx } from '../fx';
-import { TAU } from '../math';
+import { TAU, rand } from '../math';
 
 
 export interface EnemyFireData {
@@ -449,8 +449,4 @@ export class EnemySystem {
     
     return minDist;
   }
-}
-
-function rand(min: number, max: number): number {
-  return min + Math.random() * (max - min);
 }
