@@ -126,6 +126,7 @@ export function checkEnemyBulletVsPlayer(
     for (let i = enemyBullets.length - 1; i >= 0; i--) {
       const b = enemyBullets[i];
       if (bulletHits(b.x, b.y, { x: playerX, y: playerY, r: hitRadius })) {
+        console.log('[BULLET] player hit by bullet dmg=' + b.dmg + ' hp=' + playerHp);
         eventBus.publish('player_damaged', {
           dmg: b.dmg,
         });

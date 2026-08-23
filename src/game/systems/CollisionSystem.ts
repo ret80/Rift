@@ -137,6 +137,7 @@ export class CollisionSystem {
         const minDist = playerState.r + e.r;
 
         if (dist < minDist) {
+          console.log('[COLLISION] player hit by enemy contact=' + e.contact + ' hp=' + playerState.hp);
           this.eventBus.publish('player_damaged', {
             dmg: e.contact,
           });
