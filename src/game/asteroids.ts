@@ -89,7 +89,7 @@ function makeAst(
 }
 
 export class AsteroidField {
-  readonly list: Asteroid[] = [];
+  readonly asteroidList: Asteroid[] = [];
 
   private chunks = new Map<string, Asteroid[]>();
   private gone = new Set<string>();
@@ -151,18 +151,18 @@ export class AsteroidField {
 
     // spawn any seeded asteroids that are not alive or destroyed
     const alive = new Set<string>();
-    for (const a of this.list) alive.add(a.id);
+    for (const a of this.asteroidList) alive.add(a.id);
     for (const chunk of this.chunks.values()) {
       for (const seedAst of chunk) {
         if (!alive.has(seedAst.id) && !this.gone.has(seedAst.id)) {
-          this.list.push(seedAst);
+          this.asteroidList.push(seedAst);
           alive.add(seedAst.id);
         }
       }
     }
 
-    for (let i = this.list.length - 1; i >= 0; i--) {
-      const a = this.list[i];
+    for (let i = this.asteroidList.length - 1; i >= 0; i--) {
+      const a = this.asteroidList[i];
       a.x += a.vx * dt;
       a.y += a.vy * dt;
       a.angle += a.spin * dt;
@@ -184,16 +184,16 @@ export class AsteroidField {
 
       // cull anything far behind the camera
       if (Math.hypot(a.x - env.camX, a.y - env.camY) > CULL_DIST) {
-        this.list.splice(i, 1);
+        this.asteroidList.splice(i, 1);
       }
     }
 
     // Asteroid-asteroid collisions (soft body physics with mass)
-    const astCount = this.list.length;
+    const astCount = this.asteroidList.length;
     for (let i = 0; i < astCount; i++) {
-      const a1 = this.list[i];
+      const a1 = this.asteroidList[i];
       for (let j = i + 1; j < astCount; j++) {
-        const a2 = this.list[j];
+        const a2 = this.asteroidList[j];
         const dx = a2.x - a1.x;
         const dy = a2.y - a1.y;
         const dist = Math.hypot(dx, dy);
@@ -225,16 +225,16 @@ export class AsteroidField {
         }
       }
     }
-    if (this.list.length > CAP) this.list.length = CAP;
+    if (this.asteroidList.length > CAP) this.asteroidList.length = CAP;
   }
 
   /** Bullet hit: damages the rock at `index`, destroying it at 0 hp. */
   damageAt(index: number, dmg: number, hx: number, hy: number) {
-    const a = this.list[index];
+    const a = this.asteroidList[index];
     a.hp -= dmg;
     this.h.fx.burst(hx, hy, 3, "#b9c4d6", 100, 0.2);
     if (a.hp <= 0) {
-      this.list.splice(index, 1);
+      this.asteroidList.splice(index, 1);
       this.destroy(a);
     }
   }
@@ -267,7 +267,7 @@ export class AsteroidField {
         a.vx + Math.cos(ang) * (40 + Math.random() * 60),
         a.vy + Math.sin(ang) * (40 + Math.random() * 60)
       );
-      this.list.push(frag);
+      this.asteroidList.push(frag);
     };
 
     if (a.kind === "large") {
@@ -297,7 +297,7 @@ export class AsteroidField {
   }
 
   draw(R: Renderer, time: number) {
-    for (const a of this.list) {
+    for (const a of this.asteroidList) {
       const n = a.verts.length;
       const pts: Array<[number, number]> = [];
       for (let i = 0; i < n; i++) {
@@ -322,12 +322,12 @@ export class AsteroidField {
 
   /** Soft reset (back to menu): the belt regrows from its chunks. */
   reset() {
-    this.list.length = 0;
+    this.asteroidList.length = 0;
   }
 
   /** Hard reset (new run): wipe chunks and the destroyed ledger too. */
   hardReset() {
-    this.list.length = 0;
+    this.asteroidList.length = 0;
     this.chunks.clear();
     this.gone.clear();
     this.boundsKey = "";

@@ -1,6 +1,6 @@
 /**
  * EntityPoolSystem — пулы сущностей с однотипными операциями.
- * Управляет массивами: enemyList, bullets, enemyBulletList, pickups, allyDrones, mines.
+ * Управляет массивами: enemyList, bulletList, enemyBulletList, pickupList, allyDroneList, mineList.
  */
 
 import { PickupKind, EnemyKind } from "../balance";
@@ -9,20 +9,20 @@ import type { Enemy, Bullet, EBullet, Pickup, AllyDrone, Mine } from "../types";
 export class EntityPoolSystem {
   /* Entity pools */
   enemyList: Enemy[] = [];
-  bullets: Bullet[] = [];
+  bulletList: Bullet[] = [];
   enemyBulletList: EBullet[] = [];
-  pickups: Pickup[] = [];
-  allyDrones: AllyDrone[] = [];
-  mines: Mine[] = [];
+  pickupList: Pickup[] = [];
+  allyDroneList: AllyDrone[] = [];
+  mineList: Mine[] = [];
 
   /* Cleanup all pools */
   clearAll(): void {
     this.enemyList.length = 0;
-    this.bullets.length = 0;
+    this.bulletList.length = 0;
     this.enemyBulletList.length = 0;
-    this.pickups.length = 0;
-    this.allyDrones.length = 0;
-    this.mines.length = 0;
+    this.pickupList.length = 0;
+    this.allyDroneList.length = 0;
+    this.mineList.length = 0;
   }
 
   /* Spawn enemy */
@@ -32,7 +32,7 @@ export class EntityPoolSystem {
 
   /* Spawn pickup */
   spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number): void {
-    this.pickups.push({ kind, x, y, vx, vy, life: 20, seed: Math.random(), r: 14 });
+    this.pickupList.push({ kind, x, y, vx, vy, life: 20, seed: Math.random(), r: 14 });
   }
 
   /* Spawn enemy bullet */
@@ -42,8 +42,8 @@ export class EntityPoolSystem {
 
   /* Remove dead ally drone */
   removeAllyDroneAt(x: number, y: number): void {
-    const idx = this.allyDrones.findIndex(d => Math.abs(d.x - x) < 2 && Math.abs(d.y - y) < 2);
-    if (idx !== -1) this.allyDrones.splice(idx, 1);
+    const idx = this.allyDroneList.findIndex(d => Math.abs(d.x - x) < 2 && Math.abs(d.y - y) < 2);
+    if (idx !== -1) this.allyDroneList.splice(idx, 1);
   }
 
   /* Count alive enemies */

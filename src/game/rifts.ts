@@ -20,7 +20,7 @@ export interface RiftHooks {
 }
 
 export class RiftField {
-  readonly list: Rift[] = [];
+  readonly riftList: Rift[] = [];
 
   constructor(private h: RiftHooks) {}
 
@@ -99,7 +99,7 @@ export class RiftField {
   }
 
   spawn(x: number, y: number, queue: EnemyKind[], delay: number, size: number) {
-    this.list.push({
+    this.riftList.push({
       x,
       y,
       t: -delay,
@@ -114,8 +114,8 @@ export class RiftField {
   }
 
   update(dt: number) {
-    for (let i = this.list.length - 1; i >= 0; i--) {
-      const rf = this.list[i];
+    for (let i = this.riftList.length - 1; i >= 0; i--) {
+      const rf = this.riftList[i];
       rf.t += dt;
       if (rf.state === "opening") {
         if (rf.t >= 0.6) {
@@ -138,26 +138,26 @@ export class RiftField {
           this.h.audio.riftClose();
         }
       } else if (rf.state === "closing") {
-        if (rf.t >= 0.5) this.list.splice(i, 1);
+        if (rf.t >= 0.5) this.riftList.splice(i, 1);
       }
     }
   }
 
   /** True while any rift still has enemies left to release. */
   anyPending() {
-    return this.list.some((r) => r.queue.length > 0);
+    return this.riftList.some((r) => r.queue.length > 0);
   }
 
   clear() {
-    this.list.length = 0;
+    this.riftList.length = 0;
   }
 
   reset() {
-    this.list.length = 0;
+    this.riftList.length = 0;
   }
 
   draw(R: Renderer, time: number) {
-    for (const rf of this.list) this.drawRift(R, rf, time);
+    for (const rf of this.riftList) this.drawRift(R, rf, time);
   }
 
   /** Two-stage lifecycle: point → line → writhing rift, and the reverse. */

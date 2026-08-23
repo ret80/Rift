@@ -299,7 +299,7 @@ export class Game {
       gameStateZone: this.gameState.zone,
       getPlayerRef: () => this.playerSystem.getPlayerRef(),
       getEnemyList: () => this.entityPool.enemyList,
-      getAsteroids: () => ((this.asteroidField as any).list || []) as Array<{ x: number; y: number; r: number; vx: number; vy: number }>,
+      getAsteroids: () => this.asteroidField.asteroidList as Array<{ x: number; y: number; r: number; vx: number; vy: number }>,
     });
 
     /* Initialize input */
@@ -605,36 +605,36 @@ export class Game {
     const isDead = this.fsm.is("dying", "over");
     if (!isDead) {
       this.enemySystem.update(dtScaled, this.entityPool.enemyList, this.getPlayerPosition(), this.entityPool.enemyBulletList);
-      this.bulletSystem.update(dtScaled, this.entityPool.bullets, this.entityPool.enemyBulletList, this.entityPool.enemyList);
+      this.bulletSystem.update(dtScaled, this.entityPool.bulletList, this.entityPool.enemyBulletList, this.entityPool.enemyList);
       // Обработка самонаведения ракет
       this.updateHomingMissiles(dtScaled);
-      this.mineSystem.update(dtScaled, this.entityPool.mines);
+      this.mineSystem.update(dtScaled, this.entityPool.mineList);
       // Orbit drones around player (droneSystem.update handles AI/firing only)
       const pState = this.playerSystem.getState();
-      for (const d of this.entityPool.allyDrones) {
+      for (const d of this.entityPool.allyDroneList) {
         d.phase += dtScaled * 0.5;
         d.x = pState.x + Math.cos(d.phase) * 58;
         d.y = pState.y + Math.sin(d.phase) * 58;
         if (d.r == null) d.r = 10;
       }
-      this.droneSystem.update(dtScaled, this.entityPool.allyDrones, this.entityPool.enemyList);
+      this.droneSystem.update(dtScaled, this.entityPool.allyDroneList, this.entityPool.enemyList);
     }
     const playerState = this.playerSystem.getState();
     // Get asteroids from asteroid field for collision
-    const asteroids = ((this.asteroidField as any).list || []) as Array<{ x: number; y: number; r: number; vx: number; vy: number; mass: number; kind: string }>;
+    const asteroids = this.asteroidField.asteroidList as Array<{ x: number; y: number; r: number; vx: number; vy: number; mass: number; kind: string }>;
     if (!isDead) {
       this.collisionSystem.update(
         dtScaled,
         { x: playerState.x, y: playerState.y, r: 16, hp: playerState.hp, invuln: playerState.invuln, mass: playerState.mass || 1, vx: playerState.vx || 0, vy: playerState.vy || 0 },
         this.entityPool.enemyList as any,
-        this.entityPool.bullets as any,
+        this.entityPool.bulletList as any,
         this.entityPool.enemyBulletList as any,
-        this.entityPool.pickups as any,
-        this.entityPool.mines as any,
-        this.entityPool.allyDrones as any,
+        this.entityPool.pickupList as any,
+        this.entityPool.mineList as any,
+        this.entityPool.allyDroneList as any,
         asteroids as any
       );
-      this.pickupSystem.update(dtScaled, this.entityPool.pickups);
+      this.pickupSystem.update(dtScaled, this.entityPool.pickupList);
       this.spawnSystem.update(dtScaled, this.wave, this.allocated, this.scoringSystem.killedWave, this);
     }
     this.riftField.update(dtScaled);
@@ -692,11 +692,11 @@ export class Game {
       },
       playerRender,
       this.entityPool.enemyList,
-      this.entityPool.bullets,
+      this.entityPool.bulletList,
       this.entityPool.enemyBulletList,
-      this.entityPool.pickups,
-      this.entityPool.mines,
-      this.entityPool.allyDrones,
+      this.entityPool.pickupList,
+      this.entityPool.mineList,
+      this.entityPool.allyDroneList,
       {
         active: this.gameState.zone.active,
         x: this.gameState.zone.x,
@@ -735,7 +735,7 @@ export class Game {
       guns: this.playerSystem.getGuns(),
       rateMult: this.playerSystem.getRateMult(),
       rateT: this.playerSystem.getRateT(),
-      drones: this.entityPool.allyDrones.length,
+      drones: this.entityPool.allyDroneList.length,
       minerals: this.minerals,
       parts: this.upgradeSystem.getParts(),
     };
@@ -826,7 +826,7 @@ export class Game {
       zoneAlpha: this.gameState.zone.alpha,
       countdownActive: this.countdownSystem.isCountdownActive(),
       enemyCount: this.entityPool.enemyList.length,
-      riftCount: this.riftField.list.length,
+      riftCount: this.riftField.riftList.length,
       waveTotal: this.waveTotal,
       kills: this.scoringSystem.getState().killed,
       allocated: this.allocated,
@@ -879,11 +879,11 @@ export class Game {
     );
     
     this.entityPool.enemyList.length = 0;
-    this.entityPool.bullets.length = 0;
+    this.entityPool.bulletList.length = 0;
     this.entityPool.enemyBulletList.length = 0;
-    this.entityPool.pickups.length = 0;
-    this.entityPool.allyDrones.length = 0;
-    this.entityPool.mines.length = 0;
+    this.entityPool.pickupList.length = 0;
+    this.entityPool.allyDroneList.length = 0;
+    this.entityPool.mineList.length = 0;
     this.mineDropT = -1;
     this.minerals = 0;
     
@@ -912,7 +912,7 @@ export class Game {
         },
       },
     );
-    this.asteroidField.list.length = 0;
+    this.asteroidField.asteroidList.length = 0;
 
     this.hooks.onBanner(null);
     this.hooks.onCountdown(null);
@@ -923,7 +923,7 @@ export class Game {
   }
 
   private spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number) {
-    this.entityPool.pickups.push({ kind, x, y, vx, vy, life: 20, seed: Math.random(), r: 14 });
+    this.entityPool.pickupList.push({ kind, x, y, vx, vy, life: 20, seed: Math.random(), r: 14 });
   }
 
   private spawnParts(amount: number, x: number, y: number) {
@@ -951,13 +951,13 @@ export class Game {
   }
 
   private fireAll(angle: number) {
-    this.bulletSystem.firePlayerBullets(this.playerSystem.getState(), angle, this.entityPool.bullets);
+    this.bulletSystem.firePlayerBullets(this.playerSystem.getState(), angle, this.entityPool.bulletList);
   }
 
   /** Обновить самонаведение ракет */
   private updateHomingMissiles(dt: number) {
-    for (let i = 0; i < this.entityPool.bullets.length; i++) {
-      const b = this.entityPool.bullets[i] as any;
+    for (let i = 0; i < this.entityPool.bulletList.length; i++) {
+      const b = this.entityPool.bulletList[i] as any;
       if (!b.homingTarget) continue;
 
       const target = b.homingTarget;
@@ -1023,7 +1023,7 @@ export class Game {
         this.playerSystem.addGunBonus(2, 15);
         break;
       case "drone":
-        this.droneSystem.spawn(this.entityPool.allyDrones, this.getPlayerPosition(), this.playerSystem.getMaxHp());
+        this.droneSystem.spawn(this.entityPool.allyDroneList, this.getPlayerPosition(), this.playerSystem.getMaxHp());
         break;
       case "dash":
         this.playerSystem.setDashT(5);

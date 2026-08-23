@@ -156,7 +156,7 @@ export class SpawnSystem {
       // Пропускаем если слишком близко к игроку (<220) или краю зоны (<100)
       if (dPlayer < 220 || dEdge < 100) continue;
       let dRifts = 1e9;
-      for (const rf of this.riftField.list)
+      for (const rf of this.riftField.riftList)
         dRifts = Math.min(dRifts, Math.hypot(x - rf.x, y - rf.y));
       let dEnemies = 1e9;
       const score = Math.min(dPlayer, 400) + Math.min(dRifts, 300) * 1.5 + Math.min(dEnemies, 250);
@@ -245,7 +245,7 @@ export class SpawnSystem {
     
     // Create rifts if needed
     const riftCount = this.riftCountFor(wave);
-    if (game.riftField.list.length < riftCount) {
+    if (game.riftField.riftList.length < riftCount) {
       this.riftSpawnTimers += 1;
       if (this.riftSpawnTimers >= 3) {
         this.riftSpawnTimers = 0;
@@ -256,7 +256,7 @@ export class SpawnSystem {
     }
     
     // Find an open rift to spawn from - enemies ONLY spawn from rifts
-    for (const rf of game.riftField.list) {
+    for (const rf of game.riftField.riftList) {
       if (rf.state === "opening" || rf.state === "spawning") {
         rf.queue.push(kind);
         return;

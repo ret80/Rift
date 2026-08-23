@@ -82,7 +82,7 @@ export class MenuScene {
     } as any);
 
     // Ensure initial asteroids are spawned near the menu screen center
-    if (this.asteroidField.list.length < MENU_ASTEROID_COUNT) {
+    if (this.asteroidField.asteroidList.length < MENU_ASTEROID_COUNT) {
       this.ensureMenuAsteroids();
     }
 
@@ -269,7 +269,7 @@ export class MenuScene {
 
       const hp = kind === "large" ? 140 : kind === "medium" ? 60 : 22;
 
-      this.asteroidField.list.push({
+      this.asteroidField.asteroidList.push({
         id: `menu-${i}`,
         kind,
         x,

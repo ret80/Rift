@@ -58,7 +58,7 @@ export class EnemySystem {
   private wave = 1;
   
   // Для отрисовки
-  public flock: Enemy[] = [];
+  private enemyList: Enemy[] = [];
   
   constructor(
     eventBus: EventBus,
@@ -79,7 +79,7 @@ export class EnemySystem {
   }
   
   reset(): void {
-    this.flock = [];
+    this.enemyList = [];
     this.wave = 1;
   }
   
@@ -87,12 +87,12 @@ export class EnemySystem {
     this.wave = wave;
   }
   
-  getEnemies(): Enemy[] {
-    return this.flock;
+  getEnemyList(): Enemy[] {
+    return this.enemyList;
   }
   
   getLiveCount(): number {
-    return this.flock.filter(e => !e.dead).length;
+    return this.enemyList.filter(e => !e.dead).length;
   }
 
 
@@ -110,7 +110,7 @@ export class EnemySystem {
     const carrierBurstSpawned = carrierBurstActive ? 10 : 0;
     // dodgeWeight: насколько сильно враг избегает других
     const dodgeWeight = this.getDodgeWeight(kind);
-    this.flock.push({
+    this.enemyList.push({
       kind,
       x,
       y,
@@ -303,9 +303,9 @@ export class EnemySystem {
   }
   
   damageEnemy(index: number, dmg: number): boolean {
-    if (index < 0 || index >= this.flock.length) return false;
+    if (index < 0 || index >= this.enemyList.length) return false;
     
-    const e = this.flock[index];
+    const e = this.enemyList[index];
     if (e.dead) return false;
     
     e.hp -= dmg;
@@ -320,7 +320,7 @@ export class EnemySystem {
   }
   
   removeDead(): void {
-    this.flock = this.flock.filter(e => !e.dead);
+    this.enemyList = this.enemyList.filter(e => !e.dead);
   }
 
   spawn(kind: EnemyKind, x: number, y: number, parent: Enemy | null, enemyList: any[], playerPos?: { x: number; y: number }): void {
@@ -371,7 +371,7 @@ export class EnemySystem {
       dodgeTimer: 0,
     };
     // Добавляем во внутренний массив и во внешний (enemyList)
-    this.flock.push(e);
+    this.enemyList.push(e);
     enemyList.push(e);
     if (parent) {
       parent.spawnCd = 0;

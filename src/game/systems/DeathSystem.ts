@@ -42,7 +42,7 @@ export class DeathSystem {
     this.addParts(0);
     // Clear all enemy bullets to prevent "orphan bullets" on restart
     this.entityPool.enemyBulletList.length = 0;
-    this.entityPool.bullets.length = 0;
+    this.entityPool.bulletList.length = 0;
     // Spawn death explosion particles
     const pos = this.getPlayerPosition();
     for (let i = 0; i < DEATH_EXPLOSION_PARTICLES; i++) {

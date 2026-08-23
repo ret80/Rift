@@ -59,7 +59,7 @@ export class PlayerSystem {
   private spawnPickup: (kind: string, x: number, y: number, vx: number, vy: number) => void;
   private fireAllCallback: (angle: number) => void;
   
-  private player: PlayerState = {
+  private pState: PlayerState = {
     x: 0,
     y: 0,
     vx: 0,
@@ -93,7 +93,7 @@ export class PlayerSystem {
   private missileDurationT = 0;
   
   // Для внешних систем
-  public bullets: Array<{
+  public bulletList: Array<{
     x: number; y: number; vx: number; vy: number; life: number; dmg: number;
     homingTarget?: { x: number; y: number; r: number };
     homingTurnRate?: number;
@@ -126,7 +126,7 @@ export class PlayerSystem {
   }
   
   reset(): void {
-    this.player = {
+    this.pState = {
       x: 0,
       y: 0,
       vx: 0,
@@ -151,161 +151,161 @@ export class PlayerSystem {
       extraGunsT: 0,
     };
     this.fireCd = 0;
-    this.bullets = [];
-    this.player.extraGuns = 0;
-    this.player.extraGunsT = 0;
+    this.bulletList = [];
+    this.pState.extraGuns = 0;
+    this.pState.extraGunsT = 0;
     this.missileDurationT = 0;
-    this.player.missileActive = false;
-    this.player.missileCd = 0;
-    this.player.missilePort = 0;
+    this.pState.missileActive = false;
+    this.pState.missileCd = 0;
+    this.pState.missilePort = 0;
     // Спавн игрока в центре экрана (не из разлома)
     const canvasWidth = typeof window !== 'undefined' ? window.innerWidth : 800;
     const canvasHeight = typeof window !== 'undefined' ? window.innerHeight : 600;
-    this.player.x = 0;
-    this.player.y = 0;
+    this.pState.x = 0;
+    this.pState.y = 0;
   }
   
   setGuns(n: number): void {
-    this.player.guns = n;
+    this.pState.guns = n;
   }
   
   setRateBoost(b: number): void {
-    this.player.rateBoost = b;
+    this.pState.rateBoost = b;
   }
   
   setDashT(t: number): void {
-    this.player.dashT = t;
+    this.pState.dashT = t;
   }
   
   addHp(delta: number): void {
-    this.player.hp = Math.max(0, Math.min(this.player.maxHp, this.player.hp + delta));
+    this.pState.hp = Math.max(0, Math.min(this.pState.maxHp, this.pState.hp + delta));
   }
   
   setMaxHp(max: number): void {
-    this.player.maxHp = max;
-    this.player.hp = Math.min(this.player.hp, max);
+    this.pState.maxHp = max;
+    this.pState.hp = Math.min(this.pState.hp, max);
   }
   
   resetHp(): void {
-    this.player.hp = this.player.maxHp;
+    this.pState.hp = this.pState.maxHp;
   }
   
   setInvuln(t: number): void {
-    this.player.invuln = t;
+    this.pState.invuln = t;
   }
   
   getState(): PlayerState {
     return { 
-      ...this.player,
+      ...this.pState,
       aimA: this.aimAngle,
-      guns: Math.min(5, this.player.guns + this.player.extraGuns),
+      guns: Math.min(5, this.pState.guns + this.pState.extraGuns),
     };
   }
   
   getPosition(): { x: number; y: number } {
-    return { x: this.player.x, y: this.player.y };
+    return { x: this.pState.x, y: this.pState.y };
   }
   
   /** Returns mutable reference to player state for clamping/constraints */
   getPlayerRef(): { x: number; y: number; vx: number; vy: number } {
-    return this.player;
+    return this.pState;
   }
   
   getVelocity(): { vx: number; vy: number } {
-    return { vx: this.player.vx, vy: this.player.vy };
+    return { vx: this.pState.vx, vy: this.pState.vy };
   }
   
   getHp(): number {
-    return this.player.hp;
+    return this.pState.hp;
   }
   
   getMaxHp(): number {
-    return this.player.maxHp;
+    return this.pState.maxHp;
   }
   
   getGuns(): number {
-    return Math.min(5, this.player.guns + this.player.extraGuns);
+    return Math.min(5, this.pState.guns + this.pState.extraGuns);
   }
   
   getRateBoost(): number {
-    return this.player.rateBoost;
+    return this.pState.rateBoost;
   }
   
   getDashT(): number {
-    return this.player.dashT;
+    return this.pState.dashT;
   }
   
   getInvuln(): number {
-    return this.player.invuln;
+    return this.pState.invuln;
   }
   
   isThrusting(): boolean {
-    return this.player.thrusting;
+    return this.pState.thrusting;
   }
   
   getAngle(): number {
-    return this.player.angle;
+    return this.pState.angle;
   }
   
   getAimA(): number | null {
-    return this.player.aimA;
+    return this.pState.aimA;
   }
 
   // Методы для вызова из game.ts
   
   hit(dmg: number): void {
-    if (this.player.invuln > 0) return;
-    this.player.hp -= dmg;
-    if (this.player.hp <= 0) {
-      this.player.hp = 0;
+    if (this.pState.invuln > 0) return;
+    this.pState.hp -= dmg;
+    if (this.pState.hp <= 0) {
+      this.pState.hp = 0;
       this.eventBus.publish('game_over', {});
     }
   }
 
   heal(amount: number): void {
-    this.player.hp = Math.min(this.player.maxHp, this.player.hp + amount);
-    this.eventBus.publish('player_healed', { hp: this.player.hp });
+    this.pState.hp = Math.min(this.pState.maxHp, this.pState.hp + amount);
+    this.eventBus.publish('player_healed', { hp: this.pState.hp });
   }
 
   addGun(): void {
-    this.player.guns++;
+    this.pState.guns++;
   }
 
   boostRate(): void {
-    this.player.rateBoost = Math.min(1.0, this.player.rateBoost + 0.2);
-    this.player.rateT = 10; // 10 seconds boost
+    this.pState.rateBoost = Math.min(1.0, this.pState.rateBoost + 0.2);
+    this.pState.rateT = 10; // 10 seconds boost
   }
 
   /** Добавить дополнительное орудие на время (например, из бонуса) */
   addGunBonus(count: number, duration: number): void {
-    this.player.extraGuns = Math.min(5, this.player.extraGuns + count);
-    this.player.extraGunsT = duration;
+    this.pState.extraGuns = Math.min(5, this.pState.extraGuns + count);
+    this.pState.extraGunsT = duration;
   }
 
   getRateMult(): number {
-    return 1 + this.player.rateBoost;
+    return 1 + this.pState.rateBoost;
   }
 
   getRateT(): number {
-    return this.player.rateT;
+    return this.pState.rateT;
   }
 
   getRenderState(): import('../systems/RendererSystem').PlayerRenderState {
     return {
-      x: this.player.x,
-      y: this.player.y,
-      angle: this.player.angle,
+      x: this.pState.x,
+      y: this.pState.y,
+      angle: this.pState.angle,
       aimA: this.aimAngle,
-      hp: this.player.hp,
-      maxHp: this.player.maxHp,
-      invuln: this.player.invuln,
-      guns: this.player.guns,
-      rateT: this.player.rateT,
-      rateBoost: this.player.rateBoost,
-      dashT: this.player.dashT,
-      thrusting: this.player.thrusting,
-      pvx: this.player.vx,
-      pvy: this.player.vy,
+      hp: this.pState.hp,
+      maxHp: this.pState.maxHp,
+      invuln: this.pState.invuln,
+      guns: this.pState.guns,
+      rateT: this.pState.rateT,
+      rateBoost: this.pState.rateBoost,
+      dashT: this.pState.dashT,
+      thrusting: this.pState.thrusting,
+      pvx: this.pState.vx,
+      pvy: this.pState.vy,
     };
   }
 
@@ -321,40 +321,40 @@ export class PlayerSystem {
     let ay = mv.y;
     const l = Math.hypot(ax, ay);
     
-    this.player.thrusting = l > 0;
-    this.player.dashT = Math.max(0, this.player.dashT - dt);
-    const dashing = this.player.dashT > 0;
+    this.pState.thrusting = l > 0;
+    this.pState.dashT = Math.max(0, this.pState.dashT - dt);
+    const dashing = this.pState.dashT > 0;
     
     if (l > 0) {
       const norm = l > 1 ? l : 1;
       ax /= norm;
       ay /= norm;
-      this.player.vx += ax * 1500 * (dashing ? 1.8 : 1) * dt;
-      this.player.vy += ay * 1500 * (dashing ? 1.8 : 1) * dt;
+      this.pState.vx += ax * 1500 * (dashing ? 1.8 : 1) * dt;
+      this.pState.vy += ay * 1500 * (dashing ? 1.8 : 1) * dt;
     }
     
     const fr = Math.exp(-2.4 * dt);
-    this.player.vx *= fr;
-    this.player.vy *= fr;
+    this.pState.vx *= fr;
+    this.pState.vy *= fr;
     
-    const sp = Math.hypot(this.player.vx, this.player.vy);
+    const sp = Math.hypot(this.pState.vx, this.pState.vy);
     const cap = PLAYER_MAX_SPEED * (dashing ? 2.2 : 1);
     if (sp > cap) {
-      this.player.vx *= cap / sp;
-      this.player.vy *= cap / sp;
+      this.pState.vx *= cap / sp;
+      this.pState.vy *= cap / sp;
     }
     
-    this.player.x += this.player.vx * dt;
-    this.player.y += this.player.vy * dt;
+    this.pState.x += this.pState.vx * dt;
+    this.pState.y += this.pState.vy * dt;
     
     // dash speed-trail
     if (dashing && sp > 60) {
       for (let i = 0; i < 2; i++) {
         this.fx.emit({
-          x: this.player.x - (this.player.vx / sp) * 10 + rand(-5, 5),
-          y: this.player.y - (this.player.vy / sp) * 10 + rand(-5, 5),
-          vx: -(this.player.vx / sp) * rand(40, 130),
-          vy: -(this.player.vy / sp) * rand(40, 130),
+          x: this.pState.x - (this.pState.vx / sp) * 10 + rand(-5, 5),
+          y: this.pState.y - (this.pState.vy / sp) * 10 + rand(-5, 5),
+          vx: -(this.pState.vx / sp) * rand(40, 130),
+          vy: -(this.pState.vy / sp) * rand(40, 130),
           life: rand(0.2, 0.4),
           maxLife: 0.4,
           c: [1, 1, 1, 0.8] as RGBA,
@@ -364,30 +364,30 @@ export class PlayerSystem {
     }
     
     // Тело корабля всегда поворачивается в сторону движения (вектор скорости)
-    const oldAngle = this.player.angle;
+    const oldAngle = this.pState.angle;
     if (sp > 20) {
       // Всегда следовать за направлением скорости
-      this.player.angle = lerpAngleMath(this.player.angle, Math.atan2(this.player.vy, this.player.vx), 1 - Math.exp(-10 * dt));
+      this.pState.angle = lerpAngleMath(this.pState.angle, Math.atan2(this.pState.vy, this.pState.vx), 1 - Math.exp(-10 * dt));
     }
-    let angleDelta = this.player.angle - oldAngle;
+    let angleDelta = this.pState.angle - oldAngle;
     while (angleDelta > Math.PI) angleDelta -= TAU;
     while (angleDelta < -Math.PI) angleDelta += TAU;
     
-    this.player.invuln = Math.max(0, this.player.invuln - dt);
+    this.pState.invuln = Math.max(0, this.pState.invuln - dt);
     
     // Decrease rate boost timer
-    if (this.player.rateT > 0) {
-      this.player.rateT -= dt;
-      if (this.player.rateT <= 0) {
-        this.player.rateBoost = 0;
+    if (this.pState.rateT > 0) {
+      this.pState.rateT -= dt;
+      if (this.pState.rateT <= 0) {
+        this.pState.rateBoost = 0;
       }
     }
 
     // Decrease extra guns timer
-    if (this.player.extraGunsT > 0) {
-      this.player.extraGunsT -= dt;
-      if (this.player.extraGunsT <= 0) {
-        this.player.extraGuns = 0;
+    if (this.pState.extraGunsT > 0) {
+      this.pState.extraGunsT -= dt;
+      if (this.pState.extraGunsT <= 0) {
+        this.pState.extraGuns = 0;
       }
     }
     
@@ -432,14 +432,14 @@ export class PlayerSystem {
   
   private fireBullet(offset: number, spread: number, targetAngle: number): void {
     const a = targetAngle + spread;
-    const nx = this.player.x + Math.cos(targetAngle) * 14 - Math.sin(targetAngle) * offset;
-    const ny = this.player.y + Math.sin(targetAngle) * 14 + Math.cos(targetAngle) * offset;
+    const nx = this.pState.x + Math.cos(targetAngle) * 14 - Math.sin(targetAngle) * offset;
+    const ny = this.pState.y + Math.sin(targetAngle) * 14 + Math.cos(targetAngle) * offset;
     const sp = 560;
-    this.bullets.push({
+    this.bulletList.push({
       x: nx,
       y: ny,
-      vx: Math.cos(a) * sp + this.player.vx * 0.25,
-      vy: Math.sin(a) * sp + this.player.vy * 0.25,
+      vx: Math.cos(a) * sp + this.pState.vx * 0.25,
+      vy: Math.sin(a) * sp + this.pState.vy * 0.25,
       life: 1.5,
       dmg: 10,
     });
@@ -449,31 +449,31 @@ export class PlayerSystem {
 
   /** Активировать ракетную установку на duration секунд */
   activateMissileLauncher(duration: number): void {
-    this.player.missileActive = true;
-    this.player.missileCd = 0; // готов выстрелить сразу
-    this.player.missilePort = 0;
+    this.pState.missileActive = true;
+    this.pState.missileCd = 0; // готов выстрелить сразу
+    this.pState.missilePort = 0;
     this.missileDurationT = duration;
   }
 
   /** Обновить ракетную установку и запустить ракету если готова */
   launchMissiles(dt: number, enemies: Array<{ x: number; y: number; dead: boolean; r: number }>): void {
-    if (!this.player.missileActive) return;
+    if (!this.pState.missileActive) return;
 
     // Уменьшаем таймер активации
     this.missileDurationT -= dt;
     if (this.missileDurationT <= 0) {
-      this.player.missileActive = false;
+      this.pState.missileActive = false;
       this.missileDurationT = 0;
       return;
     }
 
-    this.player.missileCd = Math.max(0, this.player.missileCd - dt);
+    this.pState.missileCd = Math.max(0, this.pState.missileCd - dt);
 
-    if (this.player.missileCd > 0) return;
+    if (this.pState.missileCd > 0) return;
 
     // Находим ближайшего живого врага
-    const px = this.player.x;
-    const py = this.player.y;
+    const px = this.pState.x;
+    const py = this.pState.y;
     let nearest: { x: number; y: number; r: number } | null = null;
     let nearDist = Infinity;
 
@@ -492,20 +492,20 @@ export class PlayerSystem {
     this.fireMissile(nearest);
 
     // Переключаем порт и ставим cooldown
-    this.player.missilePort = 1 - this.player.missilePort;
-    this.player.missileCd = MISSILE_LAUNCH_INTERVAL;
+    this.pState.missilePort = 1 - this.pState.missilePort;
+    this.pState.missileCd = MISSILE_LAUNCH_INTERVAL;
   }
 
   /** Создать самонаводящуюся ракету */
   fireMissile(target: { x: number; y: number; r: number }): void {
-    const px = this.player.x;
-    const py = this.player.y;
-    const port = this.player.missilePort;
+    const px = this.pState.x;
+    const py = this.pState.y;
+    const port = this.pState.missilePort;
 
     // Смещение порта: перпендикулярно направлению движения
-    const sp = Math.hypot(this.player.vx, this.player.vy) || 1;
-    const vnx = this.player.vx / sp;
-    const vny = this.player.vy / sp;
+    const sp = Math.hypot(this.pState.vx, this.pState.vy) || 1;
+    const vnx = this.pState.vx / sp;
+    const vny = this.pState.vy / sp;
 
     // Порт 0 = левый борт (-), Порт 1 = правый борт (+)
     const portSide = port === 0 ? -1 : 1;
@@ -524,10 +524,10 @@ export class PlayerSystem {
     const baseVy = (dy / dist) * MISSILE_SPEED;
 
     // Добавляем импульс от движения игрока (как у пуль)
-    const playerVx = this.player.vx * 0.25;
-    const playerVy = this.player.vy * 0.25;
+    const playerVx = this.pState.vx * 0.25;
+    const playerVy = this.pState.vy * 0.25;
 
-    this.bullets.push({
+    this.bulletList.push({
       x: mx,
       y: my,
       vx: baseVx + playerVx,
