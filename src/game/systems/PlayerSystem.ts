@@ -24,17 +24,6 @@ import {
 } from '../balance';
 import type { Enemy } from '../types';
 
-// Флаг для отладки вращения кораблей
-const DEBUG_ROTATION = false;
-const rotationLogCounter = { enemy: 0, player: 0 };
-const MAX_ROTATION_LOGS = 50;
-
-function logRotation(tag: string, msg: string): void {
-  if (!DEBUG_ROTATION) return;
-  if (rotationLogCounter.player >= MAX_ROTATION_LOGS) return;
-  console.log(`[ROTATION-P] ${tag}: ${msg}`);
-}
-
 interface PlayerState {
   x: number;
   y: number;
@@ -383,10 +372,6 @@ export class PlayerSystem {
     let angleDelta = this.player.angle - oldAngle;
     while (angleDelta > Math.PI) angleDelta -= TAU;
     while (angleDelta < -Math.PI) angleDelta += TAU;
-    if (DEBUG_ROTATION && Math.abs(angleDelta) > 0.3) {
-      rotationLogCounter.player++;
-      logRotation('turn', `angle ${oldAngle.toFixed(3)}→${this.player.angle.toFixed(3)} (delta=${angleDelta.toFixed(3)}), vel=(${this.player.vx.toFixed(1)},${this.player.vy.toFixed(1)})`);
-    }
     
     this.player.invuln = Math.max(0, this.player.invuln - dt);
     

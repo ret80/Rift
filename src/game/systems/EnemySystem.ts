@@ -14,17 +14,6 @@ import type { Fx } from '../fx';
 import { TAU } from '../math';
 
 
-// Флаг для отладки вращения кораблей
-const DEBUG_ROTATION = false;
-const rotationLogCounter = { enemy: 0, player: 0 };
-const MAX_ROTATION_LOGS = 50;
-
-function logRotation(tag: string, msg: string): void {
-  if (!DEBUG_ROTATION) return;
-  if (rotationLogCounter.enemy >= MAX_ROTATION_LOGS) return;
-  console.log(`[ROTATION] ${tag}: ${msg}`);
-}
-
 export interface EnemyFireData {
   x: number;
   y: number;
@@ -113,7 +102,6 @@ export class EnemySystem {
     const angle = kind === EnemyKind.Drone && playerPos
       ? Math.atan2(playerPos.y - y, playerPos.x - x)
       : rand(0, TAU);
-    logRotation('spawn', `${kind} at (${x.toFixed(0)},${y.toFixed(0)}) angle=${angle.toFixed(3)}`);
     const mass = massForRadius(def.r);
     // Cruiser gets dual turrets with staggered cooldowns
     const tStagger = rand(-0.5, 0.5);
@@ -342,7 +330,6 @@ export class EnemySystem {
     const angle = kind === EnemyKind.Drone && playerPos
       ? Math.atan2(playerPos.y - y, playerPos.x - x)
       : rand(0, TAU);
-    logRotation('spawn', `${kind} at (${x.toFixed(0)},${y.toFixed(0)}) angle=${angle.toFixed(3)}`);
     // Cruiser gets dual turrets with staggered cooldowns
     const tStagger = rand(-0.5, 0.5);
     // Carrier gets burst spawning logic
