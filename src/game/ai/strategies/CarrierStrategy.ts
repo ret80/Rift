@@ -35,9 +35,9 @@ export class CarrierStrategy implements IEnemyStrategy {
     const dirX = dx / dist;
     const dirY = dy / dist;
 
-    // Удержание позиции — убегает от игрока если тот приближается
+    // Удержание позиции — стрейф, без преследования игрока
     const HOLD = 480;
-    const radial = (dist - HOLD) * 0.7;
+    const radial = Math.min(0, (dist - HOLD) * 0.7); // только отталкивание (отрицательное), без приближения
     let desX = dirX * radial + -dirY * enemy.strafeDir * enemy.speed * 0.4;
     let desY = dirY * radial + dirX * enemy.strafeDir * enemy.speed * 0.4;
 
