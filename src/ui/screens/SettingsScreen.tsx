@@ -15,7 +15,12 @@ export default function SettingsScreen(props: {
   const t = useT();
   const lang = useLang();
   return (
-    <div className="anim-overlay absolute inset-0 z-20 flex items-center justify-center p-4">
+    <div
+      className="anim-overlay absolute inset-0 z-20 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("settings.title")}
+    >
       <div className="w-[min(400px,94vw)]">
         <div className="hud-panel p-6 sm:p-8">
           <div className="hud-label mb-4 text-center">{t("settings.title")}</div>

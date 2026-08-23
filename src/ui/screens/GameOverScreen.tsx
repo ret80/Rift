@@ -12,7 +12,12 @@ export default function GameOverScreen(props: {
   const t = useT();
   const s = props.stats;
   return (
-    <div className="anim-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#0a0408]/70 p-4 backdrop-blur-[2px]">
+    <div
+      className="anim-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#0a0408]/70 p-4 backdrop-blur-[2px]"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("over.title")}
+    >
       <div className="w-[min(460px,94vw)]">
         <div className="hud-panel panel-red p-5 text-center sm:p-8">
           <div className="hud-label anim-red-pulse mb-1 !text-[#ff5c54]">

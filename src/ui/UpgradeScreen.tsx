@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useT, useLang } from "../i18n";
 import type { Game } from "../game/game";
+import { Icon } from "./components/Icon";
 import {
   UPGRADE_TIERS,
   upgradeCost,
@@ -50,7 +51,7 @@ function UpgradeRow(props: UpgradeRowProps) {
     >
       {/* Left: icon + info */}
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <UpgradeIcon kind={upgradeKey} />
+        <Icon kind={`upgrade-${upgradeKey}` as const} />
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-[13px] font-bold text-[#eaffff]">{label}</span>
@@ -109,55 +110,6 @@ function getUpgradeValue(key: keyof Omit<PlayerUpgrades, "parts">, level: number
   }
 }
 
-function UpgradeIcon(props: { kind: keyof Omit<PlayerUpgrades, "parts"> }) {
-  const { kind } = props;
-  const col = kind === "hull" ? "#5ef2ff" : kind === "damage" ? "#ff5c54" : kind === "fireRate" ? "#ffb84d" :
-              kind === "speed" ? "#7dff9e" : kind === "guns" ? "#5ef2ff" : kind === "drones" ? "#c06bff" : "#ffd23e";
-  
-  const paths: Record<string, React.ReactNode> = {
-    hull: (
-      <>
-        <rect x="6" y="2" width="12" height="20" rx="2" />
-        <line x1="12" y1="6" x2="12" y2="18" strokeOpacity="0.4" />
-        <line x1="8" y1="12" x2="16" y2="12" strokeOpacity="0.4" />
-      </>
-    ),
-    damage: (
-      <polyline points="12,3 7,13 12,13 11,21" />
-    ),
-    fireRate: (
-      <polyline points="13,3 7,13 12,13 11,21 17,11 12,11" />
-    ),
-    speed: (
-      <>
-        <path d="M3 12 L12 3 L12 8 L21 3 L21 21 L12 16 L12 21 Z" />
-      </>
-    ),
-    guns: (
-      <>
-        <line x1="4" y1="9" x2="20" y2="9" />
-        <line x1="4" y1="15" x2="20" y2="15" />
-        <line x1="4" y1="9" x2="4" y2="15" />
-      </>
-    ),
-    drones: (
-      <>
-        <polygon points="12,4 20,16 12,13 4,16" />
-        <circle cx="12" cy="12" r="9" strokeOpacity="0.4" />
-      </>
-    ),
-    dashCooldown: (
-      <circle cx="12" cy="12" r="8" />
-    ),
-  };
-  
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" className="shrink-0" fill="none" stroke={col} strokeWidth="1.6">
-      {paths[kind] || <circle cx="12" cy="12" r="8" />}
-    </svg>
-  );
-}
-
 /* ======================== UpgradeScreen ======================== */
 
 export function UpgradeScreen(props: {
@@ -201,13 +153,18 @@ export function UpgradeScreen(props: {
   const upgradeKeys = Object.keys(UPGRADE_TIERS) as Array<keyof Omit<PlayerUpgrades, "parts">>;
   
   return (
-    <div className="anim-overlay absolute inset-0 z-20 flex items-center justify-center p-4">
+    <div
+      className="anim-overlay absolute inset-0 z-20 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("upgrade.title")}
+    >
       <div className="anim-fade-up w-[min(520px,96vw)] max-h-[90vh]">
         <div className="hud-panel p-5 sm:p-7">
           {/* Header */}
           <div className="mb-5 text-center">
             <div className="hud-label mb-2">{t("upgrade.title")}</div>
-            <div className="flex items-center justify-center gap-2 text-[12px] text-[#ffb84d]">
+            <div className="flex items-center justify-center gap-2 text-[12px] text-[#ffb84d]" aria-label={`Parts: ${upgrades.parts ?? 0}`}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#ffb84d" strokeWidth="1.5">
                 <polygon points="7,1 9,5 13,5 10,8 11,13 7,10 3,13 4,8 1,5 5,5" />
               </svg>
