@@ -1,6 +1,8 @@
-```
 # Dependencies
 node_modules/
+
+# Playwright MCP
+.playwright-mcp/
 
 # Build artifacts
 dist/
