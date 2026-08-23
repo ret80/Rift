@@ -35,11 +35,11 @@ export class CarrierStrategy implements IEnemyStrategy {
     const dirX = dx / dist;
     const dirY = dy / dist;
 
-    // Преследование игрока — Carrier приближается чтобы сбросить дронов поближе
-    const TARGET_DIST = 180;
-    const radial = (dist - TARGET_DIST) * 0.5;
-    let desX = dirX * radial + -dirY * enemy.strafeDir * enemy.speed * 0.6;
-    let desY = dirY * radial + dirX * enemy.strafeDir * enemy.speed * 0.6;
+    // Удержание позиции — убегает от игрока если тот приближается
+    const HOLD = 480;
+    const radial = (dist - HOLD) * 0.7;
+    let desX = dirX * radial + -dirY * enemy.strafeDir * enemy.speed * 0.4;
+    let desY = dirY * radial + dirX * enemy.strafeDir * enemy.speed * 0.4;
 
     // Избегание других врагов (исключая своих дронов)
     for (const o of context.enemies) {
