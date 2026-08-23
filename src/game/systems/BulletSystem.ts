@@ -1,22 +1,54 @@
 /**
- * BulletSystem - управление пулями игрока и врагов.
- * Отвечает за создание, обновление и удаление пуль.
+ * BulletSystem - player and enemy bullet management.
+ * Responsible for bullet lifecycle: creation, movement, and cleanup.
+ *
+ * Authoritative owner: entityPool arrays (bulletList, enemyBulletList).
+ * BulletSystem processes these arrays but does NOT own them.
  */
 
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { Fx } from '../fx';
 import type { AudioManager } from './AudioManager';
-import { PLAYER_BULLET_SPEED } from '../balance';
+import {
+  PLAYER_BULLET_SPEED,
+  PLAYER_BULLET_LIFE,
+  PLAYER_BULLET_DMG,
+  GUN_OFFS,
+} from '../balance';
 
-export interface BulletData {
+// Enemy bullet balance constants
+const ENEMY_BULLET_SPEED = 300;
+const ENEMY_BULLET_LIFE = 1.35;
+
+export interface PlayerBullet {
   x: number;
   y: number;
   vx: number;
   vy: number;
   life: number;
   dmg: number;
-  isEnemy: boolean;
+}
+
+export interface EnemyBullet extends PlayerBullet {
+  heavy?: boolean;
+  cruiser?: boolean;
+}
+
+export interface PlayerBulletState {
+  x: number;
+  y: number;
+  angle: number;
+  guns: number;
+  accuracy?: number;
+}
+
+export interface EnemyBulletState {
+  x: number;
+  y: number;
+  angle: number;
+  r: number;
+  boltDmg: number;
 }
 
 export class BulletSystem {
@@ -24,46 +56,16 @@ export class BulletSystem {
   private state: GameState;
   private fx: Fx;
   private audio: AudioManager;
-  private bulletDmg: number = 14;  // bullet damage, set by game when upgrades are applied
-  
-  // Пули игрока
-  private bullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number }> = [];
-  // Пули врагов
-  private enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number; heavy: boolean; cruiser: boolean }> = [];
+  private bulletDmg: number = PLAYER_BULLET_DMG;
 
   constructor(eventBus: EventBus, state: GameState, fx: Fx, audio: AudioManager) {
     this.eventBus = eventBus;
     this.state = state;
     this.fx = fx;
     this.audio = audio;
-
-    // Subscribe to bullet spawning events
-    eventBus.on('fire_bullet', (event) => {
-      const data = event.payload as { x: number; y: number; vx: number; vy: number; life: number; dmg: number; isEnemy: boolean };
-      const { x, y, vx, vy, life, dmg, isEnemy } = data;
-      if (isEnemy) {
-        this.enemyBullets.push({ x, y, vx, vy, life, dmg, heavy: false, cruiser: false });
-      } else {
-        this.bullets.push({ x, y, vx, vy, life, dmg });
-      }
-    });
-
-    eventBus.on('drone_fired', (event) => {
-      const data = event.payload as { x: number; y: number; vx: number; vy: number; damage: number };
-      this.enemyBullets.push({
-        x: data.x,
-        y: data.y,
-        vx: data.vx,
-        vy: data.vy,
-        life: 1.5,
-        dmg: data.damage,
-        heavy: false,
-        cruiser: false,
-      });
-    });
   }
 
-  /** Установить урон пуль игрока (из апгрейдов) */
+  /** Set player bullet damage (from upgrades) */
   setBulletDmg(dmg: number): void {
     this.bulletDmg = dmg;
   }
@@ -71,25 +73,58 @@ export class BulletSystem {
   // ── Public API ──────────────────────────────────────────────────
 
   /**
-   * Создать пулю игрока.
+   * Update all bullets (movement + lifetime cleanup).
+   * Mutates the passed arrays — these are owned by entityPool.
    */
-  createPlayerBullet(x: number, y: number, vx: number, vy: number, dmg: number, life: number): void {
-    this.bullets.push({ x, y, vx, vy, life, dmg });
+   update(
+     dt: number,
+     bullets: PlayerBullet[],
+     enemyBullets: EnemyBullet[],
+     _enemies: Array<{ x: number; y: number; dead: boolean }>
+   ): void {
+    // Update player bullets
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      const b = bullets[i];
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.life -= dt;
+      if (b.life <= 0) {
+        bullets.splice(i, 1);
+      }
+    }
+
+    // Update enemy bullets
+    for (let i = enemyBullets.length - 1; i >= 0; i--) {
+      const b = enemyBullets[i];
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.life -= dt;
+      if (b.life <= 0) {
+        enemyBullets.splice(i, 1);
+      }
+    }
   }
 
   /**
-     * Создать пули игрока (несколько направлений).
-    * Spread/accuracy — как у орудий врагов: случайное отклонение угла.
-    */
-  firePlayerBullets(playerState: { x: number; y: number; angle: number; guns: number; accuracy?: number }, angle: number, bullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number }>): void {
-    const GUN_OFFS = [0, 9, -9, 17, -17];
-    const sp = 560;
-    // Точность пушки игрока: accuracy ~0.98 → spread ≈ 0.006 рад (~0.34°)
-    // Можно улучшать апгрейдами до 0.99-1.0 (разброс → 0)
+   * Create player bullets in multiple directions.
+   * Spread/accuracy follows enemy pattern: random angle deviation.
+   */
+  firePlayerBullets(
+    playerState: PlayerBulletState,
+    angle: number,
+    bullets: Array<{
+      x: number; y: number; vx: number; vy: number;
+      life: number; dmg: number;
+    }>
+  ): void {
+    const sp = PLAYER_BULLET_SPEED;
+    // Player gun accuracy: accuracy ~0.98 → spread ≈ 0.006 rad (~0.34°)
+    // Can be improved with upgrades to 0.99-1.0 (spread → 0)
     const accuracy = playerState.accuracy ?? 0.98;
-    const spread = (1 - accuracy) * 0.3; // как у врагов: (1 - acc) * factor
+    const spread = (1 - accuracy) * 0.3; // same as enemies: (1 - acc) * factor
     const bulletAngle = angle + (Math.random() - 0.5) * 2 * spread;
-    const gunCount = Math.min(playerState.guns ?? 1, 5);
+    const gunCount = Math.min(playerState.guns ?? 1, GUN_OFFS.length);
+
     for (let i = 0; i < gunCount; i++) {
       const o = GUN_OFFS[i] ?? 0;
       const nx = playerState.x + Math.cos(angle) * 14 - Math.sin(angle) * o;
@@ -99,143 +134,66 @@ export class BulletSystem {
         y: ny,
         vx: Math.cos(bulletAngle) * sp,
         vy: Math.sin(bulletAngle) * sp,
-        life: 1.5,
+        life: PLAYER_BULLET_LIFE,
         dmg: this.bulletDmg,
       });
     }
   }
 
   /**
-     * Создать пулю врага.
-     */
-  fireEnemyBullet(enemy: { x: number; y: number; angle: number; r: number; boltDmg: number }, enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number; heavy: boolean; cruiser: boolean }>): void {
-    const speed = 300;
-    const life = 1.35;
-    const heavy = false;
-    const cruiser = false;
+   * Create enemy bullet and push to external array.
+   */
+  fireEnemyBullet(
+    enemy: EnemyBulletState,
+    enemyBullets: EnemyBullet[]
+  ): void {
     const a = enemy.angle;
     enemyBullets.push({
       x: enemy.x + Math.cos(a) * (enemy.r + 6),
       y: enemy.y + Math.sin(a) * (enemy.r + 6),
-      vx: Math.cos(a) * speed,
-      vy: Math.sin(a) * speed,
-      life,
+      vx: Math.cos(a) * ENEMY_BULLET_SPEED,
+      vy: Math.sin(a) * ENEMY_BULLET_SPEED,
+      life: ENEMY_BULLET_LIFE,
       dmg: enemy.boltDmg,
-      heavy,
-      cruiser,
+      heavy: false,
+      cruiser: false,
     });
   }
 
   /**
-     * Обновить все пули.
-     */
-  update(dt: number, bullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number }>, enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number; heavy: boolean; cruiser: boolean }>, enemies: Array<{ x: number; y: number; dead: boolean }>): void {
-    // Обновление пуль игрока
-    for (let i = bullets.length - 1; i >= 0; i--) {
-      const b = bullets[i];
-      b.x += b.vx * dt;
-      b.y += b.vy * dt;
-      b.life -= dt;
-      
-      if (b.life <= 0) {
-        bullets.splice(i, 1);
-      }
-    }
-    
-    // Обновление пуль врагов
-    for (let i = enemyBullets.length - 1; i >= 0; i--) {
-      const b = enemyBullets[i];
-      b.x += b.vx * dt;
-      b.y += b.vy * dt;
-      b.life -= dt;
-      
-      if (b.life <= 0) {
-        enemyBullets.splice(i, 1);
-      }
-    }
-  }
-
-  /**
-   * Получить все пули игрока.
-   */
-  getPlayerBullets(): Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number }> {
-    return this.bullets;
-  }
-
-  /**
-    * Получить все пули врагов.
-    */
-  getEnemyBullets(): Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number; heavy: boolean; cruiser: boolean }> {
-    return this.enemyBullets;
-  }
-
-  /**
-   * Проверить столкновение пули с целью.
+   * Check bullet collision with target.
+   * Callback receives only the bullet — index is caller's responsibility.
    */
   checkCollision(
     targetX: number,
     targetY: number,
     targetR: number,
-    callback: (bulletIndex: number, isEnemy: boolean) => void
+    callback: (
+      bullet: { x: number; y: number; vx: number; vy: number; life: number; dmg: number }
+    ) => void
   ): void {
-    // Проверка пуль игрока
-    for (let i = 0; i < this.bullets.length; i++) {
-      const b = this.bullets[i];
-      const dx = b.x - targetX;
-      const dy = b.y - targetY;
-      const dist = Math.hypot(dx, dy);
-      
-      if (dist < targetR) {
-        callback(i, false);
-      }
-    }
-    
-    // Проверка пуль врагов
-    for (let i = 0; i < this.enemyBullets.length; i++) {
-      const b = this.enemyBullets[i];
-      const dx = b.x - targetX;
-      const dy = b.y - targetY;
-      const dist = Math.hypot(dx, dy);
-      
-      if (dist < targetR) {
-        callback(i, true);
-      }
-    }
+    // This method exists for backwards compatibility;
+    // actual collision detection is done by CollisionSystem.
+    void targetX;
+    void targetY;
+    void targetR;
+    void callback;
   }
 
   /**
-   * Удалить пулю игрока по индексу.
+   * Clear all bullets.
    */
-  removePlayerBullet(index: number): void {
-    if (index >= 0 && index < this.bullets.length) {
-      this.bullets.splice(index, 1);
-    }
+  clear(_bullets: Array<unknown>, _enemyBullets: Array<unknown>): void {
+    // No-op — bullets are owned by entityPool
   }
 
   /**
-   * Удалить пулю врага по индексу.
+   * Get bullet counts (from entityPool — passed as args).
    */
-  removeEnemyBullet(index: number): void {
-    if (index >= 0 && index < this.enemyBullets.length) {
-      this.enemyBullets.splice(index, 1);
-    }
-  }
-
-  /**
-   * Сбросить все пули.
-   */
-  clear(): void {
-    this.bullets = [];
-    this.enemyBullets = [];
-  }
-
-  /**
-   * Получить количество пуль.
-   */
-  getCount(): { player: number; enemy: number } {
+  getCount(bullets: Array<unknown>, enemyBullets: Array<unknown>): { player: number; enemy: number } {
     return {
-      player: this.bullets.length,
-      enemy: this.enemyBullets.length,
+      player: bullets.length,
+      enemy: enemyBullets.length,
     };
   }
 }

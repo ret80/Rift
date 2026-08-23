@@ -52,6 +52,12 @@ export class GameStateMachine<TContext = unknown> {
     return !this.is(...states);
   }
 
+  /** Reset to initial state and update context */
+  reset(initialState: StateId, context: TContext): void {
+    this.currentState = initialState;
+    this.initialContext = context;
+  }
+
   /** Выполнить переход */
   fire(trigger: string, ctx?: TContext): boolean {
     const context = ctx ?? this.initialContext;

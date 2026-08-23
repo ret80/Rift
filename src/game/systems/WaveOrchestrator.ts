@@ -1,8 +1,8 @@
 /**
- * WaveOrchestrator - оркестратор волн и зон.
- * Управляет жизненным циклом волны, поведением зоны,
- * уроном на краю зоны.
- * 
+ * WaveOrchestrator - wave and zone orchestrator.
+ * Manages wave lifecycle, zone behavior,
+ * and zone edge damage.
+ *
  * FSM States:
  *   inactive → active → cleared → (next wave)
  */
@@ -22,7 +22,6 @@ import {
   ZONE_CLEAR_EXPAND_DURATION,
   ZONE_CLEAR_EXPAND_MULTIPLIER,
   zoneExpandSpeed,
-  massForRadius,
 } from "../balance";
 import { clamp, easeOutCubic } from "../math";
 import type { ZoneData } from "../core/ZoneTypes";
@@ -61,9 +60,23 @@ export interface PlayerPosition {
 
 export type WaveStateId = "inactive" | "active" | "cleared";
 
+// ============================== Internal Timing Constants ==============================
+
+/** Duration for clearing short toast notifications (ms) */
+const TOAST_CLEAR_SHORT = 1500;
+/** Duration for clearing banner toast notifications (ms) */
+const TOAST_CLEAR_LONG = 2000;
+
 // ============================== Wave FSM Transitions ==============================
 
-const WAVE_TRANSITIONS = [
+interface WaveTransition {
+  trigger: string;
+  target: WaveStateId;
+  guard: () => boolean;
+  onEnter: () => void;
+}
+
+const WAVE_TRANSITIONS: WaveTransition[] = [
   {
     trigger: "start",
     target: "active",
@@ -82,7 +95,7 @@ const WAVE_TRANSITIONS = [
     guard: () => true,
     onEnter: () => {},
   },
-] as const;
+];
 
 export interface WaveFSMContext {
   wave: number;
@@ -113,6 +126,9 @@ export class WaveOrchestrator {
   private edgeTickT: number = 0;
   private edgeWarned: boolean = false;
 
+  // Timeout tracking — cleared on reset to prevent leaks
+  private timeoutIds: ReturnType<typeof setTimeout>[] = [];
+
   constructor(config: WaveOrchestratorConfig) {
     this.hooks = config.hooks;
     this.playerMaxSpeed = config.playerMaxSpeed;
@@ -126,15 +142,19 @@ export class WaveOrchestrator {
       collapseT: -1,
     };
 
-    // Initialize Wave FSM
+    // Initialize Wave FSM once — context updated per wave
     const waveContext: WaveFSMContext = {
       wave: 1,
       waveTotal: 0,
       allocated: 0,
       killedWave: 0,
     };
-    
-    this.waveFSM = new GameStateMachine<WaveFSMContext>("active", WAVE_TRANSITIONS as any, waveContext);
+
+    this.waveFSM = new GameStateMachine<WaveFSMContext>(
+      "active",
+      WAVE_TRANSITIONS,
+      waveContext
+    );
   }
 
   // ============================== Public API ==============================
@@ -163,8 +183,8 @@ export class WaveOrchestrator {
     this.edgeTickT = 0;
     this.edgeWarned = false;
 
-    // Initialize FSM - wave starts as "active" (zone expansion begins after countdown)
-    this.waveFSM = new GameStateMachine<WaveFSMContext>("active", WAVE_TRANSITIONS as any, { wave, waveTotal, allocated: 0, killedWave: 0 });
+    // Reset FSM with new context (no recreation)
+    this.waveFSM.reset("active", { wave, waveTotal, allocated: 0, killedWave: 0 });
 
     // Zone not active yet — will be initialized after countdown
     this.zone.active = false;
@@ -219,11 +239,11 @@ export class WaveOrchestrator {
   }
 
   /**
-    * Update zone expansion and wave transitions.
-    * Called every frame during active/cleared states.
-    * Zone constraints are handled by ZoneSystem.
-    * @param countdownActive — true во время обратного отсчёта; зона НЕ активируется.
-    */
+   * Update zone expansion and wave transitions.
+   * Called every frame during active/cleared states.
+   * Zone constraints are handled by ZoneSystem.
+   * @param countdownActive — true during countdown; zone is NOT activated.
+   */
   update(
     dt: number,
     playerPos: PlayerPosition,
@@ -267,9 +287,15 @@ export class WaveOrchestrator {
     this.edgeOutT = 0;
     this.edgeTickT = 0;
     this.edgeWarned = false;
-    
-    // Reset wave FSM
-    this.waveFSM = new GameStateMachine<WaveFSMContext>("active", WAVE_TRANSITIONS as any, { wave: 1, waveTotal: 0, allocated: 0, killedWave: 0 });
+
+    // Reset wave FSM with fresh context (no recreation)
+    this.waveFSM.reset("active", { wave: 1, waveTotal: 0, allocated: 0, killedWave: 0 });
+
+    // Clear all pending timeouts to prevent leaks
+    for (const id of this.timeoutIds) {
+      clearTimeout(id);
+    }
+    this.timeoutIds = [];
   }
 
   // ============================== Private methods ==============================
@@ -295,10 +321,12 @@ export class WaveOrchestrator {
         t("game.nextWave", { wave: this.wave + 1 }),
         "#6f6"
       );
-      setTimeout(() => this.hooks.onToast("", ""), 2000);
+      // Schedule toast clear after TOAST_CLEAR_LONG ms
+      const toastClearId = setTimeout(() => this.hooks.onToast("", ""), TOAST_CLEAR_LONG);
+      this.timeoutIds.push(toastClearId);
     }
 
-    // Плавно увеличиваем зону и уменьшаем альфа перед исчезновением
+    // Smoothly expand zone and reduce alpha before disappearing
     if (this.clearT >= ZONE_CLEAR_EXPAND_START) {
       const expandProgress = clamp(
         (this.clearT - ZONE_CLEAR_EXPAND_START) / ZONE_CLEAR_EXPAND_DURATION,
@@ -306,14 +334,14 @@ export class WaveOrchestrator {
         1
       );
       const eased = easeOutCubic(expandProgress);
-      // Зона расширяется в 1.5 раза
+      // Zone expands to 1.5x target
       this.zone.radius =
         this.zone.targetRadius * (1 + ZONE_CLEAR_EXPAND_MULTIPLIER * eased);
-      // Альфа уменьшается от 0.5 до 0
+      // Alpha decreases from 0.5 to 0
       this.zone.alpha = 0.5 * (1 - eased);
     }
 
-    // Переход к следующей волне только после полного исчезновения зоны
+    // Advance to next wave only after zone fully disappears
     if (this.clearT >= ZONE_CLEAR_NEXT_WAVE) {
       this.advanceWave();
     }
@@ -326,7 +354,7 @@ export class WaveOrchestrator {
     const dy = playerPos.y - this.zone.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    // Не наносим урон пока зона не раскрылась хотя бы наполовину
+    // Don't deal damage while zone hasn't expanded at least halfway
     if (
       this.zone.radius < this.zone.targetRadius * ZONE_EARLY_DAMAGE_THRESHOLD
     )
@@ -337,7 +365,9 @@ export class WaveOrchestrator {
       if (!this.edgeWarned && this.edgeOutT > ZONE_EDGE_WARNING_DELAY) {
         this.edgeWarned = true;
         this.hooks.onToast(t("game.zoneWarning"), "#fa5");
-        setTimeout(() => this.hooks.onToast("", ""), 1500);
+        // Schedule toast clear after TOAST_CLEAR_SHORT ms
+        const toastClearId = setTimeout(() => this.hooks.onToast("", ""), TOAST_CLEAR_SHORT);
+        this.timeoutIds.push(toastClearId);
       }
       if (this.edgeTickT > ZONE_EDGE_DAMAGE_INTERVAL) {
         this.edgeTickT = 0;

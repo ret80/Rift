@@ -1,7 +1,7 @@
 /**
- * SpawnSystem — управление спавном врагов через рифты.
- * Отвечает за генерацию очередей врагов, выбор классов, размещение рифтов
- * и анонс новых типов врагов.
+ * SpawnSystem — enemy spawn management via rifts.
+ * Responsible for generating enemy queues, class selection, rift placement,
+ * and announcing new enemy types.
  */
 
 import { t } from "../../i18n";
@@ -23,7 +23,26 @@ export interface SpawnHooks {
   audio: AudioManager;
 }
 
-/** Данные о текущей волне для спавна. */
+/** Dependencies injected to avoid tight coupling with Game. */
+export interface SpawnDependencies {
+  countdownSystem: { isCountdownActive?(): boolean };
+  gameState: {
+    zone: {
+      radius: number;
+      active: boolean;
+      x: number;
+      y: number;
+      targetRadius?: number;
+    } | null;
+  };
+  riftField: RiftField;
+  hooks: { onToast?(data: { text: string; color?: string }): void };
+  wave: number;
+  allocated: number;
+  killedWave: number;
+}
+
+/** Data about current wave for spawning. */
 export interface WaveSpawnData {
   wave: number;
   total: number;
@@ -33,6 +52,25 @@ export interface WaveSpawnData {
   stepSize: number;
   dropThreshold: number;
 }
+
+// ============================== Spawn Constants ==============================
+
+/** Number of enemies per spawn batch */
+const BATCH_SPAWN = 20;
+/** Minimum spawn rate interval (seconds) */
+const SPAWN_RATE_MIN = 0.3;
+/** Spawn rate reduction per wave */
+const SPAWN_RATE_RAMP = 0.03;
+/** Minimum rift spawn timer ticks */
+const RIFT_SPAWN_TIMER = 3;
+/** Zone expansion threshold for rift spawning (90%) */
+const RIFT_THRESHOLD = 0.9;
+/** Minimum distance from player for rift placement */
+const MIN_PLAYER_DIST = 220;
+/** Minimum distance from zone edge for rift placement */
+const MIN_EDGE_DIST = 100;
+/** Rift placement search iterations */
+const RIFT_SAMPLE_ITERATIONS = 16;
 
 export class SpawnSystem {
   private hooks: SpawnHooks;
@@ -62,68 +100,68 @@ export class SpawnSystem {
   }
 
   /**
-   * Получить общее количество врагов для волны.
+   * Get total enemy count for a wave.
    */
   waveTotalCount(w: number): number {
     return waveTotalFor(w);
   }
 
   /**
-   * Получить радиус зоны для волны.
+   * Get zone radius for a wave.
    */
   zoneRadius(w: number): number {
     return zoneRadiusFor(w);
   }
 
   /**
-   * Выбрать класс врага с учётом прогрессии волн.
+   * Select enemy class with wave progression.
    */
   pickKind(w: number): EnemyKind {
     return pickKindFor(w);
   }
 
   /**
-    * Построить очередь врагов для спавна.
-    * Гарантирует хотя бы минимальное количество каждого разблокированного класса.
-    * Прогрессивный состав: больше хитрых врагов на поздних волнах.
-    */
-   buildQueue(count: number, wave: number): EnemyKind[] {
-     const q: EnemyKind[] = [];
-     for (let i = 0; i < count; i++) q.push(this.pickKindForWave(wave));
-     return q;
-   }
-
-   /**
-    * Вес класса для волновой прогрессии.
-    * Дроны уменьшаются, охотники и истребители растут.
-    */
-   private kindWeights(w: number): Record<EnemyKind, number> {
-     return {
-       drone: Math.max(0.1, 0.6 - w * 0.015),
-       hunter: Math.max(0.1, 0.3 + w * 0.01),
-       fighter: Math.max(0.1, 0.1 + w * 0.015),
-       cruiser: Math.max(0, (w - 6) * 0.02),
-       carrier: Math.max(0, (w - 10) * 0.01),
-     };
-   }
-
-   /**
-    * Выбрать класс врага с учётом прогрессии волн и весов.
-    */
-   private pickKindForWave(w: number): EnemyKind {
-     const weights = this.kindWeights(w);
-     let total = 0;
-     for (const wt of Object.values(weights)) total += wt;
-     let roll = Math.random() * total;
-     for (const [kind, wt] of Object.entries(weights) as [EnemyKind, number][]) {
-       roll -= wt;
-       if (roll <= 0) return kind;
-     }
-      return EnemyKind.Drone;
-   }
+   * Build enemy spawn queue.
+   * Guarantees at least a minimum count of each unlocked class.
+   * Progressive composition: more tricky enemies on later waves.
+   */
+  buildQueue(count: number, wave: number): EnemyKind[] {
+    const q: EnemyKind[] = [];
+    for (let i = 0; i < count; i++) q.push(this.pickKindForWave(wave));
+    return q;
+  }
 
   /**
-   * Получить количество рифтов для волны.
+   * Class weights for wave progression.
+   * Drones decrease, hunters and fighters grow.
+   */
+  private kindWeights(w: number): Record<EnemyKind, number> {
+    return {
+      drone: Math.max(0.1, 0.6 - w * 0.015),
+      hunter: Math.max(0.1, 0.3 + w * 0.01),
+      fighter: Math.max(0.1, 0.1 + w * 0.015),
+      cruiser: Math.max(0, (w - 6) * 0.02),
+      carrier: Math.max(0, (w - 10) * 0.01),
+    };
+  }
+
+  /**
+   * Select enemy class with wave progression and weights.
+   */
+  private pickKindForWave(w: number): EnemyKind {
+    const weights = this.kindWeights(w);
+    let total = 0;
+    for (const wt of Object.values(weights)) total += wt;
+    let roll = Math.random() * total;
+    for (const [kind, wt] of Object.entries(weights) as [EnemyKind, number][]) {
+      roll -= wt;
+      if (roll <= 0) return kind;
+    }
+    return EnemyKind.Drone;
+  }
+
+  /**
+   * Get rift count for a wave.
    */
   riftCountFor(w: number): number {
     if (w === 1) return 2;
@@ -134,10 +172,10 @@ export class SpawnSystem {
   }
 
   /**
-   * Найти точку для размещения рифта.
+   * Find a point for rift placement.
    */
   spawnRiftPoint(zoneX: number, zoneY: number, zoneRadius: number): { x: number; y: number } {
-    // Рифты спавнятся ТОЛЬКО ВНУТРИ зоны, используя фактический радиус зоны
+    // Rifts spawn only after zone is large enough, using actual zone radius
     const inner = zoneRadius * 0.25;
     const outer = Math.max(
       inner + 80,
@@ -145,7 +183,7 @@ export class SpawnSystem {
     );
     let bestP = { x: zoneX, y: zoneY - zoneRadius * 0.5 };
     let bestScore = -1;
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < RIFT_SAMPLE_ITERATIONS; i++) {
       const a = Math.random() * TAU;
       const rr = rand(inner, outer);
       const x = zoneX + Math.cos(a) * rr;
@@ -153,13 +191,17 @@ export class SpawnSystem {
       const dist = Math.hypot(x - zoneX, y - zoneY);
       const dPlayer = dist;
       const dEdge = zoneRadius - dist;
-      // Пропускаем если слишком близко к игроку (<220) или краю зоны (<100)
-      if (dPlayer < 220 || dEdge < 100) continue;
+      // Skip if too close to player or zone edge
+      if (dPlayer < MIN_PLAYER_DIST || dEdge < MIN_EDGE_DIST) continue;
       let dRifts = 1e9;
-      for (const rf of this.riftField.riftList)
+      for (const rf of this.riftField.riftList) {
         dRifts = Math.min(dRifts, Math.hypot(x - rf.x, y - rf.y));
-      let dEnemies = 1e9;
-      const score = Math.min(dPlayer, 400) + Math.min(dRifts, 300) * 1.5 + Math.min(dEnemies, 250);
+      }
+      const dEnemies = 1e9;
+      const score =
+        Math.min(dPlayer, 400)
+        + Math.min(dRifts, 300) * 1.5
+        + Math.min(dEnemies, 250);
       if (score > bestScore) {
         bestScore = score;
         bestP = { x, y };
@@ -169,7 +211,7 @@ export class SpawnSystem {
   }
 
   /**
-   * Анонсировать новые классы врагов.
+   * Announce new enemy classes.
    */
   announceNewKinds(queue: EnemyKind[], wave: number, onToast: (t: { text: string; color?: string }) => void): void {
     for (const k of queue) {
@@ -182,103 +224,106 @@ export class SpawnSystem {
   }
 
   /**
-   * Сбросить анонсированные классы.
+   * Clear announced classes.
    */
   clearAnnounced(): void {
     this.announcedKinds.clear();
   }
 
   /**
-     * Обновить спавн.
-     */
-  update(dt: number, wave: number, allocated: number, killedWave: number, game: any): void {
+   * Update spawn logic.
+   */
+  update(dt: number, deps: SpawnDependencies): void {
+    const { countdownSystem, gameState, hooks, wave } = deps;
     this.currentWave = wave;
-    
+
     // Check if we need to spawn more enemies
     const totalNeeded = this.waveTotalCount(wave);
-    const remaining = totalNeeded - killedWave;
-    
-    const inCountdown = game.countdownSystem?.isCountdownActive?.();
-    // Use GameState.zone for zone status after refactoring
-    const gameState = game.gameState;
-    const zoneR = gameState?.zone?.radius ?? 0;
+
+    const inCountdown = countdownSystem?.isCountdownActive?.();
     const zoneOn = gameState?.zone?.active ?? false;
-    const zoneX = gameState?.zone?.x ?? 0;
-    const zoneY = gameState?.zone?.y ?? 0;
-    const zoneTarget = gameState?.zone?.targetRadius ?? this.zoneRadius(wave);
-    const riftCount = game.riftField?.list?.length ?? 0;
-    
+
     if (inCountdown || !zoneOn) {
       return;
     }
-    
+
+    const allocated = deps.allocated;
+    const killedWave = deps.killedWave;
+    const remaining = totalNeeded - killedWave;
+
     if (remaining > 0 && allocated < totalNeeded) {
       // Try to spawn next enemy from queue
       if (this.spawnQueue.length === 0 || this.spawnIdx >= this.spawnQueue.length) {
         // Build new queue
-        this.spawnQueue = this.buildQueue(Math.min(20, totalNeeded - allocated), wave);
+        this.spawnQueue = this.buildQueue(
+          Math.min(BATCH_SPAWN, totalNeeded - allocated),
+          wave
+        );
         this.spawnIdx = 0;
-        
+
         // Announce new kinds
-        this.announceNewKinds(this.spawnQueue, wave, (data) => {
-          game.hooks?.onToast?.(data);
-        });
+        this.announceNewKinds(
+          this.spawnQueue,
+          wave,
+          (data) => {
+            hooks.onToast?.(data);
+          }
+        );
       }
-      
+
       // Spawn enemies based on spawn rate
-      const spawnRate = Math.max(0.3, 1.0 - wave * 0.03);
+      const spawnRate = Math.max(SPAWN_RATE_MIN, 1.0 - wave * SPAWN_RATE_RAMP);
       if (!this.lastSpawnTime) this.lastSpawnTime = 0;
       this.lastSpawnTime += dt;
-      
+
       if (this.lastSpawnTime >= spawnRate && this.spawnIdx < this.spawnQueue.length) {
         this.lastSpawnTime = 0;
-        this.spawnNextEnemy(game, wave);
+        this.spawnNextEnemy(deps);
       }
     }
   }
-  
-  private spawnNextEnemy(game: any, wave: number) {
+
+  private spawnNextEnemy(deps: SpawnDependencies): void {
     if (this.spawnIdx >= this.spawnQueue.length) return;
-    
+
     const kind = this.spawnQueue[this.spawnIdx++];
     if (!kind) return;
-    
+
     // Create rifts if needed
-    const riftCount = this.riftCountFor(wave);
-    if (game.riftField.riftList.length < riftCount) {
+    const riftCount = this.riftCountFor(deps.wave);
+    if (deps.riftField.riftList.length < riftCount) {
       this.riftSpawnTimers += 1;
-      if (this.riftSpawnTimers >= 3) {
+      if (this.riftSpawnTimers >= RIFT_SPAWN_TIMER) {
         this.riftSpawnTimers = 0;
-        this.spawnRift(game);
+        this.spawnRift(deps);
       }
       // Wait for rift to be created before spawning
       return;
     }
-    
-    // Find an open rift to spawn from - enemies ONLY spawn from rifts
-    for (const rf of game.riftField.riftList) {
+
+    // Find an open rift to spawn from — enemies ONLY spawn from rifts
+    for (const rf of deps.riftField.riftList) {
       if (rf.state === "opening" || rf.state === "spawning") {
         rf.queue.push(kind);
         return;
       }
     }
-    
+
     // If all rifts are closing/closed, create a new rift
-    this.spawnRift(game);
+    this.spawnRift(deps);
   }
-  
-  private spawnRift(game: any) {
-    const queue = this.buildQueue(3 + Math.floor(Math.random() * 3), game.wave);
+
+  private spawnRift(deps: SpawnDependencies): void {
+    const queue = this.buildQueue(3 + Math.floor(Math.random() * 3), deps.wave);
     // Rifts spawn only after zone is large enough
-    // Use GameState.zone for zone info after refactoring
-    const gameState = game.gameState;
+    const gameState = deps.gameState;
     const zoneX = gameState?.zone?.x ?? 0;
     const zoneY = gameState?.zone?.y ?? 0;
-    const zoneR = gameState?.zone?.radius ?? this.zoneRadius(game.wave);
-    const zoneTarget = gameState?.zone?.targetRadius ?? this.zoneRadius(game.wave);
-    if (zoneR < zoneTarget * 0.9) return; // ждём полного раскрытия зоны (90%)
+    const zoneR = gameState?.zone?.radius ?? this.zoneRadius(deps.wave);
+    const zoneTarget = gameState?.zone?.targetRadius ?? this.zoneRadius(deps.wave);
+    if (zoneR < zoneTarget * RIFT_THRESHOLD) return; // wait for full zone expansion (90%)
     const point = this.spawnRiftPoint(zoneX, zoneY, zoneR);
     const size = 80 + Math.random() * 40;
-    game.riftField.spawn(point.x, point.y, queue, 0, size);
+    deps.riftField.spawn(point.x, point.y, queue, 0, size);
   }
 }

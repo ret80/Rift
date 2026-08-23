@@ -1,71 +1,128 @@
 /**
- * FSMBridge — мост между Game и StateMachine.
+ * FSMBridge — bridge between Game and StateMachine.
  *
- * Инкапсулирует:
- *  - Создание/конфигурацию FSM
- *  - Хук-контекст GameFSMContext (жизненный цикл состояний)
- *  - Подписку на события FSM для волнового жизненного цикла
+ * Encapsulates:
+ *  - FSM creation and configuration
+ *  - GameFSMContext (state lifecycle hooks)
+ *  - Subscriptions to FSM events for wave lifecycle
  *
- * Game передаёт в FSMBridge все колбэки жизненного цикла,
- * а FSMBridge возвращает готовый GameStateMachine.
+ * Game passes all lifecycle callbacks to FSMBridge constructor,
+ * and FSMBridge returns a ready-to-use GameStateMachine.
  */
 
 import { GameStateMachine } from "./StateMachine";
+import type { Transition } from "./StateMachine";
 
 // ============================== Types ==============================
 
 export type GameStateId = "menu" | "playing" | "active" | "cleared" | "dying" | "over";
 
 export interface GameFSMContext {
-  /** Вызывается при смерти игрока */
+  /** Called when player dies */
   onPlayerDeath: () => void;
-  /** Вызывается при окончании death-анимации */
+  /** Called when death animation ends */
   onDeathAnimationEnd: () => void;
-  /** Вызывается при завершении игры */
+  /** Called when game is over */
   onGameOver: () => void;
-  /** Вызывается когда игрок умирает (до анимации) */
+  /** Called when player dies (before animation) */
   onPlayerDiedEvent?: () => void;
-  /** Вызывается при возврате в меню */
+  /** Called when returning to menu */
   onReturnToMenu: () => void;
-  /** Вызывается при старте нового забега */
+  /** Called when starting a new run */
   onStartRun: (wave: number) => void;
-  /** Вызывается при начале волны (после countdown) */
+  /** Called when wave starts (after countdown) */
   onWaveStart: (wave: number) => void;
-  /** Вызывается при завершении волны */
+  /** Called when wave completes */
   onWaveComplete: () => void;
-  /** Вызывается при переходе к следующей волне (из cleared) */
+  /** Called when advancing to next wave (from cleared) */
   onWaveAdvanced?: (wave: number) => void;
-  /** Вызывается когда countdown заканчивается */
+  /** Called when countdown finishes */
   countdownDone?: () => void;
-  /** Вызывается при паузе */
+  /** Called on pause */
   onPause?: (paused: boolean) => void;
 }
 
 // ============================== Bridge Hooks ==============================
 
-/** Хуки, которые Game предоставляет для каждого перехода FSM */
+/** Hooks that Game provides for each FSM transition */
 export interface FSMBridgeHooks {
-  /** Обработчик смерти игрока (спавн взрыва, сохранение прогресса, очистка пуль) */
+  /** Player death handler (spawn explosion, save progress, clear bullets) */
   onPlayerDeath: () => void;
-  /** Обработчик окончания death-анимации (подсчёт статистики) */
+  /** Death animation end handler (statistics calculation) */
   onDeathAnimationEnd: () => void;
-  /** Обработчик конца игры */
+  /** Game over handler */
   onGameOver: () => void;
-  /** Обработчик возврата в меню */
+  /** Return to menu handler */
   onReturnToMenu: () => void;
-  /** Обработчик старта забега */
+  /** Run start handler */
   onStartRun: (wave: number) => void;
-  /** Обработчик начала волны */
+  /** Wave start handler */
   onWaveStart: (wave: number) => void;
-  /** Обработчик завершения волны */
+  /** Wave complete handler */
   onWaveComplete: () => void;
-  /** Обработчик перехода к следующей волне */
+  /** Next wave transition handler */
   onWaveAdvanced: (wave: number) => void;
-  /** Обработчик завершения countdown */
+  /** Countdown done handler */
   countdownDone: () => void;
-  /** Обработчик паузы */
+  /** Pause handler */
   onPause: (paused: boolean) => void;
 }
+
+// ============================== FSM Transitions ==============================
+
+/** Type-safe transition array for game FSM */
+type GameTransition = Transition<GameFSMContext>;
+
+const GAME_TRANSITIONS: GameTransition[] = [
+  {
+    trigger: "start",
+    target: "playing",
+    guard: () => true,
+    onEnter: () => {},
+  },
+  {
+    trigger: "to_menu",
+    target: "menu",
+    guard: () => true,
+    onEnter: (ctx) => ctx.onReturnToMenu(),
+  },
+  {
+    trigger: "countdown_done",
+    target: "active",
+    guard: () => true,
+    onEnter: () => {}, // noop — countdown notification handled by context callback
+  },
+  {
+    trigger: "wave_cleared",
+    target: "cleared",
+    guard: () => true,
+    onEnter: (ctx) => ctx.onWaveComplete(),
+  },
+  {
+    trigger: "next_wave",
+    target: "playing",
+    guard: () => true,
+    onEnter: () => {},
+  },
+  {
+    trigger: "player_died",
+    target: "dying",
+    guard: () => true,
+    onEnter: (ctx) => ctx.onPlayerDeath(),
+  },
+  {
+    trigger: "death_anim_done",
+    target: "over",
+    guard: () => true,
+    onEnter: (ctx) => ctx.onDeathAnimationEnd(),
+  },
+  {
+    trigger: "restart",
+    target: "playing",
+    guard: () => true,
+    onEnter: (ctx) => ctx.onStartRun(1),
+  },
+];
 
 // ============================== FSM Bridge ==============================
 
@@ -74,48 +131,28 @@ export class FSMBridge {
   private ctx: GameFSMContext;
 
   constructor(hooks: FSMBridgeHooks) {
-    // Создаём пустой контекст для предотвращения circular dependency
+    // Create context with all hooks directly — no "mysterious sender" pattern
     this.ctx = {
-      onPlayerDeath: () => {},
-      onDeathAnimationEnd: () => {},
-      onGameOver: () => {},
-      onReturnToMenu: () => {},
-      onStartRun: () => {},
-      onWaveStart: () => {},
-      countdownDone: () => {},
-      onPause: () => {},
-      onWaveComplete: () => {},
-      onWaveAdvanced: () => {},
+      onPlayerDeath: hooks.onPlayerDeath,
+      onDeathAnimationEnd: hooks.onDeathAnimationEnd,
+      onGameOver: hooks.onGameOver,
+      onReturnToMenu: hooks.onReturnToMenu,
+      onStartRun: hooks.onStartRun,
+      onWaveStart: hooks.onWaveStart,
+      countdownDone: hooks.countdownDone,
+      onPause: hooks.onPause,
+      onWaveComplete: hooks.onWaveComplete,
+      onWaveAdvanced: hooks.onWaveAdvanced,
     };
 
-    // Создаём FSM с initial context
-    this.fsm = new GameStateMachine<GameFSMContext>("menu", 
-      [
-        { trigger: "start", target: "playing", guard: () => true, onEnter: () => {} },
-        { trigger: "to_menu", target: "menu", guard: () => true, onEnter: () => this.ctx.onReturnToMenu() },
-        { trigger: "countdown_done", target: "active", guard: () => this.fsm.is("playing"), onEnter: () => {} },
-        { trigger: "wave_cleared", target: "cleared", guard: () => true, onEnter: () => this.ctx.onWaveComplete() },
-        { trigger: "next_wave", target: "playing", guard: () => true, onEnter: () => {} },
-        { trigger: "player_died", target: "dying", guard: () => true, onEnter: () => this.ctx.onPlayerDeath() },
-        { trigger: "death_anim_done", target: "over", guard: () => true, onEnter: () => this.ctx.onDeathAnimationEnd() },
-        { trigger: "restart", target: "playing", guard: () => true, onEnter: () => this.ctx.onStartRun(1) },
-      ] as any,
+    // Create FSM with all hooks already wired — no post-construction filling
+    this.fsm = new GameStateMachine<GameFSMContext>(
+      "menu",
+      GAME_TRANSITIONS,
       this.ctx
     );
 
-    // Заполняем контекст после создания FSM (pattern: "mysterious sender")
-    this.ctx.onPlayerDeath = hooks.onPlayerDeath;
-    this.ctx.onDeathAnimationEnd = hooks.onDeathAnimationEnd;
-    this.ctx.onGameOver = hooks.onGameOver;
-    this.ctx.onReturnToMenu = hooks.onReturnToMenu;
-    this.ctx.onStartRun = hooks.onStartRun;
-    this.ctx.onWaveStart = hooks.onWaveStart;
-    this.ctx.countdownDone = hooks.countdownDone;
-    this.ctx.onPause = hooks.onPause;
-    this.ctx.onWaveComplete = hooks.onWaveComplete;
-    this.ctx.onWaveAdvanced = hooks.onWaveAdvanced;
-
-    // Подписываемся на события FSM для волнового жизненного цикла
+    // Subscribe to FSM events for wave lifecycle coordination
     this.fsm.on("countdown_done", () => {
       // Countdown finished, game is now active
     });
@@ -124,12 +161,12 @@ export class FSMBridge {
     });
   }
 
-  /** Получить готовый GameStateMachine */
+  /** Get the ready GameStateMachine */
   get fsmMachine(): GameStateMachine<GameFSMContext> {
     return this.fsm;
   }
 
-  /** Получить контекст FSM (для прямых вызовов хуков) */
+  /** Get FSM context for direct hook calls */
   get context(): GameFSMContext {
     return this.ctx;
   }

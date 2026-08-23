@@ -651,7 +651,17 @@ export class Game {
         asteroids as Parameters<typeof this.collisionSystem.update>[8]
       );
       this.pickupSystem.update(dtScaled, this.entityPool.pickupList);
-      this.spawnSystem.update(dtScaled, this.wave, this.allocated, this.scoringSystem.killedWave, this);
+      this.spawnSystem.update(dtScaled, {
+        countdownSystem: this.countdownSystem,
+        gameState: this.gameState,
+        riftField: this.riftField,
+        hooks: {
+          onToast: (data) => this.hooks.onToast(data),
+        },
+        wave: this.wave,
+        allocated: this.allocated,
+        killedWave: this.scoringSystem.killedWave,
+      });
     }
     this.riftField.update(dtScaled);
     this.fx.update(dtScaled, dtScaled); // Обновляем частицы и тряску экрана
