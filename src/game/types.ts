@@ -78,6 +78,9 @@ export interface Bullet {
   x: number; y: number;
   vx: number; vy: number;
   life: number; dmg: number;
+  // Homing missile properties
+  homingTarget?: { x: number; y: number; r: number };
+  homingTurnRate?: number;
 }
 
 export interface EBullet {

@@ -28,6 +28,7 @@ import {
   ZONE_GUN_RANGE,
 } from "./balance";
 import { clamp } from "./math";
+import type { GameStateType } from "./core/GameState";
 import { Renderer } from "./render";
 import { MenuScene } from "./systems/MenuScene";
 import { ScoringSystem } from "./systems/ScoringSystem";
@@ -69,6 +70,7 @@ import { SpawnSystem } from "./systems/SpawnSystem";
 import { UpgradeSystem } from "./systems/UpgradeSystem";
 import { WaveOrchestrator } from "./systems/WaveOrchestrator";
 import { ZoneSystem } from "./systems/ZoneSystem";
+import { ApplyPickupSystem } from "./systems/ApplyPickupSystem";
 
 /* ============================== UI types ============================== */
 
@@ -194,6 +196,7 @@ export class Game {
   private pickupSystem: PickupSystem;
   private collisionSystem: CollisionSystem;
   private dropSystem!: PickupDropSystem;
+  private applyPickupSystem!: ApplyPickupSystem;
 
   private zoneSystem: ZoneSystem;
   private waveOrchestrator: WaveOrchestrator;
@@ -212,6 +215,7 @@ export class Game {
 
   private popupId = 0;
   private countId = 0;
+  private countdownClearTimer = 0;
 
   /* Camera - система управления камерой (smooth follow) */
   private cameraSystem: CameraSystem;
@@ -357,7 +361,7 @@ export class Game {
       this.fx,
       this.audio,
       () => this.getZoneBounds(),
-      (kind: string, x: number, y: number, vx: number, vy: number) => this.spawnPickup(kind as any, x, y, vx, vy),
+      (kind: string, x: number, y: number, vx: number, vy: number) => this.spawnPickup(kind as PickupKind, x, y, vx, vy),
       (angle: number) => this.fireAll(angle)
     );
 
@@ -366,7 +370,21 @@ export class Game {
       this.gameState,
       this.fx,
       this.audio,
-      (data: any) => this.enemyFire(data),
+      (data) => {
+        const heavy = data.cruiser || data.heavy;
+        const speed = data.boltSpeed ?? (data.cruiser ? CRUISER_BULLET_SPEED : 300);
+        const life = data.cruiser ? 1.8 : 1.35;
+        this.entityPool.spawnEnemyBullet(
+          data.x + Math.cos(data.angle) * 14,
+          data.y + Math.sin(data.angle) * 14,
+          Math.cos(data.angle) * speed,
+          Math.sin(data.angle) * speed,
+          life,
+          data.boltDmg,
+          heavy,
+          data.cruiser,
+        );
+      },
       () => this.getZoneBounds()
     );
 
@@ -421,14 +439,32 @@ export class Game {
       this.gameState,
       this.fx,
       this.audio,
-      (kind: string, x: number, y: number, parent: any) => this.spawnEnemy(kind as any, x, y, parent)
+      (kind: string, x: number, y: number, parent: any) => this.spawnEnemy(kind as EnemyKind, x, y, parent)
     );
+
+    // Initialize ApplyPickupSystem
+    this.applyPickupSystem = new ApplyPickupSystem({
+      heal: (amount: number) => this.playerSystem.heal(amount),
+      boostRate: () => this.playerSystem.boostRate(),
+      addGunBonus: (guns: number, duration: number) => this.playerSystem.addGunBonus(guns, duration),
+      spawnDrone: (droneList, playerPos, maxHp) => this.droneSystem.spawn(droneList, playerPos, maxHp),
+      setDashT: (duration: number) => this.playerSystem.setDashT(duration),
+      setMineT: (value: number) => { this.mineDropT = value; },
+      addMinerals: (count: number) => { this.minerals += count; },
+      addScore: (amount: number) => this.scoringSystem.add(amount),
+      activateMissileLauncher: (duration: number) => this.playerSystem.activateMissileLauncher(duration),
+      playPickupSound: (kind: string) => this.audio.playPickupSound(kind as PickupKind),
+    });
 
     this.pickupSystem = new PickupSystem(
       this.eventBus,
       this.gameState,
       this.audio,
-      (kind) => this.applyPickup(kind),
+      (kind) => {
+        const playerPos = this.getPlayerPosition();
+        const maxHp = this.playerSystem.getMaxHp();
+        this.applyPickupSystem.apply(kind, this.entityPool.allyDroneList, playerPos, maxHp);
+      },
       () => this.getPlayerPosition()
     );
 
@@ -447,21 +483,7 @@ export class Game {
       );
     });
 
-    // Initialize death system
-    this.deathSystem = new DeathSystem(
-      () => this.getPlayerPosition(),
-      this.fx,
-      this.audio,
-      this.entityPool,
-      this.scoringSystem,
-      (n) => this.spawnParts(n, 0, 0),
-      {
-        onGameOver: () => this.hooks.onGameOver(),
-        onStats: (score, best, isBest, wave, kills, time) => {
-          this.hooks.onStats({ score, best, isBest, wave: this.wave, kills, time });
-        },
-      },
-    );
+    // DeathSystem is initialized in startRun() to avoid duplicate creation
 
     // Initialize FSM bridge with lifecycle hooks
     this.fsmBridge = new FSMBridge({
@@ -609,15 +631,9 @@ export class Game {
       // Обработка самонаведения ракет
       this.updateHomingMissiles(dtScaled);
       this.mineSystem.update(dtScaled, this.entityPool.mineList);
-      // Orbit drones around player (droneSystem.update handles AI/firing only)
+      // Update drones (handles both orbit positioning and AI/firing)
       const pState = this.playerSystem.getState();
-      for (const d of this.entityPool.allyDroneList) {
-        d.phase += dtScaled * 0.5;
-        d.x = pState.x + Math.cos(d.phase) * 58;
-        d.y = pState.y + Math.sin(d.phase) * 58;
-        if (d.r == null) d.r = 10;
-      }
-      this.droneSystem.update(dtScaled, this.entityPool.allyDroneList, this.entityPool.enemyList);
+      this.droneSystem.update(dtScaled, this.entityPool.allyDroneList, this.entityPool.enemyList, pState);
     }
     const playerState = this.playerSystem.getState();
     // Get asteroids from asteroid field for collision
@@ -626,13 +642,13 @@ export class Game {
       this.collisionSystem.update(
         dtScaled,
         { x: playerState.x, y: playerState.y, r: 16, hp: playerState.hp, invuln: playerState.invuln, mass: playerState.mass || 1, vx: playerState.vx || 0, vy: playerState.vy || 0 },
-        this.entityPool.enemyList as any,
-        this.entityPool.bulletList as any,
-        this.entityPool.enemyBulletList as any,
-        this.entityPool.pickupList as any,
-        this.entityPool.mineList as any,
-        this.entityPool.allyDroneList as any,
-        asteroids as any
+        this.entityPool.enemyList,
+        this.entityPool.bulletList as Parameters<typeof this.collisionSystem.update>[3],
+        this.entityPool.enemyBulletList as Parameters<typeof this.collisionSystem.update>[4],
+        this.entityPool.pickupList as Parameters<typeof this.collisionSystem.update>[5],
+        this.entityPool.mineList as unknown as Parameters<typeof this.collisionSystem.update>[6],
+        this.entityPool.allyDroneList as Parameters<typeof this.collisionSystem.update>[7],
+        asteroids as Parameters<typeof this.collisionSystem.update>[8]
       );
       this.pickupSystem.update(dtScaled, this.entityPool.pickupList);
       this.spawnSystem.update(dtScaled, this.wave, this.allocated, this.scoringSystem.killedWave, this);
@@ -666,7 +682,18 @@ export class Game {
       viewW: window.innerWidth,
       viewH: window.innerHeight,
       zone: this.gameState.zone.active ? { x: this.gameState.zone.x, y: this.gameState.zone.y, r: this.gameState.zone.radius } : null,
-    } as any);
+    } as import("./asteroids").AsteroidEnv);
+
+    // Handle countdown clear timer (dt-based, pause-safe)
+    if (this.countdownClearTimer > 0) {
+      if (!isDead && !this.paused) {
+        this.countdownClearTimer -= dtScaled;
+      }
+      if (this.countdownClearTimer <= 0) {
+        this.hooks.onCountdown(null);
+        this.countdownClearTimer = 0;
+      }
+    }
 
     this.render(dt);
     this.renderDebug();
@@ -685,7 +712,7 @@ export class Game {
     this.rendererSystem.render(
       this.renderer,
       {
-        type: this.fsm.state as any,
+        type: this.fsm.state as GameStateType,
         time: this.time,
         wave: this.wave,
         score: this.scoringSystem.score,
@@ -957,7 +984,7 @@ export class Game {
   /** Обновить самонаведение ракет */
   private updateHomingMissiles(dt: number) {
     for (let i = 0; i < this.entityPool.bulletList.length; i++) {
-      const b = this.entityPool.bulletList[i] as any;
+      const b = this.entityPool.bulletList[i];
       if (!b.homingTarget) continue;
 
       const target = b.homingTarget;
@@ -1002,52 +1029,12 @@ export class Game {
     );
   }
 
-  private applyPickup(kind: PickupKind) {
-    switch (kind) {
-      // Heals
-      case "heal25":
-      case "heal50":
-      case "heal100":
-      case "hp":
-        this.playerSystem.heal(kind === "hp" ? 25 : parseInt(kind.slice(4)));
-        break;
-      // Rate boosts
-      case "rate20":
-      case "rate40":
-      case "rate60":
-      case "rate":
-        this.playerSystem.boostRate();
-        break;
-      // Other
-      case "gun":
-        this.playerSystem.addGunBonus(2, 15);
-        break;
-      case "drone":
-        this.droneSystem.spawn(this.entityPool.allyDroneList, this.getPlayerPosition(), this.playerSystem.getMaxHp());
-        break;
-      case "dash":
-        this.playerSystem.setDashT(5);
-        break;
-      case "miner":
-      case "mine":
-        this.mineDropT = 0;
-        break;
-      case "mineral":
-        this.minerals++;
-        this.scoringSystem.add(50);
-        break;
-      case "missile":
-        this.playerSystem.activateMissileLauncher(MISSILE_DURATION);
-        break;
-    }
-    // Звукособimestый вызов вынесен в AudioManager
-    this.audio.playPickupSound(kind);
-  }
 
   private showCountdown(data: { label: string; value: string }) {
     this.countId++;
     this.hooks.onCountdown({ id: this.countId, label: data.label, value: data.value });
-    setTimeout(() => this.hooks.onCountdown(null), 1400);
+    // Countdown clear is now handled by dt-based timer in update()
+    this.countdownClearTimer = 1.4;
   }
 
   private checkWaveClear() {

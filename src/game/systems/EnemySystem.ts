@@ -23,6 +23,7 @@ export interface EnemyFireData {
   boltDmg: number;
   heavy: boolean;
   cruiser: boolean;
+  boltSpeed?: number;
 }
 
 /** Пуля врага для уклонения от неё */

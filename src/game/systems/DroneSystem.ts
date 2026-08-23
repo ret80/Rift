@@ -133,8 +133,14 @@ export class DroneSystem {
   /**
     * Обновить все дроны.
     */
-  update(dt: number, drones: Array<{ x: number; y: number; angle: number; fireCd: number; phase: number; hp: number; maxHp: number; target: any; retargetT: number; flash: number }>, enemies: Array<{ x: number; y: number; dead: boolean; kind: string }>): void {
+  update(dt: number, drones: Array<{ x: number; y: number; angle: number; fireCd: number; phase: number; hp: number; maxHp: number; target: any; retargetT: number; flash: number; r?: number }>, enemies: Array<{ x: number; y: number; dead: boolean; kind: string }>, playerState: { x: number; y: number }): void {
     for (const drone of drones) {
+      // Orbit positioning around player
+      drone.phase += dt * 0.5;
+      drone.x = playerState.x + Math.cos(drone.phase) * 58;
+      drone.y = playerState.y + Math.sin(drone.phase) * 58;
+      if (drone.r == null) drone.r = 10;
+      
       // Перезарядка
       if (drone.fireCd > 0) {
         drone.fireCd -= dt;
