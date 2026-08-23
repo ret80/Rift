@@ -92,13 +92,6 @@ export class PlayerSystem {
   // Missile launcher timer
   private missileDurationT = 0;
   
-  // Для внешних систем
-  public bulletList: Array<{
-    x: number; y: number; vx: number; vy: number; life: number; dmg: number;
-    homingTarget?: { x: number; y: number; r: number };
-    homingTurnRate?: number;
-  }> = [];
-  
   constructor(
     eventBus: EventBus,
     state: GameState,
@@ -122,6 +115,13 @@ export class PlayerSystem {
     eventBus.on('player_hit', (event) => {
       const data = event.payload as { dmg: number };
       this.hit(data.dmg);
+    });
+    
+    // Subscribe to drone push events (soft avoidance)
+    eventBus.on('drone_push_player', (event) => {
+      const data = event.payload as { vx: number; vy: number };
+      this.pState.vx += data.vx;
+      this.pState.vy += data.vy;
     });
   }
   
@@ -151,7 +151,6 @@ export class PlayerSystem {
       extraGunsT: 0,
     };
     this.fireCd = 0;
-    this.bulletList = [];
     this.pState.extraGuns = 0;
     this.pState.extraGunsT = 0;
     this.missileDurationT = 0;
@@ -430,20 +429,7 @@ export class PlayerSystem {
     this.audio.shoot();
   }
   
-  private fireBullet(offset: number, spread: number, targetAngle: number): void {
-    const a = targetAngle + spread;
-    const nx = this.pState.x + Math.cos(targetAngle) * 14 - Math.sin(targetAngle) * offset;
-    const ny = this.pState.y + Math.sin(targetAngle) * 14 + Math.cos(targetAngle) * offset;
-    const sp = 560;
-    this.bulletList.push({
-      x: nx,
-      y: ny,
-      vx: Math.cos(a) * sp + this.pState.vx * 0.25,
-      vy: Math.sin(a) * sp + this.pState.vy * 0.25,
-      life: 1.5,
-      dmg: 10,
-    });
-  }
+
   
   /* ======================== Missile Launcher ======================== */
 
@@ -456,7 +442,7 @@ export class PlayerSystem {
   }
 
   /** Обновить ракетную установку и запустить ракету если готова */
-  launchMissiles(dt: number, enemies: Array<{ x: number; y: number; dead: boolean; r: number }>): void {
+  launchMissiles(dt: number, enemies: Array<{ x: number; y: number; dead: boolean; r: number }>, bullets: Array<any>): void {
     if (!this.pState.missileActive) return;
 
     // Уменьшаем таймер активации
@@ -489,7 +475,7 @@ export class PlayerSystem {
     if (!nearest) return;
 
     // Запускаем ракету
-    this.fireMissile(nearest);
+    this.fireMissile(nearest, bullets);
 
     // Переключаем порт и ставим cooldown
     this.pState.missilePort = 1 - this.pState.missilePort;
@@ -497,7 +483,7 @@ export class PlayerSystem {
   }
 
   /** Создать самонаводящуюся ракету */
-  fireMissile(target: { x: number; y: number; r: number }): void {
+  fireMissile(target: { x: number; y: number; r: number }, bullets: Array<any>): void {
     const px = this.pState.x;
     const py = this.pState.y;
     const port = this.pState.missilePort;
@@ -527,7 +513,7 @@ export class PlayerSystem {
     const playerVx = this.pState.vx * 0.25;
     const playerVy = this.pState.vy * 0.25;
 
-    this.bulletList.push({
+    bullets.push({
       x: mx,
       y: my,
       vx: baseVx + playerVx,

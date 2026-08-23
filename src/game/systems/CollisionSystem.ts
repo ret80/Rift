@@ -360,6 +360,27 @@ export class CollisionSystem {
       }
     }
 
+    // Мягкое избегание столкновения игрока с дронами-компаньонами
+    if (playerState.invuln <= 0 && playerState.hp > 0) {
+      for (const d of drones) {
+        const dx = d.x - playerState.x;
+        const dy = d.y - playerState.y;
+        const dist = Math.hypot(dx, dy);
+        const minDist = 10 + playerState.r; // drone r=10 + player r
+        
+        if (dist < minDist && dist > 0.01) {
+          const push = (1 - dist / minDist) * 0.5;
+          const nx = dx / dist;
+          const ny = dy / dist;
+          // Передаём импульс через event, чтобы PlayerSystem обновил velocity
+          this.eventBus.publish('drone_push_player', {
+            vx: nx * push,
+            vy: ny * push,
+          });
+        }
+      }
+    }
+
     // Проверка подбора бонусов игроком
     for (let i = pickups.length - 1; i >= 0; i--) {
       const p = pickups[i] as { x: number; y: number; r: number; kind?: string };

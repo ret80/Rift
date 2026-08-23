@@ -26,6 +26,7 @@ export type EventType =
   | 'physics_collision'
   | 'drone_fired'
   | 'drone_hit'
+  | 'drone_push_player'
   | 'player_fired'
   // Старые события (для совместимости)
   | 'player_hit'

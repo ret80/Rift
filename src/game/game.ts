@@ -591,7 +591,7 @@ export class Game {
     this.playerSystem.update(dtScaled, this.fsm.not("menu", "over", "dying"));
     // Автоматический запуск ракет с левого и правого борта
     if (this.fsm.is("active", "dying")) {
-      this.playerSystem.launchMissiles(dtScaled, this.entityPool.enemyList);
+      this.playerSystem.launchMissiles(dtScaled, this.entityPool.enemyList, this.entityPool.bulletList);
     }
     
     // Handle dying → over transition
