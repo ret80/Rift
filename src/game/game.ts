@@ -576,8 +576,10 @@ export class Game {
     });
 
     this.eventBus.subscribe("game_over", (event: { type: string; payload: unknown; timestamp: number }) => {
+      console.log('[GAME] game_over received, firing player_died');
       // FSM handles the transition — no double-entry possible
       this.fsm.fire("player_died");
+      console.log('[GAME] player_died fired, current state:', this.fsm.current);
     });
 
     // === Wave clear check (Game-level coordination) ===

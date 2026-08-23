@@ -131,6 +131,7 @@ export class FSMBridge {
   private ctx: GameFSMContext;
 
   constructor(hooks: FSMBridgeHooks) {
+    console.log('[FSM] Creating bridge, hooks.onPlayerDeath:', typeof hooks.onPlayerDeath);
     // Create context with all hooks directly — no "mysterious sender" pattern
     this.ctx = {
       onPlayerDeath: hooks.onPlayerDeath,
