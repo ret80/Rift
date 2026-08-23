@@ -6,6 +6,9 @@
 import type { EventBus } from '../core/EventBus';
 
 const BEST_KEY = "voxbest";
+const COMBO_TIMEOUT = 3;
+const KILLS_PER_MULTIPLIER = 5;
+const MAX_MULTIPLIER = 10;
 
 export interface ScoringState {
   score: number;
@@ -46,7 +49,7 @@ export class ScoringSystem {
 
   /** Subscribe to enemy_killed events and auto-update score/kills/combo */
   subscribeToEvents(eventBus: EventBus): void {
-    eventBus.on('enemy_killed', (event) => {
+    eventBus.subscribe('enemy_killed', (event) => {
       const scoreValue = event.payload.scoreValue ?? event.payload.score ?? 0;
       this._killedWave = this.onKill(scoreValue, this._killedWave);
     });
@@ -68,7 +71,7 @@ export class ScoringSystem {
     this._score += scoreValue;
     this._killed++;
     this._combo++;
-    this._comboT = 3;
+    this._comboT = COMBO_TIMEOUT;
     this._killedWave = killedWave + 1;
     return this._killedWave;
   }
@@ -99,7 +102,7 @@ export class ScoringSystem {
 
   /** Combo multiplier (1..10) */
   get comboMult(): number {
-    return Math.min(10, 1 + Math.floor(this._combo / 5));
+    return Math.min(MAX_MULTIPLIER, 1 + Math.floor(this._combo / KILLS_PER_MULTIPLIER));
   }
 
   // ── Best / persistence ────────────────────────────────────────

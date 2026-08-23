@@ -5,6 +5,7 @@
  */
 
 import type { ZoneData } from './ZoneTypes';
+import { ZONE_NOT_COLLAPSING } from './ZoneTypes';
 
 // Alias for backward compatibility
 export type ZoneState = ZoneData;
@@ -109,7 +110,7 @@ export class GameState {
     this.paused = false;
     this.zone.active = false;
     this.zone.alpha = 0;
-    this.zone.collapseT = -1;
+    this.zone.collapseT = ZONE_NOT_COLLAPSING;
   }
 
   // ===== Aliases for compatibility with game.ts =====

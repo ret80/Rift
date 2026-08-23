@@ -99,7 +99,7 @@ export class AsteroidField {
   constructor(private h: AsteroidHooks, eventBus?: EventBus) {
     if (eventBus) {
       // Subscribe to asteroid hit events
-      eventBus.on('asteroid_hit', (event) => {
+      eventBus.subscribe('asteroid_hit', (event) => {
         this.damageAt(event.payload.index, event.payload.dmg, event.payload.x ?? 0, event.payload.y ?? 0);
       });
     }

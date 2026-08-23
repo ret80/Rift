@@ -2,7 +2,7 @@
    Game code talks to it through a tiny facade (burst / ring / addShake);
    all state and simulation lives here. */
 
-import type { Renderer, RGBA } from "./render";
+import type { Renderer } from "./render";
 import { TAU, rand, clamp, rgba } from "./math";
 import type { Ring, Particle } from "./types";
 export type { Ring, Particle } from "./types";
@@ -19,12 +19,7 @@ export class Fx {
     this.mag = Math.min(26, this.mag + v);
   }
 
-  /** Алиас для addShake */
-  shake(strength: number, duration: number) {
-    this.addShake(strength);
-  }
-
-  /** Сброс тряски */
+  /** Reset shake */
   reset() {
     this.mag = 0;
     this.shakeX = 0;

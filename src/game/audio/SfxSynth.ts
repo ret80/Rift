@@ -1,6 +1,16 @@
 /**
- * SFX synthesis engine.
- * Handles all gameplay sound effects via WebAudio oscillators and noise buffers.
+ * SFX synthesis engine — procedural sound effects via WebAudio.
+ *
+ * Uses oscillators (sine, square, sawtooth, triangle) and noise buffers
+ * to generate sounds at runtime, avoiding the need for audio file assets.
+ *
+ * Architecture:
+ * - sfxBus: bus for gameplay SFX (shoots, explosions, pickups)
+ * - musicBus: bus for ambient/music SFX
+ * - delaySend: shared delay effect for reverb-like depth
+ *
+ * All sounds are envelope-controlled with exponential ramps for smooth
+ * attack/release and frequency sweeps for dynamic character.
  */
 export class SfxSynth {
   constructor(

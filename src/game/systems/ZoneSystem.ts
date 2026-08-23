@@ -87,7 +87,8 @@ export class ZoneSystem {
     const dx = playerRef.x - zone.x;
     const dy = playerRef.y - zone.y;
     const dist = Math.hypot(dx, dy);
-    const limit = zone.radius; // overdrive = 0 for player
+    // Player clamp uses full zone radius (no overdrive extension)
+    const limit = zone.radius;
 
     if (dist > limit) {
       const angle = Math.atan2(dy, dx);
@@ -135,31 +136,6 @@ export class ZoneSystem {
           enemy.vx -= 2 * dot * nx;
           enemy.vy -= 2 * dot * ny;
         }
-      }
-    }
-  }
-
-  /**
-   * Clamp any object to zone boundary.
-   * Utility method for generic position clamping.
-   */
-  clampToZone(obj: { x: number; y: number; vx: number; vy: number }, zone: ZoneData, overdrive: number = 0): void {
-    const dx = obj.x - zone.x;
-    const dy = obj.y - zone.y;
-    const dist = Math.hypot(dx, dy);
-    const limit = zone.radius - overdrive;
-
-    if (dist > limit) {
-      const angle = Math.atan2(dy, dx);
-      obj.x = zone.x + Math.cos(angle) * limit;
-      obj.y = zone.y + Math.sin(angle) * limit;
-
-      const nx = Math.cos(angle);
-      const ny = Math.sin(angle);
-      const dot = obj.vx * nx + obj.vy * ny;
-      if (dot > 0) {
-        obj.vx -= 2 * dot * nx;
-        obj.vy -= 2 * dot * ny;
       }
     }
   }

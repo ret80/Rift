@@ -300,7 +300,7 @@ export default function App() {
             if (window.confirm(t("settings.resetConfirm"))) {
               resetUpgrades(); // clear localStorage
               if (gameRef.current) {
-                gameRef.current.forceReloadUpgrades();
+                gameRef.current.refreshUpgrades();
               }
               setBest(0);
             }

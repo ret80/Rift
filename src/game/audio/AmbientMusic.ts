@@ -1,3 +1,21 @@
+/**
+ * Ambient music system — procedural generative audio.
+ *
+ * Architecture:
+ * - SCENES: predefined ambient layers (bass, filter, LFO, gain)
+ * - BASS_SEMI: semitone offsets for bass line sequencing
+ * - ARP_SCALE: pentatonic scale for arpeggiated melodies
+ *
+ * Each scene defines a continuous pad sound using:
+ * - freqs: oscillator frequencies for rich chord texture
+ * - filter: low-pass filter cutoff for warmth control
+ * - lfoRate/lfoAmt: LFO modulation for movement
+ * - gain: master volume for the layer
+ * - scale: frequencies for arpeggiated melody notes
+ *
+ * Music evolves by crossfading between scenes and sequencing
+ * bass notes from the semitone table.
+ */
 export interface AmbientScene {
   freqs: [number, number, number];
   filter: number;

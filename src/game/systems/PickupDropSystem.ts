@@ -6,6 +6,16 @@
 import { dropChanceFor, type PickupKind } from "../balance";
 import type { EventBus } from "../core/EventBus";
 
+/* Pseudo-random multiplier constants (seed-based drop determination) */
+const PSEUDO_RNG_A = 7.31;
+const PSEUDO_RNG_B = 13.37;
+
+/* Drop chances per enemy type (probability threshold for bonus drop) */
+const DRONE_DROP_CHANCE = 0.035;
+const HUNTER_DROP_CHANCE = 0.125;
+const FIGHTER_DROP_CHANCE = 0.05;
+const CRUISER_DROP_CHANCE = 0.125;
+
 interface Enemy {
   x: number;
   y: number;
@@ -35,32 +45,27 @@ export class PickupDropSystem {
   /** Determine what kind of bonus drops from a destroyed enemy */
   generateDrop(enemyKind: string, seed: number): PickupKind | null {
     // Random roll using seed + deterministic offset
-    const roll = (seed * 7.31 + 13.37) % 1;
+    const roll = (seed * PSEUDO_RNG_A + PSEUDO_RNG_B) % 1;
     const chance = dropChanceFor(enemyKind as never);
     if (roll >= chance) return null;
 
     // Pick bonus type based on enemy kind
     switch (enemyKind) {
       case "drone":
-        // drones drop small heals and rate boost
-        return roll < 0.035 ? "rate20" : "heal25";
+        return roll < DRONE_DROP_CHANCE ? "rate20" : "heal25";
       case "hunter":
-        // hunters drop rate and heal
-        return roll < 0.125 ? "rate20" : "heal25";
+        return roll < HUNTER_DROP_CHANCE ? "rate20" : "heal25";
       case "fighter":
-        // fighters drop gun and heal
-        return roll < 0.05 ? "gun" : "heal50";
+        return roll < FIGHTER_DROP_CHANCE ? "gun" : "heal50";
       case "cruiser":
-        // cruisers drop drone and dash
-        return roll < 0.125 ? "drone" : "dash";
+        return roll < CRUISER_DROP_CHANCE ? "drone" : "dash";
       case "carrier":
-        // carriers always drop something
         const types: PickupKind[] = ["drone", "gun", "dash", "miner"];
         return types[Math.floor(roll * types.length)];
       default:
         return "heal25";
     }
-  }
+   }
 
   /**
    * Handle enemy death — spawn parts and optionally a pickup.

@@ -62,14 +62,14 @@ export class PlayerSystem {
 
     this.pState = createPlayerState();
 
-    // Subscribe to player hit events
-    eventBus.on('player_hit', (event) => {
+    // Subscribe to player damage events
+    eventBus.subscribe('player_damaged', (event) => {
       const data = event.payload as { dmg: number };
       this.hit(data.dmg);
     });
 
     // Subscribe to drone push events (soft avoidance)
-    eventBus.on('drone_push_player', (event) => {
+    eventBus.subscribe('drone_push_player', (event) => {
       const data = event.payload as { vx: number; vy: number };
       this.pState.vx += data.vx;
       this.pState.vy += data.vy;

@@ -137,10 +137,8 @@ export class CollisionSystem {
         const minDist = playerState.r + e.r;
 
         if (dist < minDist) {
-          this.eventBus.publish('player_hit', {
+          this.eventBus.publish('player_damaged', {
             dmg: e.contact,
-            x: e.x,
-            y: e.y,
           });
           e.dead = true;
           this.onEnemyKilledCb?.(e);
@@ -165,10 +163,8 @@ export class CollisionSystem {
         const minDist = playerState.r + a.r;
 
         if (dist < minDist) {
-          this.eventBus.publish('player_hit', {
+          this.eventBus.publish('player_damaged', {
             dmg: PLAYER_ASTEROID_DAMAGE,
-            x: a.x,
-            y: a.y,
           });
 
           const playerMass = playerState.mass || massForRadius(playerState.r);

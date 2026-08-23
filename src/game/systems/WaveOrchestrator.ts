@@ -25,6 +25,7 @@ import {
 } from "../balance";
 import { clamp, easeOutCubic } from "../math";
 import type { ZoneData } from "../core/ZoneTypes";
+import { ZONE_NOT_COLLAPSING } from "../core/ZoneTypes";
 import { GameStateMachine } from "../core/StateMachine";
 
 export interface WaveOrchestratorHooks {
@@ -276,7 +277,7 @@ export class WaveOrchestrator {
       radius: 0,
       targetRadius: 0,
       alpha: 0,
-      collapseT: -1,
+      collapseT: ZONE_NOT_COLLAPSING,
     };
     this.wave = 1;
     this.waveTotal = 0;

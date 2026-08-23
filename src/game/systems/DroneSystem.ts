@@ -53,7 +53,7 @@ export class DroneSystem {
     this.spawnEnemy = spawnEnemy;
 
     // Subscribe to drone hit events
-    eventBus.on('drone_hit', (event) => {
+    eventBus.subscribe('drone_hit', (event) => {
       const data = event.payload as { x: number; y: number; dead: boolean };
       if (data.dead) {
         this.removeDroneAt(data.x, data.y);

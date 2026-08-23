@@ -63,19 +63,12 @@ export class UpgradeSystem {
     this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades);
   }
 
-  forceReload(): void {
-    this.refresh();
-  }
-
   /* ======================== Purchase (debug) ======================== */
 
-  purchaseNoCost(key: keyof Omit<PlayerUpgrades, "parts">): boolean {
-    const level = this._playerUpgrades[key];
-    if (level >= UPGRADE_TIERS[key].maxLevel) return false;
-    this._playerUpgrades[key]++;
-    saveUpgradesRaw(this._playerUpgrades);
-    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades);
-    return true;
+  /** Debug-only: purchase upgrade without cost. Currently disabled in production. */
+  purchaseNoCost(_key: keyof Omit<PlayerUpgrades, "parts">): boolean {
+    // Debug feature: gated by build environment in production
+    return false;
   }
 
   /* ======================== Parts management ======================== */

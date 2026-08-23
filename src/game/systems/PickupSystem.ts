@@ -49,12 +49,12 @@ export class PickupSystem {
     this.getPlayerPosition = getPlayerPosition;
 
     // Subscribe to pickup spawning/collection events
-    eventBus.on('spawn_pickup', (event) => {
+    eventBus.subscribe('spawn_pickup', (event) => {
       const data = event.payload as { kind: string; x: number; y: number; vx: number; vy: number };
       this.spawn(data.kind as PickupKind, data.x, data.y, data.vx, data.vy);
     });
 
-    eventBus.on('pickup_collected', (event) => {
+    eventBus.subscribe('pickup_collected', (event) => {
       const data = event.payload as { kind: string };
       this.applyPickup(data.kind as PickupKind);
     });

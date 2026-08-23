@@ -64,22 +64,6 @@ export interface DronePushPlayerPayload {
   vy: number;
 }
 
-export interface PlayerHitPayload {
-  dmg: number;
-  x: number;
-  y: number;
-}
-
-export interface FireBulletPayload {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  dmg: number;
-  isEnemy: boolean;
-}
-
 export interface SpawnPickupPayload {
   kind: string;
   x: number;
@@ -114,18 +98,7 @@ export type GameEventMap = {
   drone_hit: DroneHitPayload;
   drone_push_player: DronePushPlayerPayload;
   player_fired: { x: number; y: number; angle: number };
-  // Legacy
-  player_hit: PlayerHitPayload;
-  wave_start: { wave: number };
-  spawn_enemy: { kind: string; x: number; y: number };
-  fire_bullet: FireBulletPayload;
   spawn_pickup: SpawnPickupPayload;
-  popup: { text: string; x: number; y: number; color: string };
-  camera_shake: { strength: number; duration: number };
-  zone_update: { radius: number; active: boolean };
-  carrierSpawnDrone: { x: number; y: number };
-  enemyFire: { x: number; y: number; angle: number };
-  enemyBulletSpawn: { x: number; y: number; vx: number; vy: number; life: number; dmg: number };
 };
 
 export type EventType = keyof GameEventMap;
@@ -179,23 +152,5 @@ export class EventBus {
   /** Clear all listeners (for round reset). */
   clear(): void {
     this.listeners.clear();
-  }
-
-  /** Check if any listeners are registered for an event. */
-  hasListeners(eventType: EventType): boolean {
-    const set = this.listeners.get(eventType);
-    return set !== undefined && set.size > 0;
-  }
-
-  // ===== Aliases for backward compatibility =====
-
-  /** Alias for subscribe. */
-  on<T extends EventType>(eventType: T, callback: EventCallback<T>): () => void {
-    return this.subscribe(eventType, callback);
-  }
-
-  /** Alias for publish. */
-  emit<T extends EventType>(eventType: T, payload: GameEventMap[T]): void {
-    this.publish(eventType, payload);
   }
 }

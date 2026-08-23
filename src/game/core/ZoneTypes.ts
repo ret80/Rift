@@ -1,7 +1,10 @@
 /**
- * ZoneTypes - унифицированные типы для управления зоной.
- * Единственный источник определения ZoneData.
+ * ZoneTypes - unified types for zone management.
+ * Single source of truth for ZoneData definition.
  */
+
+/** Sentinel value: zone is not collapsing */
+export const ZONE_NOT_COLLAPSING = -1;
 
 export interface ZoneData {
   active: boolean;
@@ -10,5 +13,6 @@ export interface ZoneData {
   radius: number;
   targetRadius: number;
   alpha: number;
-  collapseT: number; // -1 = не схлопывается, >=0 = время схлопывания
+  /** Time until zone collapse; -1 means not collapsing */
+  collapseT: number;
 }

@@ -32,10 +32,7 @@ export class EntityPoolSystem {
     this._mineList.length = 0;
   }
 
-  /* Spawn enemy */
-  spawnEnemy(kind: EnemyKind, x: number, y: number, parent: Enemy | null, spawnFn: (kind: EnemyKind, x: number, y: number, parent: Enemy | null) => void): void {
-    spawnFn(kind, x, y, parent);
-  }
+
 
   /* Spawn pickup */
   spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number): void {

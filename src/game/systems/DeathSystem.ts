@@ -38,7 +38,7 @@ export class DeathSystem {
   /** Установить состояние смерти (запуск анимации) */
   startDeath(): void {
     this.deathTimer = DEATH_ANIMATION_DURATION;
-    // Save persistent upgrades before death animation
+    // Save persistent upgrades before death animation (no-op call triggers persistence)
     this.addParts(0);
     // Clear all enemy bullets to prevent "orphan bullets" on restart
     this.entityPool.enemyBulletList.length = 0;

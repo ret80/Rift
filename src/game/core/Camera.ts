@@ -1,16 +1,25 @@
 /**
- * Camera - управляет камерой игрового мира.
- * 
- * Координаты мира:
- * - (0, 0) = центр камеры
- * - width/2, height/2 = правый нижний угол в мировых координатах
- * - -width/2, -height/2 = левый верхний угол в мировых координатах
- * 
- * Методы:
- * - screenToWorld(x, y) → {x, y}: экранные CSS пиксели → мировые координаты
- * - worldToScreen(x, y) → {x, y}: мировые координаты → экранные CSS пиксели
- * - applyTo(renderer): применяет камеру к Renderer
- * - getWorldBounds(): возвращает границы мира для рендеринга
+ * Camera - manages the game world coordinate system and transformations.
+ *
+ * Coordinate system:
+ *
+ *   World space (centered):
+ *   ┌───────────────────┐
+ *   │   -width/2,-height/2  (top-left corner in world coords)
+ *   │
+ *   │  (0,0) = camera center
+ *   │
+ *   │                        +width/2,+height/2 (bottom-right)
+ *   └───────────────────┘
+ *
+ *   Screen space (CSS pixels):
+ *   (0,0) = top-left of viewport
+ *   (width, height) = bottom-right
+ *
+ * Transforms:
+ * - screenToWorld(x, y) → {x, y}: CSS pixels → world coordinates
+ * - worldToScreen(x, y) → {x, y}: world coordinates → CSS pixels
+ * - applyTo(renderer): applies camera transform to Renderer
  */
 
 import type { Renderer } from "../render";

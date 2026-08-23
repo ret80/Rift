@@ -284,7 +284,7 @@ export class Game {
           this.playerSystem.hit(amount);
         },
         shakeScreen: (strength, duration) => {
-          this.fx.shake(strength, duration);
+          this.fx.addShake(strength);
         },
         onWaveAdvanced: (wave) => {
           // Wave orchestrator triggers this when clear transition is done
@@ -552,7 +552,7 @@ export class Game {
   private setupEventListeners() {
     // === FSM coordination events (remain in Game) ===
 
-    this.eventBus.on("wave_started", (event) => {
+    this.eventBus.subscribe("wave_started", (event) => {
       // Запускаем волну при начале обратного отсчёта
       if (this.fsm.is("playing")) {
         const waveData = event.payload as { wave: number };
@@ -568,20 +568,20 @@ export class Game {
       }
     });
 
-    this.eventBus.on("wave_cleared", (event) => {
+    this.eventBus.subscribe("wave_cleared", (_event) => {
       // Wave completed - FSM handles transition to cleared state
       if (this.fsm.is("active")) {
         this.fsm.fire("wave_cleared");
       }
     });
 
-    this.eventBus.on("game_over", (event) => {
+    this.eventBus.subscribe("game_over", (event: { type: string; payload: unknown; timestamp: number }) => {
       // FSM handles the transition — no double-entry possible
       this.fsm.fire("player_died");
     });
 
     // === Wave clear check (Game-level coordination) ===
-    this.eventBus.on("enemy_killed", () => {
+    this.eventBus.subscribe("enemy_killed", () => {
       this.checkWaveClear();
     });
   }
@@ -809,20 +809,9 @@ export class Game {
     return this.upgradeSystem.playerUpgrades;
   }
 
-  /** Re-apply upgrades from localStorage (called after purchasing in menu) */
+  /** Re-apply upgrades from localStorage (called after purchasing or reset) */
   refreshUpgrades(): void {
     this.upgradeSystem.refresh();
-    // Re-apply to active systems
-    this.upgradeSystem.applyToSystems(
-      (v) => this.playerSystem.setMaxHp(v),
-      (v) => this.playerSystem.setGuns(v),
-      (v) => this.bulletSystem.setBulletDmg(v)
-    );
-  }
-
-  /** Force reload from localStorage (called after reset in settings) */
-  forceReloadUpgrades(): void {
-    this.upgradeSystem.forceReload();
     // Re-apply to active systems
     this.upgradeSystem.applyToSystems(
       (v) => this.playerSystem.setMaxHp(v),

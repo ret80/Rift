@@ -37,6 +37,10 @@ export function easeOutCubic(x: number) {
   return 1 - Math.pow(1 - x, 3);
 }
 
+/**
+ * Parse hex color (#RRGGBB) to RGBA array.
+ * Note: no caching — call sites should memoize if called per-frame.
+ */
 export function rgba(hex: string, a: number): RGBA {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
   const g = parseInt(hex.slice(3, 5), 16) / 255;

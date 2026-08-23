@@ -161,23 +161,11 @@ export class BulletSystem {
   }
 
   /**
-   * Check bullet collision with target.
-   * Callback receives only the bullet — index is caller's responsibility.
-   */
-  checkCollision(
-    targetX: number,
-    targetY: number,
-    targetR: number,
-    callback: (
-      bullet: { x: number; y: number; vx: number; vy: number; life: number; dmg: number }
-    ) => void
-  ): void {
-    // This method exists for backwards compatibility;
-    // actual collision detection is done by CollisionSystem.
-    void targetX;
-    void targetY;
-    void targetR;
-    void callback;
+    * No-op — kept for backwards compatibility.
+    * Actual collision detection is done by CollisionSystem.
+    */
+  checkCollision(): void {
+    // no-op
   }
 
   /**
