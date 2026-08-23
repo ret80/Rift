@@ -90,7 +90,7 @@ const GAME_TRANSITIONS: GameTransition[] = [
     trigger: "countdown_done",
     target: "active",
     guard: () => true,
-    onEnter: () => {}, // noop — countdown notification handled by context callback
+    onEnter: (ctx) => ctx.countdownDone?.(),
   },
   {
     trigger: "wave_cleared",
@@ -129,9 +129,9 @@ const GAME_TRANSITIONS: GameTransition[] = [
 export class FSMBridge {
   private fsm: GameStateMachine<GameFSMContext>;
   private ctx: GameFSMContext;
+  readonly machineId: number;
 
   constructor(hooks: FSMBridgeHooks) {
-    console.log('[FSM] Creating bridge, hooks.onPlayerDeath:', typeof hooks.onPlayerDeath);
     // Create context with all hooks directly — no "mysterious sender" pattern
     this.ctx = {
       onPlayerDeath: hooks.onPlayerDeath,
@@ -152,6 +152,7 @@ export class FSMBridge {
       GAME_TRANSITIONS,
       this.ctx
     );
+    this.machineId = this.fsm.id;
 
     // Subscribe to FSM events for wave lifecycle coordination
     this.fsm.on("countdown_done", () => {

@@ -147,6 +147,7 @@ export class Game {
   private inputSystem: InputSystem;
 
   private raf = 0;
+  private _destroyed = false;
   private lastT = 0;
   private time = 0;
   private timeScale = 1;
@@ -542,6 +543,7 @@ export class Game {
   }
 
   destroy() {
+    this._destroyed = true;
     cancelAnimationFrame(this.raf);
     window.removeEventListener("resize", this.onResize);
     this.inputSystem.destroy();
@@ -576,10 +578,7 @@ export class Game {
     });
 
     this.eventBus.subscribe("game_over", (event: { type: string; payload: unknown; timestamp: number }) => {
-      console.log('[GAME] game_over received, fsmBridge:', !!this.fsmBridge, 'state:', this.fsm.state);
-      // FSM handles the transition — no double-entry possible
       this.fsm.fire("player_died");
-      console.log('[GAME] player_died fired, state:', this.fsm.state);
     });
 
     // === Wave clear check (Game-level coordination) ===
@@ -589,6 +588,7 @@ export class Game {
   }
 
   private step(dt: number) {
+    if (this._destroyed) return;
     const dtScaled = dt * this.timeScale;
     this.time += dtScaled;
 
@@ -892,8 +892,10 @@ export class Game {
   }
 
   startRun() {
-    // FSM will fire "start" which transitions to "playing" state
-    this.fsm.fire("start");
+    // Transition FSM from "menu" or "over" to "playing" state
+    if (this.fsm.is("menu", "over")) {
+      this.fsm.fire("start");
+    }
     
     this.time = 0;
     this.scoringSystem.reset();

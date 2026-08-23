@@ -236,8 +236,6 @@ export class EnemySystem {
         );
       }
     }
-    console.log(`[SPAWN] Total enemies after spawn: ${enemyList.length}`);
-    
     // shooting logic
     this.updateFiring(enemyList, dt);
     

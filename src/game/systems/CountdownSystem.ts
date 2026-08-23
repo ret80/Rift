@@ -38,6 +38,7 @@ export class CountdownSystem {
   private countId = 0;
   private currentWave = 1;
   private started = false;
+  private doneCalled = false;
 
   constructor(config: { hooks: CountdownHooks; eventBus: EventBus }) {
     this.hooks = config.hooks;
@@ -52,6 +53,7 @@ export class CountdownSystem {
     this.cdT = 5;
     this.cdLast = -1;
     this.started = false;
+    this.doneCalled = false;
   }
 
   /**
@@ -85,7 +87,8 @@ export class CountdownSystem {
     }
 
     // Когда countdown заканчивается — скрываем и вызываем callback
-    if (this.cdT <= 0) {
+    if (this.cdT <= 0 && !this.doneCalled) {
+      this.doneCalled = true;
       this.hooks.onCountdown(null);
       if (this.hooks.countdownDone) {
         this.hooks.countdownDone();
@@ -116,6 +119,7 @@ export class CountdownSystem {
     this.cdT = 0;
     this.cdLast = -1;
     this.started = false;
+    this.doneCalled = false;
     this.hooks.onCountdown(null);
     this.hooks.onBanner(null);
     this.hooks.onToast(null);

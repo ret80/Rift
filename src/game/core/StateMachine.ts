@@ -20,15 +20,20 @@ export interface Transition<TContext = unknown> {
 }
 
 export class GameStateMachine<TContext = unknown> {
+  readonly id: number;
+  private static _nextId = 1;
   private currentState: StateId | null = null;
-  private listeners: Map<string, Set<(ctx: TContext) => void>> = new Map();
-  private enterListeners: Map<string, Set<(ctx: TContext) => void>> = new Map();
+  private listeners: Map<string, Set<(ctx: TContext) => void>>;
+  private enterListeners: Map<string, Set<(ctx: TContext) => void>>;
 
   constructor(
     private initialState: StateId,
     private transitions: Transition<TContext>[],
     private initialContext?: TContext
   ) {
+    this.listeners = new Map();
+    this.enterListeners = new Map();
+    this.id = GameStateMachine._nextId++;
     this.currentState = initialState;
     // Run onEnter for initial state if needed
     const initTransition = this.transitions.find(t => t.target === initialState);
@@ -60,7 +65,6 @@ export class GameStateMachine<TContext = unknown> {
 
   /** Выполнить переход */
   fire(trigger: string, ctx?: TContext): boolean {
-    console.log('[FSM] fire:', trigger, 'current:', this.currentState, 'ctx:', !!ctx, 'this:', !!this);
     const context = ctx ?? this.initialContext;
     if (!context) {
       console.log('[FSM] fire blocked: no context');
@@ -79,9 +83,8 @@ export class GameStateMachine<TContext = unknown> {
     }
 
     for (const t of allowed) {
-      // Переход в то же состояние — noop (защита от двойного входа)
+      // Переход в то же состояние — noop (без вызова onEnter чтобы избежать циклов)
       if (t.target === this.currentState) {
-        if (t.onEnter) t.onEnter(context);
         return true;
       }
       this.currentState = t.target;

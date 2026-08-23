@@ -144,6 +144,12 @@ export default function App() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // Destroy any existing game instance (e.g. from HMR re-run)
+    if (gameRef.current) {
+      gameRef.current.destroy();
+      gameRef.current = null;
+    }
+
     const mqCompact = window.matchMedia("(max-width: 639px)");
 
     let bannerId = 0;

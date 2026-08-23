@@ -178,10 +178,8 @@ export class PlayerSystem {
   hit(dmg: number): void {
     if (this.pState.invuln > 0) return;
     this.pState.hp -= dmg;
-    console.log('[PLAYER] hit: dmg=' + dmg + ' hp=' + (this.pState.hp + dmg) + ' -> ' + this.pState.hp);
     if (this.pState.hp <= 0) {
       this.pState.hp = 0;
-      console.log('[PLAYER] GAME OVER triggered');
       this.eventBus.publish('game_over', {});
     }
   }
