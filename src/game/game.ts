@@ -579,7 +579,7 @@ export class Game {
       console.log('[GAME] game_over received, firing player_died');
       // FSM handles the transition — no double-entry possible
       this.fsm.fire("player_died");
-      console.log('[GAME] player_died fired, current state:', this.fsm.current);
+      console.log('[GAME] player_died fired, current state:', this.fsm.state);
     });
 
     // === Wave clear check (Game-level coordination) ===
