@@ -59,6 +59,8 @@ const ru: Dict = {
   "debug.note": "инструменты отладки · изменения сохраняются",
   "debug.fps": "СЧЁТЧИК FPS",
   "debug.fpsDesc": "частота кадров поверх игрового экрана",
+  "debug.details": "+1000 ДЕТАЛИ",
+  "debug.detailsDesc": "показать доп. информацию отладки",
   "debug.god": "БЕССМЕРТИЕ",
   "debug.godDesc": "игрок не получает урона",
   "debug.godOn": "БЕССМЕРТИЕ ВКЛЮЧЕНО",
@@ -275,7 +277,7 @@ const en: Dict = {
   "toast.carrier": "NEW TARGET: CARRIER",
 };
 
-export type TKey = keyof Dict;
+export type TKey = keyof typeof ru & keyof typeof en;
 
 const dicts: Record<Lang, Dict> = { ru, en };
 

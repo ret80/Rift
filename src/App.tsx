@@ -109,7 +109,6 @@ export default function App() {
 
     const onHud = (h: HudData) => {
       const r = hudRefs;
-      const compact = mqCompact.matches;
       if (r.wave.current) r.wave.current.textContent = String(h.wave).padStart(2, "0");
       if (r.minerals.current) {
         const glyph = r.minerals.current.querySelector("svg");

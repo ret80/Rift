@@ -11,7 +11,7 @@ import { lerpAngle } from '../../math';
 
 export class CruiserStrategy implements IEnemyStrategy {
   update(enemy: Enemy, context: GameContext, dt: number): void {
-    const { playerX, playerY, enemies, zoneX, zoneY, zoneRadius } = context;
+    const { playerX, playerY, enemies, zoneRadius } = context;
 
     // Найти ближайший Carrier для эскор
     let escort: Enemy | null = null;

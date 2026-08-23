@@ -100,8 +100,7 @@ export class AsteroidField {
     if (eventBus) {
       // Subscribe to asteroid hit events
       eventBus.on('asteroid_hit', (event) => {
-        const data = event.payload as { index: number; dmg: number; vx: number; vy: number; x: number; y: number };
-        this.damageAt(data.index, data.dmg, data.x ?? 0, data.y ?? 0);
+        this.damageAt(event.payload.index, event.payload.dmg, event.payload.x ?? 0, event.payload.y ?? 0);
       });
     }
   }
@@ -208,7 +207,6 @@ export class AsteroidField {
           const dvn = dvx * nx + dvy * ny;
           
           if (dvn > 0) {
-            const totalMass = a1.mass + a2.mass;
             const e = 0.15;
             const j = -(1 + e) * dvn / (1 / a1.mass + 1 / a2.mass);
             

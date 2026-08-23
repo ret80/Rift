@@ -6,7 +6,7 @@
 import type { Enemy } from '../../types';
 import type { GameContext } from '../GameContext';
 import type { IEnemyStrategy } from '../IEnemyStrategy';
-import { TAU, lerpAngle } from '../../math';
+import { lerpAngle } from '../../math';
 
 export class DroneStrategy implements IEnemyStrategy {
   update(enemy: Enemy, context: GameContext, dt: number): void {

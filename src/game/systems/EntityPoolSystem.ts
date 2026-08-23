@@ -1,6 +1,6 @@
 /**
- * EntityPoolSystem — пулы сущностей с однотипными операциями.
- * Управляет массивами: enemyList, bulletList, enemyBulletList, pickupList, allyDroneList, mineList.
+ * EntityPoolSystem — entity pools with same-type operations.
+ * Manages arrays: enemyList, bulletList, enemyBulletList, pickupList, allyDroneList, mineList.
  */
 
 import { PickupKind, EnemyKind } from "../balance";

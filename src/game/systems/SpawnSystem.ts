@@ -269,7 +269,7 @@ export class SpawnSystem {
   
   private spawnRift(game: any) {
     const queue = this.buildQueue(3 + Math.floor(Math.random() * 3), game.wave);
-    // Рифы спавнятся только после того как зона достаточно большая
+    // Rifts spawn only after zone is large enough
     // Use GameState.zone for zone info after refactoring
     const gameState = game.gameState;
     const zoneX = gameState?.zone?.x ?? 0;

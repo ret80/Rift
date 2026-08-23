@@ -23,7 +23,7 @@ export function lerpAngle(a: number, b: number, k: number) {
   d = ((d % TAU) + TAU) % TAU;
   if (d > Math.PI) d -= TAU;
   
-  // Защита от катастрофического сдвига > PI (угловое переполнение)
+  // Catastrophic shift protection > PI (angular overflow)
   const maxDelta = Math.PI * 0.9;
   if (Math.abs(d) > maxDelta && k > 0.5) {
     // Слишком большой скачок — ограничиваем

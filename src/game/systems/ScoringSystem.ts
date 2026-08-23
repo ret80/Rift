@@ -1,6 +1,6 @@
 /**
- * ScoringSystem — счёт, комбо, рекорды.
- * Отвечает за score, best (localStorage), killed, combo timer/multiplier.
+ * ScoringSystem — score, combo, records.
+ * Handles score, best (localStorage), killed, combo timer/multiplier.
  */
 
 import type { EventBus } from '../core/EventBus';
@@ -47,8 +47,8 @@ export class ScoringSystem {
   /** Subscribe to enemy_killed events and auto-update score/kills/combo */
   subscribeToEvents(eventBus: EventBus): void {
     eventBus.on('enemy_killed', (event) => {
-      const data = event.payload as { scoreValue: number };
-      this._killedWave = this.onKill(data.scoreValue, this._killedWave);
+      const scoreValue = event.payload.scoreValue ?? event.payload.score ?? 0;
+      this._killedWave = this.onKill(scoreValue, this._killedWave);
     });
   }
 

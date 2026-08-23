@@ -6,7 +6,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview --port 3000",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "check:i18n": "node scripts/check-i18n-consistency.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
@@ -30,7 +32,11 @@
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@types/uuid": "^9.0.7",
+    "@typescript-eslint/eslint-plugin": "^8.67.0",
+    "@typescript-eslint/parser": "^8.67.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^10.9.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "tailwindcss": "^4.1.7",
     "typescript": "^5.7.0",
     "vite": "^6.3.5"

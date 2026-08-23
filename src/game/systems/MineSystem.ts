@@ -95,8 +95,10 @@ export class MineSystem {
         if (enemy.hp <= 0) {
           enemy.dead = true;
           this.eventBus.publish('enemy_killed', {
-            enemy: enemy,
-            score: enemy.score || 0,
+            scoreValue: enemy.score || 0,
+            kind: 'unknown',
+            x: enemy.x,
+            y: enemy.y,
           });
         }
       }

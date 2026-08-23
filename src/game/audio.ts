@@ -688,7 +688,7 @@ export class AudioEngine {
     this.ctx = null;
   }
 
-  /** Алиас для dispose */
+  /** Alias for dispose */
   destroy() {
     this.dispose();
   }
