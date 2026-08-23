@@ -7,7 +7,6 @@
 import { massForRadius, type AsteroidKind, EnemyKind } from '../balance';
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
-import type { PhysicsSystem } from '../core/PhysicsSystem';
 
 interface Collidable {
   x: number;
@@ -119,7 +118,6 @@ function softResolveCollision(
 export class CollisionSystem {
   private eventBus: EventBus;
   private state: GameState;
-  private physics: PhysicsSystem | null = null;
   private onEnemyKilledCb: ((enemy: Enemy) => void) | null = null;
 
   constructor(eventBus: EventBus, state: GameState) {
@@ -130,10 +128,6 @@ export class CollisionSystem {
   /** Set callback for enemy death events (used by PickupDropSystem) */
   setOnEnemyKilled(cb: (enemy: Enemy) => void): void {
     this.onEnemyKilledCb = cb;
-  }
-
-  setPhysicsSystem(physics: PhysicsSystem): void {
-    this.physics = physics;
   }
 
   /**

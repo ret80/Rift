@@ -36,7 +36,7 @@ import { DebugSystem } from "./systems/DebugSystem";
 /* Core systems */
 import { EventBus } from "./core/EventBus";
 import { GameState } from "./core/GameState";
-import { type GameFSMContext } from "./core/GameFSM";
+import type { GameFSMContext, GameStateId } from "./core/FSMBridge";
 import { FSMBridge } from "./core/FSMBridge";
 import { GameStateMachine } from "./core/StateMachine";
 

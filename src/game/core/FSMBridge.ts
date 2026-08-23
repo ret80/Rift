@@ -11,7 +11,35 @@
  */
 
 import { GameStateMachine } from "./StateMachine";
-import type { GameFSMContext, GameStateId } from "./GameFSM";
+
+// ============================== Types ==============================
+
+export type GameStateId = "menu" | "playing" | "active" | "cleared" | "dying" | "over";
+
+export interface GameFSMContext {
+  /** Вызывается при смерти игрока */
+  onPlayerDeath: () => void;
+  /** Вызывается при окончании death-анимации */
+  onDeathAnimationEnd: () => void;
+  /** Вызывается при завершении игры */
+  onGameOver: () => void;
+  /** Вызывается когда игрок умирает (до анимации) */
+  onPlayerDiedEvent?: () => void;
+  /** Вызывается при возврате в меню */
+  onReturnToMenu: () => void;
+  /** Вызывается при старте нового забега */
+  onStartRun: (wave: number) => void;
+  /** Вызывается при начале волны (после countdown) */
+  onWaveStart: (wave: number) => void;
+  /** Вызывается при завершении волны */
+  onWaveComplete: () => void;
+  /** Вызывается при переходе к следующей волне (из cleared) */
+  onWaveAdvanced?: (wave: number) => void;
+  /** Вызывается когда countdown заканчивается */
+  countdownDone?: () => void;
+  /** Вызывается при паузе */
+  onPause?: (paused: boolean) => void;
+}
 
 // ============================== Bridge Hooks ==============================
 
