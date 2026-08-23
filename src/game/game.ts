@@ -990,7 +990,7 @@ export class Game {
     const heavy = data.cruiser || data.heavy;
     const speed = data.boltSpeed ?? (data.cruiser ? CRUISER_BULLET_SPEED : 300);
     const life = data.cruiser ? 1.8 : 1.35;
-    this.bulletSystem.spawnEnemyBullet(
+    this.entityPool.spawnEnemyBullet(
       data.x + Math.cos(data.angle) * 14,
       data.y + Math.sin(data.angle) * 14,
       Math.cos(data.angle) * speed,

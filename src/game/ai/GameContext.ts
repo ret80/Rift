@@ -4,7 +4,7 @@
  */
 
 import type { GameState } from '../core/GameState';
-import type { Enemy } from '../entities/Enemy';
+import type { Enemy } from '../types';
 import type { EventBus } from '../core/EventBus';
 
 export interface GameContextData {
@@ -26,6 +26,10 @@ export interface GameContextData {
   
   enemies: Enemy[];
   deltaTime: number;
+  
+  // Для AI стратегий
+  wave: number;
+  enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number }>;
 }
 
 export class GameContext implements GameContextData {
@@ -46,6 +50,9 @@ export class GameContext implements GameContextData {
   
   public enemies: Enemy[] = [];
   public deltaTime: number = 0;
+  
+  public wave: number = 1;
+  public enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number }> = [];
 
   constructor(
     state: GameState,
@@ -59,7 +66,18 @@ export class GameContext implements GameContextData {
     * Update context before each frame.
     * Player position is now passed from external systems (PlayerSystem).
     */
-  update(dt: number, playerX: number, playerY: number, playerVx: number, playerVy: number, playerAngle: number, playerHp: number, playerMaxHp: number): void {
+  update(
+    dt: number,
+    playerX: number,
+    playerY: number,
+    playerVx: number,
+    playerVy: number,
+    playerAngle: number,
+    playerHp: number,
+    playerMaxHp: number,
+    wave: number,
+    enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number }>
+  ): void {
     this.deltaTime = dt;
     
     // Sync with state
@@ -74,6 +92,9 @@ export class GameContext implements GameContextData {
     this.zoneX = this.state.zone.x;
     this.zoneY = this.state.zone.y;
     this.zoneRadius = this.state.zone.radius;
+    
+    this.wave = wave;
+    this.enemyBullets = enemyBullets;
   }
 
   /**

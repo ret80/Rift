@@ -4,11 +4,14 @@
  */
 
 import type { AudioManager } from './AudioManager';
-import { EnemyKind, massForRadius, DRONE_BASE_SPEED, HUNTER_SPEED, FIGHTER_BASE_SPEED, CRUISER_BASE_SPEED, CARRIER_BASE_SPEED, CRUISER_FIRE_RANGE, CRUISER_BULLET_SPEED, PLAYER_BULLET_SPEED } from '../balance';
+import { EnemyAI } from '../ai/EnemyAI';
+import { GameContext } from '../ai/GameContext';
+import { EnemyKind, massForRadius, DRONE_BASE_SPEED, HUNTER_SPEED, FIGHTER_BASE_SPEED, CRUISER_BASE_SPEED, CARRIER_BASE_SPEED, CRUISER_FIRE_RANGE } from '../balance';
+import type { Enemy } from '../types';
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { Fx } from '../fx';
-import { TAU, lerpAngle as lerpAngleMath } from '../math';
+import { TAU } from '../math';
 
 
 // Флаг для отладки вращения кораблей
@@ -22,7 +25,7 @@ function logRotation(tag: string, msg: string): void {
   console.log(`[ROTATION] ${tag}: ${msg}`);
 }
 
-interface EnemyFireData {
+export interface EnemyFireData {
   x: number;
   y: number;
   kind: EnemyKind;
@@ -42,46 +45,6 @@ interface EnemyBullet {
   life: number;
 }
 
-interface Enemy {
-  kind: EnemyKind;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  angle: number;
-  hp: number;
-  maxHp: number;
-  r: number;
-  speed: number;
-  contact: number;
-  score: number;
-  boltDmg: number;
-  fireCd: number;
-  mode: number;
-  modeT: number;
-  strafeDir: number;
-  seed: number;
-  spawnCd: number;
-  flash: number;
-  hitCd: number;
-  dead: boolean;
-  parent: Enemy | null;
-  mass: number;
-  // Насколько сильно этот тип избегает других врагов (1.0 = база, 2.0 = сильно)
-  dodgeWeight: number;
-  // Cruiser dual turrets (independent cooldowns)
-  tCd1?: number;
-  tCd2?: number;
-  // Carrier burst spawning
-  burstSpawned: number; // drones spawned in current burst
-  burstActive: boolean; // is burst phase active
-  burstRestT: number; // countdown before next burst
-  burstCd: number; // cooldown between individual spawns
-  // Dodge maneuvers
-  dodgeDir: number; // 1 = right, -1 = left, 0 = none
-  dodgeTimer: number; // remaining time for dodge maneuver
-}
-
 interface EnemyDef {
   hp: number;
   r: number;
@@ -93,6 +56,9 @@ interface EnemyDef {
 }
 
 export class EnemySystem {
+  private ai: EnemyAI;
+  private context: GameContext;
+  
   private eventBus: EventBus;
   private state: GameState;
   private fx: Fx;
@@ -100,7 +66,6 @@ export class EnemySystem {
   private enemyFireCallback: (e: EnemyFireData) => void;
   private getZoneBounds: () => { x: number; y: number; radius: number; active: boolean };
   
-  private enemies: Enemy[] = [];
   private wave = 1;
   
   // Для отрисовки
@@ -120,11 +85,13 @@ export class EnemySystem {
     this.audio = audio;
     this.enemyFireCallback = enemyFireCallback;
     this.getZoneBounds = getZoneBounds;
+    this.ai = new EnemyAI();
+    this.context = new GameContext(this.state, this.eventBus);
   }
   
   reset(): void {
-    this.enemies = [];
     this.flock = [];
+    this.wave = 1;
   }
   
   setWave(wave: number): void {
@@ -132,13 +99,13 @@ export class EnemySystem {
   }
   
   getEnemies(): Enemy[] {
-    return this.enemies;
+    return this.flock;
   }
   
   getLiveCount(): number {
-    return this.enemies.filter(e => !e.dead).length;
+    return this.flock.filter(e => !e.dead).length;
   }
-  
+
 
 
   addEnemy(kind: EnemyKind, x: number, y: number, def: EnemyDef, playerPos?: { x: number; y: number }): void {
@@ -155,7 +122,7 @@ export class EnemySystem {
     const carrierBurstSpawned = carrierBurstActive ? 10 : 0;
     // dodgeWeight: насколько сильно враг избегает других
     const dodgeWeight = this.getDodgeWeight(kind);
-    this.enemies.push({
+    this.flock.push({
       kind,
       x,
       y,
@@ -198,383 +165,118 @@ export class EnemySystem {
     const playerVx = 0;
     const playerVy = 0;
     const zone = this.getZoneBounds();
-    const zoneTarget = zone.radius;
     
-    // Копируем пули врагов (только живые, с оставшейся жизнью > 0.2s)
-    const bullets: EnemyBullet[] = [];
-    if (enemyBullets) {
-      for (const b of enemyBullets) {
-        if (b.life > 0.2) {
-          bullets.push({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, life: b.life });
-        }
-      }
-    }
+    // Update game context for strategies
+    this.context.update(
+      dt,
+      playerX, playerY, playerVx, playerVy,
+      0, 0, 0,
+      this.wave,
+      enemyBullets || []
+    );
     
-    for (let i = 0; i < this.enemies.length; i++) {
-      const e = this.enemies[i];
+    // AI movement via strategy pattern
+    this.ai.updateAI(enemyList, this.context, dt);
+    
+    // Apply velocity and update state
+    for (let i = 0; i < enemyList.length; i++) {
+      const e = enemyList[i];
       if (e.dead) continue;
       
       e.flash = Math.max(0, e.flash - dt * 5);
       e.hitCd = Math.max(0, e.hitCd - dt);
       
-      const dx = playerX - e.x;
-      const dy = playerY - e.y;
-      const dist = Math.hypot(dx, dy) || 1;
-      const dirX = dx / dist;
-      const dirY = dy / dist;
-      
-      switch (e.kind) {
-        case EnemyKind.Drone: {
-          // Прямое преследование игрока
-          const angleToPlayer = Math.atan2(playerY - e.y, playerX - e.x);
-          
-          // Фланговое смещение — лёгкое смещение для непредсказуемости
-          const flankFactor = Math.min(0.3, 0.05 + this.wave * 0.01);
-          const flankAngle = Math.sin(e.seed + this.wave * 0.5) * flankFactor;
-          let targetAngle = angleToPlayer + flankAngle;
-          
-          // Дрон не уклоняется от пуль — он летит прямо к игроку
-          const speed = e.speed;
-          
-          const k = 1 - Math.exp(-6 * dt);
-          e.vx += (Math.cos(targetAngle) * speed - e.vx) * k;
-          e.vy += (Math.sin(targetAngle) * speed - e.vy) * k;
-          
-          // Rotation: face movement direction
-          const dsp = Math.hypot(e.vx, e.vy);
-          if (dsp > 5) {
-            const movementAngle = Math.atan2(e.vy, e.vx);
-            e.angle = lerpAngleMath(e.angle, movementAngle, 1 - Math.exp(-5 * dt));
-          }
-          break;
-        }
-        
-        case EnemyKind.Hunter: {
-          // Улучшенное предсказание с прогрессией — чем выше волна, тем лучше предсказание
-          const lookahead = 0.4 + this.wave * 0.03;
-          const leadX = playerX + playerVx * lookahead;
-          const leadY = playerY + playerVy * lookahead;
-          const hx = leadX - e.x;
-          const hy = leadY - e.y;
-          const hd = Math.hypot(hx, hy) || 1;
-          const k = 1 - Math.exp(-(hd < 120 ? 7.5 : 4.5) * dt);
-          e.vx += ((hx / hd) * e.speed - e.vx) * k;
-          e.vy += ((hy / hd) * e.speed - e.vy) * k;
-          const hv = Math.hypot(e.vx, e.vy);
-          if (hv > 5) {
-            const targetAngle = Math.atan2(e.vy, e.vx);
-            const oldAngle = e.angle;
-            e.angle = lerpAngleMath(e.angle, targetAngle, 1 - Math.exp(-6 * dt));
-            let angleDelta = e.angle - oldAngle;
-            while (angleDelta > Math.PI) angleDelta -= TAU;
-            while (angleDelta < -Math.PI) angleDelta += TAU;
-            if (DEBUG_ROTATION && Math.abs(angleDelta) > 0.3) {
-              rotationLogCounter.enemy++;
-              console.log(`[ROTATION] hunter: angle ${oldAngle.toFixed(3)}→${e.angle.toFixed(3)} (delta=${angleDelta.toFixed(3)}), vel=(${e.vx.toFixed(1)},${e.vy.toFixed(1)})`);
-            }
-          }
-          break;
-        }
-        
-        case EnemyKind.Fighter: {
-          // Атака с дистанции: сближение → удержание идеальной дистанции → орбита
-          const angleToPlayer = Math.atan2(playerY - e.y, playerX - e.x);
-          
-          // Идеальная дистанция стрельбы — 200-280
-          const idealDist = 220 + Math.sin(e.modeT * 0.3) * 30;
-          
-          if (dist > idealDist * 1.2) {
-            // Сближение
-            const targetAngle = angleToPlayer;
-            const oldAngle = e.angle;
-            e.angle = lerpAngleMath(e.angle, targetAngle, dt * 5);
-            const speed = e.speed * 1.1;
-            e.vx += (Math.cos(targetAngle) * speed - e.vx) * (1 - Math.exp(-5 * dt));
-            e.vy += (Math.sin(targetAngle) * speed - e.vy) * (1 - Math.exp(-5 * dt));
-          } else if (dist < idealDist * 0.7) {
-            // Отступление
-            const targetAngle = angleToPlayer + Math.PI;
-            const oldAngle = e.angle;
-            e.angle = lerpAngleMath(e.angle, targetAngle, dt * 4);
-            const speed = e.speed * 0.7;
-            e.vx += (Math.cos(targetAngle) * speed - e.vx) * (1 - Math.exp(-4 * dt));
-            e.vy += (Math.sin(targetAngle) * speed - e.vy) * (1 - Math.exp(-4 * dt));
-          } else {
-            // Удержание дистанции + движение по касательной (страф)
-            const tangent = angleToPlayer + Math.PI / 2 * e.strafeDir;
-            const oldAngle = e.angle;
-            e.angle = lerpAngleMath(e.angle, tangent, dt * 3);
-            const speed = e.speed * 0.6;
-            e.vx += (Math.cos(tangent) * speed - e.vx) * (1 - Math.exp(-4 * dt));
-            e.vy += (Math.sin(tangent) * speed - e.vy) * (1 - Math.exp(-4 * dt));
-          }
-          
-          e.modeT -= dt;
-          if (e.modeT <= 0) {
-            e.modeT = rand(1.5, 3);
-            e.strafeDir *= -1; // меняем направление страфа
-          }
-          
-          const kAngle = 1 - Math.exp(-6 * dt);
-          const oldAngleF = e.angle;
-          e.angle = lerpAngleMath(e.angle, Math.atan2(e.vy, e.vx), kAngle);
-          let angleDeltaF = e.angle - oldAngleF;
-          while (angleDeltaF > Math.PI) angleDeltaF -= TAU;
-          while (angleDeltaF < -Math.PI) angleDeltaF += TAU;
-          if (DEBUG_ROTATION && Math.abs(angleDeltaF) > 0.3) {
-            rotationLogCounter.enemy++;
-            console.log(`[ROTATION] fighter(dist=${dist.toFixed(0)}): angle ${oldAngleF.toFixed(3)}→${e.angle.toFixed(3)} (delta=${angleDeltaF.toFixed(3)}), vel=(${e.vx.toFixed(1)},${e.vy.toFixed(1)})`);
-          }
-          break;
-        }
-        
-        case EnemyKind.Cruiser: {
-          let escort: Enemy | null = null;
-          let ed = 1e9;
-          for (const o of this.enemies) {
-            if (o.kind !== EnemyKind.Carrier || o.dead) continue;
-            const dd = Math.hypot(e.x - o.x, e.y - o.y);
-            if (dd < ed) {
-              ed = dd;
-              escort = o;
-            }
-          }
-          
-          let desX: number;
-          let desY: number;
-          
-          if (escort && ed < 290) {
-            const ox = e.x - escort.x;
-            const oy = e.y - escort.y;
-            const od = Math.hypot(ox, oy) || 1;
-            const radial = (od - 150) * 1.2;
-            desX = (ox / od) * radial + (-oy / od) * e.strafeDir * e.speed;
-            desY = (oy / od) * radial + (ox / od) * e.strafeDir * e.speed;
-          } else {
-            const zr = zoneTarget > 0 ? zoneTarget : 420;
-            const HOLD = Math.min(400, zr * 0.8);
-            const radial = (dist - HOLD) * 1.0;
-            desX = dirX * radial + -dirY * e.strafeDir * e.speed * 0.6;
-            desY = dirY * radial + dirX * e.strafeDir * e.speed * 0.6;
-          }
-          
-          for (const o of this.enemies) {
-            if (o === e || o.dead) continue;
-            const ddx = e.x - o.x;
-            const ddy = e.y - o.y;
-            const d2 = ddx * ddx + ddy * ddy;
-            const minSep = (e.r + o.r) * 1.1;
-            if (d2 < minSep * minSep && d2 > 0.0001) {
-              const d = Math.sqrt(d2);
-              const push = (minSep - d) / d * 180;
-              desX += (ddx / d) * push;
-              desY += (ddy / d) * push;
-            }
-          }
-          
-          const k = 1 - Math.exp(-2.8 * dt);
-          e.vx += (desX - e.vx) * k;
-          e.vy += (desY - e.vy) * k;
-          const sp = Math.hypot(e.vx, e.vy);
-          if (sp > 5) {
-            // Плавные повороты: lerp factor снижен с 6 до 4
-            const targetAngle = Math.atan2(e.vy, e.vx);
-            const oldAngle = e.angle;
-            e.angle = lerpAngleMath(e.angle, targetAngle, 1 - Math.exp(-4 * dt));
-            let angleDelta = e.angle - oldAngle;
-            while (angleDelta > Math.PI) angleDelta -= TAU;
-            while (angleDelta < -Math.PI) angleDelta += TAU;
-            if (DEBUG_ROTATION && Math.abs(angleDelta) > 0.3) {
-              rotationLogCounter.enemy++;
-              console.log(`[ROTATION] cruiser: angle ${oldAngle.toFixed(3)}→${e.angle.toFixed(3)} (delta=${angleDelta.toFixed(3)}), vel=(${e.vx.toFixed(1)},${e.vy.toFixed(1)})`);
-            }
-          }
-          break;
-        }
-        
-        case EnemyKind.Carrier: {
-          const HOLD = 480;
-          const radial = (dist - HOLD) * 0.7;
-          let desX = dirX * radial + -dirY * e.strafeDir * e.speed * 0.4;
-          let desY = dirY * radial + dirX * e.strafeDir * e.speed * 0.4;
-          
-          for (const o of this.enemies) {
-            if (o === e || o.dead) continue;
-            // Исключаем parent-child коллизии: carrier не должен избегать дроны, которые он спавнит
-            if (o.parent === e || e.parent === o) continue;
-            const ddx = e.x - o.x;
-            const ddy = e.y - o.y;
-            const d2 = ddx * ddx + ddy * ddy;
-            const minSep = (e.r + o.r) * 1.05;
-            if (d2 < minSep * minSep && d2 > 0.0001) {
-              const d = Math.sqrt(d2);
-              const push = (minSep - d) / d * 120;
-              desX += (ddx / d) * push;
-              desY += (ddy / d) * push;
-            }
-          }
-          
-          const k = 1 - Math.exp(-2.2 * dt);
-          e.vx += (desX - e.vx) * k;
-          e.vy += (desY - e.vy) * k;
-          const sp = Math.hypot(e.vx, e.vy);
-          if (sp > 5) {
-            const targetAngle = Math.atan2(e.vy, e.vx);
-            const oldAngle = e.angle;
-            e.angle = lerpAngleMath(e.angle, targetAngle, 1 - Math.exp(-5 * dt));
-            let angleDelta = e.angle - oldAngle;
-            while (angleDelta > Math.PI) angleDelta -= TAU;
-            while (angleDelta < -Math.PI) angleDelta += TAU;
-            if (DEBUG_ROTATION && Math.abs(angleDelta) > 0.3) {
-              rotationLogCounter.enemy++;
-              console.log(`[ROTATION] carrier: angle ${oldAngle.toFixed(3)}→${e.angle.toFixed(3)} (delta=${angleDelta.toFixed(3)}), vel=(${e.vx.toFixed(1)},${e.vy.toFixed(1)})`);
-            }
-          }
-          
-          // spawn drones in bursts: more aggressive with wave progression
-          const maxDrones = 12 + Math.floor(this.wave / 5);
-          if (e.burstActive) {
-            // Burst phase: spawn drones
-            e.burstCd -= dt;
-            if (e.burstCd <= 0 && this.getLiveCount() < 30 && e.burstSpawned < maxDrones) {
-              e.burstCd = 0.35; // faster spawn rate
-              e.burstSpawned++;
-              // Random offset so drones don't spawn exactly at carrier center
-              const angle = Math.random() * TAU;
-              const offset = e.r + 25;
-              const spawnX = e.x + Math.cos(angle) * offset;
-              const spawnY = e.y + Math.sin(angle) * offset;
-              this.eventBus.emit('carrierSpawnDrone', { x: spawnX, y: spawnY, parent: e });
-            }
-            // End of burst?
-            if (e.burstSpawned >= maxDrones) {
-              e.burstActive = false;
-              e.burstRestT = rand(3, 6); // shorter rest
-            }
-          } else {
-            // Rest phase: countdown
-            e.burstRestT -= dt;
-            if (e.burstRestT <= 0) {
-              e.burstActive = true;
-              e.burstSpawned = 0;
-            }
-          }
-          break;
-        }
-      }
-      
       // apply velocity
       e.x += e.vx * dt;
       e.y += e.vy * dt;
+    }
+    
+    // shooting logic
+    this.updateFiring(enemyList, dt);
+    
+    // Simple collision avoidance between all enemies
+    this.applyAvoidance(enemyList, dt);
+  }
+  
+  /** Enemy shooting logic */
+  private updateFiring(enemyList: Enemy[], dt: number): void {
+    for (const e of enemyList) {
+      if (e.dead) continue;
       
-      // shooting logic
-      if (e.kind === EnemyKind.Fighter || e.kind === EnemyKind.Cruiser || e.kind === EnemyKind.Carrier) {
-        const canShoot = (e.kind === EnemyKind.Fighter && dist < 500) ||
-                        (e.kind === EnemyKind.Cruiser && dist < CRUISER_FIRE_RANGE) ||
-                        (e.kind === EnemyKind.Carrier && dist < 500);
+      // Только стреляющие типы
+      if (e.kind !== EnemyKind.Fighter && e.kind !== EnemyKind.Cruiser && e.kind !== EnemyKind.Carrier) continue;
+      
+      const dx = this.context.playerX - e.x;
+      const dy = this.context.playerY - e.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      
+      const canShoot = (e.kind === EnemyKind.Fighter && dist < 500) ||
+                       (e.kind === EnemyKind.Cruiser && dist < CRUISER_FIRE_RANGE) ||
+                       (e.kind === EnemyKind.Carrier && dist < 500);
+      
+      if (!canShoot) continue;
+      
+      if (e.kind === EnemyKind.Cruiser) {
+        // Cruiser: dual independent turrets
+        const accuracy = this.getAccuracy(this.wave);
+        const spread = (1 - accuracy) * 0.8;
+        const rate = 1.5 / (3 + this.wave * 0.08);
         
-        if (canShoot) {
-          // Cruiser: dual independent turrets with staggered cooldowns
-          if (e.kind === EnemyKind.Cruiser) {
-            const accuracy = this.getAccuracy(this.wave);
-            const spread = (1 - accuracy) * 0.8;
-            // Скорость пуль +20%: 540+w*3 → 648+w*3.6
-            const speed = 648 + this.wave * 3.6;
-            const rate = 1.5 / (3 + this.wave * 0.08);
-            
-            // Turret 1 (port side)
-            e.tCd1! -= dt;
-            if (e.tCd1! <= 0) {
-              e.tCd1! = rate + rand(-0.15, 0.15);
-              const perpA = e.angle + Math.PI / 2;
-              const tx = e.x - Math.sin(e.angle) * 14;
-              const ty = e.y + Math.cos(e.angle) * 14;
-              const tAngle = Math.atan2(playerY - ty, playerX - tx) + (Math.random() - 0.5) * 2 * spread;
-              
-              this.enemyFireCallback({
-                x: tx, y: ty,
-                kind: e.kind,
-                angle: tAngle,
-                r: e.r,
-                boltDmg: e.boltDmg,
-                heavy: true,
-                cruiser: true,
-              });
-              this.audio.heavyShoot();
-            }
-            
-            // Turret 2 (starboard side)
-            e.tCd2! -= dt;
-            if (e.tCd2! <= 0) {
-              e.tCd2! = rate + rand(-0.15, 0.15);
-              const perpA = e.angle + Math.PI / 2;
-              const tx = e.x + Math.sin(e.angle) * 14;
-              const ty = e.y - Math.cos(e.angle) * 14;
-              const tAngle = Math.atan2(playerY - ty, playerX - tx) + (Math.random() - 0.5) * 2 * spread;
-              
-              this.enemyFireCallback({
-                x: tx, y: ty,
-                kind: e.kind,
-                angle: tAngle,
-                r: e.r,
-                boltDmg: e.boltDmg,
-                heavy: true,
-                cruiser: true,
-              });
-              this.audio.heavyShoot();
-            }
-          } else {
-            // Fighter and carrier: single turret
-            const accuracy = this.getAccuracy(this.wave);
-            const spread = (1 - accuracy) * 1.2;
-            // Скорость пуль = скорости игрока, с малой прогрессией
-            const speed = e.kind === EnemyKind.Fighter ? PLAYER_BULLET_SPEED + this.wave * 0.5 : PLAYER_BULLET_SPEED + this.wave * 0.5;
-            const life = e.kind === EnemyKind.Fighter ? 1.35 : 1.8;
-            const baseRate = e.kind === EnemyKind.Fighter ? 0.8 : 1.5; //fighter = cruiser rate
-            const waveBoost = Math.min(2.5, 1 + this.wave * 0.08);
-            e.fireCd -= dt * waveBoost;
-            
-            if (e.fireCd <= 0) {
-              e.fireCd = baseRate; // сбрасываем на baseRate для нового цикла
-              const heavy = e.kind === EnemyKind.Carrier;
-              
-              this.enemyFireCallback({
-                x: e.x,
-                y: e.y,
-                kind: e.kind,
-                angle: e.angle + (Math.random() - 0.5) * 2 * spread,
-                r: e.r,
-                boltDmg: e.boltDmg,
-                heavy: heavy,
-                cruiser: false,
-              });
-              
-              if (heavy) this.audio.heavyShoot();
-              else this.audio.enemyShoot();
-            }
-          }
+        e.tCd1! -= dt;
+        if (e.tCd1! <= 0) {
+          e.tCd1! = rate + rand(-0.15, 0.15);
+          const tx = e.x - Math.sin(e.angle) * 14;
+          const ty = e.y + Math.cos(e.angle) * 14;
+          const tAngle = Math.atan2(this.context.playerY - ty, this.context.playerX - tx) + (Math.random() - 0.5) * 2 * spread;
+          this.enemyFireCallback({ x: tx, y: ty, kind: e.kind, angle: tAngle, r: e.r, boltDmg: e.boltDmg, heavy: true, cruiser: true });
+          this.audio.heavyShoot();
+        }
+        
+        e.tCd2! -= dt;
+        if (e.tCd2! <= 0) {
+          e.tCd2! = rate + rand(-0.15, 0.15);
+          const tx = e.x + Math.sin(e.angle) * 14;
+          const ty = e.y - Math.cos(e.angle) * 14;
+          const tAngle = Math.atan2(this.context.playerY - ty, this.context.playerX - tx) + (Math.random() - 0.5) * 2 * spread;
+          this.enemyFireCallback({ x: tx, y: ty, kind: e.kind, angle: tAngle, r: e.r, boltDmg: e.boltDmg, heavy: true, cruiser: true });
+          this.audio.heavyShoot();
+        }
+      } else {
+        // Fighter and Carrier: single turret
+        const accuracy = this.getAccuracy(this.wave);
+        const spread = (1 - accuracy) * 1.2;
+        const baseRate = e.kind === EnemyKind.Carrier ? 1.5 : 0.8;
+        const waveBoost = Math.min(2.5, 1 + this.wave * 0.08);
+        e.fireCd -= dt * waveBoost;
+        
+        if (e.fireCd <= 0) {
+          e.fireCd = baseRate;
+          const heavy = e.kind === EnemyKind.Carrier;
+          this.enemyFireCallback({
+            x: e.x, y: e.y, kind: e.kind,
+            angle: e.angle + (Math.random() - 0.5) * 2 * spread,
+            r: e.r, boltDmg: e.boltDmg, heavy, cruiser: false,
+          });
+          if (heavy) this.audio.heavyShoot();
+          else this.audio.enemyShoot();
         }
       }
     }
-    
-    // Simple collision avoidance between all enemies (replaces RVO)
-    this.applyAvoidance(dt);
   }
-  
+
   /** Мягко раздвигает врагов, которые слишком близко друг к другу */
-  private applyAvoidance(dt: number): void {
-    const minDist = 35; // базовая дистанция избежания
-    const basePush = 1.2; // сила отталкивания (нормализована к 60fps)
+  private applyAvoidance(enemyList: Enemy[], dt: number): void {
+    const minDist = 35;
+    const basePush = 1.2;
     
-    for (let i = 0; i < this.enemies.length; i++) {
-      const a = this.enemies[i];
+    for (let i = 0; i < enemyList.length; i++) {
+      const a = enemyList[i];
       if (a.dead) continue;
       
-      for (let j = i + 1; j < this.enemies.length; j++) {
-        const b = this.enemies[j];
+      for (let j = i + 1; j < enemyList.length; j++) {
+        const b = enemyList[j];
         if (b.dead) continue;
         
-        // Исключаем parent-child коллизии
         if (a.parent === b || b.parent === a) continue;
         
         const dx = a.x - b.x;
@@ -584,16 +286,13 @@ export class EnemySystem {
         
         if (distSq < minDistSq && distSq > 0.01) {
           const dist = Math.sqrt(distSq);
-          // Push сильнее при близости: от 0 до basePush
           const push = (1 - dist / minDist) * basePush;
           const pushX = (dx / dist) * push;
           const pushY = (dy / dist) * push;
           
-          // dodgeWeight определяет насколько сильно каждый враг избегает
           const aMult = a.dodgeWeight || 1.0;
           const bMult = b.dodgeWeight || 1.0;
           
-          // dt уже учтён в basePush (нормализация к 60fps)
           a.vx += pushX * aMult;
           a.vy += pushY * aMult;
           b.vx -= pushX * bMult;
@@ -602,8 +301,8 @@ export class EnemySystem {
       }
     }
   }
-
-  /** Возвращает weight для avoidance: насколько сильно корабль должен избегать других */
+  
+  /** Возвращает weight для avoidance: насколько сильно корабль должен избегать других */  /** Возвращает weight для avoidance: насколько сильно корабль должен избегать других */
   private getDodgeWeight(kind: EnemyKind): number {
     switch (kind) {
       case EnemyKind.Drone:     return 2.5; // рой должен рассеиваться
@@ -616,9 +315,9 @@ export class EnemySystem {
   }
   
   damageEnemy(index: number, dmg: number): boolean {
-    if (index < 0 || index >= this.enemies.length) return false;
+    if (index < 0 || index >= this.flock.length) return false;
     
-    const e = this.enemies[index];
+    const e = this.flock[index];
     if (e.dead) return false;
     
     e.hp -= dmg;
@@ -626,14 +325,14 @@ export class EnemySystem {
     
     if (e.hp <= 0) {
       e.dead = true;
-      return true; // enemy killed
+      return true;
     }
     
     return false;
   }
   
   removeDead(): void {
-    this.enemies = this.enemies.filter(e => !e.dead);
+    this.flock = this.flock.filter(e => !e.dead);
   }
 
   spawn(kind: EnemyKind, x: number, y: number, parent: Enemy | null, enemyList: any[], playerPos?: { x: number; y: number }): void {
@@ -684,9 +383,8 @@ export class EnemySystem {
       dodgeDir: 0,
       dodgeTimer: 0,
     };
-    // Добавляем И во внутренний массив И во внешний (enemyList)
-    // чтобы рендерер и коллизии видели врага
-    this.enemies.push(e);
+    // Добавляем во внутренний массив и во внешний (enemyList)
+    this.flock.push(e);
     enemyList.push(e);
     if (parent) {
       parent.spawnCd = 0;

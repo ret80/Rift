@@ -3,7 +3,7 @@
  * Каждая стратегия инкапсулирует поведение конкретного типа врага.
  */
 
-import type { Enemy } from '../entities/Enemy';
+import type { Enemy } from '../types';
 import type { GameContext } from './GameContext';
 
 export interface IEnemyStrategy {

@@ -68,17 +68,7 @@ export class BulletSystem {
     this.bulletDmg = dmg;
   }
 
-  // ── Public API — spawn bullets into external pools ──────────────
-
-  /** Spawn an enemy bullet into the given pool */
-  spawnEnemyBullet(x: number, y: number, vx: number, vy: number, life: number, dmg: number, heavy: boolean, cruiser: boolean): void {
-    this.enemyBullets.push({ x, y, vx, vy, life, dmg, heavy, cruiser });
-  }
-
-  /** Spawn an ally (player) bullet into the given pool */
-  spawnAllyBullet(x: number, y: number, vx: number, vy: number, life: number, dmg: number): void {
-    this.bullets.push({ x, y, vx, vy, life, dmg });
-  }
+  // ── Public API ──────────────────────────────────────────────────
 
   /**
    * Создать пулю игрока.
@@ -88,14 +78,7 @@ export class BulletSystem {
   }
 
   /**
-     * Создать пулю врага.
-     */
-  createEnemyBullet(x: number, y: number, vx: number, vy: number, dmg: number, life: number, heavy: boolean = false, cruiser: boolean = false): void {
-    this.enemyBullets.push({ x, y, vx, vy, life, dmg, heavy, cruiser });
-  }
-
-  /**
-    * Создать пули игрока (несколько направлений).
+     * Создать пули игрока (несколько направлений).
     * Spread/accuracy — как у орудий врагов: случайное отклонение угла.
     */
   firePlayerBullets(playerState: { x: number; y: number; angle: number; guns: number; accuracy?: number }, angle: number, bullets: Array<{ x: number; y: number; vx: number; vy: number; life: number; dmg: number }>): void {

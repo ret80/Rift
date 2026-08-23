@@ -29,6 +29,7 @@ export interface Particle {
 /* ---- Rift types (from rifts.ts) ---- */
 
 import type { EnemyKind } from "./balance";
+import type { IEnemyStrategy } from "./ai/IEnemyStrategy";
 
 export interface Rift {
   x: number;
@@ -66,6 +67,11 @@ export interface Enemy {
   burstActive: boolean;
   burstRestT: number;
   burstCd: number;
+  // Cruiser dual turrets (independent cooldowns)
+  tCd1?: number;
+  tCd2?: number;
+  // AI strategy (set by EnemyAI)
+  strategy?: IEnemyStrategy | null;
 }
 
 export interface Bullet {
