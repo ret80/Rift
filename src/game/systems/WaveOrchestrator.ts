@@ -9,24 +9,24 @@
 
 import { t } from "../../i18n";
 import {
-  ZONE_INITIAL_RADIUS,
-  ZONE_EDGE_MARGIN,
-  ZONE_EDGE_WARNING_DELAY,
-  ZONE_EDGE_DAMAGE_INTERVAL,
-  ZONE_EDGE_DAMAGE_AMOUNT,
-  ZONE_EDGE_SHAKE_STRENGTH,
-  ZONE_EARLY_DAMAGE_THRESHOLD,
-  ZONE_CLEAR_BANNER_DELAY,
-  ZONE_CLEAR_EXPAND_START,
-  ZONE_CLEAR_NEXT_WAVE,
-  ZONE_CLEAR_EXPAND_DURATION,
-  ZONE_CLEAR_EXPAND_MULTIPLIER,
-  zoneExpandSpeed,
+    ZONE_CLEAR_BANNER_DELAY,
+    ZONE_CLEAR_EXPAND_DURATION,
+    ZONE_CLEAR_EXPAND_MULTIPLIER,
+    ZONE_CLEAR_EXPAND_START,
+    ZONE_CLEAR_NEXT_WAVE,
+    ZONE_EARLY_DAMAGE_THRESHOLD,
+    ZONE_EDGE_DAMAGE_AMOUNT,
+    ZONE_EDGE_DAMAGE_INTERVAL,
+    ZONE_EDGE_MARGIN,
+    ZONE_EDGE_SHAKE_STRENGTH,
+    ZONE_EDGE_WARNING_DELAY,
+    ZONE_INITIAL_RADIUS,
+    zoneExpandSpeed,
 } from "../balance";
-import { clamp, easeOutCubic } from "../math";
+import { GameStateMachine } from "../core/StateMachine";
 import type { ZoneData } from "../core/ZoneTypes";
 import { ZONE_NOT_COLLAPSING } from "../core/ZoneTypes";
-import { GameStateMachine } from "../core/StateMachine";
+import { clamp, easeOutCubic } from "../math";
 
 export interface WaveOrchestratorHooks {
   onBanner: (title: string, sub?: string, color?: string) => void;
@@ -318,7 +318,7 @@ export class WaveOrchestrator {
     if (this.clearT >= ZONE_CLEAR_BANNER_DELAY && !this.waveClearSent) {
       this.waveClearSent = true;
       this.hooks.onBanner(
-        t("game.waveClear"),
+        t("game.waveCleared"),
         t("game.nextWave", { wave: this.wave + 1 }),
         "#6f6"
       );
