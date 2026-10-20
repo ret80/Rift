@@ -297,9 +297,13 @@ export class EnemySystem {
         if (e.fireCd <= 0) {
           e.fireCd = baseRate;
           const heavy = e.kind === EnemyKind.Carrier;
+          // Fighter: стреляем в игрока, Carrier: по корпусу
+          const fireAngle = e.kind === EnemyKind.Fighter
+            ? Math.atan2(this.context.playerY - e.y, this.context.playerX - e.x)
+            : e.angle;
           this.enemyFireCallback({
             x: e.x, y: e.y, kind: e.kind,
-            angle: e.angle + (Math.random() - 0.5) * 2 * spread,
+            angle: fireAngle + (Math.random() - 0.5) * 2 * spread,
             r: e.r, boltDmg: e.boltDmg, heavy, cruiser: false,
           });
           if (heavy) this.audio.heavyShoot();
