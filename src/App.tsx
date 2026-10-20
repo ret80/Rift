@@ -20,6 +20,7 @@ import {
   HudRefs,
 } from "./ui/Screens";
 import { UpgradeScreen } from "./ui/UpgradeScreen";
+import ScreenDimmer from "./ui/components/ScreenDimmer";
 import FloatingPopup from "./ui/FloatingPopup";
 import TouchControls from "./ui/TouchControls";
 import { usePersistedState } from "./hooks/usePersistedState";
@@ -120,6 +121,30 @@ export default function App() {
   const [isTouch] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches
   );
+
+  /* Перехват ESC для экранов с кнопкой "Назад" — чтобы закрывать меню,
+      а не снимать паузу. Ловим на фазе capture (до игрового слушателя). */
+  useEffect(() => {
+    const isMenuWithBack = screen === "settings" || screen === "help" || screen === "debug" || screen === "upgrade";
+    if (!isMenuWithBack) return;
+
+    const handler = (e: KeyboardEvent) => {
+      if (e.code === "Escape") {
+        e.stopPropagation();
+        // Определяем куда возвращаться
+        if (screen === "settings") {
+          dispatch({ type: "SET_SCREEN", screen: settingsFromRef.current === "pause" ? "game" : "menu" });
+        } else if (screen === "upgrade") {
+          dispatch({ type: "SET_SCREEN", screen: upgradeFromRef.current === "gameover" ? "game" : "menu" });
+        } else {
+          // help, debug — всегда в меню
+          dispatch({ type: "SET_SCREEN", screen: "menu" });
+        }
+      }
+    };
+    window.addEventListener("keydown", handler, { capture: true });
+    return () => window.removeEventListener("keydown", handler, { capture: true });
+  }, [screen, dispatch]);
 
   /* Best score — persisted separately at game end */
   const [best, setBest] = useState(0);
@@ -459,6 +484,9 @@ export default function App() {
 
       {/* floating score popups (world → screen space) */}
       {screen === "game" && popupsEl}
+
+      {/* затемнение фона при любом меню в игре */}
+      {(paused || stats) && <ScreenDimmer />}
 
       {screen === "game" && paused && !stats && (
         <PauseOverlay

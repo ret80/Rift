@@ -14,7 +14,7 @@ export default function GameOverScreen(props: {
   const s = props.stats;
   return (
     <div
-      className="anim-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#0a0408]/70 p-4 backdrop-blur-[2px]"
+      className="anim-overlay absolute inset-0 z-30 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-label={t("over.title")}

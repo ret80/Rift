@@ -10,7 +10,7 @@ export default function PauseOverlay(props: {
   const t = useT();
   return (
     <div
-      className="anim-overlay absolute inset-0 z-30 flex items-center justify-center bg-[#04070d]/70 p-4 backdrop-blur-[2px]"
+      className="anim-overlay absolute inset-0 z-30 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-label={t("pause.title")}
