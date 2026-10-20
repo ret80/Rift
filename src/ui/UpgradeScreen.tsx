@@ -1,15 +1,13 @@
-import React, { useState, useEffect } from "react";
-import { useT, useLang } from "../i18n";
+import { useEffect, useState } from "react";
 import type { Game } from "../game/game";
-import { Icon } from "./components/Icon";
 import {
+  purchaseUpgrade,
   UPGRADE_TIERS,
   upgradeCost,
-  canAfford,
-  isMaxed,
-  purchaseUpgrade,
-  type PlayerUpgrades,
+  type PlayerUpgrades
 } from "../game/upgrades";
+import { useT } from "../i18n";
+import { Icon } from "./components/Icon";
 
 /* ======================== UpgradeRow ======================== */
 
@@ -122,11 +120,14 @@ export function UpgradeScreen(props: {
   const [upgrades, setUpgrades] = useState<PlayerUpgrades>({
     parts: 0, hull: 0, damage: 0, fireRate: 0, speed: 0, guns: 0, drones: 0, dashCooldown: 0,
   });
-  
-  // Load fresh upgrades on mount
+
+  // store an immutable snapshot so React re-renders after purchases
+  const copyUpgrades = (source: PlayerUpgrades): PlayerUpgrades => ({ ...source });
+
+  // Load fresh upgrades on mount (snapshot)
   useEffect(() => {
     if (!props.game) return;
-    setUpgrades(props.game.getPlayerUpgrades());
+    setUpgrades(copyUpgrades(props.game.getPlayerUpgrades()));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // run once on mount
   
@@ -139,6 +140,7 @@ export function UpgradeScreen(props: {
       ? props.game.purchaseUpgradeNoCost(key)
       : (() => {
           const ups = props.game.getPlayerUpgrades();
+          // snapshot for the check — never mutate the live object
           const maxed = ups[key] >= UPGRADE_TIERS[key].maxLevel;
           if (maxed) {
             console.warn(`[UpgradeScreen] ${key} is maxed`);
@@ -147,7 +149,7 @@ export function UpgradeScreen(props: {
           return purchaseUpgrade(ups, key);
         })();
     if (success) {
-      setUpgrades(props.game.getPlayerUpgrades());
+      setUpgrades(copyUpgrades(props.game.getPlayerUpgrades()));
     }
   };
   

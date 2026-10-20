@@ -45,14 +45,26 @@ export function defaultUpgrades(): PlayerUpgrades {
 
 /* ======================== Tier definitions ======================== */
 
+/**
+ * Стоимости подобраны так, чтобы суммарная стоимость ВСЕХ апгрейдов
+ * (~26 149 деталей) совпадала с ожидаемым кумулятивным доходом деталей
+ * к 50-й волне (~26 140 при полном сборе дропа).
+ *
+ * Вес ценности (что дороже):
+ *  - drones (×1.3) — авто-DPS, самый сильный боевой апгрейд;
+ *  - dashCooldown (×1.2) — супер-защита (уклонение);
+ *  - guns (×1.15) — мультипликативный рост урона;
+ *  - hull / damage / fireRate (×1.0) — защита и базовая огневая мощь;
+ *  - speed (×0.45) — чистая мобильность, самый дешёвый.
+ */
 export const UPGRADE_TIERS: Record<keyof Omit<PlayerUpgrades, "parts">, UpgradeTier> = {
-  hull:        { baseCost: 20,  costStep: 15, maxLevel: 10 },
-  damage:      { baseCost: 25,  costStep: 18, maxLevel: 10 },
-  fireRate:    { baseCost: 30,  costStep: 20, maxLevel: 10 },
-  speed:       { baseCost: 20,  costStep: 15, maxLevel: 8  },
-  guns:        { baseCost: 40,  costStep: 30, maxLevel: 4  },  // 1 (base) + 4 = 5 max
-  drones:      { baseCost: 50,  costStep: 35, maxLevel: 7  },  // 0 (base) + 7 = 7, but max 8
-  dashCooldown:{ baseCost: 25,  costStep: 20, maxLevel: 5  },
+  hull:        { baseCost: 94,  costStep: 70,  maxLevel: 10 },
+  damage:      { baseCost: 117, costStep: 84,  maxLevel: 10 },
+  fireRate:    { baseCost: 140, costStep: 94,  maxLevel: 10 },
+  speed:       { baseCost: 42,  costStep: 32,  maxLevel: 8  },
+  guns:        { baseCost: 215, costStep: 161, maxLevel: 4  },  // 1 (base) + 4 = 5 max
+  drones:      { baseCost: 304, costStep: 213, maxLevel: 7  },  // 0 (base) + 7 = 7, but max 8
+  dashCooldown:{ baseCost: 140, costStep: 112, maxLevel: 5  },
 };
 
 /* ======================== Cost calculation ======================== */
