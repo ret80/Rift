@@ -115,6 +115,7 @@ function getUpgradeValue(key: keyof Omit<PlayerUpgrades, "parts">, level: number
 export function UpgradeScreen(props: {
   game: Game | null;
   detailsOn: boolean;
+  from: "menu" | "gameover";
   onBack: () => void;
 }) {
   const t = useT();

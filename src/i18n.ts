@@ -147,6 +147,7 @@ const ru: Dict = {
   "over.kills": "ЦЕЛЕЙ УНИЧТОЖЕНО",
   "over.time": "ВРЕМЯ В СЕКТОРЕ",
   "over.retry": "ЕЩЁ РАЗ",
+  "over.upgrade": "ПРОКАЧКА",
   "over.menu": "В МЕНЮ",
 
   "pause.title": "ПАУЗА",
@@ -297,6 +298,7 @@ const en: Dict = {
   "over.kills": "TARGETS DESTROYED",
   "over.time": "TIME IN SECTOR",
   "over.retry": "RETRY",
+  "over.upgrade": "UPGRADES",
   "over.menu": "MENU",
 
   "pause.title": "PAUSED",

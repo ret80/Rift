@@ -321,6 +321,13 @@ export default function App() {
     dispatch({ type: "SET_SCREEN", screen: "settings" });
   };
 
+  // remember where we opened Upgrade from
+  const upgradeFromRef = useRef<"menu" | "gameover">("menu");
+  const openUpgrade = (from: "menu" | "gameover") => {
+    upgradeFromRef.current = from;
+    dispatch({ type: "SET_SCREEN", screen: "upgrade" });
+  };
+
   const popupsEl = useMemo(
     () => popups.map((p) => <FloatingPopup key={p.id} p={p} game={gameRef.current} />),
     [popups]
@@ -337,7 +344,7 @@ export default function App() {
           onSettings={() => openSettings("menu")}
           onHelp={() => dispatch({ type: "SET_SCREEN", screen: "help" })}
           onDebug={() => dispatch({ type: "SET_SCREEN", screen: "debug" })}
-          onUpgrade={() => dispatch({ type: "SET_SCREEN", screen: "upgrade" })}
+          onUpgrade={() => openUpgrade("menu")}
         />
       )}
 
@@ -392,7 +399,8 @@ export default function App() {
         <UpgradeScreen
           game={gameRef.current}
           detailsOn={debugDetails}
-          onBack={() => dispatch({ type: "SET_SCREEN", screen: "menu" })}
+          from={upgradeFromRef.current}
+          onBack={() => dispatch({ type: "SET_SCREEN", screen: upgradeFromRef.current === "gameover" ? "game" : "menu" })}
         />
       )}
 
@@ -461,7 +469,12 @@ export default function App() {
       )}
 
       {screen === "game" && stats && (
-        <GameOverScreen stats={stats} onRetry={startGame} onMenu={toMenu} />
+        <GameOverScreen
+          stats={stats}
+          onRetry={startGame}
+          onUpgrade={() => openUpgrade("gameover")}
+          onMenu={toMenu}
+        />
       )}
 
       {screen === "game" && !stats && !paused && isTouch && (

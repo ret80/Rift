@@ -143,6 +143,11 @@ canvas.game-canvas {
   color: #ffe9c9;
 }
 
+.clip-btn.btn-cyan {
+  --btn-c: var(--c-cyan);
+  color: #eaffff;
+}
+
 .clip-btn.btn-small {
   clip-path: polygon(
     8px 0,

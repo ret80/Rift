@@ -7,6 +7,7 @@ import { useT } from "../../i18n";
 export default function GameOverScreen(props: {
   stats: StatsData;
   onRetry: () => void;
+  onUpgrade: () => void;
   onMenu: () => void;
 }) {
   const t = useT();
@@ -55,12 +56,17 @@ export default function GameOverScreen(props: {
               </div>
             </div>
           </div>
-          <div className="mt-5 flex flex-col justify-center gap-2.5 sm:mt-7 sm:flex-row sm:gap-3">
-            <GameButton onClick={props.onRetry} autoFocus>
-              {t("over.retry")}
-            </GameButton>
-            <GameButton onClick={props.onMenu} variant="amber">
-              {t("over.menu")}
+          <div className="mt-5 flex flex-col items-center justify-center gap-2.5 sm:mt-7">
+            <div className="flex w-full gap-3">
+              <GameButton onClick={props.onRetry} autoFocus className="flex-1">
+                {t("over.retry")}
+              </GameButton>
+              <GameButton onClick={props.onMenu} variant="amber" className="flex-1">
+                {t("over.menu")}
+              </GameButton>
+            </div>
+            <GameButton onClick={props.onUpgrade} variant="cyan" className="w-full">
+              {t("over.upgrade")}
             </GameButton>
           </div>
         </div>
