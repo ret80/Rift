@@ -4,9 +4,10 @@
  * На экране прокачки детали тратятся на постоянные улучшения.
  */
 
-/* ======================== Storage key ======================== */
+/* ======================== Storage keys ======================== */
 
 const LS_KEY = "rift9_upgrades";
+const LS_BEST_WAVE = "rift9_best_wave";
 
 /* ======================== Types ======================== */
 
@@ -113,6 +114,7 @@ export function resetUpgrades(): PlayerUpgrades {
   const fresh = defaultUpgrades();
   try {
     localStorage.removeItem(LS_KEY);
+    localStorage.removeItem(LS_BEST_WAVE);
   } catch { /* ignore */ }
   return fresh;
 }
@@ -120,6 +122,30 @@ export function resetUpgrades(): PlayerUpgrades {
 /** Сохранить прокачку в localStorage (для синхронизации in-memory) */
 export function persistUpgrades(upgrades: PlayerUpgrades): void {
   saveUpgrades(upgrades);
+}
+
+/* ======================== Best wave tracking ======================== */
+
+/** Загрузить лучший результат по волнам */
+export function loadBestWave(): number {
+  try {
+    const raw = localStorage.getItem(LS_BEST_WAVE);
+    if (raw) {
+      const n = parseInt(raw, 10);
+      if (!isNaN(n) && n > 0) return n;
+    }
+  } catch { /* ignore */ }
+  return 1;
+}
+
+/** Сохранить лучший результат по волнам */
+export function saveBestWave(wave: number): void {
+  try {
+    const current = loadBestWave();
+    if (wave > current) {
+      localStorage.setItem(LS_BEST_WAVE, String(wave));
+    }
+  } catch { /* ignore */ }
 }
 
 /* ======================== Apply upgrades to game values ======================== */

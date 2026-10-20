@@ -269,7 +269,8 @@ export class WaveOrchestrator {
     }
   }
 
-  reset(): void {
+  /** Сбросить состояние волн. targetWave — волна, с которой начинается игра */
+  reset(targetWave: number = 1): void {
     this.zone = {
       active: false,
       x: 0,
@@ -279,7 +280,7 @@ export class WaveOrchestrator {
       alpha: 0,
       collapseT: ZONE_NOT_COLLAPSING,
     };
-    this.wave = 1;
+    this.wave = targetWave;
     this.waveTotal = 0;
     this.allocated = 0;
     this.killedWave = 0;
@@ -290,7 +291,7 @@ export class WaveOrchestrator {
     this.edgeWarned = false;
 
     // Reset wave FSM with fresh context (no recreation)
-    this.waveFSM.reset("active", { wave: 1, waveTotal: 0, allocated: 0, killedWave: 0 });
+    this.waveFSM.reset("active", { wave: targetWave, waveTotal: 0, allocated: 0, killedWave: 0 });
 
     // Clear all pending timeouts to prevent leaks
     for (const id of this.timeoutIds) {

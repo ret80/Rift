@@ -14,6 +14,7 @@ import {
   EnemyKind,
 } from "./balance";
 import type { PlayerUpgrades } from "./upgrades";
+import { saveBestWave, loadBestWave } from "./upgrades";
 
 import { CRUISER_BULLET_SPEED } from "./balance";
 
@@ -899,7 +900,8 @@ export class Game {
     
     this.time = 0;
     this.scoringSystem.reset();
-    this.wave = this.startWave;
+    // Начинаем с лучшей достигнутой волны (или стартовой для отладки)
+    this.wave = Math.max(this.startWave, loadBestWave());
     this.waveTotal = 0;
     this.allocated = 0;
     this.scoringSystem.setKilledWave(0);
@@ -931,7 +933,7 @@ export class Game {
 
     // Reset zone state via orchestrator
     const pos = this.getPlayerPosition();
-    this.waveOrchestrator.reset();
+    this.waveOrchestrator.reset(this.wave);
 
     this.riftField.reset();
     this.asteroidField.hardReset();
@@ -944,7 +946,10 @@ export class Game {
       this.scoringSystem,
       (n) => this.spawnParts(n, 0, 0),
       {
-        onGameOver: () => this.hooks.onGameOver(),
+        onGameOver: () => {
+          saveBestWave(this.wave);
+          this.hooks.onGameOver();
+        },
         onStats: (score, best, isBest, wave, kills, time) => {
           this.hooks.onStats({ score, best, isBest, wave: this.wave, kills, time });
         },
