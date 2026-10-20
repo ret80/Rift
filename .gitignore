@@ -42,7 +42,8 @@ __pycache__/
 # Coverage
 coverage/
 htmlcov/
-.coverage
+.coverage/
+screenshots/
 
 # System files
 .DS_Store
