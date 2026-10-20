@@ -3,15 +3,15 @@
  * Отвечает за AI, движение, стрельбу и состояние врагов.
  */
 
-import type { AudioManager } from './AudioManager';
 import { EnemyAI } from '../ai/EnemyAI';
 import { GameContext } from '../ai/GameContext';
-import { EnemyKind, massForRadius, DRONE_BASE_SPEED, HUNTER_SPEED, FIGHTER_BASE_SPEED, CRUISER_BASE_SPEED, CARRIER_BASE_SPEED, CRUISER_FIRE_RANGE } from '../balance';
-import type { Enemy } from '../types';
+import { CARRIER_BASE_SPEED, CRUISER_BASE_SPEED, CRUISER_FIRE_RANGE, DRONE_BASE_SPEED, EnemyKind, FIGHTER_BASE_SPEED, HUNTER_SPEED, massForRadius } from '../balance';
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { Fx } from '../fx';
 import { TAU, rand } from '../math';
+import type { Enemy } from '../types';
+import type { AudioManager } from './AudioManager';
 
 /* ── Magic numbers ── */
 const MIN_DIST = 35;
@@ -159,11 +159,16 @@ export class EnemySystem {
     this.enemyList.push(this.createEnemy(kind, x, y, def, playerPos));
   }
   
-  update(dt: number, enemyList: Enemy[], playerPos: { x: number; y: number }, enemyBullets?: EnemyBullet[]): void {
+  update(
+    dt: number,
+    enemyList: Enemy[],
+    playerPos: { x: number; y: number; vx?: number; vy?: number },
+    enemyBullets?: EnemyBullet[]
+  ): void {
     const playerX = playerPos.x;
     const playerY = playerPos.y;
-    const playerVx = 0;
-    const playerVy = 0;
+    const playerVx = playerPos.vx || 0;
+    const playerVy = playerPos.vy || 0;
     const zone = this.getZoneBounds();
     
     // Update game context for strategies

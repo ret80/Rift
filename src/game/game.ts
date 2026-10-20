@@ -4,42 +4,37 @@
  * Не содержит бизнес-логики - вся логика вынесена в системы.
  */
 
-import { t } from "../i18n";
-import { AudioManager } from "./systems/AudioManager";
 import {
-  PickupKind,
-  waveTotalFor,
-  massForRadius,
-  PLAYER_MAX_SPEED,
   EnemyKind,
+  PickupKind,
+  PLAYER_MAX_SPEED,
+  waveTotalFor
 } from "./balance";
+import { AudioManager } from "./systems/AudioManager";
 import type { PlayerUpgrades } from "./upgrades";
-import { saveBestWave, loadBestWave } from "./upgrades";
+import { loadBestWave, saveBestWave } from "./upgrades";
 
 import { CRUISER_BULLET_SPEED } from "./balance";
 
 import {
-  // Missile
-  MISSILE_DURATION,
-  MISSILE_LAUNCH_INTERVAL,
-  MISSILE_TURN_RATE,
   // FPS
   FPS_SMOOTHING_FACTOR,
+  MISSILE_TURN_RATE,
   // Zone gun range (still used by Game for autofire)
-  ZONE_GUN_RANGE,
+  ZONE_GUN_RANGE
 } from "./balance";
-import { clamp } from "./math";
 import type { GameStateType } from "./core/GameState";
+import { clamp } from "./math";
 import { Renderer } from "./render";
+import { DebugSystem } from "./systems/DebugSystem";
 import { MenuScene } from "./systems/MenuScene";
 import { ScoringSystem } from "./systems/ScoringSystem";
-import { DebugSystem } from "./systems/DebugSystem";
 
 /* Core systems */
 import { EventBus } from "./core/EventBus";
-import { GameState } from "./core/GameState";
-import type { GameFSMContext, GameStateId } from "./core/FSMBridge";
+import type { GameFSMContext } from "./core/FSMBridge";
 import { FSMBridge } from "./core/FSMBridge";
+import { GameState } from "./core/GameState";
 import { GameStateMachine } from "./core/StateMachine";
 
 /* Subsystems */
@@ -50,13 +45,13 @@ import { RiftField } from "./rifts";
 import { Starfield } from "./starfield";
 
 /* Entity types */
-import type { AllyDrone, Bullet, EBullet, Enemy, Mine, Pickup } from "./types";
+import type { Enemy } from "./types";
 
 /* Game systems */
+import { ApplyPickupSystem } from "./systems/ApplyPickupSystem";
 import { BulletSystem } from "./systems/BulletSystem";
 import { CameraSystem } from "./systems/CameraSystem";
 import { CollisionSystem } from "./systems/CollisionSystem";
-import { PickupDropSystem } from "./systems/PickupDropSystem";
 import { CountdownSystem } from "./systems/CountdownSystem";
 import { DeathSystem } from "./systems/DeathSystem";
 import { DroneSystem } from "./systems/DroneSystem";
@@ -64,6 +59,7 @@ import { EnemySystem } from "./systems/EnemySystem";
 import { EntityPoolSystem } from "./systems/EntityPoolSystem";
 import { InputSystem } from "./systems/InputSystem";
 import { MineSystem } from "./systems/MineSystem";
+import { PickupDropSystem } from "./systems/PickupDropSystem";
 import { PickupSystem } from "./systems/PickupSystem";
 import { PlayerSystem } from "./systems/PlayerSystem";
 import { RendererSystem } from "./systems/RendererSystem";
@@ -71,7 +67,6 @@ import { SpawnSystem } from "./systems/SpawnSystem";
 import { UpgradeSystem } from "./systems/UpgradeSystem";
 import { WaveOrchestrator } from "./systems/WaveOrchestrator";
 import { ZoneSystem } from "./systems/ZoneSystem";
-import { ApplyPickupSystem } from "./systems/ApplyPickupSystem";
 
 /* ============================== UI types ============================== */
 
@@ -979,9 +974,9 @@ export class Game {
     this.allocated++;
   }
 
-  private getPlayerPosition(): { x: number; y: number } {
+  private getPlayerPosition(): { x: number; y: number; vx: number; vy: number } {
     const state = this.playerSystem.getState();
-    return { x: state.x, y: state.y };
+    return { x: state.x, y: state.y, vx: state.vx, vy: state.vy };
   }
 
   private getZoneBounds(): { x: number; y: number; radius: number; active: boolean } {
