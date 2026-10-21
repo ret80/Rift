@@ -1,4 +1,9 @@
 import { PickupKind } from "../balance";
+import {
+  DASH_BONUS_TIME,
+  GUN_BONUS_TIME,
+  MISSILE_DURATION,
+} from "../balance/player";
 
 interface PickupDependencies {
   heal(amount: number): void;
@@ -26,16 +31,16 @@ export class ApplyPickupSystem {
       rate40: () => this.deps.boostRate(),
       rate60: () => this.deps.boostRate(),
       rate: () => this.deps.boostRate(),
-      gun: () => this.deps.addGunBonus(2, 15),
+      gun: () => this.deps.addGunBonus(2, GUN_BONUS_TIME),
       drone: () => this.deps.spawnDrone(droneList, playerPos, maxHp),
-      dash: () => this.deps.setDashT(5),
+      dash: () => this.deps.setDashT(DASH_BONUS_TIME),
       miner: () => this.deps.setMineT(0),
       mine: () => this.deps.setMineT(0),
       mineral: () => {
         this.deps.addMinerals(1);
         this.deps.addScore(50);
       },
-      missile: () => this.deps.activateMissileLauncher(30),
+      missile: () => this.deps.activateMissileLauncher(MISSILE_DURATION),
     };
 
     const handler = handlers[kind];

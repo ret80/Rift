@@ -183,6 +183,49 @@ canvas.game-canvas {
   text-transform: uppercase;
 }
 
+/* ---------- HUD loadout row (weapon & bonus icons) ---------- */
+.loadout-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  min-height: 30px;
+}
+
+.loadout-slot {
+  position: relative;
+  display: flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+}
+
+.loadout-ring {
+  position: absolute;
+  inset: 0;
+}
+
+.loadout-track {
+  fill: none;
+  stroke: currentColor;
+  stroke-opacity: 0.18;
+  stroke-width: 2;
+}
+
+.loadout-arc {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px currentColor);
+}
+
+.loadout-icon {
+  position: relative;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
 .kbd {
   display: inline-block;
   min-width: 22px;

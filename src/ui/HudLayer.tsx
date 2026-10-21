@@ -1,19 +1,9 @@
-import React, { MutableRefObject } from "react";
+import React from "react";
 import { useT } from "../i18n";
+import { LoadoutBar } from "./components/LoadoutBar";
+import type { HudRefs } from "./hudRefs";
 
-export interface HudRefs {
-  wave: MutableRefObject<HTMLDivElement | null>;
-  progress: MutableRefObject<HTMLDivElement | null>;
-  status: MutableRefObject<HTMLDivElement | null>;
-  hullPanel: MutableRefObject<HTMLDivElement | null>;
-  hpFill: MutableRefObject<HTMLDivElement | null>;
-  time: MutableRefObject<HTMLDivElement | null>;
-  score: MutableRefObject<HTMLDivElement | null>;
-  best: MutableRefObject<HTMLDivElement | null>;
-  combo: MutableRefObject<HTMLDivElement | null>;
-  minerals: MutableRefObject<HTMLDivElement | null>;
-  parts: MutableRefObject<HTMLDivElement | null>;
-}
+export type { HudRefs } from "./hudRefs";
 
 function MineralGlyph() {
   return (
@@ -101,6 +91,9 @@ export function HudLayer(props: { r: HudRefs; godOn: boolean }) {
             </div>
           </div>
         </div>
+
+        {/* loadout row — weapon & bonus icons with their timers */}
+        <LoadoutBar ref={r.loadoutBar} />
 
         {/* secondary status line under the bar */}
         <div ref={r.status} className="mt-1 px-1 text-center text-[7px] tracking-[0.06em] text-[#6f86a8] sm:text-[8px]">

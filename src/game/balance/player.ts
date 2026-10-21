@@ -65,9 +65,16 @@ export const MAX_GUNS = 5;
 export const MAX_ALLY_DRONES = 8;
 export const GUN_OFFS = [0, 9, -9, 17, -17];
 
-export const RATE_BOOST_TIME = 20; // seconds of a fire-rate bonus
+/** Seconds a fire-rate bonus lasts. */
+export const RATE_BOOST_TIME = 10;
+
+/** Seconds an extra-barrels bonus lasts. */
+export const GUN_BONUS_TIME = 15;
 
 /* ------------------------------ dash bonus ------------------------------ */
+
+/** Seconds a dash bonus lasts. */
+export const DASH_BONUS_TIME = 5;
 
 export const DASH_TIME = 3; // seconds of overdrive
 export const DASH_ACCEL = 2.1; // acceleration multiplier while dashing
@@ -97,7 +104,7 @@ export const MISSILE_LIFE = 3.5;
 export const MISSILE_DMG = 55;
 export const MISSILE_TURN_RATE = 3.0; // radians/sec turning capability
 export const MISSILE_LAUNCH_INTERVAL = 0.6; // seconds between missile launches
-export const MISSILE_DURATION = 15; // seconds launcher is active
+export const MISSILE_DURATION = 30; // seconds launcher is active
 
 /* ------------------------------ starfield ------------------------------ */
 

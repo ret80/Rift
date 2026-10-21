@@ -8,7 +8,7 @@ import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
 import type { Fx } from '../fx';
 import type { InputManager } from '../input';
-import { PLAYER_FIRE_CD } from '../balance';
+import { PLAYER_FIRE_CD, RATE_BOOST_TIME } from '../balance';
 import {
   createPlayerState,
   resetPlayerState,
@@ -39,7 +39,6 @@ export class PlayerSystem {
   private isFiring = false;
   private lastFireTime = 0;
   private autoFireEnabled = true;
-  private missileDurationT = 0;
 
   constructor(
     eventBus: EventBus,
@@ -79,7 +78,6 @@ export class PlayerSystem {
   reset(): void {
     resetPlayerState(this.pState);
     this.fireCd = 0;
-    this.missileDurationT = 0;
   }
 
   // ---- Setters ----
@@ -195,7 +193,7 @@ export class PlayerSystem {
 
   boostRate(): void {
     this.pState.rateBoost = Math.min(1.0, this.pState.rateBoost + 0.2);
-    this.pState.rateT = 10; // 10 seconds boost
+    this.pState.rateT = RATE_BOOST_TIME;
   }
 
   addGunBonus(count: number, duration: number): void {
@@ -209,6 +207,26 @@ export class PlayerSystem {
 
   getRateT(): number {
     return this.pState.rateT;
+  }
+
+  /** Remaining reload of the main cannon. */
+  getFireCd(): number {
+    return this.fireCd;
+  }
+
+  /** Full reload of the main cannon at the current fire rate. */
+  getFireCdMax(): number {
+    return PLAYER_FIRE_CD / this.getRateMult();
+  }
+
+  /** Remaining lifetime of the missile launcher (0 when inactive). */
+  getMissileT(): number {
+    return this.pState.missileT;
+  }
+
+  /** Remaining lifetime of the extra-barrels bonus. */
+  getGunsT(): number {
+    return this.pState.extraGunsT;
   }
 
   getRenderState(): import('./RendererSystem').PlayerRenderState {
@@ -297,9 +315,8 @@ export class PlayerSystem {
     enemies: Array<{ x: number; y: number; dead: boolean; r: number }>,
     bullets: Array<any>,
   ): void {
-    this.missileDurationT = launchMissiles(
+    launchMissiles(
       this.pState,
-      this.missileDurationT,
       dt,
       enemies,
       bullets,

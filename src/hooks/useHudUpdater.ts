@@ -1,18 +1,8 @@
-import { useCallback, type RefObject } from "react";
+import { useCallback } from "react";
+import type { LoadoutSlotData } from "../game/balance/loadout";
+import type { HudRefs } from "../ui/hudRefs";
 
-export interface HudRefs {
-  wave: RefObject<HTMLDivElement | null>;
-  progress: RefObject<HTMLDivElement | null>;
-  status: RefObject<HTMLDivElement | null>;
-  hullPanel: RefObject<HTMLDivElement | null>;
-  hpFill: RefObject<HTMLDivElement | null>;
-  time: RefObject<HTMLDivElement | null>;
-  score: RefObject<HTMLDivElement | null>;
-  best: RefObject<HTMLDivElement | null>;
-  combo: RefObject<HTMLDivElement | null>;
-  minerals: RefObject<HTMLDivElement | null>;
-  parts: RefObject<HTMLDivElement | null>;
-}
+export type { HudRefs } from "../ui/hudRefs";
 
 export interface HudData {
   wave: number;
@@ -28,6 +18,8 @@ export interface HudData {
   comboMult: number;
   minerals: number;
   parts: number;
+  /** Weapon + bonus slots rendered in the HUD loadout row. */
+  loadout: LoadoutSlotData[];
 }
 
 type UpdateCallback = (data: Partial<HudData>) => void;
@@ -89,6 +81,9 @@ export function useHudUpdater(
         } else {
           r.combo.current.style.opacity = "0";
         }
+      }
+      if (r.loadoutBar.current && data.loadout) {
+        r.loadoutBar.current.update(data.loadout);
       }
     },
     [refs, t]

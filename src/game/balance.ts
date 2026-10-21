@@ -27,6 +27,8 @@ export {
   MAX_ALLY_DRONES,
   GUN_OFFS,
   RATE_BOOST_TIME,
+  GUN_BONUS_TIME,
+  DASH_BONUS_TIME,
   DASH_TIME,
   DASH_ACCEL,
   DASH_SPEED,
@@ -116,3 +118,12 @@ export {
 // Drop chances, pickup kinds, asteroid kinds
 export { dropChanceFor, ALL_PICKUP_KINDS, pickupDisplayKey } from "./balance/drops";
 export type { PickupKind, AsteroidKind } from "./balance/drops";
+
+// HUD loadout slots (weapon + bonus icons)
+export {
+  INSTANT_BONUS_FLASH,
+  LOADOUT_ORDER,
+  LOADOUT_SORT,
+  loadoutKindForPickup,
+} from "./balance/loadout";
+export type { LoadoutKind, LoadoutSlotData } from "./balance/loadout";

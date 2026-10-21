@@ -35,17 +35,16 @@ export function activateMissileLauncher(
   duration: number,
 ): void {
   state.missileActive = true;
+  state.missileT = duration;
   state.missileCd = 0; // ready to fire immediately
   state.missilePort = 0;
 }
 
 /**
  * Update missile launcher and launch if ready.
- * @returns remaining duration or 0 if deactivated
  */
 export function launchMissiles(
   state: PlayerState,
-  missileDurationT: number,
   dt: number,
   enemies: Array<{ x: number; y: number; dead: boolean; r: number }>,
   bullets: Array<any>,
@@ -53,18 +52,19 @@ export function launchMissiles(
   playerY: number,
   playerVx: number,
   playerVy: number,
-): number {
-  if (!state.missileActive) return missileDurationT;
+): void {
+  if (!state.missileActive) return;
 
   // Decrease activation timer
-  const remaining = missileDurationT - dt;
-  if (remaining <= 0) {
+  state.missileT -= dt;
+  if (state.missileT <= 0) {
+    state.missileT = 0;
     state.missileActive = false;
-    return 0;
+    return;
   }
 
   state.missileCd = Math.max(0, state.missileCd - dt);
-  if (state.missileCd > 0) return remaining;
+  if (state.missileCd > 0) return;
 
   // Find nearest living enemy
   let nearest: { x: number; y: number; r: number } | null = null;
@@ -79,7 +79,7 @@ export function launchMissiles(
     }
   }
 
-  if (!nearest) return remaining;
+  if (!nearest) return;
 
   // Fire missile
   fireMissile(state, bullets, playerX, playerY, playerVx, playerVy, nearest);
@@ -87,8 +87,6 @@ export function launchMissiles(
   // Switch port and set cooldown
   state.missilePort = 1 - state.missilePort;
   state.missileCd = MISSILE_LAUNCH_INTERVAL;
-
-  return remaining;
 }
 
 /**

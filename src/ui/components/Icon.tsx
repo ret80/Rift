@@ -5,7 +5,7 @@ import React from "react";
  * PickupIcon, and UpgradeIcon patterns across the codebase.
  */
 
-type IconKind =
+export type IconKind =
   /* help screen enemies */
   | "enemy-drone"
   | "enemy-hunter"
@@ -25,7 +25,12 @@ type IconKind =
   | "upgrade-speed"
   | "upgrade-guns"
   | "upgrade-drones"
-  | "upgrade-dashCooldown";
+  | "upgrade-dashCooldown"
+  /* HUD loadout row */
+  | "weapon-cannon"
+  | "weapon-missile"
+  | "bonus-dash"
+  | "bonus-mine";
 
 const ENEMY_COLORS: Record<string, string> = {
   "enemy-drone": "#ff5d7e",
@@ -53,9 +58,21 @@ const UPGRADE_COLORS: Record<string, string> = {
   "upgrade-dashCooldown": "#ffd23e",
 };
 
+/** Loadout row icons — colours match the in-world palette. */
+const LOADOUT_COLORS: Record<string, string> = {
+  "weapon-cannon": "#5ef2ff",
+  "weapon-missile": "#9dffe8",
+  "bonus-dash": "#ffd23e",
+  "bonus-mine": "#ff7a45",
+};
+
 function getIconColor(kind: IconKind): string {
   return (
-    ENEMY_COLORS[kind] ?? PICKUP_COLORS[kind] ?? UPGRADE_COLORS[kind] ?? "#ffffff"
+    ENEMY_COLORS[kind] ??
+    PICKUP_COLORS[kind] ??
+    UPGRADE_COLORS[kind] ??
+    LOADOUT_COLORS[kind] ??
+    "#ffffff"
   );
 }
 
@@ -139,6 +156,42 @@ function getIconPaths(kind: IconKind): React.ReactNode {
     case "upgrade-dashCooldown":
       return <circle cx="12" cy="12" r="8" />;
 
+    /* Loadout row */
+    case "weapon-cannon":
+      return (
+        <>
+          <circle cx="7" cy="12" r="4.5" />
+          <line x1="11" y1="12" x2="21" y2="12" />
+          <line x1="4" y1="18" x2="10" y2="18" strokeOpacity="0.55" />
+        </>
+      );
+    case "weapon-missile":
+      return (
+        <>
+          <path d="M12 2 L16 8 L16 16 L12 18 L8 16 L8 8 Z" />
+          <line x1="8" y1="12" x2="4" y2="17" />
+          <line x1="16" y1="12" x2="20" y2="17" />
+          <circle cx="12" cy="8" r="1.4" strokeOpacity="0.7" />
+        </>
+      );
+    case "bonus-dash":
+      return (
+        <>
+          <polyline points="6,5 12,12 6,19" />
+          <polyline points="13,5 19,12 13,19" />
+        </>
+      );
+    case "bonus-mine":
+      return (
+        <>
+          <polygon points="12,7 17,12 12,17 7,12" />
+          <line x1="12" y1="7" x2="12" y2="3" />
+          <line x1="12" y1="17" x2="12" y2="21" />
+          <line x1="7" y1="12" x2="3" y2="12" />
+          <line x1="17" y1="12" x2="21" y2="12" />
+        </>
+      );
+
     default:
       return <circle cx="12" cy="12" r="8" />;
   }
@@ -147,18 +200,21 @@ function getIconPaths(kind: IconKind): React.ReactNode {
 export interface IconProps {
   kind: IconKind;
   size?: number;
+  className?: string;
+  /** Overrides the default colour of the kind. */
+  color?: string;
 }
 
-export function Icon({ kind, size = 24 }: IconProps) {
-  const color = getIconColor(kind);
+export function Icon({ kind, size = 24, className, color }: IconProps) {
+  const stroke = color ?? getIconColor(kind);
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      className="shrink-0"
+      className={className ? `shrink-0 ${className}` : "shrink-0"}
       fill="none"
-      stroke={color}
+      stroke={stroke}
       strokeWidth="1.6"
     >
       {getIconPaths(kind)}

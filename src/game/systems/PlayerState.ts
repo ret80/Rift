@@ -4,7 +4,7 @@
 
 import type { EventBus } from '../core/EventBus';
 import type { PlayerRenderState } from './RendererSystem';
-import { massForRadius, PLAYER_MAX_SPEED, PLAYER_RADIUS } from '../balance';
+import { massForRadius, PLAYER_MAX_SPEED, PLAYER_RADIUS, RATE_BOOST_TIME } from '../balance';
 import { lerpAngle as lerpAngleMath } from '../math';
 
 /* ============================== constants ============================== */
@@ -36,6 +36,8 @@ export interface PlayerState {
   missileActive: boolean;
   missilePort: number;
   missileCd: number;
+  /** Remaining launcher lifetime in seconds. */
+  missileT: number;
   // Extra guns bonus (from pickup)
   extraGuns: number;
   extraGunsT: number;
@@ -64,6 +66,7 @@ export function createPlayerState(): PlayerState {
     missileActive: false,
     missilePort: 0,
     missileCd: 0,
+    missileT: 0,
     // Extra guns bonus
     extraGuns: 0,
     extraGunsT: 0,
@@ -133,7 +136,7 @@ export function addGun(state: PlayerState): void {
 
 export function boostRate(state: PlayerState): void {
   state.rateBoost = Math.min(1.0, state.rateBoost + 0.2);
-  state.rateT = 10; // 10 seconds boost
+  state.rateT = RATE_BOOST_TIME;
 }
 
 export function addGunBonus(state: PlayerState, count: number, duration: number): void {

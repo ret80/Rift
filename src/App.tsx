@@ -23,6 +23,7 @@ import { UpgradeScreen } from "./ui/UpgradeScreen";
 import ScreenDimmer from "./ui/components/ScreenDimmer";
 import FloatingPopup from "./ui/FloatingPopup";
 import TouchControls from "./ui/TouchControls";
+import type { LoadoutBarHandle } from "./ui/components/LoadoutBar";
 import { usePersistedState } from "./hooks/usePersistedState";
 import { useHudUpdater } from "./hooks/useHudUpdater";
 import { resetGameState } from "./game/resetGameState";
@@ -161,6 +162,7 @@ export default function App() {
     combo: useRef<HTMLDivElement | null>(null),
     minerals: useRef<HTMLDivElement | null>(null),
     parts: useRef<HTMLDivElement | null>(null),
+    loadoutBar: useRef<LoadoutBarHandle | null>(null),
   };
 
   const onHud = useHudUpdater(hudRefs, t);

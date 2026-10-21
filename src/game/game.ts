@@ -24,6 +24,7 @@ import {
   ZONE_GUN_RANGE
 } from "./balance";
 import type { GameStateType } from "./core/GameState";
+import type { LoadoutSlotData } from "./balance/loadout";
 import { clamp } from "./math";
 import { Renderer } from "./render";
 import { DebugSystem } from "./systems/DebugSystem";
@@ -58,6 +59,7 @@ import { DroneSystem } from "./systems/DroneSystem";
 import { EnemySystem } from "./systems/EnemySystem";
 import { EntityPoolSystem } from "./systems/EntityPoolSystem";
 import { InputSystem } from "./systems/InputSystem";
+import { LoadoutSystem } from "./systems/LoadoutSystem";
 import { MineSystem } from "./systems/MineSystem";
 import { PickupDropSystem } from "./systems/PickupDropSystem";
 import { PickupSystem } from "./systems/PickupSystem";
@@ -87,6 +89,8 @@ export interface HudData {
   drones: number;
   minerals: number;
   parts: number;
+  /** Weapon + bonus slots rendered in the HUD loadout row. */
+  loadout: LoadoutSlotData[];
 }
 
 export interface BannerData {
@@ -194,6 +198,7 @@ export class Game {
   private collisionSystem: CollisionSystem;
   private dropSystem!: PickupDropSystem;
   private applyPickupSystem!: ApplyPickupSystem;
+  private loadoutSystem!: LoadoutSystem;
 
   private zoneSystem: ZoneSystem;
   private waveOrchestrator: WaveOrchestrator;
@@ -465,6 +470,20 @@ export class Game {
       () => this.getPlayerPosition()
     );
 
+    // HUD loadout row — weapon + bonus icons with their timers
+    this.loadoutSystem = new LoadoutSystem(
+      {
+        getFireCd: () => this.playerSystem.getFireCd(),
+        getFireCdMax: () => this.playerSystem.getFireCdMax(),
+        getMissileT: () => this.playerSystem.getMissileT(),
+        getRateT: () => this.playerSystem.getRateT(),
+        getGunsT: () => this.playerSystem.getGunsT(),
+        getDashT: () => this.playerSystem.getDashT(),
+        getDroneCount: () => this.entityPool.allyDroneList.length,
+      },
+      this.eventBus
+    );
+
     this.dropSystem = new PickupDropSystem(this.eventBus);
 
     this.collisionSystem = new CollisionSystem(
@@ -705,6 +724,7 @@ export class Game {
 
     this.render(dt);
     this.renderDebug();
+    this.loadoutSystem.update(dtScaled);
     this.updateHud();
   }
 
@@ -773,6 +793,7 @@ export class Game {
       drones: this.entityPool.allyDroneList.length,
       minerals: this.minerals,
       parts: this.upgradeSystem.getParts(),
+      loadout: this.loadoutSystem.getSlots(),
     };
     this.hooks.onHud(hud);
   }
@@ -921,6 +942,7 @@ export class Game {
     this.entityPool.mineList.length = 0;
     this.mineDropT = -1;
     this.minerals = 0;
+    this.loadoutSystem.reset();
     
     // Reset spawn and enemy system state for new game
     this.spawnSystem.clearAnnounced();
