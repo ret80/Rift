@@ -23,7 +23,6 @@ import {
     ZONE_INITIAL_RADIUS,
     zoneExpandSpeed,
 } from "../balance";
-import { GameStateMachine } from "../core/StateMachine";
 import type { ZoneData } from "../core/ZoneTypes";
 import { ZONE_NOT_COLLAPSING } from "../core/ZoneTypes";
 import { clamp, easeOutCubic } from "../math";
@@ -57,7 +56,7 @@ export interface PlayerPosition {
   y: number;
 }
 
-// ============================== Wave FSM Types ==============================
+// ============================== Wave State Types ==============================
 
 export type WaveStateId = "inactive" | "active" | "cleared";
 
@@ -68,43 +67,6 @@ const TOAST_CLEAR_SHORT = 1500;
 /** Duration for clearing banner toast notifications (ms) */
 const TOAST_CLEAR_LONG = 2000;
 
-// ============================== Wave FSM Transitions ==============================
-
-interface WaveTransition {
-  trigger: string;
-  target: WaveStateId;
-  guard: () => boolean;
-  onEnter: () => void;
-}
-
-const WAVE_TRANSITIONS: WaveTransition[] = [
-  {
-    trigger: "start",
-    target: "active",
-    guard: () => true,
-    onEnter: () => {},
-  },
-  {
-    trigger: "cleared",
-    target: "cleared",
-    guard: () => true,
-    onEnter: () => {},
-  },
-  {
-    trigger: "restart",
-    target: "active",
-    guard: () => true,
-    onEnter: () => {},
-  },
-];
-
-export interface WaveFSMContext {
-  wave: number;
-  waveTotal: number;
-  allocated: number;
-  killedWave: number;
-}
-
 export class WaveOrchestrator {
   private hooks: WaveOrchestratorHooks;
   private playerMaxSpeed: number;
@@ -112,15 +74,15 @@ export class WaveOrchestrator {
   private speedMult: number = 1.0;
 
   // Wave tracking
-  private wave: number = 1;
-  private waveTotal: number = 0;
+  private _wave: number = 1;
+  private _waveTotal: number = 0;
   private allocated: number = 0;
   private killedWave: number = 0;
   private clearT: number = 0;
   private waveClearSent: boolean = false;
 
-  // Wave FSM
-  private waveFSM: GameStateMachine<WaveFSMContext>;
+  // Wave state (replaced FSM with simple state for clarity)
+  private _waveState: WaveStateId = "active";
 
   // Edge danger tracking
   private edgeOutT: number = 0;
@@ -143,19 +105,7 @@ export class WaveOrchestrator {
       collapseT: -1,
     };
 
-    // Initialize Wave FSM once — context updated per wave
-    const waveContext: WaveFSMContext = {
-      wave: 1,
-      waveTotal: 0,
-      allocated: 0,
-      killedWave: 0,
-    };
-
-    this.waveFSM = new GameStateMachine<WaveFSMContext>(
-      "active",
-      WAVE_TRANSITIONS,
-      waveContext
-    );
+    this._waveState = "active";
   }
 
   // ============================== Public API ==============================
@@ -165,7 +115,17 @@ export class WaveOrchestrator {
   }
 
   get waveState(): WaveStateId {
-    return this.waveFSM.state as WaveStateId;
+    return this._waveState;
+  }
+
+  /** Текущий номер волны (источник правды). */
+  get wave(): number {
+    return this._wave;
+  }
+
+  /** Общее число врагов на текущей волне (источник правды). */
+  get waveTotal(): number {
+    return this._waveTotal;
   }
 
   initWave(
@@ -174,8 +134,8 @@ export class WaveOrchestrator {
     wave: number,
     waveTotal: number
   ): void {
-    this.wave = wave;
-    this.waveTotal = waveTotal;
+    this._wave = wave;
+    this._waveTotal = waveTotal;
     this.allocated = 0;
     this.killedWave = 0;
     this.clearT = 0;
@@ -184,8 +144,8 @@ export class WaveOrchestrator {
     this.edgeTickT = 0;
     this.edgeWarned = false;
 
-    // Reset FSM with new context (no recreation)
-    this.waveFSM.reset("active", { wave, waveTotal, allocated: 0, killedWave: 0 });
+    // Reset wave state
+    this._waveState = "active";
 
     // Zone not active yet — will be initialized after countdown
     this.zone.active = false;
@@ -200,7 +160,7 @@ export class WaveOrchestrator {
   activateZone(playerX: number, playerY: number): void {
     this.zone.x = playerX;
     this.zone.y = playerY;
-    this.zone.targetRadius = Math.max(400, 200 + this.wave * 50);
+    this.zone.targetRadius = Math.max(400, 200 + this._wave * 50);
     this.zone.radius = ZONE_INITIAL_RADIUS;
     this.zone.alpha = 0;
     this.zone.collapseT = -1;
@@ -212,28 +172,28 @@ export class WaveOrchestrator {
   }
 
   advanceWave(): void {
-    this.wave++;
+    this._wave++;
     this.killedWave = 0;
     this.allocated = 0;
     this.clearT = 0;
-    // Transition from cleared back to active via FSM
-    this.waveFSM.fire("restart");
+    // Transition from cleared back to active
+    this._waveState = "active";
     // Zone will be reactivated after next countdown
     this.zone.active = false;
     // Notify Game to start countdown
-    this.hooks.onWaveAdvanced(this.wave);
+    this.hooks.onWaveAdvanced(this._wave);
   }
 
   markAllSpawnedAndKilled(): void {
-    this.allocated = this.waveTotal;
-    this.killedWave = this.waveTotal;
+    this.allocated = this._waveTotal;
+    this.killedWave = this._waveTotal;
   }
 
   tryCheckWaveClear(allSpawned: boolean, allKilled: boolean): void {
-    if (this.waveFSM.state !== "active") return;
+    if (this._waveState !== "active") return;
 
     if (allSpawned && allKilled) {
-      this.waveFSM.fire("cleared");
+      this._waveState = "cleared";
       this.clearT = 0;
       this.waveClearSent = false;
     }
@@ -250,7 +210,7 @@ export class WaveOrchestrator {
     playerPos: PlayerPosition,
     countdownActive: boolean
   ): void {
-    const currentState = this.waveFSM.state;
+    const currentState = this._waveState;
     if (currentState !== "active" && currentState !== "cleared") {
       return;
     }
@@ -280,8 +240,8 @@ export class WaveOrchestrator {
       alpha: 0,
       collapseT: ZONE_NOT_COLLAPSING,
     };
-    this.wave = targetWave;
-    this.waveTotal = 0;
+    this._wave = targetWave;
+    this._waveTotal = 0;
     this.allocated = 0;
     this.killedWave = 0;
     this.clearT = 0;
@@ -290,8 +250,8 @@ export class WaveOrchestrator {
     this.edgeTickT = 0;
     this.edgeWarned = false;
 
-    // Reset wave FSM with fresh context (no recreation)
-    this.waveFSM.reset("active", { wave: targetWave, waveTotal: 0, allocated: 0, killedWave: 0 });
+    // Reset wave state
+    this._waveState = "active";
 
     // Clear all pending timeouts to prevent leaks
     for (const id of this.timeoutIds) {
@@ -320,7 +280,7 @@ export class WaveOrchestrator {
       this.waveClearSent = true;
       this.hooks.onBanner(
         t("game.waveCleared"),
-        t("game.nextWave", { wave: this.wave + 1 }),
+        t("game.nextWave", { wave: this._wave + 1 }),
         "#6f6"
       );
       // Schedule toast clear after TOAST_CLEAR_LONG ms

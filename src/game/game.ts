@@ -67,6 +67,7 @@ import { RendererSystem } from "./systems/RendererSystem";
 import { SpawnSystem } from "./systems/SpawnSystem";
 import { UpgradeSystem } from "./systems/UpgradeSystem";
 import { WaveOrchestrator } from "./systems/WaveOrchestrator";
+import { WaveFlowSystem } from "./systems/WaveFlowSystem";
 import { ZoneSystem } from "./systems/ZoneSystem";
 
 /* ============================== UI types ============================== */
@@ -204,14 +205,10 @@ export class Game {
 
   private zoneSystem: ZoneSystem;
   private waveOrchestrator: WaveOrchestrator;
+  private waveFlowSystem!: WaveFlowSystem;
 
   /* Scoring */
   private scoringSystem: ScoringSystem;
-
-  // Wave tracking (used by SpawnSystem)
-  private wave = 1;
-  private waveTotal = 0;
-  private peakAlive = 0;
 
   /* Persistent upgrades */
   private upgradeSystem: UpgradeSystem;
@@ -290,9 +287,8 @@ export class Game {
         onWaveAdvanced: (wave) => {
           // Wave orchestrator triggers this when clear transition is done
           // Go from cleared → playing for new wave countdown
-          this.wave = wave;
           this.fsm.fire("next_wave");
-          this.countdownSystem.startWave(this.wave);
+          this.countdownSystem.startWave(this.waveOrchestrator.wave);
         },
       },
       playerMaxSpeed: PLAYER_MAX_SPEED,
@@ -449,6 +445,18 @@ export class Game {
       );
     });
 
+    /* Initialize wave flow system (coordinates wave lifecycle) */
+    this.waveFlowSystem = new WaveFlowSystem({
+      eventBus: this.eventBus,
+      orchestrator: this.waveOrchestrator,
+      scoringSystem: this.scoringSystem,
+      spawnSystem: this.spawnSystem,
+      upgradeSystem: this.upgradeSystem,
+      countdownSystem: this.countdownSystem,
+      getEnemyList: () => this.entityPool.enemyList,
+      getPlayerPosition: () => this.getPlayerPosition(),
+    });
+
     // DeathSystem is initialized in startRun() to avoid duplicate creation
 
     // Initialize FSM bridge with lifecycle hooks
@@ -469,7 +477,7 @@ export class Game {
         this.startRun();
       },
       onWaveStart: (_wave: number) => {
-        this.countdownSystem.startWave(this.wave);
+        this.countdownSystem.startWave(this.waveOrchestrator.wave);
       },
       countdownDone: () => {
         if (this.fsmBridge) this.fsmBridge.fsmMachine.fire("countdown_done");
@@ -524,14 +532,12 @@ export class Game {
       // Запускаем волну при начале обратного отсчёта
       if (this.fsm.is("playing")) {
         const waveData = event.payload as { wave: number };
-        this.wave = waveData.wave;
-        this.waveTotal = waveTotalFor(this.wave);
         // Сброс счётчиков для новой волны
         this.scoringSystem.setKilledWave(0);
         this.spawnSystem.reset();
         // Initialize orchestrator for this wave
         const pos = this.getPlayerPosition();
-        this.waveOrchestrator.initWave(pos.x, pos.y, this.wave, this.waveTotal);
+        this.waveOrchestrator.initWave(pos.x, pos.y, waveData.wave, waveTotalFor(waveData.wave));
         this.waveOrchestrator.setSpeedMult(this.upgradeSystem.getApplied("speedMult"));
       }
     });
@@ -549,7 +555,7 @@ export class Game {
 
     // === Wave clear check (Game-level coordination) ===
     this.eventBus.subscribe("enemy_killed", () => {
-      this.checkWaveClear();
+      this.waveFlowSystem.checkWaveClear();
     });
 
     // === Drone feedback ===
@@ -660,7 +666,7 @@ export class Game {
         hooks: {
           onToast: (data) => this.hooks.onToast(data),
         },
-        wave: this.wave,
+        wave: this.waveOrchestrator.wave,
         killedWave: this.scoringSystem.killedWave,
         playerX: playerState.x,
         playerY: playerState.y,
@@ -669,13 +675,8 @@ export class Game {
     this.riftField.update(dtScaled);
     this.fx.update(dtScaled, dtScaled); // Обновляем частицы и тряску экрана
     
-    // Stop zone damage and autofire when dying or dead
-    if (this.fsm.not("dying", "over")) {
-      this.updateZoneAndWaves(dtScaled);
-    } else {
-      // Still render zone effects but don't damage player
-      this.updateZoneAndWaves(dtScaled);
-    }
+    // Zone updates (always run, damage handled inside)
+    this.waveFlowSystem.updateZoneAndWaves(dtScaled);
     
     // Update zone system: sync, clamp, constraints (after orchestrator update)
     if (!isDead) {
@@ -729,7 +730,7 @@ export class Game {
       {
         type: this.fsm.state as GameStateType,
         time: this.time,
-        wave: this.wave,
+        wave: this.waveOrchestrator.wave,
         score: this.scoringSystem.score,
       },
       playerRender,
@@ -763,13 +764,13 @@ export class Game {
   private updateHud() {
     const s = this.scoringSystem.getState();
     const hud: HudData = {
-      wave: this.wave,
+      wave: this.waveOrchestrator.wave,
       score: s.score,
       best: s.best,
       hp: this.playerSystem.getHp(),
       maxHp: this.playerSystem.getMaxHp(),
       killed: this.scoringSystem.killedWave,
-      total: this.waveTotal,
+      total: this.waveOrchestrator.waveTotal,
       enemies: this.entityPool.enemyList.length,
       comboMult: s.comboMult,
       time: s.runTime,
@@ -855,7 +856,7 @@ export class Game {
     this.debugSystem.renderDebug({
       canvas: this.renderer.canvas,
       fsmState: this.fsm.state,
-      wave: this.wave,
+      wave: this.waveOrchestrator.wave,
       runTime: this.scoringSystem.runTime,
       fps: this.fps(),
       zoneActive: this.waveOrchestrator.zoneState.active,
@@ -865,7 +866,7 @@ export class Game {
       countdownActive: this.countdownSystem.isCountdownActive(),
       enemyCount: this.entityPool.enemyList.length,
       riftCount: this.riftField.riftList.length,
-      waveTotal: this.waveTotal,
+      waveTotal: this.waveOrchestrator.waveTotal,
       kills: this.scoringSystem.getState().killed,
       allocated: this.spawnSystem.allocated,
       playerX: this.playerSystem.getPosition().x,
@@ -902,10 +903,7 @@ export class Game {
     this.time = 0;
     this.scoringSystem.reset();
     // Начинаем с лучшей достигнутой волны (или стартовой для отладки)
-    this.wave = Math.max(this.startWave, loadBestWave());
-    this.waveTotal = 0;
     this.scoringSystem.setKilledWave(0);
-    this.peakAlive = 0;
 
     // Spawn player at center of screen (not from rift)
     this.playerSystem.reset();
@@ -934,7 +932,7 @@ export class Game {
     this.enemySystem.reset();
 
     // Reset zone state via orchestrator
-    this.waveOrchestrator.reset(this.wave);
+    this.waveOrchestrator.reset(Math.max(this.startWave, loadBestWave()));
 
     this.riftField.reset();
     this.asteroidField.hardReset();
@@ -948,11 +946,11 @@ export class Game {
       (n) => this.spawnParts(n, 0, 0),
       {
         onGameOver: () => {
-          saveBestWave(this.wave);
+          saveBestWave(this.waveOrchestrator.wave);
           this.hooks.onGameOver();
         },
         onStats: (score, best, isBest, wave, kills, time) => {
-          this.hooks.onStats({ score, best, isBest, wave: this.wave, kills, time });
+          this.hooks.onStats({ score, best, isBest, wave: this.waveOrchestrator.wave, kills, time });
         },
       },
     );
@@ -963,7 +961,7 @@ export class Game {
     this.hooks.onToast(null);
 
     // Start countdown immediately
-    this.countdownSystem.startWave(this.wave);
+    this.countdownSystem.startWave(this.waveOrchestrator.wave);
   }
 
   private spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number) {
@@ -1003,36 +1001,4 @@ export class Game {
     }
   }
 
-  private checkWaveClear() {
-    // Не проверяем завершение если всё ещё спавнятся враги
-    if (this.fsm.not("active")) return;
-    
-    // Если оркестратор уже в cleared — переход к следующей волне, игнорируем убийства
-    if (this.waveOrchestrator.waveState === "cleared") return;
-    
-    const alive = this.entityPool.enemyList.filter((e) => !e.dead).length;
-    if (alive === 0) {
-      // Проверяем что все враги действительно спавнятся (спавновая очередь пуста)
-      // и все враги убиты
-      const allSpawned = this.spawnSystem.allocated >= this.waveTotal;
-      const allKilled = this.scoringSystem.killedWave >= this.waveTotal;
-      
-      this.waveOrchestrator.tryCheckWaveClear(allSpawned, allKilled);
-    }
-  }
-
-  private updateZoneAndWaves(dt: number) {
-    if (this.fsm.not("active", "cleared")) return;
-
-    this.scoringSystem.addRunTime(dt);
-
-    // Apply speed multiplier
-    this.waveOrchestrator.setSpeedMult(this.upgradeSystem.getApplied("speedMult"));
-
-    // Update orchestrator (handles zone expansion, clear transition, edge danger)
-    // Zone constraints are handled by ZoneSystem
-    const playerPos = this.getPlayerPosition();
-    const countdownActive = this.countdownSystem.isCountdownActive();
-    this.waveOrchestrator.update(dt, playerPos, countdownActive);
-  }
 }
