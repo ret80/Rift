@@ -82,23 +82,39 @@ export function bonusDuration(id: BonusId): number {
 }
 
 /**
+ * Маппинг пикапов на бонусы.
+ * Объединяет bonusIdForPickup и bonusKindForPickup в одну функцию.
+ */
+interface PickupBonusMapping {
+  bonusId: BonusId | null;
+  bonusKind: BonusKind | null;
+}
+
+const PICKUP_BONUS_MAP: Record<PickupKind, PickupBonusMapping> = {
+  // Временные бонусы
+  rate: { bonusId: "rate", bonusKind: "rate" },
+  rate20: { bonusId: "rate", bonusKind: "rate" },
+  rate40: { bonusId: "rate", bonusKind: "rate" },
+  rate60: { bonusId: "rate", bonusKind: "rate" },
+  gun: { bonusId: "guns", bonusKind: "guns" },
+  dash: { bonusId: "dash", bonusKind: "dash" },
+  // Мгновенные бонусы
+  hp: { bonusId: null, bonusKind: "heal" },
+  heal25: { bonusId: null, bonusKind: "heal" },
+  heal50: { bonusId: null, bonusKind: "heal" },
+  heal100: { bonusId: null, bonusKind: "heal" },
+  mineral: { bonusId: null, bonusKind: "mineral" },
+  // Пикапы оружия — не являются бонусами
+  drone: { bonusId: null, bonusKind: null },
+  missile: { bonusId: null, bonusKind: null },
+};
+
+/**
  * Какой бонус соответствует поднятому пикапу.
  * Пикапы оружия (ракетомёт, дрон) бонусом не являются — возвращают null.
  */
 export function bonusIdForPickup(kind: PickupKind): BonusId | null {
-  switch (kind) {
-    case "rate20":
-    case "rate40":
-    case "rate60":
-    case "rate":
-      return "rate";
-    case "gun":
-      return "guns";
-    case "dash":
-      return "dash";
-    default:
-      return null;
-  }
+  return PICKUP_BONUS_MAP[kind].bonusId;
 }
 
 /**
@@ -107,24 +123,5 @@ export function bonusIdForPickup(kind: PickupKind): BonusId | null {
  * для оружия — null.
  */
 export function bonusKindForPickup(kind: PickupKind): BonusKind | null {
-  switch (kind) {
-    case "heal25":
-    case "heal50":
-    case "heal100":
-    case "hp":
-      return "heal";
-    case "mineral":
-      return "mineral";
-    case "rate20":
-    case "rate40":
-    case "rate60":
-    case "rate":
-      return "rate";
-    case "gun":
-      return "guns";
-    case "dash":
-      return "dash";
-    default:
-      return null;
-  }
+  return PICKUP_BONUS_MAP[kind].bonusKind;
 }

@@ -85,3 +85,21 @@ export const ENEMY_BASES: Record<EnemyKind, EnemyBaseDef> = {
 export function massForRadius(r: number): number {
   return Math.max(1, Math.PI * r * r * 0.02);
 }
+
+/* ------------------------------ AI constants ------------------------------ */
+
+/** Минимальное расстояние между врагами для avoidance */
+export const AI_MIN_DIST = 35;
+/** Сила отталкивания при avoidance */
+export const AI_BASE_PUSH = 1.2;
+
+/** Дальность стрельбы врагов */
+export const ENEMY_SHOOT_RANGE = 500;
+
+/** Меткость врагов: ENEMY_ACCURACY_MIN на волне 1, растёт до ENEMY_ACCURACY_MAX к волне 30 */
+export const ENEMY_ACCURACY_MIN = 0.3;
+export const ENEMY_ACCURACY_MAX = 0.7;
+export const ENEMY_ACCURACY_RAMP = 0.013;
+
+/** Максимальное количество дронов у одного Carrier */
+export const ENEMY_MAX_DRONES = 10;

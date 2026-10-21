@@ -5,7 +5,7 @@
 
 import { massForRadius, type AsteroidKind } from '../balance';
 import type { EventBus } from '../core/EventBus';
-import type { GameState } from '../core/GameState';
+
 import type { AllyDrone, Bullet, EBullet, Enemy } from '../types';
 import { PLAYER_ASTEROID_DAMAGE, DRONE_PROXIMITY } from './CollisionConstants';
 import { softResolveCollision } from './EntityCollision';
@@ -18,12 +18,10 @@ import { checkPickupCollection } from './PickupCollection';
 
 export class CollisionSystem {
   private eventBus: EventBus;
-  private state: GameState;
   private onEnemyKilledCb: ((enemy: Enemy) => void) | null = null;
 
-  constructor(eventBus: EventBus, state: GameState) {
+  constructor(eventBus: EventBus) {
     this.eventBus = eventBus;
-    this.state = state;
   }
 
   /** Set callback for enemy death events (used by PickupDropSystem) */

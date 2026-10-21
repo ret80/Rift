@@ -1,8 +1,6 @@
 /**
- * GameState - immutable game state.
- * Centralized metadata storage for all systems.
- * Entity pools are managed by EntityPoolSystem.
- * Zone state is managed by WaveOrchestrator.
+ * GameState — типы состояния игры.
+ * Класс GameState удалён как мёртвый код (никогда не использовался).
  */
 
 import type { ZoneData } from './ZoneTypes';
@@ -30,81 +28,3 @@ export interface ScoreState {
 }
 
 export type GameStateType = 'menu' | 'playing' | 'active' | 'cleared' | 'dying' | 'over';
-
-export class GameState {
-  public type: GameStateType = 'menu';
-  public paused: boolean = false;
-  public time: number = 0;
-
-  public wave: WaveState = {
-    wave: 1,
-    total: 0,
-    killed: 0,
-    allocated: 0,
-    stepSize: 1,
-    dropThreshold: 1,
-    peakAlive: 0,
-  };
-
-  public score: ScoreState = {
-    score: 0,
-    best: 0,
-    kills: 0,
-    combo: 0,
-    comboT: 0,
-    minerals: 0,
-  };
-
-  /**
-   * Reset state for a new round.
-   */
-  reset(startWave: number = 1): void {
-    this.type = 'playing';
-    this.paused = false;
-
-    this.wave = {
-      wave: startWave,
-      total: 0,
-      killed: 0,
-      allocated: 0,
-      stepSize: 1,
-      dropThreshold: 1,
-      peakAlive: 0,
-    };
-
-    this.score = {
-      score: 0,
-      best: this.score.best, // preserve record
-      kills: 0,
-      combo: 0,
-      comboT: 0,
-      minerals: 0,
-    };
-  }
-
-  /**
-   * Go to menu.
-   */
-  toMenu(): void {
-    this.type = 'menu';
-    this.paused = false;
-  }
-
-  // ===== Aliases for compatibility with game.ts =====
-
-  setTime(t: number): void {
-    this.time = t;
-  }
-
-  setWave(w: number): void {
-    this.wave.wave = w;
-  }
-
-  setScore(s: number): void {
-    this.score.score = s;
-  }
-
-  setBest(b: number): void {
-    this.score.best = b;
-  }
-}

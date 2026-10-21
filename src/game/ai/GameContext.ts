@@ -3,12 +3,10 @@
  * Содержит ссылки на ключевые объекты и состояние игры.
  */
 
-import type { GameState } from '../core/GameState';
 import type { Enemy } from '../types';
 import type { EventBus } from '../core/EventBus';
 
 export interface GameContextData {
-  state: GameState;
   eventBus: EventBus;
   
   // Быстрый доступ к сущностям
@@ -36,7 +34,6 @@ export interface GameContextData {
 }
 
 export class GameContext implements GameContextData {
-  public state: GameState;
   public eventBus: EventBus;
   
   public playerX: number = 0;
@@ -59,10 +56,8 @@ export class GameContext implements GameContextData {
   public carrierSpawns: Array<{ x: number; y: number }> = [];
 
   constructor(
-    state: GameState,
     eventBus: EventBus,
   ) {
-    this.state = state;
     this.eventBus = eventBus;
   }
 

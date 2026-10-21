@@ -32,7 +32,6 @@ import { ScoringSystem } from "./systems/ScoringSystem";
 import { EventBus } from "./core/EventBus";
 import type { GameFSMContext } from "./core/FSMBridge";
 import { FSMBridge } from "./core/FSMBridge";
-import { GameState } from "./core/GameState";
 import { GameStateMachine } from "./core/StateMachine";
 
 /* Subsystems */
@@ -176,7 +175,6 @@ export class Game {
 
   /* Core systems */
   private eventBus: EventBus;
-  private gameState: GameState;
 
   /* Input + presentation subsystems */
   private input: InputManager;
@@ -273,7 +271,6 @@ export class Game {
 
     /* Initialize core systems */
     this.eventBus = new EventBus();
-    this.gameState = new GameState();
 
     /* Initialize wave orchestrator */
     this.waveOrchestrator = new WaveOrchestrator({
@@ -367,25 +364,8 @@ export class Game {
 
     this.enemySystem = new EnemySystem(
       this.eventBus,
-      this.gameState,
       this.fx,
-      this.audio,
-      (data) => {
-        const heavy = data.cruiser || data.heavy;
-        const speed = data.boltSpeed ?? (data.cruiser ? CRUISER_BULLET_SPEED : 300);
-        const life = data.cruiser ? 1.8 : 1.35;
-        this.entityPool.spawnEnemyBullet(
-          data.x + Math.cos(data.angle) * 14,
-          data.y + Math.sin(data.angle) * 14,
-          Math.cos(data.angle) * speed,
-          Math.sin(data.angle) * speed,
-          life,
-          data.boltDmg,
-          heavy,
-          data.cruiser,
-        );
-      },
-      () => this.getZoneBounds()
+      this.audio
     );
 
     this.bulletSystem = new BulletSystem();
@@ -458,8 +438,7 @@ export class Game {
     this.dropSystem = new PickupDropSystem(this.eventBus);
 
     this.collisionSystem = new CollisionSystem(
-      this.eventBus,
-      this.gameState
+      this.eventBus
     );
 
     // Wire drop system callback to collision system
@@ -577,6 +556,24 @@ export class Game {
     this.eventBus.subscribe("drone_hit", () => {
       this.audio.playDroneHit();
     });
+
+    // === Enemy firing ===
+    this.eventBus.subscribe("enemy_fired", (event) => {
+      const data = event.payload as import('./core/EventBus').EnemyFiredPayload;
+      const heavy = data.cruiser || data.heavy;
+      const speed = data.boltSpeed ?? (data.cruiser ? CRUISER_BULLET_SPEED : 300);
+      const life = data.cruiser ? 1.8 : 1.35;
+      this.entityPool.spawnEnemyBullet(
+        data.x + Math.cos(data.angle) * 14,
+        data.y + Math.sin(data.angle) * 14,
+        Math.cos(data.angle) * speed,
+        Math.sin(data.angle) * speed,
+        life,
+        data.boltDmg,
+        heavy,
+        data.cruiser,
+      );
+    });
   }
 
   private step(dt: number) {
@@ -585,10 +582,6 @@ export class Game {
     this.time += dtScaled;
 
     this.handleDebugKeys(dt);
-
-    this.gameState.setTime(this.time);
-    this.gameState.setWave(this.wave);
-    this.gameState.setScore(this.scoringSystem.getState().score);
 
     if (this.fsm.is("menu")) {
       this.updateMenu(dtScaled);
@@ -624,7 +617,8 @@ export class Game {
         dtScaled,
         this.entityPool.enemyList,
         this.getPlayerPosition(),
-        this.entityPool.enemyBulletList
+        this.entityPool.enemyBulletList,
+        this.getZoneBounds()
       );
       // Weapons: targeting, cannon fire, missiles, drones
       if (this.fsm.is("playing", "active")) {

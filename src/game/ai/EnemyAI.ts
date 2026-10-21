@@ -63,8 +63,8 @@ export class EnemyAI {
   }
 
   /**
-   * Резервное обновление для врагов без стратегии.
-   */
+    * Резервное обновление для врагов без стратегии.
+    */
   private fallbackUpdate(enemy: Enemy, context: GameContext, dt: number): void {
     const angleToPlayer = Math.atan2(
       context.playerY - enemy.y,
@@ -77,9 +77,6 @@ export class EnemyAI {
     enemy.vy += (Math.sin(angleToPlayer) * speed - enemy.vy) * k;
     enemy.angle = angleToPlayer;
   }
-
-  /** Максимальное количество дронов у одного Carrier */
-  private static readonly MAX_DRONES = 10;
 
   processCarrierSpawns(enemies: Enemy[], context: GameContext, dt: number): Array<{ x: number; y: number }> {
     return context.carrierSpawns || [];

@@ -3,38 +3,22 @@
  * Отвечает за AI, движение, стрельбу и состояние врагов.
  */
 
-/* Debug log level: set to false to disable debug logging in production */
-const DEBUG_LOGGING = false;
-
 import { EnemyAI } from '../ai/EnemyAI';
 import { GameContext } from '../ai/GameContext';
-import { CARRIER_BASE_SPEED, CRUISER_BASE_SPEED, CRUISER_FIRE_RANGE, DRONE_BASE_SPEED, EnemyKind, FIGHTER_BASE_SPEED, HUNTER_SPEED, massForRadius } from '../balance';
+import { CARRIER_BASE_SPEED, CRUISER_BASE_SPEED, CRUISER_FIRE_RANGE, DRONE_BASE_SPEED, EnemyKind, FIGHTER_BASE_SPEED, HUNTER_SPEED, massForRadius,
+  AI_MIN_DIST,
+  AI_BASE_PUSH,
+  ENEMY_SHOOT_RANGE,
+  ENEMY_ACCURACY_MIN,
+  ENEMY_ACCURACY_MAX,
+  ENEMY_ACCURACY_RAMP,
+} from '../balance';
 import type { EventBus } from '../core/EventBus';
-import type { GameState } from '../core/GameState';
 import type { Fx } from '../fx';
 import { TAU, rand } from '../math';
 import type { Enemy } from '../types';
 import type { AudioManager } from './AudioManager';
 
-/* ── Magic numbers ── */
-const MIN_DIST = 35;
-const BASE_PUSH = 1.2;
-const SHOOT_RANGE = 500;
-const ACCURACY_MIN = 0.3;
-const ACCURACY_MAX = 0.7;
-const ACCURACY_RAMP = 0.013;
-
-export interface EnemyFireData {
-  x: number;
-  y: number;
-  kind: EnemyKind;
-  angle: number;
-  r: number;
-  boltDmg: number;
-  heavy: boolean;
-  cruiser: boolean;
-  boltSpeed?: number;
-}
 
 /** Пуля врага для уклонения от неё */
 interface EnemyBullet {
@@ -60,11 +44,8 @@ export class EnemySystem {
   private context: GameContext;
   
   private eventBus: EventBus;
-  private state: GameState;
   private fx: Fx;
   private audio: AudioManager;
-  private enemyFireCallback: (e: EnemyFireData) => void;
-  private getZoneBounds: () => { x: number; y: number; radius: number; active: boolean };
   
   private wave = 1;
   
@@ -73,20 +54,14 @@ export class EnemySystem {
   
   constructor(
     eventBus: EventBus,
-    state: GameState,
     fx: Fx,
-    audio: AudioManager,
-    enemyFireCallback: (e: EnemyFireData) => void,
-    getZoneBounds: () => { x: number; y: number; radius: number; active: boolean }
+    audio: AudioManager
   ) {
     this.eventBus = eventBus;
-    this.state = state;
     this.fx = fx;
     this.audio = audio;
-    this.enemyFireCallback = enemyFireCallback;
-    this.getZoneBounds = getZoneBounds;
     this.ai = new EnemyAI();
-    this.context = new GameContext(this.state, this.eventBus);
+    this.context = new GameContext(this.eventBus);
   }
   
   reset(): void {
@@ -166,13 +141,16 @@ export class EnemySystem {
     dt: number,
     enemyList: Enemy[],
     playerPos: { x: number; y: number; vx?: number; vy?: number },
-    enemyBullets?: EnemyBullet[]
+    enemyBullets?: EnemyBullet[],
+    zoneBounds?: { x: number; y: number; radius: number }
   ): void {
     const playerX = playerPos.x;
     const playerY = playerPos.y;
     const playerVx = playerPos.vx || 0;
     const playerVy = playerPos.vy || 0;
-    const zone = this.getZoneBounds();
+    const zoneX = zoneBounds?.x ?? 0;
+    const zoneY = zoneBounds?.y ?? 0;
+    const zoneRadius = zoneBounds?.radius ?? 0;
     
     // Update game context for strategies
     this.context.update(
@@ -181,7 +159,7 @@ export class EnemySystem {
       0, 0, 0,
       this.wave,
       enemyBullets || [],
-      zone.x, zone.y, zone.radius
+      zoneX, zoneY, zoneRadius
     );
     
     // AI movement via strategy pattern
@@ -206,9 +184,6 @@ export class EnemySystem {
     
     // processing carrier drone spawns
     const carrierSpawns = this.ai.processCarrierSpawns(enemyList, this.context, dt);
-    if (DEBUG_LOGGING && carrierSpawns.length > 0) {
-      console.log(`[SPAWN] Carrier spawned ${carrierSpawns.length} drone(s). Total enemies before: ${enemyList.length}`);
-    }
     for (const spawn of carrierSpawns) {
       const droneDef = this.getEnemyDef(EnemyKind.Drone);
       const drone = this.createEnemy(EnemyKind.Drone, spawn.x, spawn.y, droneDef, playerPos, null);
@@ -220,32 +195,9 @@ export class EnemySystem {
         drone.droneState = 'orbiting';
         drone.orbitRadius = carrier.r + 80;
         drone.orbitAngle = Math.random() * Math.PI * 2;
-        const totalParentDrones = enemyList.filter(e => e.parent === carrier && !e.dead).length;
-      if (DEBUG_LOGGING) {
-        console.log(
-          `[DRONE] Created orbiting drone #${totalParentDrones} ` +
-          `@(${spawn.x.toFixed(0)},${spawn.y.toFixed(0)}) ` +
-          `parent=(${carrier.x.toFixed(0)},${carrier.y.toFixed(0)}) ` +
-          `burstSpawned=${carrier.burstSpawned}`
-        );
-      }
       }
       this.enemyList.push(drone);
       enemyList.push(drone);
-    }
-    // === ЛОГ: сводка по всем Carrier и их дронам ===
-    if (DEBUG_LOGGING && Math.random() < 0.005) {
-      const carriers = enemyList.filter(e => e.kind === EnemyKind.Carrier && !e.dead);
-      for (const c of carriers) {
-        const parentDrones = enemyList.filter(e => e.parent === c && !e.dead).length;
-        const orbiting = enemyList.filter(e => e.parent === c && !e.dead && e.droneState === 'orbiting').length;
-        const attacking = enemyList.filter(e => e.parent === c && !e.dead && e.droneState === 'attacking').length;
-        console.log(
-          `[SUMMARY] Carrier@(${c.x.toFixed(0)},${c.y.toFixed(0)}) ` +
-          `burstActive=${c.burstActive} burstSpawned=${c.burstSpawned}/10 ` +
-          `totalDrones=${parentDrones} (orbiting=${orbiting}, attacking=${attacking})`
-        );
-      }
     }
     // shooting logic
     this.updateFiring(enemyList, dt);
@@ -266,9 +218,9 @@ export class EnemySystem {
       const dy = this.context.playerY - e.y;
       const dist = Math.hypot(dx, dy) || 1;
       
-      const canShoot = (e.kind === EnemyKind.Fighter && dist < SHOOT_RANGE) ||
+      const canShoot = (e.kind === EnemyKind.Fighter && dist < ENEMY_SHOOT_RANGE) ||
                        (e.kind === EnemyKind.Cruiser && dist < CRUISER_FIRE_RANGE) ||
-                       (e.kind === EnemyKind.Carrier && dist < SHOOT_RANGE);
+                       (e.kind === EnemyKind.Carrier && dist < ENEMY_SHOOT_RANGE);
       
       if (!canShoot) continue;
       
@@ -284,7 +236,7 @@ export class EnemySystem {
           const tx = e.x - Math.sin(e.angle) * 14;
           const ty = e.y + Math.cos(e.angle) * 14;
           const tAngle = Math.atan2(this.context.playerY - ty, this.context.playerX - tx) + (Math.random() - 0.5) * 2 * spread;
-          this.enemyFireCallback({ x: tx, y: ty, kind: e.kind, angle: tAngle, r: e.r, boltDmg: e.boltDmg, heavy: true, cruiser: true });
+          this.eventBus.publish('enemy_fired', { x: tx, y: ty, kind: e.kind, angle: tAngle, r: e.r, boltDmg: e.boltDmg, heavy: true, cruiser: true });
           this.audio.playHeavyShoot();
         }
         
@@ -294,7 +246,7 @@ export class EnemySystem {
           const tx = e.x + Math.sin(e.angle) * 14;
           const ty = e.y - Math.cos(e.angle) * 14;
           const tAngle = Math.atan2(this.context.playerY - ty, this.context.playerX - tx) + (Math.random() - 0.5) * 2 * spread;
-          this.enemyFireCallback({ x: tx, y: ty, kind: e.kind, angle: tAngle, r: e.r, boltDmg: e.boltDmg, heavy: true, cruiser: true });
+          this.eventBus.publish('enemy_fired', { x: tx, y: ty, kind: e.kind, angle: tAngle, r: e.r, boltDmg: e.boltDmg, heavy: true, cruiser: true });
           this.audio.playHeavyShoot();
         }
       } else {
@@ -312,7 +264,7 @@ export class EnemySystem {
           const fireAngle = e.kind === EnemyKind.Fighter
             ? Math.atan2(this.context.playerY - e.y, this.context.playerX - e.x)
             : e.angle;
-          this.enemyFireCallback({
+          this.eventBus.publish('enemy_fired', {
             x: e.x, y: e.y, kind: e.kind,
             angle: fireAngle + (Math.random() - 0.5) * 2 * spread,
             r: e.r, boltDmg: e.boltDmg, heavy, cruiser: false,
@@ -326,7 +278,7 @@ export class EnemySystem {
 
   /** Мягко раздвигает врагов, которые слишком близко друг к другу */
   private applyAvoidance(enemyList: Enemy[], dt: number): void {
-    const minDistSq = MIN_DIST * MIN_DIST;
+    const minDistSq = AI_MIN_DIST * AI_MIN_DIST;
     
     for (let i = 0; i < enemyList.length; i++) {
       const a = enemyList[i];
@@ -348,9 +300,9 @@ export class EnemySystem {
         const dy = a.y - b.y;
         const distSq = dx * dx + dy * dy;
         
-        if (distSq < MIN_DIST * MIN_DIST && distSq > 0.01) {
-          const dist = Math.sqrt(distSq);
-          const push = (1 - dist / MIN_DIST) * BASE_PUSH;
+      if (distSq < AI_MIN_DIST * AI_MIN_DIST && distSq > 0.01) {
+        const dist = Math.sqrt(distSq);
+        const push = (1 - dist / AI_MIN_DIST) * AI_BASE_PUSH;
           const pushX = (dx / dist) * push;
           const pushY = (dy / dist) * push;
           
@@ -420,9 +372,9 @@ export class EnemySystem {
     }
   }
 
-  /** Меткость врагов: ACCURACY_MIN на волне 1, растёт до ACCURACY_MAX к волне 30. */
+  /** Меткость врагов: ENEMY_ACCURACY_MIN на волне 1, растёт до ENEMY_ACCURACY_MAX к волне 30. */
   private getAccuracy(wave: number): number {
-    return Math.min(ACCURACY_MAX, ACCURACY_MIN + wave * ACCURACY_RAMP);
+    return Math.min(ENEMY_ACCURACY_MAX, ENEMY_ACCURACY_MIN + wave * ENEMY_ACCURACY_RAMP);
   }
 
   private getEnemyDef(kind: EnemyKind): EnemyDef {

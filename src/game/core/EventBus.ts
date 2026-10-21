@@ -57,6 +57,25 @@ export interface SpawnPickupPayload {
   vy: number;
 }
 
+export interface EnemyFiredPayload {
+  x: number;
+  y: number;
+  kind: string;
+  angle: number;
+  r: number;
+  boltDmg: number;
+  heavy: boolean;
+  cruiser: boolean;
+  boltSpeed?: number;
+}
+
+export interface ZoneStateChangePayload {
+  x: number;
+  y: number;
+  radius: number;
+  active: boolean;
+}
+
 // ===== GameEventMap — discriminated union =====
 
 export type GameEventMap = {
@@ -71,6 +90,8 @@ export type GameEventMap = {
   drone_hit: DroneHitPayload;
   drone_push_player: DronePushPlayerPayload;
   spawn_pickup: SpawnPickupPayload;
+  enemy_fired: EnemyFiredPayload;
+  zone_state_change: ZoneStateChangePayload;
 };
 
 export type EventType = keyof GameEventMap;

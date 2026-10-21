@@ -17,17 +17,13 @@
  * - Carrier очищает счётчики и начинает цикл заново (возврат к ФАЗЕ 1).
  */
 
-/* Debug log level: set to false to disable debug logging in production */
-const DEBUG_LOGGING = false;
-
 import type { Enemy } from '../../types';
 import type { GameContext } from '../GameContext';
 import type { IEnemyStrategy } from '../IEnemyStrategy';
+import { ENEMY_MAX_DRONES } from '../../balance';
 import { lerpAngle } from '../../math';
 
 export class CarrierStrategy implements IEnemyStrategy {
-  /** Максимальное количество дронов у одного Carrier */
-  public static readonly MAX_DRONES = 10;
 
   update(enemy: Enemy, context: GameContext, dt: number): void {
     const { playerX, playerY } = context;
@@ -74,7 +70,7 @@ export class CarrierStrategy implements IEnemyStrategy {
     }
 
     // === ЦИКЛ РАБОТЫ CARRIER ===
-    const maxDrones = CarrierStrategy.MAX_DRONES;
+    const maxDrones = ENEMY_MAX_DRONES;
 
     if (enemy.droneState === 'accumulating') {
       // ФАЗА 1: НАКОПЛЕНИЕ — спавним дронов по одному раз в 0.5с
@@ -92,17 +88,11 @@ export class CarrierStrategy implements IEnemyStrategy {
         });
         enemy.orbitTimer = 0.5;
         enemy.carrierChildren++;
-        if (DEBUG_LOGGING) {
-          console.log(`[CARRIER] [НАКОПЛЕНИЕ] Спавн дрон #${enemy.carrierChildren}/${maxDrones}`);
-        }
       }
       // Когда все 10 дронов спавнены — переходим к ОЖИДАНИЮ
       if (enemy.carrierChildren >= maxDrones) {
         enemy.waitTimer = Math.random() * (8 - 5) + 5;
         enemy.droneState = 'waiting';
-        if (DEBUG_LOGGING) {
-          console.log(`[CARRIER] [ОЖИДАНИЕ] Все ${maxDrones} дронов спавнены. Ждём ${enemy.waitTimer.toFixed(1)}с`);
-        }
       }
     } 
     else if (enemy.droneState === 'waiting') {
@@ -119,18 +109,12 @@ export class CarrierStrategy implements IEnemyStrategy {
       enemy.carrierChildren = 0;
       enemy.waitTimer = 0;
       enemy.droneState = 'accumulating';
-      if (DEBUG_LOGGING) {
-        console.log(`[CARRIER] [СБРОС] Цикл завершён. Начинаю накопление заново.`);
-      }
     }
     else {
       // ИНИЦИАЛИЗАЦИЯ — первая инициализация
       enemy.droneState = 'accumulating';
       enemy.orbitTimer = 0;
       enemy.carrierChildren = 0;
-      if (DEBUG_LOGGING) {
-        console.log(`[CARRIER] Инициализация. Начинаю фазу накопления.`);
-      }
     }
   }
 
@@ -142,9 +126,6 @@ export class CarrierStrategy implements IEnemyStrategy {
       if (e.parent === carrier && !e.dead && e.droneState === 'orbiting') {
         e.droneState = 'attacking';
       }
-    }
-    if (DEBUG_LOGGING) {
-      console.log(`[CARRIER] [ОТПУСК] Дроны отпущены. Перехожу в накопление.`);
     }
   }
 }

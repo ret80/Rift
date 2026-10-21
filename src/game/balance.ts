@@ -33,13 +33,20 @@ export {
   FPS_SMOOTHING_FACTOR,
 } from "./balance/player";
 
-// Enemy kinds, base defs, mass
+// Enemy kinds, base defs, mass, AI constants
 export {
   EnemyKind,
   CRUISER_FIRE_RANGE,
   CRUISER_BULLET_SPEED,
   ENEMY_BASES,
   massForRadius,
+  AI_MIN_DIST,
+  AI_BASE_PUSH,
+  ENEMY_SHOOT_RANGE,
+  ENEMY_ACCURACY_MIN,
+  ENEMY_ACCURACY_MAX,
+  ENEMY_ACCURACY_RAMP,
+  ENEMY_MAX_DRONES,
 } from "./balance/enemies";
 export type { EnemyDef, EnemyBaseDef } from "./balance/enemies";
 

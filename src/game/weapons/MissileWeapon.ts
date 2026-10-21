@@ -29,6 +29,8 @@ const MISSILE_LAUNCH_INTERVAL = 0.6;
 const MISSILE_DURATION = 30;
 /** Отступ бортового пускового устройства от центра корабля. */
 const MISSILE_PORT_OFFSET = 12;
+/** Максимальная дистанция наведения ракеты. */
+const MISSILE_LOCK_RANGE = 600;
 
 export class MissileWeapon implements Weapon {
   readonly id: WeaponId = "missile";
@@ -106,7 +108,7 @@ export class MissileWeapon implements Weapon {
     // Ракетомёт не масштабируется персистентными апгрейдами.
   }
 
-  /** Ближайший живой враг — цель для пуска. */
+  /** Ближайший живой враг в пределах дистанции наведения. */
   private findTarget(
     enemies: readonly Enemy[],
     fromX: number,
@@ -118,6 +120,8 @@ export class MissileWeapon implements Weapon {
     for (const e of enemies) {
       if (e.dead) continue;
       const dist = Math.hypot(e.x - fromX, e.y - fromY);
+      // Ограничим дистанцию наведения — ракета не должна锁定 на слишком далёких целях
+      if (dist > MISSILE_LOCK_RANGE) continue;
       if (dist < nearestDist) {
         nearestDist = dist;
         nearest = e;
