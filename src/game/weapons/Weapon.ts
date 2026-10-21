@@ -12,6 +12,7 @@
  */
 
 import type { LoadoutSlotMeta } from "../loadout/LoadoutTypes";
+import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
 import type { AllyDrone, Bullet, Enemy } from "../types";
 
 /** Идентификаторы видов оружия. */
@@ -29,20 +30,8 @@ export interface PlayerSnapshot {
   hp: number;
   maxHp: number;
 }
-
-/** Текущие временные бонусы игрока. */
-export interface PlayerBonuses {
-  /** Множитель темпа стрельбы. */
-  rateMult: number;
-  /** Остаток бонуса «темп огня». */
-  rateT: number;
-  /** Временно добавленные стволы. */
-  extraBarrels: number;
-  /** Остаток бонуса «доп. стволы». */
-  extraBarrelsT: number;
-  /** Остаток бонуса «рывок». */
-  dashT: number;
-}
+/** @deprecated Используйте PlayerBonuses из loadout/bonuses/Bonus. */
+export type { PlayerBonuses };
 
 /** Состояние наведения оружия. */
 export interface AimState {

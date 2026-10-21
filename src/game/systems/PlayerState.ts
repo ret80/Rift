@@ -1,12 +1,13 @@
 /**
- * PlayerState — состояние игрока: положение, корпус, таймеры бонусов.
+ * PlayerState — состояние игрока: положение, корпус и движок.
  *
- * Оружие здесь не хранится: стволы, ракеты и дроны живут в модуле
- * оружия, а в состоянии остаются только временные бонусы игрока.
+ * Временные бонусы сюда не входят: темп огня, доп. стволы и рывок живут
+ * в модуле бонусов (src/game/loadout/bonuses) под управлением BonusManager.
+ * Здесь остаётся только то, что относится к самому кораблю.
  */
 
-import type { PlayerRenderState } from './RendererSystem';
 import { massForRadius, PLAYER_RADIUS } from '../balance';
+import type { PlayerRenderState } from './RendererSystem';
 
 /* ============================== constants ============================== */
 
@@ -26,17 +27,8 @@ export interface PlayerState {
   hp: number;
   maxHp: number;
   invuln: number;
-  /** Множитель темпа огня от временного бонуса. */
-  rateBoost: number;
-  /** Остаток бонуса «темп огня». */
-  rateT: number;
   thrusting: boolean;
-  dashT: number;
   mass: number;
-  /** Временно добавленные стволы (пикап «стволы»). */
-  extraGuns: number;
-  /** Остаток бонуса «доп. стволы». */
-  extraGunsT: number;
 }
 
 /* ============================== factory ============================== */
@@ -51,13 +43,8 @@ export function createPlayerState(): PlayerState {
     hp: 100,
     maxHp: 100,
     invuln: 0,
-    rateBoost: 0,
-    rateT: 0,
     thrusting: false,
-    dashT: 0,
     mass: massForRadius(PLAYER_RADIUS),
-    extraGuns: 0,
-    extraGunsT: 0,
   };
 }
 
@@ -68,30 +55,13 @@ export function resetPlayerState(state: PlayerState): void {
   Object.assign(state, createPlayerState());
 }
 
-/* ============================== timers ============================== */
-
-/**
- * Обновить таймеры временных бонусов.
- * Вызывается каждый кадр из основного цикла обновления.
- */
-export function updateTimers(state: PlayerState, dt: number): void {
-  if (state.rateT > 0) {
-    state.rateT -= dt;
-    if (state.rateT <= 0) state.rateBoost = 0;
-  }
-
-  if (state.extraGunsT > 0) {
-    state.extraGunsT -= dt;
-    if (state.extraGunsT <= 0) state.extraGuns = 0;
-  }
-}
-
 /* ============================== render ============================== */
 
 export function getRenderState(
   state: PlayerState,
   aimAngle: number | null,
-  barrelCount: number
+  barrelCount: number,
+  bonus: { rateT: number; rateBoost: number; dashT: number },
 ): PlayerRenderState {
   return {
     x: state.x,
@@ -102,9 +72,9 @@ export function getRenderState(
     maxHp: state.maxHp,
     invuln: state.invuln,
     guns: barrelCount,
-    rateT: state.rateT,
-    rateBoost: state.rateBoost,
-    dashT: state.dashT,
+    rateT: bonus.rateT,
+    rateBoost: bonus.rateBoost,
+    dashT: bonus.dashT,
     thrusting: state.thrusting,
     pvx: state.vx,
     pvy: state.vy,

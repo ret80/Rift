@@ -1,24 +1,22 @@
 /**
  * PlayerSystem — управление игроком.
  *
- * Отвечает только за состояние игрока: движение, корпус и таймеры
- * временных бонусов. Оружие, наведение и стрельба живут в модуле
- * оружия (WeaponManager), поэтому система ничего о них не знает.
+ * Отвечает только за корабль: движение, корпус, неуязвимость.
+ * Временные бонусы (темп огня, доп. стволы, рывок) живут в модуле
+ * бонусов под управлением BonusManager, поэтому система ничего о них
+ * не знает: рендер и оружие читают бонусы напрямую из менеджера.
  */
 
 import type { EventBus } from '../core/EventBus';
 import type { Fx } from '../fx';
 import type { InputManager } from '../input';
-import { RATE_BOOST_TIME } from '../balance';
-import type { PlayerBonuses } from '../weapons/Weapon';
+import { updateMovement } from './PlayerMovement';
 import {
   createPlayerState,
+  getRenderState as getRenderStateHelper,
   resetPlayerState,
-  updateTimers,
   type PlayerState,
 } from './PlayerState';
-import { getRenderState as getRenderStateHelper } from './PlayerState';
-import { updateMovement } from './PlayerMovement';
 
 export class PlayerSystem {
   private eventBus: EventBus;
@@ -52,12 +50,6 @@ export class PlayerSystem {
     resetPlayerState(this.pState);
   }
 
-  // ---- Setters ----
-
-  setDashT(t: number): void {
-    this.pState.dashT = t;
-  }
-
   // ---- HP ----
 
   setMaxHp(max: number): void {
@@ -88,37 +80,12 @@ export class PlayerSystem {
     return this.pState.maxHp;
   }
 
-  getDashT(): number {
-    return this.pState.dashT;
-  }
-
-  /** Множитель темпа огня от временного бонуса. */
-  getRateMult(): number {
-    return 1 + this.pState.rateBoost;
-  }
-
-  getRateT(): number {
-    return this.pState.rateT;
-  }
-
-  /** Остаток бонуса «доп. стволы». */
-  getGunsT(): number {
-    return this.pState.extraGunsT;
-  }
-
-  /** Текущие бонусы игрока для модуля оружия и строки снаряжения. */
-  getBonuses(): PlayerBonuses {
-    return {
-      rateMult: this.getRateMult(),
-      rateT: this.pState.rateT,
-      extraBarrels: this.pState.extraGuns,
-      extraBarrelsT: this.pState.extraGunsT,
-      dashT: this.pState.dashT,
-    };
-  }
-
-  getRenderState(aimAngle: number | null, barrelCount: number): import('./RendererSystem').PlayerRenderState {
-    return getRenderStateHelper(this.pState, aimAngle, barrelCount);
+  getRenderState(
+    aimAngle: number | null,
+    barrelCount: number,
+    bonus: { rateT: number; rateBoost: number; dashT: number },
+  ): import('./RendererSystem').PlayerRenderState {
+    return getRenderStateHelper(this.pState, aimAngle, barrelCount, bonus);
   }
 
   // ---- Core methods ----
@@ -137,18 +104,6 @@ export class PlayerSystem {
     this.eventBus.publish('player_healed', { hp: this.pState.hp });
   }
 
-  /** Временное ускорение стрельбы. */
-  boostRate(): void {
-    this.pState.rateBoost = Math.min(1.0, this.pState.rateBoost + 0.2);
-    this.pState.rateT = RATE_BOOST_TIME;
-  }
-
-  /** Временное добавление стволов. */
-  addGunBonus(count: number, duration: number): void {
-    this.pState.extraGuns += count;
-    this.pState.extraGunsT = duration;
-  }
-
   // ---- Input delegation ----
 
   setTouch(active: boolean, x: number, y: number): void {
@@ -157,7 +112,7 @@ export class PlayerSystem {
 
   // ---- Main update ----
 
-  update(dt: number, active: boolean): void {
+  update(dt: number, active: boolean, dashT: number): void {
     if (!active) return;
 
     const mv = this.input.axis;
@@ -172,13 +127,10 @@ export class PlayerSystem {
       ay,
       this.fx,
       ax * ax + ay * ay > 0,
-      this.pState.dashT,
+      dashT,
     );
 
     // Invulnerability timer
     this.pState.invuln = Math.max(0, this.pState.invuln - dt);
-
-    // Bonus timers (rate boost, extra guns)
-    updateTimers(this.pState, dt);
   }
 }

@@ -3,30 +3,30 @@
  *
  * Строка складывается из двух независимых источников:
  *   • слоты оружия — их отдаёт WeaponManager;
- *   • слоты бонусов — их отдаёт состояние игрока и реестр бонусов.
+ *   • слоты бонусов — их отдаёт BonusManager.
  *
- * Бонусы с таймером живут ровно столько, сколько идёт бонус.
- * Мгновенные бонусы (ремонт, минерал) не имеют состояния —
- * они мигают в строке короткое время после подбора.
+ * Временные бонусы (темп огня, стволы, рывок) живут ровно столько,
+ * сколько идёт бонус — их слоты приходят готовыми от BonusManager.
+ * Мгновенные бонусы (ремонт, минерал) состояния не имеют — они мигают
+ * в строке короткое время после подбора.
  */
 
 import type { PickupKind } from "../balance";
 import type { EventBus } from "../core/EventBus";
-import type { PlayerBonuses } from "../weapons/Weapon";
+import type { BonusKind } from "./bonuses/Bonus";
 import {
-  BONUS_REGISTRY,
   bonusKindForPickup,
   INSTANT_BONUS_FLASH,
-  type BonusKind,
-} from "./BonusRegistry";
+  INSTANT_BONUS_META,
+} from "./bonuses/BonusRegistry";
 import type { LoadoutSlotData } from "./LoadoutTypes";
 
 /** Источники данных для строки снаряжения. */
 export interface LoadoutSources {
   /** Слоты оружия. */
   getWeaponSlots: () => LoadoutSlotData[];
-  /** Текущие бонусы игрока. */
-  getBonuses: () => PlayerBonuses;
+  /** Слоты активных временных бонусов. */
+  getBonusSlots: () => LoadoutSlotData[];
 }
 
 export class LoadoutSystem {
@@ -40,8 +40,9 @@ export class LoadoutSystem {
     eventBus.subscribe("pickup_collected", (event) => {
       const kind = bonusKindForPickup(event.payload.kind as PickupKind);
       if (!kind) return;
-      // Бонусы с таймером живут по своему таймеру, мигают только мгновенные.
-      if (BONUS_REGISTRY[kind].duration > 0) return;
+      // Временные бонусы живут по своему таймеру, мигают только мгновенные.
+      const meta = INSTANT_BONUS_META[kind];
+      if (!meta || meta.duration > 0) return;
       this.flashes.set(kind, INSTANT_BONUS_FLASH);
     });
   }
@@ -67,31 +68,18 @@ export class LoadoutSystem {
   }
 
   private build(): LoadoutSlotData[] {
-    const out: LoadoutSlotData[] = [...this.sources.getWeaponSlots()];
-    const bonuses = this.sources.getBonuses();
-
-    // Бонусы с таймером: остаток времени определяет заполнение кольца.
-    const timed: Array<[BonusKind, number]> = [
-      ["rate", bonuses.rateT],
-      ["guns", bonuses.extraBarrelsT],
-      ["dash", bonuses.dashT],
+    const out: LoadoutSlotData[] = [
+      ...this.sources.getWeaponSlots(),
+      ...this.sources.getBonusSlots(),
     ];
-    for (const [kind, left] of timed) {
-      if (left <= 0) continue;
-      const meta = BONUS_REGISTRY[kind];
-      out.push({
-        kind,
-        meta,
-        progress: Math.min(1, left / meta.duration),
-        remaining: left,
-      });
-    }
 
     // Мгновенные бонусы: короткая вспышка без таймера.
     for (const [kind, t] of this.flashes) {
+      const meta = INSTANT_BONUS_META[kind];
+      if (!meta) continue;
       out.push({
         kind,
-        meta: BONUS_REGISTRY[kind],
+        meta,
         progress: 1,
         remaining: t,
       });

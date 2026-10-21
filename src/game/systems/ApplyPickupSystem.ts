@@ -1,47 +1,61 @@
 import { PickupKind } from "../balance";
-import {
-  DASH_BONUS_TIME,
-  GUN_BONUS_TIME,
-} from "../balance/player";
 import type { WeaponId } from "../weapons/Weapon";
 
 interface PickupDependencies {
+  /** Лечение корпуса (мгновенный бонус). */
   heal(amount: number): void;
-  boostRate(): void;
-  addGunBonus(guns: number, duration: number): void;
+  /** Применить временный бонус по пикапу (темп огня, стволы, рывок). */
+  applyBonus(pickup: PickupKind): void;
+  /** Экипировать оружие по пикапу. */
   equipWeapon(id: WeaponId): void;
-  setDashT(duration: number): void;
+  /** Добавить минералы (мгновенный бонус). */
   addMinerals(count: number): void;
+  /** Добавить очки за минерал. */
   addScore(amount: number): void;
+  /** Проиграть звук подбора. */
   playPickupSound(kind: string): void;
 }
 
+/**
+ * ApplyPickupSystem — применяет поднятый пикап.
+ *
+ * Диспетчеризация разделена по ответственности:
+ *   • временные бонусы — делегируются BonusManager (он знает виды бонусов);
+ *   • мгновенные бонусы (ремонт, минерал) — применяются здесь;
+ *   • оружие — делегируется менеджеру оружия.
+ */
 export class ApplyPickupSystem {
   constructor(private deps: PickupDependencies) {}
 
   apply(kind: PickupKind): void {
-    const handlers: Record<PickupKind, () => void> = {
-      heal25: () => this.deps.heal(25),
-      heal50: () => this.deps.heal(50),
-      heal100: () => this.deps.heal(100),
-      hp: () => this.deps.heal(25),
-      rate20: () => this.deps.boostRate(),
-      rate40: () => this.deps.boostRate(),
-      rate60: () => this.deps.boostRate(),
-      rate: () => this.deps.boostRate(),
-      gun: () => this.deps.addGunBonus(2, GUN_BONUS_TIME),
-      drone: () => this.deps.equipWeapon("drone"),
-      dash: () => this.deps.setDashT(DASH_BONUS_TIME),
-      mineral: () => {
+    switch (kind) {
+      case "heal25":
+        this.deps.heal(25);
+        break;
+      case "heal50":
+        this.deps.heal(50);
+        break;
+      case "heal100":
+        this.deps.heal(100);
+        break;
+      case "hp":
+        this.deps.heal(25);
+        break;
+      case "mineral":
         this.deps.addMinerals(1);
         this.deps.addScore(50);
-      },
-      missile: () => this.deps.equipWeapon("missile"),
-    };
-
-    const handler = handlers[kind];
-    if (handler) {
-      handler();
+        break;
+      case "drone":
+        this.deps.equipWeapon("drone");
+        break;
+      case "missile":
+        this.deps.equipWeapon("missile");
+        break;
+      default:
+        // Временные бонусы (темп огня, стволы, рывок) — BonusManager сам
+        // решает, относится ли пикап к его видам.
+        this.deps.applyBonus(kind);
+        break;
     }
 
     this.deps.playPickupSound(kind);

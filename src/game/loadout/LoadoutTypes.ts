@@ -30,10 +30,11 @@ export type LoadoutSlotKind =
   | "cannon"
   | "missile"
   | "drone"
-  /* бонусы */
+  /* временные бонусы */
   | "rate"
   | "guns"
   | "dash"
+  /* мгновенные бонусы */
   | "heal"
   | "mineral";
 

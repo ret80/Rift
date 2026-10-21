@@ -2,22 +2,24 @@
  * PlayerMovement — physics, acceleration, friction, speed cap, dash trails, angle.
  */
 
-import { TAU, lerpAngle as lerpAngleMath } from '../math';
-import type { RGBA } from '../render';
+import { PLAYER_MAX_SPEED } from '../balance';
 import type { Fx } from '../fx';
-import { rand } from '../math';
+import { TAU, lerpAngle as lerpAngleMath, rand } from '../math';
+import type { RGBA } from '../render';
 import {
-  PLAYER_ACCELERATION,
-  FRICTION_EXP,
   DASH_ACCEL_MULT,
   DASH_SPEED_MULT,
+  FRICTION_EXP,
+  PLAYER_ACCELERATION,
   type PlayerState,
 } from './PlayerState';
-import { PLAYER_MAX_SPEED } from '../balance';
 
 /**
  * Update player movement physics: acceleration, friction, speed cap,
  * dash trails, and angle following velocity.
+ *
+ * Временный бонус «рывок» — это параметр dashT (остаток времени рывка),
+ * который приходит из BonusManager: физика не знает, как он тикает.
  *
  * @param state - mutable player state
  * @param dt - delta time in seconds
@@ -25,7 +27,7 @@ import { PLAYER_MAX_SPEED } from '../balance';
  * @param ay - input axis Y (-1 to 1)
  * @param fx - particle effect system
  * @param isThrusting - whether player is currently thrusting
- * @param dashT - remaining dash time
+ * @param dashT - remaining dash time (from BonusManager)
  * @returns object with updated thrusting and speed
  */
 export function updateMovement(
@@ -38,8 +40,7 @@ export function updateMovement(
   dashT: number,
 ): { thrusting: boolean; speed: number } {
   state.thrusting = isThrusting;
-  state.dashT = Math.max(0, state.dashT - dt);
-  const dashing = state.dashT > 0;
+  const dashing = dashT > 0;
 
   if (isThrusting) {
     const l = Math.hypot(ax, ay);

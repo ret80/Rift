@@ -47,8 +47,9 @@ import type { Enemy } from "./types";
 
 /* Loadout + weapons */
 import { LoadoutSystem } from "./loadout/LoadoutSystem";
-import { WeaponManager } from "./weapons/WeaponManager";
+import { BonusManager } from "./loadout/bonuses/BonusManager";
 import type { WeaponId } from "./weapons/Weapon";
+import { WeaponManager } from "./weapons/WeaponManager";
 
 /* Game systems */
 import { ApplyPickupSystem } from "./systems/ApplyPickupSystem";
@@ -196,6 +197,9 @@ export class Game {
   private dropSystem!: PickupDropSystem;
   private applyPickupSystem!: ApplyPickupSystem;
   private loadoutSystem!: LoadoutSystem;
+
+  /* Temporary bonuses — владеют темпом огня, стволами, рывком */
+  private bonusManager: BonusManager;
 
   /* Weapons — владеют пушкой, ракетами и дронами */
   private weaponManager: WeaponManager;
@@ -356,6 +360,7 @@ export class Game {
     );
 
     /* Initialize game logic systems with dependency injection */
+    this.bonusManager = new BonusManager();
     this.playerSystem = new PlayerSystem(
       this.eventBus,
       this.input,
@@ -405,7 +410,7 @@ export class Game {
         getEnemies: () => this.entityPool.enemyList,
         getBullets: () => this.entityPool.bulletList,
         getDrones: () => this.entityPool.allyDroneList,
-        getBonuses: () => this.playerSystem.getBonuses(),
+        getBonuses: () => this.bonusManager.getBonuses(),
       },
       (id) => this.onWeaponFired(id),
     );
@@ -434,10 +439,8 @@ export class Game {
     // Initialize ApplyPickupSystem
     this.applyPickupSystem = new ApplyPickupSystem({
       heal: (amount: number) => this.playerSystem.heal(amount),
-      boostRate: () => this.playerSystem.boostRate(),
-      addGunBonus: (guns: number, duration: number) => this.playerSystem.addGunBonus(guns, duration),
+      applyBonus: (pickup: PickupKind) => this.bonusManager.applyPickup(pickup),
       equipWeapon: (id: WeaponId) => this.weaponManager.equipWeapon(id),
-      setDashT: (duration: number) => this.playerSystem.setDashT(duration),
       addMinerals: (count: number) => { this.minerals += count; },
       addScore: (amount: number) => this.scoringSystem.add(amount),
       playPickupSound: (kind: string) => this.audio.playPickupSound(kind as PickupKind),
@@ -457,7 +460,7 @@ export class Game {
     this.loadoutSystem = new LoadoutSystem(
       {
         getWeaponSlots: () => this.weaponManager.getSlots(),
-        getBonuses: () => this.playerSystem.getBonuses(),
+        getBonusSlots: () => this.bonusManager.getSlots(),
       },
       this.eventBus
     );
@@ -610,7 +613,12 @@ export class Game {
     /* Update all systems in order */
     this.countdownSystem.update(dtScaled);
     this.scoringSystem.updateCombo(dtScaled);
-    this.playerSystem.update(dtScaled, this.fsm.not("menu", "over", "dying"));
+    this.bonusManager.update(dtScaled);
+    this.playerSystem.update(
+      dtScaled,
+      this.fsm.not("menu", "over", "dying"),
+      this.bonusManager.getDashT(),
+    );
     
     // Handle dying → over transition
     if (this.fsm.is("dying")) {
@@ -728,6 +736,7 @@ export class Game {
     const playerRender = this.playerSystem.getRenderState(
       this.weaponManager.getAimAngle(),
       this.weaponManager.getInstanceCount("cannon"),
+      this.bonusManager.getRenderSnapshot(),
     );
     
     this.rendererSystem.render(
@@ -780,8 +789,8 @@ export class Game {
       comboMult: s.comboMult,
       time: s.runTime,
       guns: this.weaponManager.getInstanceCount("cannon"),
-      rateMult: this.playerSystem.getRateMult(),
-      rateT: this.playerSystem.getRateT(),
+      rateMult: this.bonusManager.getRateMult(),
+      rateT: this.bonusManager.getRateT(),
       drones: this.weaponManager.getInstanceCount("drone"),
       minerals: this.minerals,
       parts: this.upgradeSystem.getParts(),
@@ -927,6 +936,7 @@ export class Game {
     this.minerals = 0;
     this.loadoutSystem.reset();
     this.weaponManager.reset();
+    this.bonusManager.reset();
 
     // Apply persistent upgrades to the player and the weapons
     this.upgradeSystem.applyToSystems({

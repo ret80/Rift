@@ -11,12 +11,12 @@
  */
 
 import type { LoadoutSlotData } from "../loadout/LoadoutTypes";
+import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
 import type { AllyDrone, Bullet, Enemy } from "../types";
 import { CANNON_TARGET_RANGE } from "./CannonWeapon";
 import { Targeting } from "./Targeting";
 import type {
   AimState,
-  PlayerBonuses,
   PlayerSnapshot,
   Weapon,
   WeaponContext,
