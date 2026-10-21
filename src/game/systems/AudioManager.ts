@@ -178,32 +178,4 @@ export class AudioManager {
   playGo(): void {
     this.engine.go();
   }
-
-  /** Алиас для совместимости с существующим кодом */
-  waveClear(): void {
-    this.engine.waveClear();
-  }
-
-  /** Алиасы для совместимости с системами (PlayerSystem, EnemySystem, AsteroidField, RiftField) */
-  shoot(): void {
-    this.engine.shoot();
-  }
-  enemyShoot(): void {
-    this.engine.enemyShoot();
-  }
-  heavyShoot(): void {
-    this.engine.heavyShoot();
-  }
-  explode(size?: number): void {
-    this.engine.explode(size);
-  }
-  riftOpen(): void {
-    this.engine.riftOpen();
-  }
-  riftSpawn(): void {
-    this.engine.riftSpawn();
-  }
-  riftClose(): void {
-    this.engine.riftClose();
-  }
 }

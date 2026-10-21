@@ -27,15 +27,13 @@ export interface SpawnHooks {
 /** Dependencies injected to avoid tight coupling with Game. */
 export interface SpawnDependencies {
   countdownSystem: { isCountdownActive?(): boolean };
-  gameState: {
-    zone: {
-      radius: number;
-      active: boolean;
-      x: number;
-      y: number;
-      targetRadius?: number;
-    } | null;
-  };
+  zoneState: {
+    radius: number;
+    active: boolean;
+    x: number;
+    y: number;
+    targetRadius?: number;
+  } | null;
   riftField: RiftField;
   hooks: { onToast?(data: { text: string; color?: string }): void };
   wave: number;
@@ -142,33 +140,14 @@ export class SpawnSystem {
   /**
    * Class weights for wave progression.
    * Drones decrease, hunters and fighters grow.
-   */
-  private kindWeights(w: number): Record<EnemyKind, number> {
-    return {
-      drone: Math.max(0.1, 0.6 - w * 0.015),
-      hunter: Math.max(0.1, 0.3 + w * 0.01),
-      fighter: Math.max(0.1, 0.1 + w * 0.015),
-      cruiser: Math.max(0, (w - 6) * 0.02),
-      carrier: Math.max(0, (w - 10) * 0.01),
-    };
-  }
-
-  /**
-   * Select enemy class with wave progression and weights.
+   * Uses canonical kindWeights from balance/waves.ts.
    */
   private pickKindForWave(w: number): EnemyKind {
     if (this.enabledEnemies && this.enabledEnemies.length > 0) {
       return pickKindForEnabled(w, this.enabledEnemies);
     }
-    const weights = this.kindWeights(w);
-    let total = 0;
-    for (const wt of Object.values(weights)) total += wt;
-    let roll = Math.random() * total;
-    for (const [kind, wt] of Object.entries(weights) as [EnemyKind, number][]) {
-      roll -= wt;
-      if (roll <= 0) return kind;
-    }
-    return EnemyKind.Drone;
+    // Use canonical kindWeights from balance/waves.ts
+    return pickKindFor(w);
   }
 
   /**
@@ -338,7 +317,7 @@ export class SpawnSystem {
     this.lastTriggeredKills = 0;
     this.startRifts = this.riftCountFor(deps.wave);
 
-    const zone = deps.gameState?.zone;
+    const zone = deps.zoneState;
     const zoneX = zone?.x ?? 0;
     const zoneY = zone?.y ?? 0;
     const zoneR = zone?.radius ?? this.zoneRadius(deps.wave);
@@ -382,7 +361,7 @@ export class SpawnSystem {
     );
     if (count <= 0) return;
 
-    const zone = deps.gameState?.zone;
+    const zone = deps.zoneState;
     const zoneX = zone?.x ?? 0;
     const zoneY = zone?.y ?? 0;
     const zoneR = zone?.radius ?? this.zoneRadius(deps.wave);
@@ -410,10 +389,10 @@ export class SpawnSystem {
   }
 
   update(dt: number, deps: SpawnDependencies): void {
-    const { countdownSystem, gameState, hooks } = deps;
+    const { countdownSystem, zoneState, hooks } = deps;
 
     const inCountdown = countdownSystem?.isCountdownActive?.();
-    const zoneOn = gameState?.zone?.active ?? false;
+    const zoneOn = zoneState?.active ?? false;
 
     if (inCountdown || !zoneOn) {
       return;
@@ -423,8 +402,8 @@ export class SpawnSystem {
 
     // Инициализация волны: ждём пока зона расширится достаточно
     if (this.total <= 0) {
-      const zoneR = deps.gameState?.zone?.radius ?? 0;
-      const zoneTarget = deps.gameState?.zone?.targetRadius ?? 0;
+      const zoneR = zoneState?.radius ?? 0;
+      const zoneTarget = zoneState?.targetRadius ?? 0;
       if (zoneTarget > 0 && zoneR < zoneTarget * RIFT_THRESHOLD) return;
       this.initWave(deps);
       // Анонсируем типы врагов из стартовых разломов

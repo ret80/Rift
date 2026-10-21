@@ -80,7 +80,10 @@ export class GameContext implements GameContextData {
     playerHp: number,
     playerMaxHp: number,
     wave: number,
-    enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number }>
+    enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number }>,
+    zoneX: number,
+    zoneY: number,
+    zoneRadius: number
   ): void {
     this.deltaTime = dt;
     
@@ -93,9 +96,9 @@ export class GameContext implements GameContextData {
     this.playerHp = playerHp;
     this.playerMaxHp = playerMaxHp;
     
-    this.zoneX = this.state.zone.x;
-    this.zoneY = this.state.zone.y;
-    this.zoneRadius = this.state.zone.radius;
+    this.zoneX = zoneX;
+    this.zoneY = zoneY;
+    this.zoneRadius = zoneRadius;
     
     this.wave = wave;
     this.enemyBullets = enemyBullets;

@@ -304,7 +304,6 @@ export class Game {
     /* Initialize zone system (sync, clamp, constraints) */
     this.zoneSystem = new ZoneSystem({
       getZoneState: () => this.waveOrchestrator.zoneState,
-      gameStateZone: this.gameState.zone,
       getPlayerRef: () => this.playerSystem.getPlayerRef(),
       getEnemyList: () => this.entityPool.enemyList,
       getAsteroids: () =>
@@ -445,15 +444,7 @@ export class Game {
       playPickupSound: (kind: string) => this.audio.playPickupSound(kind as PickupKind),
     });
 
-    this.pickupSystem = new PickupSystem(
-      this.eventBus,
-      this.gameState,
-      this.audio,
-      (kind) => {
-        this.applyPickupSystem.apply(kind);
-      },
-      () => this.getPlayerPosition()
-    );
+    this.pickupSystem = new PickupSystem();
 
     // HUD loadout row — weapon + bonus icons with their timers
     this.loadoutSystem = new LoadoutSystem(
@@ -667,10 +658,10 @@ export class Game {
         this.entityPool.allyDroneList as Parameters<typeof this.collisionSystem.update>[6],
         asteroids as Parameters<typeof this.collisionSystem.update>[7]
       );
-      this.pickupSystem.update(dtScaled, this.entityPool.pickupList);
+      this.pickupSystem.update(dtScaled, this.entityPool.pickupList, playerState.x, playerState.y);
       this.spawnSystem.update(dtScaled, {
         countdownSystem: this.countdownSystem,
-        gameState: this.gameState,
+        zoneState: this.waveOrchestrator.zoneState.active ? this.waveOrchestrator.zoneState : null,
         riftField: this.riftField,
         hooks: {
           onToast: (data) => this.hooks.onToast(data),
@@ -704,8 +695,8 @@ export class Game {
       camY: cp.y,
       viewW: window.innerWidth,
       viewH: window.innerHeight,
-      zone: this.gameState.zone.active
-        ? { x: this.gameState.zone.x, y: this.gameState.zone.y, r: this.gameState.zone.radius }
+      zone: this.waveOrchestrator.zoneState.active
+        ? { x: this.waveOrchestrator.zoneState.x, y: this.waveOrchestrator.zoneState.y, r: this.waveOrchestrator.zoneState.radius }
         : null,
     } as import("./asteroids").AsteroidEnv);
 
@@ -754,12 +745,12 @@ export class Game {
       this.entityPool.pickupList,
       this.entityPool.allyDroneList,
       {
-        active: this.gameState.zone.active,
-        x: this.gameState.zone.x,
-        y: this.gameState.zone.y,
-        radius: this.gameState.zone.radius,
-        targetRadius: this.gameState.zone.targetRadius,
-        alpha: this.gameState.zone.alpha,
+        active: this.waveOrchestrator.zoneState.active,
+        x: this.waveOrchestrator.zoneState.x,
+        y: this.waveOrchestrator.zoneState.y,
+        radius: this.waveOrchestrator.zoneState.radius,
+        targetRadius: this.waveOrchestrator.zoneState.targetRadius,
+        alpha: this.waveOrchestrator.zoneState.alpha,
       },
       pos.x,
       pos.y,
@@ -873,10 +864,10 @@ export class Game {
       wave: this.wave,
       runTime: this.scoringSystem.runTime,
       fps: this.fps(),
-      zoneActive: this.gameState.zone.active,
-      zoneRadius: this.gameState.zone.radius,
-      zoneTargetRadius: this.gameState.zone.targetRadius,
-      zoneAlpha: this.gameState.zone.alpha,
+      zoneActive: this.waveOrchestrator.zoneState.active,
+      zoneRadius: this.waveOrchestrator.zoneState.radius,
+      zoneTargetRadius: this.waveOrchestrator.zoneState.targetRadius,
+      zoneAlpha: this.waveOrchestrator.zoneState.alpha,
       countdownActive: this.countdownSystem.isCountdownActive(),
       enemyCount: this.entityPool.enemyList.length,
       riftCount: this.riftField.riftList.length,
@@ -1000,11 +991,12 @@ export class Game {
   }
 
   private getZoneBounds(): { x: number; y: number; radius: number; active: boolean } {
+    const z = this.waveOrchestrator.zoneState;
     return {
-      x: this.gameState.zone.x,
-      y: this.gameState.zone.y,
-      radius: this.gameState.zone.radius,
-      active: this.gameState.zone.active,
+      x: z.x,
+      y: z.y,
+      radius: z.radius,
+      active: z.active,
     };
   }
 

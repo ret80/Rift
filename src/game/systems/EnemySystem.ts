@@ -3,6 +3,9 @@
  * Отвечает за AI, движение, стрельбу и состояние врагов.
  */
 
+/* Debug log level: set to false to disable debug logging in production */
+const DEBUG_LOGGING = false;
+
 import { EnemyAI } from '../ai/EnemyAI';
 import { GameContext } from '../ai/GameContext';
 import { CARRIER_BASE_SPEED, CRUISER_BASE_SPEED, CRUISER_FIRE_RANGE, DRONE_BASE_SPEED, EnemyKind, FIGHTER_BASE_SPEED, HUNTER_SPEED, massForRadius } from '../balance';
@@ -177,7 +180,8 @@ export class EnemySystem {
       playerX, playerY, playerVx, playerVy,
       0, 0, 0,
       this.wave,
-      enemyBullets || []
+      enemyBullets || [],
+      zone.x, zone.y, zone.radius
     );
     
     // AI movement via strategy pattern
@@ -202,7 +206,7 @@ export class EnemySystem {
     
     // processing carrier drone spawns
     const carrierSpawns = this.ai.processCarrierSpawns(enemyList, this.context, dt);
-    if (carrierSpawns.length > 0) {
+    if (DEBUG_LOGGING && carrierSpawns.length > 0) {
       console.log(`[SPAWN] Carrier spawned ${carrierSpawns.length} drone(s). Total enemies before: ${enemyList.length}`);
     }
     for (const spawn of carrierSpawns) {
@@ -217,6 +221,7 @@ export class EnemySystem {
         drone.orbitRadius = carrier.r + 80;
         drone.orbitAngle = Math.random() * Math.PI * 2;
         const totalParentDrones = enemyList.filter(e => e.parent === carrier && !e.dead).length;
+      if (DEBUG_LOGGING) {
         console.log(
           `[DRONE] Created orbiting drone #${totalParentDrones} ` +
           `@(${spawn.x.toFixed(0)},${spawn.y.toFixed(0)}) ` +
@@ -224,11 +229,12 @@ export class EnemySystem {
           `burstSpawned=${carrier.burstSpawned}`
         );
       }
+      }
       this.enemyList.push(drone);
       enemyList.push(drone);
     }
     // === ЛОГ: сводка по всем Carrier и их дронам ===
-    if (Math.random() < 0.005) {
+    if (DEBUG_LOGGING && Math.random() < 0.005) {
       const carriers = enemyList.filter(e => e.kind === EnemyKind.Carrier && !e.dead);
       for (const c of carriers) {
         const parentDrones = enemyList.filter(e => e.parent === c && !e.dead).length;
@@ -279,7 +285,7 @@ export class EnemySystem {
           const ty = e.y + Math.cos(e.angle) * 14;
           const tAngle = Math.atan2(this.context.playerY - ty, this.context.playerX - tx) + (Math.random() - 0.5) * 2 * spread;
           this.enemyFireCallback({ x: tx, y: ty, kind: e.kind, angle: tAngle, r: e.r, boltDmg: e.boltDmg, heavy: true, cruiser: true });
-          this.audio.heavyShoot();
+          this.audio.playHeavyShoot();
         }
         
         e.tCd2! -= dt;
@@ -289,7 +295,7 @@ export class EnemySystem {
           const ty = e.y - Math.cos(e.angle) * 14;
           const tAngle = Math.atan2(this.context.playerY - ty, this.context.playerX - tx) + (Math.random() - 0.5) * 2 * spread;
           this.enemyFireCallback({ x: tx, y: ty, kind: e.kind, angle: tAngle, r: e.r, boltDmg: e.boltDmg, heavy: true, cruiser: true });
-          this.audio.heavyShoot();
+          this.audio.playHeavyShoot();
         }
       } else {
         // Fighter and Carrier: single turret
@@ -311,8 +317,8 @@ export class EnemySystem {
             angle: fireAngle + (Math.random() - 0.5) * 2 * spread,
             r: e.r, boltDmg: e.boltDmg, heavy, cruiser: false,
           });
-          if (heavy) this.audio.heavyShoot();
-          else this.audio.enemyShoot();
+          if (heavy) this.audio.playHeavyShoot();
+          else this.audio.playEnemyShoot();
         }
       }
     }

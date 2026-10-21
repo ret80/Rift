@@ -412,7 +412,7 @@ export default function App() {
             const g = gameRef.current;
             if (g) {
               g.audio.init();
-              g.audio.waveClear();
+              g.audio.playWaveClear();
             }
           }}
           onReset={() => {

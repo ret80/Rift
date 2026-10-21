@@ -10,12 +10,6 @@ import type { EventBus } from "../core/EventBus";
 const PSEUDO_RNG_A = 7.31;
 const PSEUDO_RNG_B = 13.37;
 
-/* Drop chances per enemy type (probability threshold for bonus drop) */
-const DRONE_DROP_CHANCE = 0.035;
-const HUNTER_DROP_CHANCE = 0.125;
-const FIGHTER_DROP_CHANCE = 0.05;
-const CRUISER_DROP_CHANCE = 0.125;
-
 interface Enemy {
   x: number;
   y: number;
@@ -58,26 +52,29 @@ export class PickupDropSystem {
     const chance = dropChanceFor(enemyKind as never);
     if (roll >= chance) return null;
 
-    // Pick bonus type based on enemy kind
+    // Pick bonus type based on enemy kind.
+    // Normalize roll to 0..1 within the accepted range for even distribution.
+    const normalized = roll / chance;
+
     let kind: PickupKind;
     switch (enemyKind) {
       case "drone":
-        kind = roll < DRONE_DROP_CHANCE ? "rate20" : "heal25";
+        kind = normalized < 0.5 ? "rate20" : "heal25";
         break;
       case "hunter":
-        kind = roll < HUNTER_DROP_CHANCE ? "rate20" : "heal25";
+        kind = normalized < 0.5 ? "rate20" : "heal25";
         break;
       case "fighter":
-        kind = roll < FIGHTER_DROP_CHANCE ? "gun" : "heal50";
+        kind = normalized < 0.5 ? "gun" : "heal50";
         break;
       case "cruiser":
-        kind = roll < CRUISER_DROP_CHANCE ? "drone" : "dash";
+        kind = normalized < 0.5 ? "drone" : "dash";
         break;
-      case "carrier":
-        // roll is already < chance here, so normalize it to 0..1 to reach every type.
+      case "carrier": {
         const types: PickupKind[] = ["drone", "gun", "dash", "missile"];
-        kind = types[Math.floor((roll / chance) * types.length)];
+        kind = types[Math.floor(normalized * types.length)];
         break;
+      }
       default:
         kind = "heal25";
     }

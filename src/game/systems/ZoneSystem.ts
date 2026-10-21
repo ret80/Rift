@@ -1,10 +1,9 @@
 /**
  * ZoneSystem — централизованное управление зоной.
  * Отвечает за:
- *  1. Синхронизацию zoneState между waveOrchestrator и gameState
- *  2. Clamp игрока к границе зоны (отталкивание обратно)
- *  3. Clamp врагов к границе зоны (удержание внутри)
- *  4. Применение ограничений зоны для астероидов и врагов
+ *  1. Clamp игрока к границе зоны (отталкивание обратно)
+ *  2. Clamp врагов к границе зоны (удержание внутри)
+ *  3. Применение ограничений зоны для астероидов и врагов
  */
 
 import {
@@ -20,8 +19,6 @@ import type { Enemy } from "../types";
 export interface ZoneSystemConfig {
   /** authoritative zone state from WaveOrchestrator */
   getZoneState: () => ZoneData;
-  /** mutable zone state from GameState (sync target) */
-  gameStateZone: ZoneData;
   /** mutable player position+velocity for clamp */
   getPlayerRef: () => { x: number; y: number; vx: number; vy: number };
   /** reference to enemy list for constraints */
@@ -40,14 +37,11 @@ export class ZoneSystem {
   }
 
   /**
-   * Обновить все аспекты зоны: синхронизация, clamp, ограничения.
+   * Обновить все аспекты зоны: clamp, ограничения.
    * Вызывается каждый кадр во время active/cleared состояний.
    */
   update(dt: number): void {
     const zone = this.config.getZoneState();
-
-    // Sync authoritative state → gameState
-    this.syncZoneState(zone);
 
     // Skip zone logic if not active
     if (!zone.active || zone.radius <= 0) return;
@@ -60,20 +54,6 @@ export class ZoneSystem {
 
     // Apply zone constraints (asteroids out, enemies in)
     this.applyZoneConstraints(dt, zone);
-  }
-
-  // ============================== Sync ==============================
-
-  /** Sync authoritative zone state from orchestrator to gameState */
-  private syncZoneState(authoritative: ZoneData): void {
-    const target = this.config.gameStateZone;
-    target.x = authoritative.x;
-    target.y = authoritative.y;
-    target.radius = authoritative.radius;
-    target.targetRadius = authoritative.targetRadius;
-    target.alpha = authoritative.alpha;
-    target.active = authoritative.active;
-    target.collapseT = authoritative.collapseT;
   }
 
   // ============================== Clamp ==============================

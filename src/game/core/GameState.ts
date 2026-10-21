@@ -2,10 +2,10 @@
  * GameState - immutable game state.
  * Centralized metadata storage for all systems.
  * Entity pools are managed by EntityPoolSystem.
+ * Zone state is managed by WaveOrchestrator.
  */
 
 import type { ZoneData } from './ZoneTypes';
-import { ZONE_NOT_COLLAPSING } from './ZoneTypes';
 
 // Alias for backward compatibility
 export type ZoneState = ZoneData;
@@ -46,16 +46,6 @@ export class GameState {
     peakAlive: 0,
   };
 
-  public zone: ZoneState = {
-    active: false,
-    x: 0,
-    y: 0,
-    radius: 0,
-    targetRadius: 0,
-    alpha: 0,
-    collapseT: -1,
-  };
-
   public score: ScoreState = {
     score: 0,
     best: 0,
@@ -82,16 +72,6 @@ export class GameState {
       peakAlive: 0,
     };
 
-    this.zone = {
-      active: false,
-      x: 0,
-      y: 0,
-      radius: 0,
-      targetRadius: 0,
-      alpha: 0,
-      collapseT: -1,
-    };
-
     this.score = {
       score: 0,
       best: this.score.best, // preserve record
@@ -108,9 +88,6 @@ export class GameState {
   toMenu(): void {
     this.type = 'menu';
     this.paused = false;
-    this.zone.active = false;
-    this.zone.alpha = 0;
-    this.zone.collapseT = ZONE_NOT_COLLAPSING;
   }
 
   // ===== Aliases for compatibility with game.ts =====

@@ -6,6 +6,7 @@ import type { Renderer } from "./render";
 import type { AudioManager } from "./systems/AudioManager";
 import type { Fx } from "./fx";
 import type { EventBus } from "./core/EventBus";
+import { softResolveCollision } from "./systems/EntityCollision";
 import { TAU, rand, clamp, mulberry32, rgba } from "./math";
 import type { AsteroidKind, PickupKind } from "./balance";
 import { massForRadius } from "./balance";
@@ -197,29 +198,17 @@ export class AsteroidField {
         const dy = a2.y - a1.y;
         const dist = Math.hypot(dx, dy);
         const minDist = a1.r + a2.r;
-        
+
         if (dist < minDist && dist > 0.01) {
-          // Soft collision resolution (same as CollisionSystem)
-          const nx = dx / dist;
-          const ny = dy / dist;
-          const dvx = a1.vx - a2.vx;
-          const dvy = a1.vy - a2.vy;
-          const dvn = dvx * nx + dvy * ny;
-          
-          if (dvn > 0) {
-            const e = 0.15;
-            const j = -(1 + e) * dvn / (1 / a1.mass + 1 / a2.mass);
-            
-            const newAvx = a1.vx + (j / a1.mass) * nx;
-            const newAvy = a1.vy + (j / a1.mass) * ny;
-            const newBvx = a2.vx - (j / a2.mass) * nx;
-            const newBvy = a2.vy - (j / a2.mass) * ny;
-            
-            a1.vx = Math.max(-200, Math.min(200, newAvx));
-            a1.vy = Math.max(-200, Math.min(200, newAvy));
-            a2.vx = Math.max(-200, Math.min(200, newBvx));
-            a2.vy = Math.max(-200, Math.min(200, newBvy));
-          }
+          const result = softResolveCollision(
+            a1.x, a1.y, a1.mass, a1.vx, a1.vy,
+            a2.x, a2.y, a2.mass, a2.vx, a2.vy,
+            1.2
+          );
+          a1.vx = result.na.vx;
+          a1.vy = result.na.vy;
+          a2.vx = result.nb.vx;
+          a2.vy = result.nb.vy;
         }
       }
     }
@@ -249,7 +238,7 @@ export class AsteroidField {
       a.kind === "large" ? 300 : 200,
       0.5
     );
-    this.h.audio.explode(a.kind === "large" ? 0.9 : 0.5);
+    this.h.audio.playExplosion(a.kind === "large" ? 0.9 : 0.5);
     this.h.fx.addShake(a.kind === "large" ? 4 : a.kind === "medium" ? 2.5 : 1);
 
     const spawnFrag = (kind: AsteroidKind) => {

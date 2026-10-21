@@ -110,7 +110,7 @@ export class RiftField {
       rot: Math.random() * TAU,
       size,
     });
-    this.h.audio.riftOpen();
+    this.h.audio.playRiftOpen();
   }
 
   update(dt: number) {
@@ -128,14 +128,14 @@ export class RiftField {
           rf.timer = 0.28;
           const kind = rf.queue.shift()!;
           this.h.spawnEnemy(kind, rf.x + rand(-14, 14), rf.y + rand(-14, 14));
-          this.h.audio.riftSpawn();
+          this.h.audio.playRiftSpawn();
           this.h.fx.burst(rf.x, rf.y, 5, C.rift, 140, 0.3);
         }
         // Only close if queue is truly empty and timer has expired
         if (rf.queue.length === 0 && rf.timer <= 0) {
           rf.state = "closing";
           rf.t = 0;
-          this.h.audio.riftClose();
+          this.h.audio.playRiftClose();
         }
       } else if (rf.state === "closing") {
         if (rf.t >= 0.5) this.riftList.splice(i, 1);

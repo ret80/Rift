@@ -17,6 +17,9 @@
  * - Carrier очищает счётчики и начинает цикл заново (возврат к ФАЗЕ 1).
  */
 
+/* Debug log level: set to false to disable debug logging in production */
+const DEBUG_LOGGING = false;
+
 import type { Enemy } from '../../types';
 import type { GameContext } from '../GameContext';
 import type { IEnemyStrategy } from '../IEnemyStrategy';
@@ -89,13 +92,17 @@ export class CarrierStrategy implements IEnemyStrategy {
         });
         enemy.orbitTimer = 0.5;
         enemy.carrierChildren++;
-        console.log(`[CARRIER] [НАКОПЛЕНИЕ] Спавн дрон #${enemy.carrierChildren}/${maxDrones}`);
+        if (DEBUG_LOGGING) {
+          console.log(`[CARRIER] [НАКОПЛЕНИЕ] Спавн дрон #${enemy.carrierChildren}/${maxDrones}`);
+        }
       }
       // Когда все 10 дронов спавнены — переходим к ОЖИДАНИЮ
       if (enemy.carrierChildren >= maxDrones) {
         enemy.waitTimer = Math.random() * (8 - 5) + 5;
         enemy.droneState = 'waiting';
-        console.log(`[CARRIER] [ОЖИДАНИЕ] Все ${maxDrones} дронов спавнены. Ждём ${enemy.waitTimer.toFixed(1)}с`);
+        if (DEBUG_LOGGING) {
+          console.log(`[CARRIER] [ОЖИДАНИЕ] Все ${maxDrones} дронов спавнены. Ждём ${enemy.waitTimer.toFixed(1)}с`);
+        }
       }
     } 
     else if (enemy.droneState === 'waiting') {
@@ -112,14 +119,18 @@ export class CarrierStrategy implements IEnemyStrategy {
       enemy.carrierChildren = 0;
       enemy.waitTimer = 0;
       enemy.droneState = 'accumulating';
-      console.log(`[CARRIER] [СБРОС] Цикл завершён. Начинаю накопление заново.`);
+      if (DEBUG_LOGGING) {
+        console.log(`[CARRIER] [СБРОС] Цикл завершён. Начинаю накопление заново.`);
+      }
     }
     else {
       // ИНИЦИАЛИЗАЦИЯ — первая инициализация
       enemy.droneState = 'accumulating';
       enemy.orbitTimer = 0;
       enemy.carrierChildren = 0;
-      console.log(`[CARRIER] Инициализация. Начинаю фазу накопления.`);
+      if (DEBUG_LOGGING) {
+        console.log(`[CARRIER] Инициализация. Начинаю фазу накопления.`);
+      }
     }
   }
 
@@ -132,6 +143,8 @@ export class CarrierStrategy implements IEnemyStrategy {
         e.droneState = 'attacking';
       }
     }
-    console.log(`[CARRIER] [ОТПУСК] Дроны отпущены. Перехожу в накопление.`);
+    if (DEBUG_LOGGING) {
+      console.log(`[CARRIER] [ОТПУСК] Дроны отпущены. Перехожу в накопление.`);
+    }
   }
 }
