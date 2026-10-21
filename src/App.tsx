@@ -1,36 +1,35 @@
-import React, { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import type { PickupKind } from "./game/balance";
+import { ALL_PICKUP_KINDS } from "./game/balance/drops";
+import { EnemyKind } from "./game/balance/enemies";
 import {
-  Game,
-  HudData,
-  BannerData,
-  ToastData,
-  PopupData,
-  CountData,
-  StatsData,
+    BannerData,
+    CountData,
+    Game,
+    PopupData,
+    StatsData,
+    ToastData
 } from "./game/game";
-import { t, useT } from "./i18n";
-import {
-  MainMenu,
-  SettingsScreen,
-  HelpScreen,
-  DebugScreen,
-  PauseOverlay,
-  GameOverScreen,
-  HudLayer,
-  HudRefs,
-} from "./ui/Screens";
-import { UpgradeScreen } from "./ui/UpgradeScreen";
-import ScreenDimmer from "./ui/components/ScreenDimmer";
-import FloatingPopup from "./ui/FloatingPopup";
-import TouchControls from "./ui/TouchControls";
-import type { LoadoutBarHandle } from "./ui/components/LoadoutBar";
-import { usePersistedState } from "./hooks/usePersistedState";
-import { useHudUpdater } from "./hooks/useHudUpdater";
 import { resetGameState } from "./game/resetGameState";
 import { resetUpgrades } from "./game/upgrades";
-import { EnemyKind } from "./game/balance/enemies";
-import { ALL_PICKUP_KINDS, pickupDisplayKey } from "./game/balance/drops";
-import type { PickupKind } from "./game/balance";
+import { useHudUpdater } from "./hooks/useHudUpdater";
+import { usePersistedState } from "./hooks/usePersistedState";
+import { t } from "./i18n";
+import FloatingPopup from "./ui/FloatingPopup";
+import {
+    DebugScreen,
+    GameOverScreen,
+    HelpScreen,
+    HudLayer,
+    HudRefs,
+    MainMenu,
+    PauseOverlay,
+    SettingsScreen,
+} from "./ui/Screens";
+import TouchControls from "./ui/TouchControls";
+import { UpgradeScreen } from "./ui/UpgradeScreen";
+import type { LoadoutBarHandle } from "./ui/components/LoadoutBar";
+import ScreenDimmer from "./ui/components/ScreenDimmer";
 
 type Screen = "menu" | "settings" | "help" | "debug" | "upgrade" | "game";
 
@@ -66,6 +65,17 @@ const initState: AppState = {
   countdown: null,
   popups: [],
 };
+
+/* ======================== URL params ======================== */
+
+function parseUrlParams(): { debug: boolean; wave: number | null } {
+  if (typeof window === "undefined") return { debug: false, wave: null };
+  const params = new URLSearchParams(window.location.search);
+  const debug = params.has("debug");
+  const waveParam = params.get("wave");
+  const wave = waveParam !== null ? parseInt(waveParam, 10) : null;
+  return { debug, wave: wave && wave > 0 ? wave : null };
+}
 
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
@@ -122,6 +132,10 @@ export default function App() {
   const [isTouch] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches
   );
+
+  /* URL params */
+  const urlParams = useMemo(() => parseUrlParams(), []);
+  const { debug: urlDebug, wave: urlWave } = urlParams;
 
   /* Перехват ESC для экранов с кнопкой "Назад" — чтобы закрывать меню,
       а не снимать паузу. Ловим на фазе capture (до игрового слушателя). */
@@ -211,6 +225,20 @@ export default function App() {
       if (localStorage.getItem("rift9_debug_god") === "1") game.setDebugGod(true);
     } catch {
       /* ignore */
+    }
+
+    // Apply URL debug param
+    if (urlDebug) {
+      game.setDebugGod(true);
+    }
+
+    // Apply URL wave param — auto-start game at specified wave
+    if (urlWave) {
+      game.setStartWave(urlWave);
+      game.audio.init();
+      game.audio.startMusic();
+      game.startRun();
+      dispatch({ type: "SET_SCREEN", screen: "game" });
     }
 
     // Arm audio as early as possible so it unlocks on the first gesture.
@@ -372,6 +400,7 @@ export default function App() {
           onHelp={() => dispatch({ type: "SET_SCREEN", screen: "help" })}
           onDebug={() => dispatch({ type: "SET_SCREEN", screen: "debug" })}
           onUpgrade={() => openUpgrade("menu")}
+          showDebug={urlDebug}
         />
       )}
 

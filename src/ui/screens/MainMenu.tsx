@@ -1,6 +1,5 @@
-import React from "react";
-import GameButton from "../components/GameButton";
 import { useT } from "../../i18n";
+import GameButton from "../components/GameButton";
 
 export default function MainMenu(props: {
   best: number;
@@ -9,6 +8,7 @@ export default function MainMenu(props: {
   onHelp: () => void;
   onDebug: () => void;
   onUpgrade: () => void;
+  showDebug?: boolean;
 }) {
   const t = useT();
   return (
@@ -40,13 +40,15 @@ export default function MainMenu(props: {
         <GameButton onClick={props.onHelp}>{t("menu.help")}</GameButton>
       </div>
 
-      <button
-        onClick={props.onDebug}
-        className="mt-6 cursor-pointer border border-dashed border-[#7dff9e]/30 bg-transparent px-4 py-1 font-mono text-[10px] tracking-[0.3em] text-[#7dff9e]/60 transition-colors hover:border-[#7dff9e]/70 hover:text-[#7dff9e]"
-        style={{ animationDelay: "0.2s" }}
-      >
-        &gt; {t("menu.debug")}
-      </button>
+      {props.showDebug && (
+        <button
+          onClick={props.onDebug}
+          className="mt-6 cursor-pointer border border-dashed border-[#7dff9e]/30 bg-transparent px-4 py-1 font-mono text-[10px] tracking-[0.3em] text-[#7dff9e]/60 transition-colors hover:border-[#7dff9e]/70 hover:text-[#7dff9e]"
+          style={{ animationDelay: "0.2s" }}
+        >
+          &gt; {t("menu.debug")}
+        </button>
+      )}
 
       <div className="absolute bottom-5 text-center text-[9px] tracking-[0.3em] text-[#4d5f7d]">
         {t("menu.hint")}
