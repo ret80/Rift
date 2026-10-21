@@ -74,8 +74,9 @@ export class PickupDropSystem {
         kind = roll < CRUISER_DROP_CHANCE ? "drone" : "dash";
         break;
       case "carrier":
-        const types: PickupKind[] = ["drone", "gun", "dash", "miner"];
-        kind = types[Math.floor(roll * types.length)];
+        // roll is already < chance here, so normalize it to 0..1 to reach every type.
+        const types: PickupKind[] = ["drone", "gun", "dash", "missile"];
+        kind = types[Math.floor((roll / chance) * types.length)];
         break;
       default:
         kind = "heal25";
