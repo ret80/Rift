@@ -4,35 +4,24 @@
  */
 
 import type { EventBus } from '../core/EventBus';
-import type { Enemy } from '../types';
+import type { AllyDrone, Bullet, EBullet, Enemy } from '../types';
 import { HIT_RADIUS_OFFSET } from './CollisionConstants';
-
-/** Player bullet interface. */
-export interface Bullet {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  dmg: number;
-}
-
-/** Enemy bullet interface. */
-export interface EBullet {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  dmg: number;
-  heavy: boolean;
-}
 
 /** A collidable target with position and radius. */
 interface Collidable {
   x: number;
   y: number;
   r: number;
+}
+
+/** Попадание снаряда врага в дрона. */
+export interface DroneHit {
+  /** Индекс снаряда в пуле вражеских снарядов. */
+  bulletIndex: number;
+  /** Индекс дрона в пуле дронов. */
+  droneIndex: number;
+  /** Дрон погиб и должен быть удалён. */
+  killed: boolean;
 }
 
 /**
@@ -126,7 +115,6 @@ export function checkEnemyBulletVsPlayer(
     for (let i = enemyBullets.length - 1; i >= 0; i--) {
       const b = enemyBullets[i];
       if (bulletHits(b.x, b.y, { x: playerX, y: playerY, r: hitRadius })) {
-        console.log('[BULLET] player hit by bullet dmg=' + b.dmg + ' hp=' + playerHp);
         eventBus.publish('player_damaged', {
           dmg: b.dmg,
         });
@@ -139,35 +127,35 @@ export function checkEnemyBulletVsPlayer(
 
 /**
  * Check enemy bullets against drones.
- * Returns a set of { bulletIndex, droneIndex } pairs to remove.
+ * Дрон теряет корпус от попаданий и погибает только когда HP кончились.
+ * Returns the list of hits; the caller removes bullets and dead drones.
  */
 export function checkEnemyBulletVsDrones(
   eventBus: EventBus,
   enemyBullets: EBullet[],
-  drones: Array<{ x: number; y: number; r: number; hp?: number; maxHp?: number; flash?: number }>
-): Set<{ bulletIndex: number; droneIndex: number }> {
-  const toRemove = new Set<{ bulletIndex: number; droneIndex: number }>();
+  drones: AllyDrone[]
+): DroneHit[] {
+  const hits: DroneHit[] = [];
 
   for (let i = enemyBullets.length - 1; i >= 0; i--) {
     const b = enemyBullets[i];
     for (let j = drones.length - 1; j >= 0; j--) {
       const d = drones[j];
-      if (bulletHits(b.x, b.y, { x: d.x, y: d.y, r: d.r })) {
-        if (d.hp != null && d.maxHp != null) {
-          d.hp -= b.dmg;
-          d.flash = 1;
-          eventBus.publish('drone_hit', {
-            x: d.x,
-            y: d.y,
-            dmg: b.dmg,
-            dead: d.hp <= 0,
-          });
-        }
-        toRemove.add({ bulletIndex: i, droneIndex: j });
-        break;
-      }
+      if (!bulletHits(b.x, b.y, { x: d.x, y: d.y, r: d.r })) continue;
+
+      d.hp -= b.dmg;
+      d.flash = 1;
+      const killed = d.hp <= 0;
+      eventBus.publish('drone_hit', {
+        x: d.x,
+        y: d.y,
+        dmg: b.dmg,
+        dead: killed,
+      });
+      hits.push({ bulletIndex: i, droneIndex: j, killed });
+      break;
     }
   }
 
-  return toRemove;
+  return hits;
 }

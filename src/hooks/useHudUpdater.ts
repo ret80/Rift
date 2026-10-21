@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import type { LoadoutSlotData } from "../game/balance/loadout";
+import type { LoadoutSlotData } from "../game/loadout/LoadoutTypes";
 import type { HudRefs } from "../ui/hudRefs";
 
 export type { HudRefs } from "../ui/hudRefs";

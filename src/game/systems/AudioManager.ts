@@ -68,10 +68,8 @@ export class AudioManager {
         this.engine.pickupDrone();
         break;
 
-      // Dash / miner / mine pickups → dash sound
+      // Dash pickup → dash sound
       case "dash":
-      case "miner":
-      case "mine":
         this.engine.pickupDash();
         break;
 
@@ -127,18 +125,6 @@ export class AudioManager {
 
   playRiftSpawn(): void {
     this.engine.riftSpawn();
-  }
-
-  playMinePlace(): void {
-    this.engine.minePlace();
-  }
-
-  playMineArm(): void {
-    this.engine.mineArm();
-  }
-
-  playMineBoom(): void {
-    this.engine.mineBoom();
   }
 
   playDroneShot(): void {

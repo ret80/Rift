@@ -1,90 +1,24 @@
 /**
- * BulletSystem - player and enemy bullet management.
- * Responsible for bullet lifecycle: creation, movement, and cleanup.
+ * BulletSystem — движение снарядов игрока и врагов.
  *
- * Authoritative owner: entityPool arrays (bulletList, enemyBulletList).
- * BulletSystem processes these arrays but does NOT own them.
+ * Авторитетные владельцы массивов снарядов — пулы entityPool.
+ * BulletSystem обрабатывает эти массивы, но не владеет ими.
+ *
+ * Здесь же живёт самонаведение ракет: цель хранится живой ссылкой,
+ * поэтому снаряд ведёт врага, а не застывшую точку.
  */
 
-import type { EventBus } from '../core/EventBus';
-import type { GameState } from '../core/GameState';
-import type { Fx } from '../fx';
-import type { AudioManager } from './AudioManager';
-import {
-  PLAYER_BULLET_SPEED,
-  PLAYER_BULLET_LIFE,
-  PLAYER_BULLET_DMG,
-  GUN_OFFS,
-} from '../balance';
-
-// Enemy bullet balance constants
-const ENEMY_BULLET_SPEED = 300;
-const ENEMY_BULLET_LIFE = 1.35;
-
-export interface PlayerBullet {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  dmg: number;
-}
-
-export interface EnemyBullet extends PlayerBullet {
-  heavy?: boolean;
-  cruiser?: boolean;
-}
-
-export interface PlayerBulletState {
-  x: number;
-  y: number;
-  angle: number;
-  guns: number;
-  accuracy?: number;
-}
-
-export interface EnemyBulletState {
-  x: number;
-  y: number;
-  angle: number;
-  r: number;
-  boltDmg: number;
-}
+import type { Bullet, EBullet } from '../types';
 
 export class BulletSystem {
-  private eventBus: EventBus;
-  private state: GameState;
-  private fx: Fx;
-  private audio: AudioManager;
-  private bulletDmg: number = PLAYER_BULLET_DMG;
-
-  constructor(eventBus: EventBus, state: GameState, fx: Fx, audio: AudioManager) {
-    this.eventBus = eventBus;
-    this.state = state;
-    this.fx = fx;
-    this.audio = audio;
-  }
-
-  /** Set player bullet damage (from upgrades) */
-  setBulletDmg(dmg: number): void {
-    this.bulletDmg = dmg;
-  }
-
-  // ── Public API ──────────────────────────────────────────────────
-
   /**
-   * Update all bullets (movement + lifetime cleanup).
-   * Mutates the passed arrays — these are owned by entityPool.
+   * Обновить все снаряды (движение + самонаведение + очистка по времени жизни).
+   * Мутирует переданные массивы — они принадлежат entityPool.
    */
-   update(
-     dt: number,
-     bullets: PlayerBullet[],
-     enemyBullets: EnemyBullet[],
-     _enemies: Array<{ x: number; y: number; dead: boolean }>
-   ): void {
-    // Update player bullets
+  update(dt: number, bullets: Bullet[], enemyBullets: EBullet[]): void {
     for (let i = bullets.length - 1; i >= 0; i--) {
       const b = bullets[i];
+      this.steer(b, dt);
       b.x += b.vx * dt;
       b.y += b.vy * dt;
       b.life -= dt;
@@ -93,7 +27,6 @@ export class BulletSystem {
       }
     }
 
-    // Update enemy bullets
     for (let i = enemyBullets.length - 1; i >= 0; i--) {
       const b = enemyBullets[i];
       b.x += b.vx * dt;
@@ -106,82 +39,33 @@ export class BulletSystem {
   }
 
   /**
-   * Create player bullets in multiple directions.
-   * Spread/accuracy follows enemy pattern: random angle deviation.
+   * Повернуть самонаводящийся снаряд к живой цели.
+   *
+   * Поворот идёт по углу с ограничением скорости: так снаряд
+   * корректно наводится даже когда цель строго за кормой,
+   * где сглаживание векторов даёт нулевой результат.
    */
-  firePlayerBullets(
-    playerState: PlayerBulletState,
-    angle: number,
-    bullets: Array<{
-      x: number; y: number; vx: number; vy: number;
-      life: number; dmg: number;
-    }>
-  ): void {
-    const sp = PLAYER_BULLET_SPEED;
-    // Player gun accuracy: accuracy ~0.98 → spread ≈ 0.006 rad (~0.34°)
-    // Can be improved with upgrades to 0.99-1.0 (spread → 0)
-    const accuracy = playerState.accuracy ?? 0.98;
-    const spread = (1 - accuracy) * 0.3; // same as enemies: (1 - acc) * factor
-    const bulletAngle = angle + (Math.random() - 0.5) * 2 * spread;
-    const gunCount = Math.min(playerState.guns ?? 1, GUN_OFFS.length);
+  private steer(b: Bullet, dt: number): void {
+    const homing = b.homing;
+    if (!homing) return;
 
-    for (let i = 0; i < gunCount; i++) {
-      const o = GUN_OFFS[i] ?? 0;
-      const nx = playerState.x + Math.cos(angle) * 14 - Math.sin(angle) * o;
-      const ny = playerState.y + Math.sin(angle) * 14 + Math.cos(angle) * o;
-      bullets.push({
-        x: nx,
-        y: ny,
-        vx: Math.cos(bulletAngle) * sp,
-        vy: Math.sin(bulletAngle) * sp,
-        life: PLAYER_BULLET_LIFE,
-        dmg: this.bulletDmg,
-      });
-    }
-  }
+    const target = homing.target;
+    if (target.dead) return;
 
-  /**
-   * Create enemy bullet and push to external array.
-   */
-  fireEnemyBullet(
-    enemy: EnemyBulletState,
-    enemyBullets: EnemyBullet[]
-  ): void {
-    const a = enemy.angle;
-    enemyBullets.push({
-      x: enemy.x + Math.cos(a) * (enemy.r + 6),
-      y: enemy.y + Math.sin(a) * (enemy.r + 6),
-      vx: Math.cos(a) * ENEMY_BULLET_SPEED,
-      vy: Math.sin(a) * ENEMY_BULLET_SPEED,
-      life: ENEMY_BULLET_LIFE,
-      dmg: enemy.boltDmg,
-      heavy: false,
-      cruiser: false,
-    });
-  }
+    const speed = Math.hypot(b.vx, b.vy) || 1;
+    const current = Math.atan2(b.vy, b.vx);
+    const desired = Math.atan2(target.y - b.y, target.x - b.x);
 
-  /**
-    * No-op — kept for backwards compatibility.
-    * Actual collision detection is done by CollisionSystem.
-    */
-  checkCollision(): void {
-    // no-op
-  }
+    // Разница углов в диапазоне (-PI, PI].
+    let diff = desired - current;
+    if (diff > Math.PI) diff -= Math.PI * 2;
+    if (diff < -Math.PI) diff += Math.PI * 2;
 
-  /**
-   * Clear all bullets.
-   */
-  clear(_bullets: Array<unknown>, _enemyBullets: Array<unknown>): void {
-    // No-op — bullets are owned by entityPool
-  }
+    // Поворот не превышает скорость наведения.
+    const step = Math.min(Math.abs(diff), homing.turnRate * dt);
+    const next = current + Math.sign(diff) * step;
 
-  /**
-   * Get bullet counts (from entityPool — passed as args).
-   */
-  getCount(bullets: Array<unknown>, enemyBullets: Array<unknown>): { player: number; enemy: number } {
-    return {
-      player: bullets.length,
-      enemy: enemyBullets.length,
-    };
+    b.vx = Math.cos(next) * speed;
+    b.vy = Math.sin(next) * speed;
   }
 }

@@ -8,21 +8,16 @@ import {
   loadUpgrades as loadUpgradesRaw,
   saveUpgrades as saveUpgradesRaw,
   applyUpgrades as applyUpgradesRaw,
-  defaultUpgrades as defaultUpgradesRaw,
-  UPGRADE_TIERS,
   type PlayerUpgrades,
   type AppliedUpgrades,
 } from "../upgrades";
+import type { WeaponUpgrades } from "../weapons/Weapon";
 
 export class UpgradeSystem {
   private _playerUpgrades: PlayerUpgrades = {} as PlayerUpgrades;
 
   get playerUpgrades(): PlayerUpgrades {
     return this._playerUpgrades;
-  }
-
-  get appliedUpgrades(): AppliedUpgrades | null {
-    return this._appliedUpgrades;
   }
 
   private _appliedUpgrades: AppliedUpgrades | null = null!;
@@ -40,19 +35,24 @@ export class UpgradeSystem {
 
   /* ======================== Apply to systems ======================== */
 
-  applyToSystems(
-    setMaxHp: (v: number) => void,
-    setGuns: (v: number) => void,
-    setBulletDmg: (v: number) => void,
-    getResetHp?: () => void
-  ): void {
+  /**
+   * Применить персистентные апгрейды к живым системам.
+   * Каждая система сама решает, что с ней делать.
+   */
+  applyToSystems(targets: {
+    /** Задать максимальный корпус игрока. */
+    setMaxHp: (v: number) => void;
+    /** Передать апгрейды оружию. */
+    setWeaponUpgrades: (upgrades: WeaponUpgrades) => void;
+    /** Восстановить корпус игрока до максимума. */
+    resetHp?: () => void;
+  }): void {
     const up = this._appliedUpgrades;
     if (!up) return;
-    setMaxHp(up.baseHp);
-    setGuns(up.gunCount);
-    setBulletDmg(up.bulletDmg);
-    if (getResetHp) {
-      getResetHp();
+    targets.setMaxHp(up.baseHp);
+    targets.setWeaponUpgrades(up);
+    if (targets.resetHp) {
+      targets.resetHp();
     }
   }
 

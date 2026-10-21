@@ -89,9 +89,8 @@ export interface Bullet {
   x: number; y: number;
   vx: number; vy: number;
   life: number; dmg: number;
-  // Homing missile properties
-  homingTarget?: { x: number; y: number; r: number };
-  homingTurnRate?: number;
+  /** Самонаведение: цель хранится живой ссылкой, поэтому ракета ведёт цель. */
+  homing?: { target: Enemy; turnRate: number };
 }
 
 export interface EBullet {
@@ -110,11 +109,6 @@ export interface Pickup {
   r: number;
 }
 
-export interface Mine {
-  x: number; y: number;
-  fuse: number; seed: number;
-}
-
 export interface AllyDrone {
   x: number; y: number;
   r: number;
@@ -123,4 +117,6 @@ export interface AllyDrone {
   hp: number; maxHp: number;
   target: Enemy | null;
   retargetT: number; flash: number;
+  /** Постоянный дрон из апгрейда — восстанавливается после гибели. */
+  permanent: boolean;
 }

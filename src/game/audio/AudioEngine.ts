@@ -150,9 +150,6 @@ export class AudioEngine {
   pickupDrone() { this.sfxSynth.pickupDrone(); }
   pickupDash() { this.sfxSynth.pickupDash(); }
   dashRam() { this.sfxSynth.dashRam(); }
-  minePlace() { this.sfxSynth.minePlace(); }
-  mineArm() { this.sfxSynth.mineArm(); }
-  mineBoom() { this.sfxSynth.mineBoom(); }
   droneShot() { this.sfxSynth.droneShot(); }
   droneHit() { this.sfxSynth.droneHit(); }
 

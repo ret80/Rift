@@ -3,26 +3,18 @@
  * Composes BulletCollision, EntityCollision, and PickupCollection modules.
  */
 
-import { massForRadius, type AsteroidKind, EnemyKind } from '../balance';
+import { massForRadius, type AsteroidKind } from '../balance';
 import type { EventBus } from '../core/EventBus';
 import type { GameState } from '../core/GameState';
-import type { Enemy } from '../types';
+import type { AllyDrone, Bullet, EBullet, Enemy } from '../types';
 import { PLAYER_ASTEROID_DAMAGE, DRONE_PROXIMITY } from './CollisionConstants';
 import { softResolveCollision } from './EntityCollision';
 import {
   checkBulletCollisions,
   checkEnemyBulletVsPlayer,
   checkEnemyBulletVsDrones,
-  type Bullet,
-  type EBullet,
 } from './BulletCollision';
 import { checkPickupCollection } from './PickupCollection';
-
-interface Collidable {
-  x: number;
-  y: number;
-  r: number;
-}
 
 export class CollisionSystem {
   private eventBus: EventBus;
@@ -40,20 +32,6 @@ export class CollisionSystem {
   }
 
   /**
-    Check if a bullet hits a collidable target (kept for backwards compatibility).
-   */
-  checkBulletCollision(
-    bulletX: number,
-    bulletY: number,
-    target: Collidable
-  ): boolean {
-    const dx = bulletX - target.x;
-    const dy = bulletY - target.y;
-    const dist = Math.hypot(dx, dy);
-    return dist < target.r;
-  }
-
-  /**
    * Update all collisions between objects.
    */
   update(
@@ -66,8 +44,7 @@ export class CollisionSystem {
     bullets: Bullet[],
     enemyBullets: EBullet[],
     pickups: Array<{ x: number; y: number; r: number; kind?: string }>,
-    _mines: Array<{ x: number; y: number; r: number }>,
-    drones: Array<{ x: number; y: number; r: number; hp?: number; maxHp?: number; flash?: number }>,
+    drones: AllyDrone[],
     asteroids: Array<{
       x: number; y: number; r: number; vx: number; vy: number;
       mass: number; kind: AsteroidKind; dead?: boolean;
@@ -93,7 +70,7 @@ export class CollisionSystem {
     }
 
     // === Entity-entity collisions ===
-    this.entityCollisions(playerState, enemies, asteroids, drones);
+    this.entityCollisions(playerState, enemies, asteroids);
 
     // === Drone-player avoidance ===
     this.checkDroneAvoidance(playerState, drones);
@@ -108,12 +85,18 @@ export class CollisionSystem {
     }
 
     // === Enemy bullet → drones ===
-    const bulletDroneToRemove = checkEnemyBulletVsDrones(
-      this.eventBus, enemyBullets, drones
-    );
-    for (const { bulletIndex, droneIndex } of [...bulletDroneToRemove].sort((a, b) => b.droneIndex - a.droneIndex || b.bulletIndex - a.bulletIndex)) {
-      drones.splice(droneIndex, 1);
-      enemyBullets.splice(bulletIndex, 1);
+    const droneHits = checkEnemyBulletVsDrones(this.eventBus, enemyBullets, drones);
+    const bulletsToRemove = new Set<number>();
+    const dronesToRemove = new Set<number>();
+    for (const hit of droneHits) {
+      bulletsToRemove.add(hit.bulletIndex);
+      if (hit.killed) dronesToRemove.add(hit.droneIndex);
+    }
+    for (const i of [...bulletsToRemove].sort((a, b) => b - a)) {
+      enemyBullets.splice(i, 1);
+    }
+    for (const i of [...dronesToRemove].sort((a, b) => b - a)) {
+      drones.splice(i, 1);
     }
   }
 
@@ -122,10 +105,15 @@ export class CollisionSystem {
    * enemy-asteroid, asteroid-asteroid.
    */
   private entityCollisions(
-    playerState: { x: number; y: number; r: number; hp: number; invuln: number; mass: number; vx: number; vy: number },
+    playerState: {
+      x: number; y: number; r: number; hp: number; invuln: number;
+      mass: number; vx: number; vy: number;
+    },
     enemies: Enemy[],
-    asteroids: Array<{ x: number; y: number; r: number; vx: number; vy: number; mass: number; kind: AsteroidKind; dead?: boolean }>,
-    _drones: Array<{ x: number; y: number; r: number; hp?: number; maxHp?: number; flash?: number }>
+    asteroids: Array<{
+      x: number; y: number; r: number; vx: number; vy: number;
+      mass: number; kind: AsteroidKind; dead?: boolean;
+    }>
   ): void {
     // Player-enemy collision
     if (playerState.invuln <= 0 && playerState.hp > 0) {
@@ -137,7 +125,6 @@ export class CollisionSystem {
         const minDist = playerState.r + e.r;
 
         if (dist < minDist) {
-          console.log('[COLLISION] player hit by enemy contact=' + e.contact + ' hp=' + playerState.hp);
           this.eventBus.publish('player_damaged', {
             dmg: e.contact,
           });
@@ -256,7 +243,7 @@ export class CollisionSystem {
    */
   private checkDroneAvoidance(
     playerState: { x: number; y: number; r: number; hp: number; invuln: number },
-    drones: Array<{ x: number; y: number; r: number }>
+    drones: AllyDrone[]
   ): void {
     if (playerState.invuln <= 0 && playerState.hp > 0) {
       for (const d of drones) {

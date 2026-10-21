@@ -7,19 +7,16 @@
 import type { AsteroidField } from "../asteroids";
 import {
   C,
-  GUN_OFFS,
-  MINE_LIFE,
-  MINE_RADIUS,
   RATE_BOOST_TIME,
   EnemyKind,
-  type PickupKind,
 } from "../balance";
 import type { Fx } from "../fx";
-import { clamp, rgba, easeOutCubic, TAU } from "../math";
+import { clamp, rgba, TAU } from "../math";
 import type { Renderer, RGBA } from "../render";
 import { RiftField } from "../rifts";
 import type { Starfield } from "../starfield";
-import type { GameState } from "../core/GameState";
+import { CANNON_BARREL_OFFSETS } from "../weapons/CannonWeapon";
+import { DRONE_ORBIT_RADIUS } from "../weapons/DroneWeapon";
 import { renderPickups, type PickupRenderState as PRS } from "./Renderers/PickupRenderer";
 import { renderEnemies, type EnemyRenderState as ERS } from "./Renderers/EnemyRenderer";
 import { drawShipPoly } from "./Renderers/ShipRenderer";
@@ -62,13 +59,6 @@ export interface ZoneRenderState {
   radius: number;
   targetRadius: number;
   alpha: number;
-}
-
-export interface MineRenderState {
-  x: number;
-  y: number;
-  fuse: number;
-  seed: number;
 }
 
 export interface AllyDroneRenderState {
@@ -123,7 +113,6 @@ export class RendererSystem {
     bullets: BulletRenderState[],
     ebullets: EBulletRenderState[],
     pickups: PRS[],
-    mines: MineRenderState[],
     allyDrones: AllyDroneRenderState[],
     zone: ZoneRenderState | null,
     camX: number,
@@ -144,7 +133,6 @@ export class RendererSystem {
       bullets,
       ebullets,
       pickups,
-      mines,
       allyDrones,
       zone,
       viewW,
@@ -178,12 +166,7 @@ export class RendererSystem {
     this.drawMenuScene(R, 0);
     this.drawMenuRifts(R, menuRifts, 0);
     this.drawMenuEnemies(R, menuEnemies, 0);
-    this.renderHud(R, cssWidth, cssHeight);
     R.finish(0);
-  }
-
-  private renderHud(R: Renderer, viewW: number, viewH: number) {
-    // HUD rendering can be added here
   }
 
   draw(
@@ -198,7 +181,6 @@ export class RendererSystem {
     bullets: BulletRenderState[],
     ebullets: EBulletRenderState[],
     pickups: PRS[],
-    mines: MineRenderState[],
     allyDrones: AllyDroneRenderState[],
     zone: ZoneRenderState | null,
     viewW: number,
@@ -218,7 +200,6 @@ export class RendererSystem {
       if (zone) this.drawZone(R, zone, time);
       this.drawRifts(R, time);
       renderPickups(R, pickups, time);
-      this.drawMines(R, mines, time);
       renderEnemies(R, enemies, time);
       this.drawAllyDrones(R, allyDrones, time, player);
       if (player && state !== "dying" && state !== "over") {
@@ -276,32 +257,6 @@ export class RendererSystem {
     this.config.riftField.draw(R, time);
   }
 
-  /* ============================== mines ============================== */
-
-  private drawMines(R: Renderer, mines: MineRenderState[], time: number) {
-    for (const m of mines) {
-      R.dashedCircle(m.x, m.y, MINE_RADIUS, rgba(C.mine, 0.16), 14, time * 0.5);
-
-      const urgency = clamp(1 - m.fuse / MINE_LIFE, 0, 1);
-      const blink = Math.sin(time * (6 + urgency * 14) + m.seed) > -0.2 ? 1 : 0.45;
-      const s = 9 + Math.sin(time * 3 + m.seed) * 1.2;
-      const c = rgba(C.mine, 0.95 * blink);
-
-      R.polyline(
-        [[m.x, m.y - s], [m.x + s, m.y], [m.x, m.y + s], [m.x - s, m.y]],
-        true,
-        c
-      );
-      const sp = s + 5;
-      R.pushLine(m.x, m.y - s, m.x, m.y - sp, c);
-      R.pushLine(m.x + s, m.y, m.x + sp, m.y, c);
-      R.pushLine(m.x, m.y + s, m.x, m.y + sp, c);
-      R.pushLine(m.x - s, m.y, m.x - sp, m.y, c);
-      R.pushLine(m.x - 2.5, m.y, m.x + 2.5, m.y, rgba(C.white, 0.9 * blink));
-      R.pushLine(m.x, m.y - 2.5, m.x, m.y + 2.5, rgba(C.white, 0.9 * blink));
-    }
-  }
-
   /* ============================== ally drones ============================== */
 
   private drawAllyDrones(
@@ -313,7 +268,7 @@ export class RendererSystem {
     const n = drones.length;
     if (n === 0) return;
     if (player) {
-      R.dashedCircle(player.x, player.y, 58, rgba(C.mint, 0.12), 20, time * 0.7);
+      R.dashedCircle(player.x, player.y, DRONE_ORBIT_RADIUS, rgba(C.mint, 0.12), 20, time * 0.7);
     }
     for (const d of drones) {
       const hpF = clamp(d.hp / d.maxHp, 0, 1);
@@ -422,7 +377,7 @@ export class RendererSystem {
     const gcos = Math.cos(ba);
     const gsin = Math.sin(ba);
     for (let i = 0; i < player.guns; i++) {
-      const o = GUN_OFFS[i] ?? 0;
+      const o = CANNON_BARREL_OFFSETS[i] ?? 0;
       const bx = player.x + 8 * gcos - o * gsin;
       const by = player.y + 8 * gsin + o * gcos;
       R.pushLine(bx, by, bx + 8 * gcos, by + 8 * gsin, rgba(C.mint, 0.85 * blink));

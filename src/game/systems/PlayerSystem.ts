@@ -1,14 +1,16 @@
 /**
- * PlayerSystem - управление игроком.
- * Композиция модулей: PlayerState, PlayerMovement, PlayerCombat.
+ * PlayerSystem — управление игроком.
+ *
+ * Отвечает только за состояние игрока: движение, корпус и таймеры
+ * временных бонусов. Оружие, наведение и стрельба живут в модуле
+ * оружия (WeaponManager), поэтому система ничего о них не знает.
  */
 
-import type { AudioManager } from './AudioManager';
 import type { EventBus } from '../core/EventBus';
-import type { GameState } from '../core/GameState';
 import type { Fx } from '../fx';
 import type { InputManager } from '../input';
-import { PLAYER_FIRE_CD, RATE_BOOST_TIME } from '../balance';
+import { RATE_BOOST_TIME } from '../balance';
+import type { PlayerBonuses } from '../weapons/Weapon';
 import {
   createPlayerState,
   resetPlayerState,
@@ -16,48 +18,19 @@ import {
   type PlayerState,
 } from './PlayerState';
 import { getRenderState as getRenderStateHelper } from './PlayerState';
-import { updateFireCooldown } from './PlayerCombat';
 import { updateMovement } from './PlayerMovement';
-import {
-  launchMissiles,
-  activateMissileLauncher,
-} from './PlayerCombat';
 
 export class PlayerSystem {
   private eventBus: EventBus;
-  private state: GameState;
   private input: InputManager;
   private fx: Fx;
-  private audio: AudioManager;
-  private getZoneBounds: () => { x: number; y: number; radius: number; active: boolean };
-  private spawnPickup: (kind: string, x: number, y: number, vx: number, vy: number) => void;
-  private fireAllCallback: (angle: number) => void;
 
   private pState: PlayerState;
-  private fireCd = 0;
-  private aimAngle: number | null = null;
-  private isFiring = false;
-  private lastFireTime = 0;
-  private autoFireEnabled = true;
 
-  constructor(
-    eventBus: EventBus,
-    state: GameState,
-    input: InputManager,
-    fx: Fx,
-    audio: AudioManager,
-    getZoneBounds: () => { x: number; y: number; radius: number; active: boolean },
-    spawnPickup: (kind: string, x: number, y: number, vx: number, vy: number) => void,
-    fireAllCallback: (angle: number) => void,
-  ) {
+  constructor(eventBus: EventBus, input: InputManager, fx: Fx) {
     this.eventBus = eventBus;
-    this.state = state;
     this.input = input;
     this.fx = fx;
-    this.audio = audio;
-    this.getZoneBounds = getZoneBounds;
-    this.spawnPickup = spawnPickup;
-    this.fireAllCallback = fireAllCallback;
 
     this.pState = createPlayerState();
 
@@ -77,28 +50,15 @@ export class PlayerSystem {
 
   reset(): void {
     resetPlayerState(this.pState);
-    this.fireCd = 0;
   }
 
   // ---- Setters ----
-
-  setGuns(n: number): void {
-    this.pState.guns = n;
-  }
-
-  setRateBoost(b: number): void {
-    this.pState.rateBoost = b;
-  }
 
   setDashT(t: number): void {
     this.pState.dashT = t;
   }
 
   // ---- HP ----
-
-  addHp(delta: number): void {
-    this.pState.hp = Math.max(0, Math.min(this.pState.maxHp, this.pState.hp + delta));
-  }
 
   setMaxHp(max: number): void {
     this.pState.maxHp = max;
@@ -109,30 +69,15 @@ export class PlayerSystem {
     this.pState.hp = this.pState.maxHp;
   }
 
-  setInvuln(t: number): void {
-    this.pState.invuln = t;
-  }
-
   // ---- Getters ----
 
-  getState(): PlayerState {
-    return {
-      ...this.pState,
-      aimA: this.aimAngle,
-      guns: Math.min(5, this.pState.guns + this.pState.extraGuns),
-    };
+  /** Живая ссылка на состояние игрока. */
+  getPlayerRef(): PlayerState {
+    return this.pState;
   }
 
   getPosition(): { x: number; y: number } {
     return { x: this.pState.x, y: this.pState.y };
-  }
-
-  getPlayerRef(): { x: number; y: number; vx: number; vy: number } {
-    return this.pState;
-  }
-
-  getVelocity(): { vx: number; vy: number } {
-    return { vx: this.pState.vx, vy: this.pState.vy };
   }
 
   getHp(): number {
@@ -143,32 +88,37 @@ export class PlayerSystem {
     return this.pState.maxHp;
   }
 
-  getGuns(): number {
-    return Math.min(5, this.pState.guns + this.pState.extraGuns);
-  }
-
-  getRateBoost(): number {
-    return this.pState.rateBoost;
-  }
-
   getDashT(): number {
     return this.pState.dashT;
   }
 
-  getInvuln(): number {
-    return this.pState.invuln;
+  /** Множитель темпа огня от временного бонуса. */
+  getRateMult(): number {
+    return 1 + this.pState.rateBoost;
   }
 
-  isThrusting(): boolean {
-    return this.pState.thrusting;
+  getRateT(): number {
+    return this.pState.rateT;
   }
 
-  getAngle(): number {
-    return this.pState.angle;
+  /** Остаток бонуса «доп. стволы». */
+  getGunsT(): number {
+    return this.pState.extraGunsT;
   }
 
-  getAimA(): number | null {
-    return this.pState.aimA;
+  /** Текущие бонусы игрока для модуля оружия и строки снаряжения. */
+  getBonuses(): PlayerBonuses {
+    return {
+      rateMult: this.getRateMult(),
+      rateT: this.pState.rateT,
+      extraBarrels: this.pState.extraGuns,
+      extraBarrelsT: this.pState.extraGunsT,
+      dashT: this.pState.dashT,
+    };
+  }
+
+  getRenderState(aimAngle: number | null, barrelCount: number): import('./RendererSystem').PlayerRenderState {
+    return getRenderStateHelper(this.pState, aimAngle, barrelCount);
   }
 
   // ---- Core methods ----
@@ -187,50 +137,16 @@ export class PlayerSystem {
     this.eventBus.publish('player_healed', { hp: this.pState.hp });
   }
 
-  addGun(): void {
-    this.pState.guns++;
-  }
-
+  /** Временное ускорение стрельбы. */
   boostRate(): void {
     this.pState.rateBoost = Math.min(1.0, this.pState.rateBoost + 0.2);
     this.pState.rateT = RATE_BOOST_TIME;
   }
 
+  /** Временное добавление стволов. */
   addGunBonus(count: number, duration: number): void {
-    this.pState.extraGuns = Math.min(5, this.pState.extraGuns + count);
+    this.pState.extraGuns += count;
     this.pState.extraGunsT = duration;
-  }
-
-  getRateMult(): number {
-    return 1 + this.pState.rateBoost;
-  }
-
-  getRateT(): number {
-    return this.pState.rateT;
-  }
-
-  /** Remaining reload of the main cannon. */
-  getFireCd(): number {
-    return this.fireCd;
-  }
-
-  /** Full reload of the main cannon at the current fire rate. */
-  getFireCdMax(): number {
-    return PLAYER_FIRE_CD / this.getRateMult();
-  }
-
-  /** Remaining lifetime of the missile launcher (0 when inactive). */
-  getMissileT(): number {
-    return this.pState.missileT;
-  }
-
-  /** Remaining lifetime of the extra-barrels bonus. */
-  getGunsT(): number {
-    return this.pState.extraGunsT;
-  }
-
-  getRenderState(): import('./RendererSystem').PlayerRenderState {
-    return getRenderStateHelper(this.pState, this.aimAngle);
   }
 
   // ---- Input delegation ----
@@ -239,36 +155,14 @@ export class PlayerSystem {
     this.input.setTouch(active, x, y);
   }
 
-  setAim(angle: number | null): void {
-    this.aimAngle = angle;
-  }
-
-  setIsFiring(firing: boolean): void {
-    this.isFiring = firing;
-  }
-
-  private fireAll(angle: number): void {
-    this.fireAllCallback(angle);
-    this.audio.shoot();
-  }
-
-  /** Проверяет наличие врагов в зоне поражения и стреляет автоматически.
-   * TODO: Реализовать авто-стрельбу — сейчас заглушка.
-   */
-  private checkAndFireAuto(_dt: number): void {
-    // Получаем список врагов из GameState или через eventBus
-    // Для простоты, авто-стрельба работает когда есть прицел
-    // Реализация будет в game.ts через подписку на события
-  }
-
   // ---- Main update ----
 
   update(dt: number, active: boolean): void {
     if (!active) return;
 
     const mv = this.input.axis;
-    let ax = mv.x;
-    let ay = mv.y;
+    const ax = mv.x;
+    const ay = mv.y;
 
     // Movement module
     updateMovement(
@@ -286,44 +180,5 @@ export class PlayerSystem {
 
     // Bonus timers (rate boost, extra guns)
     updateTimers(this.pState, dt);
-
-    // Fire cooldown
-    this.fireCd = updateFireCooldown(this.fireCd, dt);
-
-    // Auto-fire (stub)
-    if (this.autoFireEnabled && this.aimAngle !== null) {
-      this.checkAndFireAuto(dt);
-    }
-
-    // Manual fire
-    if (this.isFiring && this.fireCd <= 0 && this.aimAngle !== null) {
-      const fireRate = PLAYER_FIRE_CD / this.getRateMult();
-      this.fireCd = fireRate;
-      this.lastFireTime = fireRate;
-      this.fireAll(this.aimAngle);
-    }
-  }
-
-  // ---- Missile launcher ----
-
-  activateMissileLauncher(duration: number): void {
-    activateMissileLauncher(this.pState, duration);
-  }
-
-  launchMissiles(
-    dt: number,
-    enemies: Array<{ x: number; y: number; dead: boolean; r: number }>,
-    bullets: Array<any>,
-  ): void {
-    launchMissiles(
-      this.pState,
-      dt,
-      enemies,
-      bullets,
-      this.pState.x,
-      this.pState.y,
-      this.pState.vx,
-      this.pState.vy,
-    );
   }
 }

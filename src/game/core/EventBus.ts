@@ -37,21 +37,6 @@ export interface AsteroidHitPayload {
   y: number;
 }
 
-export interface MineDetonatedPayload {
-  x: number;
-  y: number;
-  damage: number;
-  radius: number;
-}
-
-export interface DroneFiredPayload {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  damage: number;
-}
-
 export interface DroneHitPayload {
   x: number;
   y: number;
@@ -78,26 +63,13 @@ export type GameEventMap = {
   enemy_killed: EnemyKilledPayload;
   player_damaged: { dmg: number };
   player_healed: PlayerHealedPayload;
-  zone_expanded: { radius: number };
-  zone_collapsing: { radius: number };
   wave_started: WaveStartedPayload;
   wave_cleared: Record<string, never>;
   pickup_collected: PickupCollectedPayload;
-  enemy_spawned: { kind: string; x: number; y: number };
-  rift_spawned: { x: number; y: number; kind: string };
-  rift_closed: { x: number; y: number };
-  asteroid_destroyed: { score: number; x: number; y: number };
   asteroid_hit: AsteroidHitPayload;
-  mine_detonated: MineDetonatedPayload;
-  dash_activated: Record<string, never>;
   game_over: Record<string, never>;
-  score_changed: { delta: number; total: number };
-  enemy_fired: { x: number; y: number; angle: number };
-  physics_collision: { ax: number; ay: number; bx: number; by: number };
-  drone_fired: DroneFiredPayload;
   drone_hit: DroneHitPayload;
   drone_push_player: DronePushPlayerPayload;
-  player_fired: { x: number; y: number; angle: number };
   spawn_pickup: SpawnPickupPayload;
 };
 

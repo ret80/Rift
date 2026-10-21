@@ -27,8 +27,6 @@ export const ZONE_ASTEROID_PUSH_FORCE = 15; // force multiplier for pushing aste
 export const ZONE_ENEMY_PUSH_FORCE_COEFF = 8; // coefficient for enemy push force
 export const ZONE_ENEMY_PUSH_FORCE_MAX = 200; // max push force for enemies
 
-export const ZONE_GUN_RANGE = 420; // range for auto-fire guns
-
 /* ------------------------------ zone expansion speed ------------------------------ */
 
 /**

@@ -1,4 +1,5 @@
 import React from "react";
+import type { LoadoutIcon } from "../../game/loadout/LoadoutTypes";
 
 /* ======================== Icon ========================
  * Unified icon component replacing duplicated EnemyIcon,
@@ -27,10 +28,7 @@ export type IconKind =
   | "upgrade-drones"
   | "upgrade-dashCooldown"
   /* HUD loadout row */
-  | "weapon-cannon"
-  | "weapon-missile"
-  | "bonus-dash"
-  | "bonus-mine";
+  | LoadoutIcon;
 
 const ENEMY_COLORS: Record<string, string> = {
   "enemy-drone": "#ff5d7e",
@@ -58,20 +56,11 @@ const UPGRADE_COLORS: Record<string, string> = {
   "upgrade-dashCooldown": "#ffd23e",
 };
 
-/** Loadout row icons — colours match the in-world palette. */
-const LOADOUT_COLORS: Record<string, string> = {
-  "weapon-cannon": "#5ef2ff",
-  "weapon-missile": "#9dffe8",
-  "bonus-dash": "#ffd23e",
-  "bonus-mine": "#ff7a45",
-};
-
 function getIconColor(kind: IconKind): string {
   return (
     ENEMY_COLORS[kind] ??
     PICKUP_COLORS[kind] ??
     UPGRADE_COLORS[kind] ??
-    LOADOUT_COLORS[kind] ??
     "#ffffff"
   );
 }
@@ -179,16 +168,6 @@ function getIconPaths(kind: IconKind): React.ReactNode {
         <>
           <polyline points="6,5 12,12 6,19" />
           <polyline points="13,5 19,12 13,19" />
-        </>
-      );
-    case "bonus-mine":
-      return (
-        <>
-          <polygon points="12,7 17,12 12,17 7,12" />
-          <line x1="12" y1="7" x2="12" y2="3" />
-          <line x1="12" y1="17" x2="12" y2="21" />
-          <line x1="7" y1="12" x2="3" y2="12" />
-          <line x1="17" y1="12" x2="21" y2="12" />
         </>
       );
 

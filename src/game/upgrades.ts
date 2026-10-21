@@ -4,6 +4,9 @@
  * На экране прокачки детали тратятся на постоянные улучшения.
  */
 
+import { CANNON_MAX_BARRELS } from "./weapons/CannonWeapon";
+import { MAX_ALLY_DRONES } from "./weapons/DroneWeapon";
+
 /* ======================== Storage keys ======================== */
 
 const LS_KEY = "rift9_upgrades";
@@ -163,12 +166,19 @@ export function saveBestWave(wave: number): void {
 /* ======================== Apply upgrades to game values ======================== */
 
 export interface AppliedUpgrades {
+  /** Максимальный корпус: 100 базы + 20 за уровень. */
   baseHp: number;
-  bulletDmg: number;
+  /** Множитель темпа стрельбы: 1.0 база + 0.08 за уровень. */
   fireRateMult: number;
+  /** Множитель скорости: 1.0 база + 0.05 за уровень. */
   speedMult: number;
-  gunCount: number;
-  droneCount: number;
+  /** Дополнительный урон снарядов: +2 за уровень. */
+  damageBonus: number;
+  /** Число постоянных стволов пушки: 1 база + уровень. */
+  guns: number;
+  /** Число постоянных дронов-компаньонов: уровень. */
+  drones: number;
+  /** Множитель кулдауна рывка: 1.0 база, -10% за уровень. */
   dashCooldownMult: number;
 }
 
@@ -176,31 +186,31 @@ export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
   // hp: 100 base + 20 per hull level
   const baseHp = 100 + upgrades.hull * 20;
 
-  // bullet damage: 14 base + 2 per damage level
-  const bulletDmg = 14 + upgrades.damage * 2;
-
   // fire rate: 1.0 base + 0.08 per level
   const fireRateMult = 1.0 + upgrades.fireRate * 0.08;
 
   // speed: 1.0 base + 0.05 per level
   const speedMult = 1.0 + upgrades.speed * 0.05;
 
-  // guns: base 1 + level, capped at MAX_GUNS
-  const gunCount = Math.min(1 + upgrades.guns, 5);
+  // bullet damage: +2 per damage level
+  const damageBonus = upgrades.damage * 2;
 
-  // drones: 0 base + level, capped at 8
-  const droneCount = Math.min(upgrades.drones, 8);
+  // guns: base 1 + level, capped at CANNON_MAX_BARRELS
+  const guns = Math.min(1 + upgrades.guns, CANNON_MAX_BARRELS);
+
+  // drones: level, capped at MAX_ALLY_DRONES
+  const drones = Math.min(upgrades.drones, MAX_ALLY_DRONES);
 
   // dash cooldown: base 1.0, reduced 10% per level
   const dashCooldownMult = Math.max(0.5, 1.0 - upgrades.dashCooldown * 0.1);
 
   return {
     baseHp,
-    bulletDmg,
     fireRateMult,
     speedMult,
-    gunCount,
-    droneCount,
+    damageBonus,
+    guns,
+    drones,
     dashCooldownMult,
   };
 }

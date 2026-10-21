@@ -16,11 +16,9 @@ export type PickupKind =
   | "gun"
   | "drone"
   | "dash"
-  | "miner"
   | "mineral"
   | "hp"
   | "rate"
-  | "mine"
   | "missile";
 
 /** All possible pickup kinds in display order */
@@ -34,11 +32,9 @@ export const ALL_PICKUP_KINDS: PickupKind[] = [
   "gun",
   "drone",
   "dash",
-  "miner",
   "mineral",
   "hp",
   "rate",
-  "mine",
   "missile",
 ];
 
