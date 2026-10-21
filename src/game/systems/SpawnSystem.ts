@@ -5,19 +5,19 @@
  */
 
 import { t } from "../../i18n";
-import type { EventBus } from "../core/EventBus";
-import type { RiftField } from "../rifts";
-import type { Fx } from "../fx";
-import type { AudioManager } from "./AudioManager";
 import {
-  C,
-  waveTotalFor,
-  zoneRadiusFor,
-  pickKindFor,
-  pickKindForEnabled,
-  EnemyKind,
+    C,
+    EnemyKind,
+    pickKindFor,
+    pickKindForEnabled,
+    waveTotalFor,
+    zoneRadiusFor,
 } from "../balance";
-import { rand, TAU } from "../math";
+import type { EventBus } from "../core/EventBus";
+import type { Fx } from "../fx";
+import { TAU } from "../math";
+import type { RiftField } from "../rifts";
+import type { AudioManager } from "./AudioManager";
 
 export interface SpawnHooks {
   fx: Fx;
@@ -39,39 +39,33 @@ export interface SpawnDependencies {
   riftField: RiftField;
   hooks: { onToast?(data: { text: string; color?: string }): void };
   wave: number;
-  allocated: number;
   killedWave: number;
-}
-
-/** Data about current wave for spawning. */
-export interface WaveSpawnData {
-  wave: number;
-  total: number;
-  allocated: number;
-  killed: number;
-  peakAlive: number;
-  stepSize: number;
-  dropThreshold: number;
+  playerX: number;
+  playerY: number;
 }
 
 // ============================== Spawn Constants ==============================
 
-/** Number of enemies per spawn batch */
-const BATCH_SPAWN = 20;
-/** Minimum spawn rate interval (seconds) */
-const SPAWN_RATE_MIN = 0.3;
-/** Spawn rate reduction per wave */
-const SPAWN_RATE_RAMP = 0.03;
-/** Minimum rift spawn timer ticks */
-const RIFT_SPAWN_TIMER = 3;
-/** Zone expansion threshold for rift spawning (90%) */
+/** Процент врагов для стартового залпа (30%) */
+const START_SPAWN_PCT = 0.3;
+/** Процент врагов для подкрепления (10%) */
+const REINFORCEMENT_PCT = 0.1;
+/** Процент убитых для создания нового разлома (10%) */
+const KILL_THRESHOLD_PCT = 0.1;
+/** Зона расширения для разломов (90%) */
 const RIFT_THRESHOLD = 0.9;
-/** Minimum distance from player for rift placement */
+/** Минимальное расстояние от игрока для размещения разлома */
 const MIN_PLAYER_DIST = 220;
-/** Minimum distance from zone edge for rift placement */
+/** Минимальное расстояние от края зоны для размещения разлома */
 const MIN_EDGE_DIST = 100;
-/** Rift placement search iterations */
-const RIFT_SAMPLE_ITERATIONS = 16;
+/** Минимальное расстояние между разломами (чтобы не соприкасались) */
+const MIN_RIFT_DIST = 140;
+/** Количество проб по углу при поиске точки разлома */
+const RIFT_ANGLE_PROBES = 7;
+/** Угловой шаг между пробами (радианы) */
+const RIFT_ANGLE_STEP = 0.4;
+/** Количество проб по радиусу при поиске точки разлома */
+const RIFT_RADIUS_PROBES = 4;
 
 export class SpawnSystem {
   private hooks: SpawnHooks;
@@ -79,13 +73,25 @@ export class SpawnSystem {
   private riftField: RiftField;
   private fx: Fx;
   private audio: AudioManager;
-  private currentWave = 1;
   private announcedKinds = new Set<EnemyKind>();
-  private lastSpawnTime = 0;
-  private riftSpawnTimers = 0;
-  private spawnQueue: EnemyKind[] = [];
-  private spawnIdx = 0;
   private enabledEnemies: EnemyKind[] | null = null;
+
+  /** Общее количество врагов на текущей волне */
+  private total = 0;
+  /** Сколько врагов уже заспавнено (передано в разломы) */
+  private spawned = 0;
+  /** Сколько врагов убито на текущей волне */
+  private killed = 0;
+  /** Следующий порог убитых для создания нового разлома */
+  private nextThreshold = 0;
+  /** Сколько врагов было убито при последнем созданном разломе */
+  private lastTriggeredKills = 0;
+  /** Количество стартовых разломов для текущей волны */
+  private startRifts = 0;
+
+  get allocated(): number {
+    return this.spawned;
+  }
 
   constructor(config: {
     hooks: SpawnHooks;
@@ -185,42 +191,106 @@ export class SpawnSystem {
   }
 
   /**
-   * Find a point for rift placement.
+   * Размещает N точек спавна разломов в зоне так, чтобы они:
+   *  - были не ближе MIN_PLAYER_DIST к игроку;
+   *  - были не ближе MIN_EDGE_DIST к краю зоны;
+   *  - были разнесены друг от друга и от уже существующих разломов на minDist.
+   *
+   * Механизм: отталкиваемся от «противоположной игроку» стороны зоны.
+   * Базовый луч идёт от игрока через центр зоны и продолжаетcя за центр —
+   * это самая дальняя от игрока точка. Стартовые разломы распределяются
+   * равномерным угловым шагом вокруг центра, начиная с этого луча. Для каждой
+   * точки подбираем безопасный радиус и при необходимости сдвигаем по углу,
+   * разводя относительно игрока и уже размещённых разломов.
    */
-  spawnRiftPoint(zoneX: number, zoneY: number, zoneRadius: number): { x: number; y: number } {
-    // Rifts spawn only after zone is large enough, using actual zone radius
-    const inner = zoneRadius * 0.25;
-    const outer = Math.max(
-      inner + 80,
-      Math.min(zoneRadius * 0.62, zoneRadius - 100)
-    );
-    let bestP = { x: zoneX, y: zoneY - zoneRadius * 0.5 };
-    let bestScore = -1;
-    for (let i = 0; i < RIFT_SAMPLE_ITERATIONS; i++) {
-      const a = Math.random() * TAU;
-      const rr = rand(inner, outer);
-      const x = zoneX + Math.cos(a) * rr;
-      const y = zoneY + Math.sin(a) * rr;
-      const dist = Math.hypot(x - zoneX, y - zoneY);
-      const dPlayer = dist;
-      const dEdge = zoneRadius - dist;
-      // Skip if too close to player or zone edge
-      if (dPlayer < MIN_PLAYER_DIST || dEdge < MIN_EDGE_DIST) continue;
-      let dRifts = 1e9;
-      for (const rf of this.riftField.riftList) {
-        dRifts = Math.min(dRifts, Math.hypot(x - rf.x, y - rf.y));
+  placeRiftPoints(
+    count: number,
+    zoneX: number,
+    zoneY: number,
+    zoneRadius: number,
+    playerX: number,
+    playerY: number,
+    existing: Array<{ x: number; y: number }>,
+    minDist: number
+  ): Array<{ x: number; y: number }> {
+    const placed: Array<{ x: number; y: number }> = [];
+    // Все точки-конкуренты: уже существующие разломы + только что размещённые
+    const occupied = [...existing];
+
+    // Дальний от игрока луч: направление «игрок → центр», продолженное за центр
+    const awayAngle = Math.atan2(zoneY - playerY, zoneX - playerX);
+
+    // Допустимый диапазон радиуса: не близко к игроку и не у самого края
+    const rMax = Math.max(60, zoneRadius - MIN_EDGE_DIST);
+
+    // Угловой шаг для равномерного распределения стартовых разломов
+    const step = TAU / Math.max(1, count);
+
+    for (let i = 0; i < count; i++) {
+      // Равномерно вокруг центра, начиная с дальнего от игрока луча
+      const baseAngle = awayAngle + (i - (count - 1) / 2) * step;
+
+      let best: { x: number; y: number } | null = null;
+      let bestScore = -Infinity;
+
+      // Пробуем несколько смещений по углу и несколько радиусов,
+      // выбирая наиболее «чистую» точку (максимум минимальной дистанции).
+      for (let a = 0; a < RIFT_ANGLE_PROBES; a++) {
+        const angle = baseAngle + (a - (RIFT_ANGLE_PROBES - 1) / 2) * RIFT_ANGLE_STEP;
+        for (let r = 0; r < RIFT_RADIUS_PROBES; r++) {
+          // Радиус от дальнего к ближнему к краю, но в пределах rMax
+          const radius = rMax * (0.55 + 0.45 * (r / (RIFT_RADIUS_PROBES - 1)));
+          const x = zoneX + Math.cos(angle) * radius;
+          const y = zoneY + Math.sin(angle) * radius;
+
+          const dPlayer = Math.hypot(x - playerX, y - playerY);
+          const dEdge = zoneRadius - Math.hypot(x - zoneX, y - zoneY);
+          if (dPlayer < MIN_PLAYER_DIST || dEdge < MIN_EDGE_DIST) continue;
+
+          let dOcc = Infinity;
+          for (const o of occupied) {
+            dOcc = Math.min(dOcc, Math.hypot(x - o.x, y - o.y));
+          }
+          if (dOcc < minDist) continue;
+
+          // Приоритет: чем дальше от occupied и от игрока — тем лучше
+          const score = Math.min(dOcc, 300) + Math.min(dPlayer, 300) * 0.5;
+          if (score > bestScore) {
+            bestScore = score;
+            best = { x, y };
+          }
+        }
       }
-      const dEnemies = 1e9;
-      const score =
-        Math.min(dPlayer, 400)
-        + Math.min(dRifts, 300) * 1.5
-        + Math.min(dEnemies, 250);
-      if (score > bestScore) {
-        bestScore = score;
-        bestP = { x, y };
+
+      // Если идеальной точки нет — берём компромисс: игнорируем требование
+      // разнесения от occupied, но сохраняем дистанцию от игрока и края.
+      if (!best) {
+        best = this.fallbackRiftPoint(zoneX, zoneY, zoneRadius, playerX, playerY);
       }
+
+      placed.push(best);
+      occupied.push(best);
     }
-    return bestP;
+
+    return placed;
+  }
+
+  /**
+   * Запасная точка: максимально далеко от игрока и края, игнорируя occupied.
+   */
+  private fallbackRiftPoint(
+    zoneX: number,
+    zoneY: number,
+    zoneRadius: number,
+    playerX: number,
+    playerY: number
+  ): { x: number; y: number } {
+    const awayAngle = Math.atan2(zoneY - playerY, zoneX - playerX);
+    const radius = Math.max(60, (zoneRadius - MIN_EDGE_DIST) * 0.8);
+    return {
+      x: zoneX + Math.cos(awayAngle) * radius,
+      y: zoneY + Math.sin(awayAngle) * radius,
+    };
   }
 
   /**
@@ -244,14 +314,103 @@ export class SpawnSystem {
   }
 
   /**
-   * Update spawn logic.
+   * Сброс состояния для новой волны.
+   * Сбрасывает все счётчики, чтобы initWave() вызвался при следующем update().
    */
-  update(dt: number, deps: SpawnDependencies): void {
-    const { countdownSystem, gameState, hooks, wave } = deps;
-    this.currentWave = wave;
+  reset(): void {
+    this.total = 0;
+    this.spawned = 0;
+    this.killed = 0;
+    this.nextThreshold = 0;
+    this.lastTriggeredKills = 0;
+    this.startRifts = 0;
+  }
 
-    // Check if we need to spawn more enemies
-    const totalNeeded = this.waveTotalCount(wave);
+  /**
+   * Инициализация волны: создаёт стартовые разломы с 30% врагов.
+   * Все стартовые разломы размещаются разом, разведённые друг от друга.
+   */
+  initWave(deps: SpawnDependencies): void {
+    this.total = this.waveTotalCount(deps.wave);
+    this.spawned = 0;
+    this.killed = 0;
+    this.nextThreshold = Math.ceil(this.total * KILL_THRESHOLD_PCT);
+    this.lastTriggeredKills = 0;
+    this.startRifts = this.riftCountFor(deps.wave);
+
+    const zone = deps.gameState?.zone;
+    const zoneX = zone?.x ?? 0;
+    const zoneY = zone?.y ?? 0;
+    const zoneR = zone?.radius ?? this.zoneRadius(deps.wave);
+
+    // Размещаем все стартовые точки разом (разводим друг от друга)
+    const points = this.placeRiftPoints(
+      this.startRifts,
+      zoneX, zoneY, zoneR,
+      deps.playerX, deps.playerY,
+      this.existingRiftPoints(),
+      MIN_RIFT_DIST
+    );
+
+    // Стартовый пул: 30% врагов
+    const startCount = Math.ceil(this.total * START_SPAWN_PCT);
+    const perRift = Math.floor(startCount / this.startRifts);
+    const remainder = startCount % this.startRifts;
+
+    for (let i = 0; i < this.startRifts; i++) {
+      const count = perRift + (i < remainder ? 1 : 0);
+      const queue = this.buildQueue(count, deps.wave);
+      this.spawnRiftAt(deps, queue, points[i]);
+      this.spawned += count;
+    }
+  }
+
+  /**
+   * Проверка необходимости создания подкрепления.
+   * Создаёт разлом при достижении порога убитых, разведённый от существующих.
+   */
+  trySpawnReinforcements(killed: number, deps: SpawnDependencies): void {
+    if (this.total <= 0) return;
+    if (killed < this.nextThreshold) return;
+    if (killed <= this.lastTriggeredKills) return;
+    if (this.spawned >= this.total) return;
+
+    // Количество врагов для подкрепления: 10% от total
+    const count = Math.min(
+      Math.ceil(this.total * REINFORCEMENT_PCT),
+      this.total - this.spawned
+    );
+    if (count <= 0) return;
+
+    const zone = deps.gameState?.zone;
+    const zoneX = zone?.x ?? 0;
+    const zoneY = zone?.y ?? 0;
+    const zoneR = zone?.radius ?? this.zoneRadius(deps.wave);
+
+    // Точка подкрепления разводится от существующих разломов и игрока
+    const points = this.placeRiftPoints(
+      1,
+      zoneX, zoneY, zoneR,
+      deps.playerX, deps.playerY,
+      this.existingRiftPoints(),
+      MIN_RIFT_DIST
+    );
+
+    const queue = this.buildQueue(count, deps.wave);
+    this.spawnRiftAt(deps, queue, points[0]);
+    this.spawned += count;
+
+    this.lastTriggeredKills = killed;
+    this.nextThreshold = killed + Math.ceil(this.total * KILL_THRESHOLD_PCT);
+  }
+
+  /** Координаты уже активных разломов. */
+  private existingRiftPoints(): Array<{ x: number; y: number }> {
+    return this.riftField.riftList.map((r) => ({ x: r.x, y: r.y }));
+  }
+
+  update(dt: number, deps: SpawnDependencies): void {
+    const { countdownSystem, gameState, hooks } = deps;
 
     const inCountdown = countdownSystem?.isCountdownActive?.();
     const zoneOn = gameState?.zone?.active ?? false;
@@ -260,82 +419,45 @@ export class SpawnSystem {
       return;
     }
 
-    const allocated = deps.allocated;
     const killedWave = deps.killedWave;
-    const remaining = totalNeeded - killedWave;
 
-    if (remaining > 0 && allocated < totalNeeded) {
-      // Try to spawn next enemy from queue
-      if (this.spawnQueue.length === 0 || this.spawnIdx >= this.spawnQueue.length) {
-        // Build new queue
-        this.spawnQueue = this.buildQueue(
-          Math.min(BATCH_SPAWN, totalNeeded - allocated),
-          wave
-        );
-        this.spawnIdx = 0;
-
-        // Announce new kinds
-        this.announceNewKinds(
-          this.spawnQueue,
-          wave,
-          (data) => {
-            hooks.onToast?.(data);
-          }
-        );
-      }
-
-      // Spawn enemies based on spawn rate
-      const spawnRate = Math.max(SPAWN_RATE_MIN, 1.0 - wave * SPAWN_RATE_RAMP);
-      if (!this.lastSpawnTime) this.lastSpawnTime = 0;
-      this.lastSpawnTime += dt;
-
-      if (this.lastSpawnTime >= spawnRate && this.spawnIdx < this.spawnQueue.length) {
-        this.lastSpawnTime = 0;
-        this.spawnNextEnemy(deps);
-      }
-    }
-  }
-
-  private spawnNextEnemy(deps: SpawnDependencies): void {
-    if (this.spawnIdx >= this.spawnQueue.length) return;
-
-    const kind = this.spawnQueue[this.spawnIdx++];
-    if (!kind) return;
-
-    // Create rifts if needed
-    const riftCount = this.riftCountFor(deps.wave);
-    if (deps.riftField.riftList.length < riftCount) {
-      this.riftSpawnTimers += 1;
-      if (this.riftSpawnTimers >= RIFT_SPAWN_TIMER) {
-        this.riftSpawnTimers = 0;
-        this.spawnRift(deps);
-      }
-      // Wait for rift to be created before spawning
+    // Инициализация волны: ждём пока зона расширится достаточно
+    if (this.total <= 0) {
+      const zoneR = deps.gameState?.zone?.radius ?? 0;
+      const zoneTarget = deps.gameState?.zone?.targetRadius ?? 0;
+      if (zoneTarget > 0 && zoneR < zoneTarget * RIFT_THRESHOLD) return;
+      this.initWave(deps);
+      // Анонсируем типы врагов из стартовых разломов
+      this.announceNewKinds(
+        this.riftField.riftList.flatMap((r) => r.queue),
+        deps.wave,
+        (data) => { hooks.onToast?.(data); }
+      );
       return;
     }
 
-    // Find an open rift to spawn from — enemies ONLY spawn from rifts
-    for (const rf of deps.riftField.riftList) {
-      if (rf.state === "opening" || rf.state === "spawning") {
-        rf.queue.push(kind);
-        return;
-      }
-    }
+    // Обновляем счётчик убитых
+    this.killed = killedWave;
 
-    // If all rifts are closing/closed, create a new rift
-    this.spawnRift(deps);
+    // Проверяем, нужно ли создать подкрепление
+    this.trySpawnReinforcements(killedWave, deps);
+
+    // Анонсируем новые типы врагов
+    this.announceNewKinds(
+      this.riftField.riftList.flatMap((r) => r.queue),
+      deps.wave,
+      (data) => { hooks.onToast?.(data); }
+    );
   }
 
-  private spawnRift(deps: SpawnDependencies): void {
-    const queue = this.buildQueue(3 + Math.floor(Math.random() * 3), deps.wave);
-    // Rifts spawn only after zone is large enough
-    const gameState = deps.gameState;
-    const zoneX = gameState?.zone?.x ?? 0;
-    const zoneY = gameState?.zone?.y ?? 0;
-    const zoneR = gameState?.zone?.radius ?? this.zoneRadius(deps.wave);
-    const zoneTarget = gameState?.zone?.targetRadius ?? this.zoneRadius(deps.wave);
-    if (zoneR < zoneTarget * RIFT_THRESHOLD) return; // wait for full zone expansion (90%)
-    const point = this.spawnRiftPoint(zoneX, zoneY, zoneR);
+  /**
+   * Создаёт разлом с указанной очередью врагов в готовой точке.
+   */
+  private spawnRiftAt(
+    deps: SpawnDependencies,
+    queue: EnemyKind[],
+    point: { x: number; y: number }
+  ): void {
     const size = 80 + Math.random() * 40;
     deps.riftField.spawn(point.x, point.y, queue, 0, size);
   }

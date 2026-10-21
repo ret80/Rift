@@ -213,7 +213,6 @@ export class Game {
   // Wave tracking (used by SpawnSystem)
   private wave = 1;
   private waveTotal = 0;
-  private allocated = 0;
   private peakAlive = 0;
 
   /* Persistent upgrades */
@@ -558,8 +557,8 @@ export class Game {
         this.wave = waveData.wave;
         this.waveTotal = waveTotalFor(this.wave);
         // Сброс счётчиков для новой волны
-        this.allocated = 0;
         this.scoringSystem.setKilledWave(0);
+        this.spawnSystem.reset();
         // Initialize orchestrator for this wave
         const pos = this.getPlayerPosition();
         this.waveOrchestrator.initWave(pos.x, pos.y, this.wave, this.waveTotal);
@@ -677,8 +676,9 @@ export class Game {
           onToast: (data) => this.hooks.onToast(data),
         },
         wave: this.wave,
-        allocated: this.allocated,
         killedWave: this.scoringSystem.killedWave,
+        playerX: playerState.x,
+        playerY: playerState.y,
       });
     }
     this.riftField.update(dtScaled);
@@ -882,7 +882,7 @@ export class Game {
       riftCount: this.riftField.riftList.length,
       waveTotal: this.waveTotal,
       kills: this.scoringSystem.getState().killed,
-      allocated: this.allocated,
+      allocated: this.spawnSystem.allocated,
       playerX: this.playerSystem.getPosition().x,
       playerY: this.playerSystem.getPosition().y,
       playerHp: this.playerSystem.getHp(),
@@ -919,7 +919,6 @@ export class Game {
     // Начинаем с лучшей достигнутой волны (или стартовой для отладки)
     this.wave = Math.max(this.startWave, loadBestWave());
     this.waveTotal = 0;
-    this.allocated = 0;
     this.scoringSystem.setKilledWave(0);
     this.peakAlive = 0;
 
@@ -993,7 +992,6 @@ export class Game {
   private spawnEnemy(kind: EnemyKind, x: number, y: number, parent: Enemy | null) {
     const playerPos = this.getPlayerPosition();
     this.enemySystem.spawn(kind, x, y, parent, this.entityPool.enemyList, playerPos);
-    this.allocated++;
   }
 
   private getPlayerPosition(): { x: number; y: number; vx: number; vy: number } {
@@ -1030,7 +1028,7 @@ export class Game {
     if (alive === 0) {
       // Проверяем что все враги действительно спавнятся (спавновая очередь пуста)
       // и все враги убиты
-      const allSpawned = this.allocated >= this.waveTotal;
+      const allSpawned = this.spawnSystem.allocated >= this.waveTotal;
       const allKilled = this.scoringSystem.killedWave >= this.waveTotal;
       
       this.waveOrchestrator.tryCheckWaveClear(allSpawned, allKilled);
