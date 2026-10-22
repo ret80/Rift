@@ -4,6 +4,7 @@
  */
 
 import type { Enemy, Bullet, EBullet, Pickup, AllyDrone } from "../types";
+import type { PickupKind } from "../balance";
 
 export class EntityPoolSystem {
   /* Entity pools (private backing fields) */
@@ -31,5 +32,16 @@ export class EntityPoolSystem {
     cruiser: boolean
   ): void {
     this._enemyBulletList.push({ x, y, vx, vy, life, dmg, heavy, cruiser });
+  }
+
+  /* Spawn pickup */
+  spawnPickup(
+    kind: PickupKind,
+    x: number,
+    y: number,
+    vx: number,
+    vy: number
+  ): void {
+    this._pickupList.push({ kind, x, y, vx, vy, life: 20, seed: Math.random(), r: 14 });
   }
 }

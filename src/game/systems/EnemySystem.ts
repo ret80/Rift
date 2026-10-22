@@ -49,9 +49,6 @@ export class EnemySystem {
   
   private wave = 1;
   
-  // Для отрисовки
-  private enemyList: Enemy[] = [];
-  
   constructor(
     eventBus: EventBus,
     fx: Fx,
@@ -65,20 +62,11 @@ export class EnemySystem {
   }
   
   reset(): void {
-    this.enemyList = [];
     this.wave = 1;
   }
   
   setWave(wave: number): void {
     this.wave = wave;
-  }
-  
-  getEnemyList(): Enemy[] {
-    return this.enemyList;
-  }
-  
-  getLiveCount(): number {
-    return this.enemyList.filter(e => !e.dead).length;
   }
 
   /** Factory для создания врага с общими полями */
@@ -133,10 +121,6 @@ export class EnemySystem {
     };
   }
 
-  addEnemy(kind: EnemyKind, x: number, y: number, def: EnemyDef, playerPos?: { x: number; y: number }): void {
-    this.enemyList.push(this.createEnemy(kind, x, y, def, playerPos));
-  }
-  
   update(
     dt: number,
     enemyList: Enemy[],
@@ -196,7 +180,6 @@ export class EnemySystem {
         drone.orbitRadius = carrier.r + 80;
         drone.orbitAngle = Math.random() * Math.PI * 2;
       }
-      this.enemyList.push(drone);
       enemyList.push(drone);
     }
     // shooting logic
@@ -330,28 +313,7 @@ export class EnemySystem {
     return weights[kind] ?? 1.0;
   }
   
-  damageEnemy(index: number, dmg: number): boolean {
-    if (index < 0 || index >= this.enemyList.length) return false;
-    
-    const e = this.enemyList[index];
-    if (e.dead) return false;
-    
-    e.hp -= dmg;
-    e.hitCd = 0.15;
-    
-    if (e.hp <= 0) {
-      e.dead = true;
-      return true;
-    }
-    
-    return false;
-  }
-  
-  removeDead(): void {
-    this.enemyList = this.enemyList.filter(e => !e.dead);
-  }
-
-  spawn(kind: EnemyKind, x: number, y: number, parent: Enemy | null, enemyList: any[], playerPos?: { x: number; y: number }): void {
+  spawn(kind: EnemyKind, x: number, y: number, parent: Enemy | null, enemyList: Enemy[], playerPos?: { x: number; y: number }): void {
     const def = this.getEnemyDef(kind);
     let spawnX = x;
     let spawnY = y;
@@ -365,7 +327,6 @@ export class EnemySystem {
     }
 
     const e = this.createEnemy(kind, spawnX, spawnY, def, playerPos, parent);
-    this.enemyList.push(e);
     enemyList.push(e);
     if (parent) {
       parent.spawnCd = 0;

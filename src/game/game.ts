@@ -323,7 +323,7 @@ export class Game {
     
     this.asteroidField = new AsteroidField({
       addScore: (n) => this.scoringSystem.add(n),
-      spawnPickup: (kind, x, y, vx, vy) => this.spawnPickup(kind, x, y, vx, vy),
+      spawnPickup: (kind, x, y, vx, vy) => this.entityPool.spawnPickup(kind, x, y, vx, vy),
       fx: this.fx,
       audio: this.audio,
     }, this.eventBus);
@@ -440,7 +440,7 @@ export class Game {
     // Wire drop system callback to collision system
     this.collisionSystem.setOnEnemyKilled((enemy) => {
       this.dropSystem.onEnemyKilled(enemy,
-        (kind, x, y, vx, vy) => this.spawnPickup(kind, x, y, vx, vy),
+        (kind, x, y, vx, vy) => this.entityPool.spawnPickup(kind, x, y, vx, vy),
         (n, _x, _y) => this.upgradeSystem.addParts(n)
       );
     });
@@ -962,10 +962,6 @@ export class Game {
 
     // Start countdown immediately
     this.countdownSystem.startWave(this.waveOrchestrator.wave);
-  }
-
-  private spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number) {
-    this.entityPool.pickupList.push({ kind, x, y, vx, vy, life: 20, seed: Math.random(), r: 14 });
   }
 
   private spawnParts(amount: number, _x: number, _y: number) {
