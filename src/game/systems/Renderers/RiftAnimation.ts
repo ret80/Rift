@@ -5,7 +5,7 @@
 
 import { C } from "../../balance";
 import type { Renderer } from "../../render";
-import { easeOutCubic } from "../../math";
+import { clamp, easeOutCubic } from "../../math";
 import { RiftField } from "../../rifts";
 
 /** Фазы анимации rift */
@@ -191,6 +191,4 @@ export function drawRift(
   );
 }
 
-function clamp(v: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, v));
-}
+

@@ -4,7 +4,9 @@
  */
 
 import { C, EnemyKind } from "../../balance";
+import { clamp, rgba } from "../../math";
 import type { Renderer, RGBA } from "../../render";
+import { drawShipPoly } from "./ShipRenderer";
 
 export interface EnemyRenderState {
   kind: EnemyKind;
@@ -121,33 +123,4 @@ function kindColor(kind: EnemyKind): string {
     case EnemyKind.Cruiser: return C.cruiser;
     case EnemyKind.Carrier: return C.carrier;
   }
-}
-
-function rgba(base: string, a: number): [number, number, number, number] {
-  const hex = base.startsWith("#") ? base.slice(1) : base;
-  const r = parseInt(hex.substring(0, 2), 16) / 255;
-  const g = parseInt(hex.substring(2, 4), 16) / 255;
-  const b = parseInt(hex.substring(4, 6), 16) / 255;
-  return [r, g, b, a];
-}
-
-function drawShipPoly(
-  R: Renderer,
-  x: number,
-  y: number,
-  angle: number,
-  pts: Array<[number, number]>,
-  c: RGBA
-) {
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
-  const world: Array<[number, number]> = pts.map(([px, py]) => [
-    x + px * cos - py * sin,
-    y + px * sin + py * cos,
-  ]);
-  R.polyline(world, true, c);
-}
-
-function clamp(v: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, v));
 }

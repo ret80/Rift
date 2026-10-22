@@ -5,6 +5,7 @@
 
 import { C } from "../../balance";
 import type { PickupKind } from "../../balance";
+import { rgba } from "../../math";
 import type { Renderer } from "../../render";
 
 export interface PickupRenderState {
@@ -137,10 +138,4 @@ export function renderPickups(
   }
 }
 
-function rgba(base: string, a: number): [number, number, number, number] {
-  const hex = base.startsWith("#") ? base.slice(1) : base;
-  const r = parseInt(hex.substring(0, 2), 16) / 255;
-  const g = parseInt(hex.substring(2, 4), 16) / 255;
-  const b = parseInt(hex.substring(4, 6), 16) / 255;
-  return [r, g, b, a];
-}
+

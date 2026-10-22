@@ -183,7 +183,7 @@ export class EnemySystem {
     }
     
     // processing carrier drone spawns
-    const carrierSpawns = this.ai.processCarrierSpawns(enemyList, this.context, dt);
+    const carrierSpawns = this.context.carrierSpawns || [];
     for (const spawn of carrierSpawns) {
       const droneDef = this.getEnemyDef(EnemyKind.Drone);
       const drone = this.createEnemy(EnemyKind.Drone, spawn.x, spawn.y, droneDef, playerPos, null);

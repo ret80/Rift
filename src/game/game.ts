@@ -20,7 +20,7 @@ import {
   // FPS
   FPS_SMOOTHING_FACTOR
 } from "./balance";
-import type { GameStateType } from "./core/GameState";
+
 import type { LoadoutSlotData } from "./loadout/LoadoutTypes";
 import { clamp } from "./math";
 import { Renderer } from "./render";
@@ -728,7 +728,7 @@ export class Game {
     this.rendererSystem.render(
       this.renderer,
       {
-        type: this.fsm.state as GameStateType,
+        type: this.fsm.state as string,
         time: this.time,
         wave: this.waveOrchestrator.wave,
         score: this.scoringSystem.score,

@@ -12,7 +12,7 @@ import { HunterStrategy } from './strategies/HunterStrategy';
 import { FighterStrategy } from './strategies/FighterStrategy';
 import { CruiserStrategy } from './strategies/CruiserStrategy';
 import { CarrierStrategy } from './strategies/CarrierStrategy';
-import { TAU } from '../math';
+import { angleTo, smoothVelocity, TAU } from '../math';
 
 export class EnemyAI {
   private strategies: Map<string, IEnemyStrategy> = new Map();
@@ -66,19 +66,10 @@ export class EnemyAI {
     * Резервное обновление для врагов без стратегии.
     */
   private fallbackUpdate(enemy: Enemy, context: GameContext, dt: number): void {
-    const angleToPlayer = Math.atan2(
-      context.playerY - enemy.y,
-      context.playerX - enemy.x
-    );
-    
+    const angleToPlayer = angleTo(enemy.x, enemy.y, context.playerX, context.playerY);
     const speed = enemy.speed;
-    const k = 1 - Math.exp(-6 * dt);
-    enemy.vx += (Math.cos(angleToPlayer) * speed - enemy.vx) * k;
-    enemy.vy += (Math.sin(angleToPlayer) * speed - enemy.vy) * k;
+    smoothVelocity(enemy, Math.cos(angleToPlayer) * speed, Math.sin(angleToPlayer) * speed, 6, dt);
     enemy.angle = angleToPlayer;
   }
 
-  processCarrierSpawns(enemies: Enemy[], context: GameContext, dt: number): Array<{ x: number; y: number }> {
-    return context.carrierSpawns || [];
-  }
 }
