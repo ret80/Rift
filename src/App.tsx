@@ -5,7 +5,6 @@ import { EnemyKind, ENEMY_KIND_COUNT } from "./game/balance/enemies";
 import type {
     BannerData,
     CountData,
-    PopupData,
     StatsData,
     ToastData
 } from "./game/types/ui";
@@ -18,7 +17,6 @@ import type { PersistencePort } from "./game/core/PersistencePort";
 import { useHudUpdater } from "./hooks/useHudUpdater";
 import { usePersistentSettings } from "./hooks/usePersistentSettings";
 import { t } from "./i18n";
-import FloatingPopup from "./ui/FloatingPopup";
 import {
     DebugScreen,
     GameOverScreen,
@@ -45,7 +43,6 @@ interface AppState {
   banner: (BannerData & { id: number }) | null;
   toast: (ToastData & { id: number }) | null;
   countdown: CountData | null;
-  popups: PopupData[];
 }
 
 type AppAction =
@@ -54,10 +51,7 @@ type AppAction =
   | { type: "SET_STATS"; stats: StatsData | null }
   | { type: "SET_BANNER"; banner: (BannerData & { id: number }) | null }
   | { type: "SET_TOAST"; toast: (ToastData & { id: number }) | null }
-  | { type: "SET_COUNTDOWN"; countdown: CountData | null }
-  | { type: "SET_POPUPS"; popups: PopupData[] }
-  | { type: "ADD_POPUP"; popup: PopupData }
-  | { type: "REMOVE_POPUP"; id: number };
+  | { type: "SET_COUNTDOWN"; countdown: CountData | null };
 
 const initState: AppState = {
   screen: "menu",
@@ -66,7 +60,6 @@ const initState: AppState = {
   banner: null,
   toast: null,
   countdown: null,
-  popups: [],
 };
 
 /* ======================== URL params ======================== */
@@ -94,12 +87,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, toast: action.toast };
     case "SET_COUNTDOWN":
       return { ...state, countdown: action.countdown };
-    case "SET_POPUPS":
-      return { ...state, popups: action.popups };
-    case "ADD_POPUP":
-      return { ...state, popups: [...state.popups.slice(-24), action.popup] };
-    case "REMOVE_POPUP":
-      return { ...state, popups: state.popups.filter((p) => p.id !== action.id) };
     default:
       return state;
   }
@@ -109,14 +96,13 @@ export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const gameRef = useRef<Game | null>(null);
   const fpsTextRef = useRef<HTMLDivElement | null>(null);
-  const popupTimers = useRef(new Map<number, number>());
   const storageRef = useRef<PersistencePort | null>(null);
   if (!storageRef.current) {
     storageRef.current = createLocalStoragePort();
   }
 
   const [state, dispatch] = useReducer(appReducer, initState);
-  const { screen, paused, stats, banner, toast, countdown, popups } = state;
+  const { screen, paused, stats, banner, toast, countdown } = state;
 
   /* Persisted state — настройки вынесены в отдельный хук */
   const {
@@ -194,21 +180,12 @@ export default function App() {
 
     let bannerId = 0;
     let toastId = 0;
-    const timers = popupTimers.current;
     const storage = storageRef.current!;
     const game = new Game(canvas, {
       onHud,
       onBanner: (b) => dispatch({ type: "SET_BANNER", banner: b ? { ...b, id: bannerId++ } : null }),
       onToast: (t) => dispatch({ type: "SET_TOAST", toast: t ? { ...t, id: toastId++ } : null }),
       onCountdown: (c) => dispatch({ type: "SET_COUNTDOWN", countdown: c }),
-      onPopup: (p) => {
-        dispatch({ type: "ADD_POPUP", popup: p });
-        // Таймаут очистки попапа — без утечки: сбрасывается при размонтировании.
-        timers.set(p.id, window.setTimeout(() => {
-          timers.delete(p.id);
-          dispatch({ type: "REMOVE_POPUP", id: p.id });
-        }, 950));
-      },
       onStats: (s) => {
         dispatch({ type: "SET_STATS", stats: s });
         setBest(s.best);
@@ -263,10 +240,6 @@ export default function App() {
     return () => {
       window.removeEventListener("pointerdown", onFirstGesture, true);
       window.removeEventListener("keydown", onFirstGesture, true);
-      for (const id of timers.values()) {
-        window.clearTimeout(id);
-      }
-      timers.clear();
       game.destroy();
       gameRef.current = null;
     };
@@ -353,7 +326,6 @@ export default function App() {
       setBanner: (b) => dispatch({ type: "SET_BANNER", banner: b }),
       setToast: (t) => dispatch({ type: "SET_TOAST", toast: t }),
       setCountdown: (c) => dispatch({ type: "SET_COUNTDOWN", countdown: c }),
-      setPopups: (p) => dispatch({ type: "SET_POPUPS", popups: p }),
     });
     dispatch({ type: "SET_SCREEN", screen: "game" });
     g.startRun();
@@ -366,7 +338,6 @@ export default function App() {
       setBanner: (b) => dispatch({ type: "SET_BANNER", banner: b }),
       setToast: (t) => dispatch({ type: "SET_TOAST", toast: t }),
       setCountdown: (c) => dispatch({ type: "SET_COUNTDOWN", countdown: c }),
-      setPopups: (p) => dispatch({ type: "SET_POPUPS", popups: p }),
     });
     dispatch({ type: "SET_SCREEN", screen: "menu" });
   };
@@ -389,11 +360,6 @@ export default function App() {
     upgradeFromRef.current = from;
     dispatch({ type: "SET_SCREEN", screen: "upgrade" });
   };
-
-  const popupsEl = useMemo(
-    () => popups.map((p) => <FloatingPopup key={p.id} p={p} game={gameRef.current} />),
-    [popups]
-  );
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#04070d]">
@@ -519,9 +485,6 @@ export default function App() {
           </div>
         </div>
       )}
-
-      {/* floating score popups (world → screen space) */}
-      {screen === "game" && popupsEl}
 
       {/* затемнение фона при любом меню в игре */}
       {(paused || stats) && <ScreenDimmer />}

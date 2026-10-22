@@ -15,7 +15,7 @@ export interface BonusRenderState {
 
 /** ДТО кадра отрисовки. */
 export interface RenderScene {
-  /** Состояние FSM как строка (menu | playing | active | cleared | dying | over). */
+  /** Состояние FSM как строка (menu | playing | active | dying | over). */
   state: string;
   time: number;
   wave: number;

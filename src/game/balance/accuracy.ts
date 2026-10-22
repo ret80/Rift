@@ -31,7 +31,7 @@ export function playerHitChance(level: number): number {
 /* ------------------------------ Враги ------------------------------ */
 
 /** Шанс попадания на первой волне (0..1). */
-export const ENEMY_AIM_BASE_CHANCE = 0.2;
+export const ENEMY_AIM_BASE_CHANCE = 0.3;
 
 /** Прирост шанса попадания за каждую волну. */
 export const ENEMY_AIM_PER_WAVE = 0.012;
@@ -40,7 +40,7 @@ export const ENEMY_AIM_PER_WAVE = 0.012;
 export const ENEMY_AIM_RAMP_WAVE = 30;
 
 /** Потолок шанса попадания врагов — до 100% дело не доходит никогда. */
-export const ENEMY_AIM_MAX_CHANCE = 0.5;
+export const ENEMY_AIM_MAX_CHANCE = 0.7;
 
 /**
  * Вклад класса врага в меткость.

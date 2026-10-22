@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import type { HudData } from "../game/types/ui";
 import type { HudRefs } from "../ui/hudRefs";
 import { formatTime } from "../ui/utils/formatTime";
+import type { TKey } from "../i18n";
 
 export type { HudRefs } from "../ui/hudRefs";
 
@@ -15,7 +16,7 @@ type UpdateCallback = (data: Partial<HudData>) => void;
  */
 export function useHudUpdater(
   refs: HudRefs,
-  t: (key: string, params?: Record<string, string | number>) => string
+  t: (key: TKey, params?: Record<string, string | number>) => string
 ): UpdateCallback {
   return useCallback(
     (data: Partial<HudData>) => {

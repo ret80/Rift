@@ -31,10 +31,10 @@ import type { WorldFrame, AsteroidWorld } from "./core/WorldFrame";
 import type { RenderScene } from "./types/render";
 
 /* UI types — единый источник правды */
-import type { BannerData, CountData, HudData, PopupData, StatsData, ToastData } from "./types/ui";
+import type { BannerData, CountData, HudData, StatsData, ToastData } from "./types/ui";
 
 /* Re-export for backward compatibility */
-export type { BannerData, CountData, HudData, PopupData, StatsData, ToastData };
+export type { BannerData, CountData, HudData, StatsData, ToastData };
 
 /* Core systems */
   import { EventBus } from "./core/EventBus";
@@ -86,7 +86,6 @@ interface Hooks {
   onBanner: (b: BannerData | null) => void;
   onToast: (toast: ToastData | null) => void;
   onCountdown: (c: CountData | null) => void;
-  onPopup: (p: PopupData) => void;
   onStats: (s: StatsData) => void;
   onPause: (p: boolean) => void;
   onGameOver: () => void;
@@ -237,13 +236,12 @@ export class Game {
         shakeScreen: (strength, _duration) => {
           this.fx.addShake(strength);
         },
-        onWaveAdvanced: (_wave) => {
-          // Wave orchestrator triggers this when clear transition is done
-          // Go from cleared → playing for new wave countdown
+        onWaveAdvanced: () => {
+          // Волновой оркестратор завершил схлопывание зоны:
+          // настраиваем системы на новую волну и запускаем отсчёт.
           const nextWave = this.waveOrchestrator.wave;
           this.enemySystem.setWave(nextWave);
           this.enemyShootingSystem.setWave(nextWave);
-          this.fsm.fire("next_wave");
           this.countdownSystem.startWave(nextWave);
         },
       },
@@ -264,7 +262,7 @@ export class Game {
       onPauseKey: () => this.togglePause(),
       onLoseFocus: () => {
         if (
-          (this.fsm.is("playing", "active", "cleared", "dying")) &&
+          (this.fsm.is("playing", "active", "dying")) &&
           !this.paused
         ) {
           this.togglePause();
@@ -430,15 +428,8 @@ export class Game {
     const fsmCtx: GameFSMContext = {
       onPlayerDeath: () => { this.deathSystem.startDeath(); },
       onDeathAnimationEnd: () => { this.deathSystem.onFinishDeath(); },
-      onGameOver: () => {},
       onReturnToMenu: () => {},
       onStartRun: (_wave: number) => { this.startRun(); },
-      onWaveStart: (wave: number) => {
-        this.enemySystem.setWave(wave);
-        this.enemyShootingSystem.setWave(wave);
-        this.countdownSystem.startWave(this.waveOrchestrator.wave);
-      },
-      onWaveComplete: () => {},
       countdownDone: () => { this.fsm.fire("countdown_done"); },
       onPause: (paused: boolean) => { this.hooks.onPause(paused); this.audio.setSuspended(paused); },
     };
@@ -486,13 +477,6 @@ export class Game {
         const pos = this.getPlayerPosition();
         this.waveOrchestrator.initWave(pos.x, pos.y, waveData.wave, waveTotalFor(waveData.wave));
         this.waveOrchestrator.setSpeedMult(this.upgradeSystem.getApplied("speedMult"));
-      }
-    });
-
-    this.eventBus.subscribe("wave_cleared", (_event) => {
-      // Wave completed - FSM handles transition to cleared state
-      if (this.fsm.is("active")) {
-        this.fsm.fire("wave_cleared");
       }
     });
 

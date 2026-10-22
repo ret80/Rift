@@ -3,10 +3,16 @@
    pings through a delay). Combat = a driving 128 BPM groove whose
    intensity scales with the wave number. */
 
-import { loadVolumes, type Volumes, saveVolumes } from "./VolumePersist";
 import { SfxSynth } from "./SfxSynth";
 import { AmbientMusic } from "./AmbientMusic";
 import { CombatMusic } from "./CombatMusic";
+
+/** Уровни громкости (0..1) — источник правды в React-настройках (App). */
+export interface Volumes {
+  master: number;
+  sfx: number;
+  music: number;
+}
 
 export class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -15,7 +21,7 @@ export class AudioEngine {
   private musicBus: GainNode | null = null;
   private delaySend: GainNode | null = null;
 
-  vols: Volumes = loadVolumes();
+  vols: Volumes = { master: 0.8, sfx: 0.8, music: 0.55 };
 
   private sfxSynth!: SfxSynth;
   private ambientMusic!: AmbientMusic;
@@ -82,7 +88,6 @@ export class AudioEngine {
       sfx: clamp01(v.sfx),
       music: clamp01(v.music),
     };
-    saveVolumes(this.vols);
     this.applyVolumes();
   }
 

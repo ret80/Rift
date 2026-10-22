@@ -7,20 +7,19 @@ import type { Transition } from "./StateMachine";
 
 /* ============================== Types ============================== */
 
-export type GameStateId = "menu" | "playing" | "active" | "cleared" | "dying" | "over";
+export type GameStateId = "menu" | "playing" | "active" | "dying" | "over";
 
 /**
  * Контекст FSM — коллбэки жизненного цикла,
  * которые машина состояний вызывает при переходах.
+ * Волновой цикл (active/cleared) ведёт WaveOrchestrator,
+ * поэтому в FSM нет переходов wave_cleared/next_wave.
  */
 export interface GameFSMContext {
   onPlayerDeath: () => void;
   onDeathAnimationEnd: () => void;
-  onGameOver: () => void;
   onReturnToMenu: () => void;
   onStartRun: (wave: number) => void;
-  onWaveStart: (wave: number) => void;
-  onWaveComplete: () => void;
   countdownDone: () => void;
   onPause: (paused: boolean) => void;
 }
@@ -47,18 +46,6 @@ export const GAME_TRANSITIONS: GameTransition[] = [
     target: "active",
     guard: () => true,
     onEnter: (ctx) => ctx.countdownDone(),
-  },
-  {
-    trigger: "wave_cleared",
-    target: "cleared",
-    guard: () => true,
-    onEnter: (ctx) => ctx.onWaveComplete(),
-  },
-  {
-    trigger: "next_wave",
-    target: "playing",
-    guard: () => true,
-    onEnter: () => {},
   },
   {
     trigger: "player_died",

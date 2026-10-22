@@ -4,7 +4,7 @@
  * and announcing new enemy types.
  */
 
-import { t } from "../../i18n";
+import { t, type TKey } from "../../i18n";
 import {
     C,
     EnemyKind,
@@ -16,6 +16,15 @@ import {
 import type { EventBus } from "../core/EventBus";
 import { TAU } from "../math";
 import type { RiftField } from "../rifts";
+
+/** Тосты о новых типах врагов — статический маппинг вместо шаблонных ключей. */
+const TOAST_KEY: Record<EnemyKind, TKey> = {
+  [EnemyKind.Drone]: "toast.drone",
+  [EnemyKind.Hunter]: "toast.hunter",
+  [EnemyKind.Fighter]: "toast.fighter",
+  [EnemyKind.Cruiser]: "toast.cruiser",
+  [EnemyKind.Carrier]: "toast.carrier",
+};
 
 /** Dependencies injected to avoid tight coupling with Game. */
 export interface SpawnDependencies {
@@ -261,8 +270,7 @@ export class SpawnSystem {
     for (const k of queue) {
       if (!this.announcedKinds.has(k)) {
         this.announcedKinds.add(k);
-        const key = ("toast." + k) as "toast.drone";
-        onToast({ text: t(key), color: C.rift });
+        onToast({ text: t(TOAST_KEY[k]), color: C.rift });
       }
     }
   }

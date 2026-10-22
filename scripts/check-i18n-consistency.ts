@@ -29,8 +29,8 @@ function main() {
   const i18nPath = resolve(srcRoot, "i18n.ts");
   const content = readFileSync(i18nPath, "utf-8");
 
-  // Split content into ru and en sections
-  const ruMatch = content.match(/const ru: Dict = \{[\s\S]*?\};/);
+  // Split content into ru and en sections (literal objects)
+  const ruMatch = content.match(/const ru = \{[\s\S]*?\};/);
   const enMatch = content.match(/const en: Dict = \{[\s\S]*?\};/);
 
   if (!ruMatch || !enMatch) {

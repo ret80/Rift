@@ -47,15 +47,7 @@ export interface CountData {
   value: string;
 }
 
-/* ============================== Popups / Stats ============================== */
-
-export interface PopupData {
-  id: number;
-  x: number;
-  y: number;
-  text: string;
-  color: string;
-}
+/* ============================== Stats ============================== */
 
 export interface StatsData {
   score: number;

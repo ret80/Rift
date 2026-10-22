@@ -1,9 +1,31 @@
 import React, { useState } from "react";
 import GameButton from "../components/GameButton";
-import { useT } from "../../i18n";
+import { useT, type TKey } from "../../i18n";
 import { EnemyKind } from "../../game/balance/enemies";
-import { ALL_PICKUP_KINDS, pickupDisplayKey } from "../../game/balance/drops";
+import { ALL_PICKUP_KINDS, pickupDisplayKey } from "../../game/balance";
 import type { PickupKind } from "../../game/balance";
+import type { PickupDisplay } from "../../game/balance/pickupCatalog";
+
+/* Статические маппинги: типизированные ключи вместо шаблонных строк. */
+const ENEMY_LABEL: Record<EnemyKind, TKey> = {
+  [EnemyKind.Drone]: "debug.drone",
+  [EnemyKind.Hunter]: "debug.hunter",
+  [EnemyKind.Fighter]: "debug.fighter",
+  [EnemyKind.Cruiser]: "debug.cruiser",
+  [EnemyKind.Carrier]: "debug.carrier",
+};
+
+const PICKUP_LABEL: Record<PickupDisplay, TKey> = {
+  heal: "debug.heal",
+  rate: "debug.rate",
+  gun: "debug.gun",
+  dash: "debug.dash",
+  mineral: "debug.mineral",
+  drone: "debug.drone",
+  missile: "debug.missile",
+  weaver: "debug.weaver",
+  quantum_swap: "debug.quantum_swap",
+};
 
 interface EnemyToggleProps {
   kind: EnemyKind;
@@ -13,7 +35,7 @@ interface EnemyToggleProps {
 
 function EnemyToggle(props: EnemyToggleProps) {
   const t = useT();
-  const label = t(`debug.${props.kind}` as "debug.drone");
+  const label = t(ENEMY_LABEL[props.kind]);
   return (
     <button
       type="button"
@@ -105,8 +127,7 @@ interface PickupToggleProps {
 
 function PickupToggle(props: PickupToggleProps) {
   const t = useT();
-  const displayKey = pickupDisplayKey(props.kind);
-  const label = t(`debug.${displayKey}` as `debug.${string}`);
+  const label = t(PICKUP_LABEL[pickupDisplayKey(props.kind)]);
   return (
     <button
       type="button"

@@ -7,6 +7,18 @@
 import type { PickupKind } from "./drops";
 import { C } from "./player";
 
+/** Канонический ключ отображения (группа пикапа). */
+export type PickupDisplay =
+  | "heal"
+  | "rate"
+  | "gun"
+  | "dash"
+  | "mineral"
+  | "drone"
+  | "missile"
+  | "weaver"
+  | "quantum_swap";
+
 /** Вид эффекта подбора пикапа. */
 export type PickupEffect =
   | { type: "heal"; amount: number }
@@ -18,7 +30,7 @@ export type PickupEffect =
 /** Описание пикапа: эффект и канонический ключ отображения. */
 export interface PickupDefinition {
   /** Канонический ключ отображения (heal | rate | ...). */
-  display: string;
+  display: PickupDisplay;
   /** Цвет пикапа. */
   color: string;
   /** Эффект подбора. */
@@ -45,6 +57,6 @@ export const PICKUP_CATALOG: Record<PickupKind, PickupDefinition> = {
 };
 
 /** Канонический ключ отображения пикапа. */
-export function pickupDisplayKey(kind: PickupKind): string {
+export function pickupDisplayKey(kind: PickupKind): PickupDisplay {
   return PICKUP_CATALOG[kind].display;
 }

@@ -7,11 +7,7 @@ export type Lang = "ru" | "en";
 
 const LS_KEY = "rift9_lang";
 
-interface Dict {
-  [key: string]: string;
-}
-
-const ru: Dict = {
+const ru = {
   "app.title": "РАЗЛОМ",
   "app.subtitle": "// СЕКТОР-9",
 
@@ -138,6 +134,8 @@ const ru: Dict = {
   "game.waveN": "ВОЛНА: {n}",
   "game.countdown": "СТАРТ ЧЕРЕЗ",
   "game.waveCleared": "ВОЛНА ЗАЧИЩЕНА",
+  "game.nextWave": "СЛЕДУЮЩАЯ: ВОЛНА {wave}",
+  "game.zoneWarning": "НЕ ПОКИДАЙ ЗОНУ ВОЛНЫ",
   "game.signalLost": "СИГНАЛ ПОТЕРЯН",
   "game.transmissionLost": "ПЕРЕДАЧА ПРЕРВАНА",
   "game.newRecord": "НОВЫЙ РЕКОРД",
@@ -153,7 +151,6 @@ const ru: Dict = {
   "game.gunMax": "АРСЕНАЛ ПОЛОН +300",
   "game.arsenal": "АРСЕНАЛ РАСШИРЕН",
   "game.points": "+{v}",
-  "game.zoneEdge": "НЕ ПОКИДАЙ ЗОНУ ВОЛНЫ",
 
   "over.title": "СИГНАЛ ПОТЕРЯН",
   "over.sub": "ПЕРЕДАЧА ПРЕРВАНА",
@@ -177,6 +174,12 @@ const ru: Dict = {
   "toast.cruiser": "НОВАЯ ЦЕЛЬ: КРЕЙСЕР",
   "toast.carrier": "НОВАЯ ЦЕЛЬ: ДРОНОНОСЕЦ",
 };
+
+/** Строгий тип ключей локализации — литералы ru-словаря. */
+export type TKey = keyof typeof ru;
+
+/** Оба словаря обязаны иметь ровно те же ключи. */
+type Dict = { [K in TKey]: string };
 
 const en: Dict = {
   "app.title": "RIFT",
@@ -305,6 +308,8 @@ const en: Dict = {
   "game.waveN": "WAVE: {n}",
   "game.countdown": "LAUNCH IN",
   "game.waveCleared": "WAVE CLEARED",
+  "game.nextWave": "NEXT: WAVE {wave}",
+  "game.zoneWarning": "STAY INSIDE THE WAVE ZONE",
   "game.signalLost": "SIGNAL LOST",
   "game.transmissionLost": "TRANSMISSION ENDED",
   "game.newRecord": "NEW RECORD",
@@ -320,7 +325,6 @@ const en: Dict = {
   "game.gunMax": "ARSENAL FULL +300",
   "game.arsenal": "ARSENAL EXPANDED",
   "game.points": "+{v}",
-  "game.zoneEdge": "STAY INSIDE THE WAVE ZONE",
 
   "over.title": "SIGNAL LOST",
   "over.sub": "TRANSMISSION ENDED",
@@ -344,8 +348,6 @@ const en: Dict = {
   "toast.cruiser": "NEW TARGET: CRUISER",
   "toast.carrier": "NEW TARGET: CARRIER",
 };
-
-export type TKey = keyof typeof ru & keyof typeof en;
 
 const dicts: Record<Lang, Dict> = { ru, en };
 

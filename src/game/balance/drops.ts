@@ -42,24 +42,6 @@ export const ALL_PICKUP_KINDS: PickupKind[] = [
   "quantum_swap",
 ];
 
-/** Map pickup kind to a canonical display key */
-export function pickupDisplayKey(kind: PickupKind): string {
-  switch (kind) {
-    case "heal25":
-    case "heal50":
-    case "heal100":
-    case "hp":
-      return "heal";
-    case "rate20":
-    case "rate40":
-    case "rate60":
-    case "rate":
-      return "rate";
-    default:
-      return kind;
-  }
-}
-
 /* ------------------------------- drop chances ------------------------------- */
 
 /** Chance that destroying this enemy drops any bonus at all. */

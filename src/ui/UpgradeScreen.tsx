@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { playerHitChance } from "../game/balance/accuracy";
 import type { Game } from "../game/game";
-import { UPGRADE_TIERS, upgradeCost, type PlayerUpgrades } from "../game/upgrades";
-import { useT } from "../i18n";
+import { UPGRADE_TIERS, UPGRADE_LABEL, upgradeCost, type PlayerUpgrades } from "../game/upgrades";
+import { useT, type TKey } from "../i18n";
 import { Icon } from "./components/Icon";
 
 /* ======================== UpgradeRow ======================== */
@@ -25,8 +25,8 @@ function UpgradeRow(props: UpgradeRowProps) {
   const cost = upgradeCost(upgradeKey, level);
   const affordable = maxed ? false : detailsOn ? true : upgrades.parts >= cost;
   
-  const labelKey = `upgrade.${upgradeKey}` as string;
-  const descKey = `upgrade.${upgradeKey}Desc` as string;
+  const labelKey: TKey = UPGRADE_LABEL[upgradeKey].label;
+  const descKey: TKey = UPGRADE_LABEL[upgradeKey].desc;
   
   const label = t(labelKey);
   const desc = t(descKey);

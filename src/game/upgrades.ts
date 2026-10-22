@@ -8,6 +8,7 @@ import { playerHitChance } from "./balance/accuracy";
 import { PHANTOM_CORE_RADII, SOLID_BULLET_RADII } from "./balance/player";
 import { CANNON_MAX_BARRELS } from "./weapons/CannonWeapon";
 import { MAX_ALLY_DRONES } from "./weapons/DroneWeapon";
+import type { TKey } from "../i18n";
 import type { PersistencePort } from "./core/PersistencePort";
 
 /* ======================== Storage keys ======================== */
@@ -103,6 +104,21 @@ export const UPGRADE_TIERS: Record<UpgradeKey, UpgradeTier> = {
   phantomHitbox:{ baseCost: 151, costStep: 113, maxLevel: 3  },
   solidBullets: { baseCost: 101, costStep: 75,  maxLevel: 3  },
   accuracy:     { baseCost: 170, costStep: 127, maxLevel: 4  },
+};
+
+/** Ключи локализации для каждой ветки прокачки (статический маппинг). */
+export const UPGRADE_LABEL: Record<UpgradeKey, { label: TKey; desc: TKey }> = {
+  hull:         { label: "upgrade.hull",         desc: "upgrade.hullDesc" },
+  damage:       { label: "upgrade.damage",       desc: "upgrade.damageDesc" },
+  fireRate:     { label: "upgrade.fireRate",     desc: "upgrade.fireRateDesc" },
+  speed:        { label: "upgrade.speed",        desc: "upgrade.speedDesc" },
+  guns:         { label: "upgrade.guns",         desc: "upgrade.gunsDesc" },
+  drones:       { label: "upgrade.drones",       desc: "upgrade.dronesDesc" },
+  dashDuration: { label: "upgrade.dashDuration", desc: "upgrade.dashDurationDesc" },
+  grazeMomentum:{ label: "upgrade.grazeMomentum", desc: "upgrade.grazeMomentumDesc" },
+  phantomHitbox:{ label: "upgrade.phantomHitbox", desc: "upgrade.phantomHitboxDesc" },
+  solidBullets: { label: "upgrade.solidBullets", desc: "upgrade.solidBulletsDesc" },
+  accuracy:     { label: "upgrade.accuracy",     desc: "upgrade.accuracyDesc" },
 };
 
 /* ======================== Cost calculation ======================== */

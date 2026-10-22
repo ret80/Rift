@@ -87,7 +87,6 @@ export type GameEventMap = {
   enemy_killed: EnemyKilledPayload;
   player_damaged: { dmg: number };
   wave_started: WaveStartedPayload;
-  wave_cleared: Record<string, never>;
   pickup_collected: PickupCollectedPayload;
   asteroid_hit: AsteroidHitPayload;
   game_over: Record<string, never>;
