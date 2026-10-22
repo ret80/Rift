@@ -4,6 +4,7 @@
  * На экране прокачки детали тратятся на постоянные улучшения.
  */
 
+import { PHANTOM_CORE_RADII, SOLID_BULLET_RADII } from "./balance/player";
 import { CANNON_MAX_BARRELS } from "./weapons/CannonWeapon";
 import { MAX_ALLY_DRONES } from "./weapons/DroneWeapon";
 
@@ -20,6 +21,19 @@ export interface UpgradeTier {
   maxLevel: number;      // макс. уровень (0 = выключено)
 }
 
+/** Все прокачиваемые линии прокачки. */
+export type UpgradeKey =
+  | "hull"
+  | "damage"
+  | "fireRate"
+  | "speed"
+  | "guns"
+  | "drones"
+  | "dashDuration"
+  | "grazeMomentum"
+  | "phantomHitbox"
+  | "solidBullets";
+
 export interface PlayerUpgrades {
   parts: number;          // доступные детали (валюта)
   hull: number;           // уровень прокачки корпуса (+20 HP за уровень)
@@ -28,7 +42,10 @@ export interface PlayerUpgrades {
   speed: number;          // уровень скорости (+5% за уровень)
   guns: number;           // уровень орудий (+1 ствол за уровень, макс 5)
   drones: number;         // уровень дронов (+1 дрон за уровень, макс 8)
-  dashCooldown: number;   // уровень рывка (-10% кулдаун, макс 5)
+  dashDuration: number;   // уровень длительности рывка (+20% за уровень, макс 5)
+  grazeMomentum: number;  // уровень поглощения импульса (макс 3)
+  phantomHitbox: number;  // уровень фантомного хитбокса (макс 3)
+  solidBullets: number;   // уровень твёрдых снарядов (макс 3)
 }
 
 /* ======================== Default state ======================== */
@@ -42,7 +59,10 @@ export function defaultUpgrades(): PlayerUpgrades {
     speed: 0,
     guns: 0,
     drones: 0,
-    dashCooldown: 0,
+    dashDuration: 0,
+    grazeMomentum: 0,
+    phantomHitbox: 0,
+    solidBullets: 0,
   };
 }
 
@@ -50,46 +70,54 @@ export function defaultUpgrades(): PlayerUpgrades {
 
 /**
  * Стоимости подобраны так, чтобы суммарная стоимость ВСЕХ апгрейдов
- * (~26 149 деталей) совпадала с ожидаемым кумулятивным доходом деталей
+ * (~26 140 деталей) совпадала с ожидаемым кумулятивным доходом деталей
  * к 50-й волне (~26 140 при полном сборе дропа).
+ *
+ * Пересчёт выполняется скриптом scripts/upgrade-cost-calc.mjs:
+ * в него попадают те же линии и те же веса ценности, что и здесь.
  *
  * Вес ценности (что дороже):
  *  - drones (×1.3) — авто-DPS, самый сильный боевой апгрейд;
- *  - dashCooldown (×1.2) — супер-защита (уклонение);
+ *  - phantomHitbox (×1.25) — супер-защита (пустое ядро хитбокса);
+ *  - dashDuration (×1.2) — супер-защита (дольше уклоняешься);
  *  - guns (×1.15) — мультипликативный рост урона;
- *  - hull / damage / fireRate (×1.0) — защита и базовая огневая мощь;
+ *  - hull / damage / fireRate / grazeMomentum (×1.0) — защита и огневая мощь;
+ *  - solidBullets (×0.9) — оборонительный эффект через перехват;
  *  - speed (×0.45) — чистая мобильность, самый дешёвый.
  */
-export const UPGRADE_TIERS: Record<keyof Omit<PlayerUpgrades, "parts">, UpgradeTier> = {
-  hull:        { baseCost: 94,  costStep: 70,  maxLevel: 10 },
-  damage:      { baseCost: 117, costStep: 84,  maxLevel: 10 },
-  fireRate:    { baseCost: 140, costStep: 94,  maxLevel: 10 },
-  speed:       { baseCost: 42,  costStep: 32,  maxLevel: 8  },
-  guns:        { baseCost: 215, costStep: 161, maxLevel: 4  },  // 1 (base) + 4 = 5 max
-  drones:      { baseCost: 304, costStep: 213, maxLevel: 7  },  // 0 (base) + 7 = 7, but max 8
-  dashCooldown:{ baseCost: 140, costStep: 112, maxLevel: 5  },
+export const UPGRADE_TIERS: Record<UpgradeKey, UpgradeTier> = {
+  hull:         { baseCost: 81,  costStep: 60,  maxLevel: 10 },
+  damage:       { baseCost: 102, costStep: 73,  maxLevel: 10 },
+  fireRate:     { baseCost: 121, costStep: 81,  maxLevel: 10 },
+  speed:        { baseCost: 16,  costStep: 12,  maxLevel: 8  },
+  guns:         { baseCost: 214, costStep: 160, maxLevel: 4  },
+  drones:       { baseCost: 341, costStep: 239, maxLevel: 7  },
+  dashDuration: { baseCost: 145, costStep: 116, maxLevel: 5  },
+  grazeMomentum:{ baseCost: 104, costStep: 78,  maxLevel: 3  },
+  phantomHitbox:{ baseCost: 151, costStep: 113, maxLevel: 3  },
+  solidBullets: { baseCost: 101, costStep: 75,  maxLevel: 3  },
 };
 
 /* ======================== Cost calculation ======================== */
 
 /** Calculate cost to upgrade to next level */
-export function upgradeCost(key: keyof Omit<PlayerUpgrades, "parts">, level: number): number {
+export function upgradeCost(key: UpgradeKey, level: number): number {
   const tier = UPGRADE_TIERS[key];
   return tier.baseCost + tier.costStep * level;
 }
 
 /** Check if upgrade can be purchased */
-export function canAfford(upgrades: PlayerUpgrades, key: keyof Omit<PlayerUpgrades, "parts">, level: number): boolean {
+export function canAfford(upgrades: PlayerUpgrades, key: UpgradeKey, level: number): boolean {
   return upgrades.parts >= upgradeCost(key, level);
 }
 
 /** Check if upgrade has maxed out */
-export function isMaxed(upgrades: PlayerUpgrades, key: keyof Omit<PlayerUpgrades, "parts">): boolean {
+export function isMaxed(upgrades: PlayerUpgrades, key: UpgradeKey): boolean {
   return upgrades[key] >= UPGRADE_TIERS[key].maxLevel;
 }
 
 /** Purchase an upgrade (deducts parts, increases level) */
-export function purchaseUpgrade(upgrades: PlayerUpgrades, key: keyof Omit<PlayerUpgrades, "parts">): boolean {
+export function purchaseUpgrade(upgrades: PlayerUpgrades, key: UpgradeKey): boolean {
   const level = upgrades[key];
   if (isMaxed(upgrades, key)) return false;
   const cost = upgradeCost(key, level);
@@ -102,16 +130,36 @@ export function purchaseUpgrade(upgrades: PlayerUpgrades, key: keyof Omit<Player
 
 /* ======================== Persistence ======================== */
 
+/**
+ * Миграция сохранённых данных.
+ * Раньше длительность рывка называлась dashCooldown, хотя по факту
+ * апгрейд всегда повышал длительность рывка, а не кулдаун.
+ */
+function migrate(parsed: Partial<PlayerUpgrades> & { dashCooldown?: number }): PlayerUpgrades {
+  const fresh = defaultUpgrades();
+  const migrated: PlayerUpgrades = { ...fresh };
+  for (const key of Object.keys(fresh) as UpgradeKey[]) {
+    const value = parsed[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      migrated[key] = Math.max(0, Math.floor(value));
+    }
+  }
+  // Старые сохранения не знают про dashDuration — переносим dashCooldown.
+  if (migrated.dashDuration === 0 && typeof parsed.dashCooldown === "number") {
+    migrated.dashDuration = Math.max(0, Math.floor(parsed.dashCooldown));
+  }
+  // Части — валюта: дробные значения недопустимы.
+  migrated.parts = Math.max(0, Math.floor(migrated.parts));
+  return migrated;
+}
+
 export function loadUpgrades(): PlayerUpgrades {
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as PlayerUpgrades;
-      // validate
-      if (parsed.parts != null && parsed.hull != null && parsed.damage != null &&
-          parsed.fireRate != null && parsed.speed != null && parsed.guns != null &&
-          parsed.drones != null && parsed.dashCooldown != null) {
-        return parsed;
+      const parsed = JSON.parse(raw) as Partial<PlayerUpgrades> & { dashCooldown?: number };
+      if (parsed && typeof parsed === "object" && parsed.parts != null) {
+        return migrate(parsed);
       }
     }
   } catch { /* ignore */ }
@@ -163,7 +211,7 @@ export function saveBestWave(wave: number): void {
 /* ======================== Apply upgrades to game values ======================== */
 
 export interface AppliedUpgrades {
-  /** Максимальный корпус: 100 базы + 20 за уровень. */
+  /** Максимальный корпус: 100 базис + 20 за уровень. */
   baseHp: number;
   /** Множитель темпа стрельбы: 1.0 база + 0.08 за уровень. */
   fireRateMult: number;
@@ -175,8 +223,20 @@ export interface AppliedUpgrades {
   guns: number;
   /** Число постоянных дронов-компаньонов: уровень. */
   drones: number;
-  /** Множитель кулдауна рывка: 1.0 база, -10% за уровень. */
-  dashCooldownMult: number;
+  /** Множитель длительности рывка: 1.0 база, +20% за уровень. */
+  dashDurationMult: number;
+  /** Уровень апгрейда «поглощение импульса»: сколько импульса даёт скорость. */
+  momentumLevel: number;
+  /** Радиус безопасного ядра хитбокса (0 — ядра нет). */
+  phantomCoreRadius: number;
+  /** Радиус твёрдого снаряда игрока (0 — снаряды бестелесные). */
+  solidBulletRadius: number;
+}
+
+/** Взять значение по уровню из таблицы радиусов. */
+function radiusForLevel(table: number[], level: number): number {
+  if (level <= 0) return 0;
+  return table[Math.min(level, table.length - 1)];
 }
 
 export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
@@ -198,8 +258,17 @@ export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
   // drones: level, capped at MAX_ALLY_DRONES
   const drones = Math.min(upgrades.drones, MAX_ALLY_DRONES);
 
-  // dash cooldown: base 1.0, reduced 10% per level
-  const dashCooldownMult = Math.max(0.5, 1.0 - upgrades.dashCooldown * 0.1);
+  // dash duration: base 1.0, +20% per level
+  const dashDurationMult = 1.0 + upgrades.dashDuration * 0.2;
+
+  // Поглощение импульса: уровень напрямую задаёт силу прироста скорости.
+  const momentumLevel = Math.max(0, upgrades.grazeMomentum);
+
+  // Фантомный хитбокс: радиус безопасного ядра корабля.
+  const phantomCoreRadius = radiusForLevel(PHANTOM_CORE_RADII, upgrades.phantomHitbox);
+
+  // Твёрдые снаряды: радиус физического снаряда игрока.
+  const solidBulletRadius = radiusForLevel(SOLID_BULLET_RADII, upgrades.solidBullets);
 
   return {
     baseHp,
@@ -208,6 +277,9 @@ export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
     damageBonus,
     guns,
     drones,
-    dashCooldownMult,
+    dashDurationMult,
+    momentumLevel,
+    phantomCoreRadius,
+    solidBulletRadius,
   };
 }

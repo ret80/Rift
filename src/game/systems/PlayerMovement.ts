@@ -28,6 +28,7 @@ import {
  * @param fx - particle effect system
  * @param isThrusting - whether player is currently thrusting
  * @param dashT - remaining dash time (from BonusManager)
+ * @param speedMult - множитель скорости (апгрейд скорости + импульс касаний)
  * @returns object with updated thrusting and speed
  */
 export function updateMovement(
@@ -38,6 +39,7 @@ export function updateMovement(
   fx: Fx,
   isThrusting: boolean,
   dashT: number,
+  speedMult: number = 1,
 ): { thrusting: boolean; speed: number } {
   state.thrusting = isThrusting;
   const dashing = dashT > 0;
@@ -48,7 +50,7 @@ export function updateMovement(
       const norm = l > 1 ? l : 1;
       ax /= norm;
       ay /= norm;
-      const accel = PLAYER_ACCELERATION * (dashing ? DASH_ACCEL_MULT : 1);
+      const accel = PLAYER_ACCELERATION * speedMult * (dashing ? DASH_ACCEL_MULT : 1);
       state.vx += ax * accel * dt;
       state.vy += ay * accel * dt;
     }
@@ -61,7 +63,7 @@ export function updateMovement(
 
   // Speed cap
   const sp = Math.hypot(state.vx, state.vy);
-  const cap = PLAYER_MAX_SPEED * (dashing ? DASH_SPEED_MULT : 1);
+  const cap = PLAYER_MAX_SPEED * speedMult * (dashing ? DASH_SPEED_MULT : 1);
   if (sp > cap) {
     state.vx *= cap / sp;
     state.vy *= cap / sp;

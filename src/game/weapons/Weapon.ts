@@ -13,10 +13,10 @@
 
 import type { LoadoutSlotMeta } from "../loadout/LoadoutTypes";
 import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
-import type { AllyDrone, Bullet, Enemy } from "../types";
+import type { AllyDrone, Bullet, Enemy, WeaveThread } from "../types";
 
 /** Идентификаторы видов оружия. */
-export type WeaponId = "cannon" | "missile" | "drone";
+export type WeaponId = "cannon" | "missile" | "drone" | "weaver";
 
 /** Оформление слота оружия в строке снаряжения. */
 export type WeaponMeta = LoadoutSlotMeta;
@@ -53,6 +53,8 @@ export interface WeaponContext {
   readonly bullets: Bullet[];
   /** Пул дронов-компаньонов. */
   readonly drones: AllyDrone[];
+  /** Пул нитей ткани пространства. */
+  readonly weaves: WeaveThread[];
   /** Колбэк выстрела — проигрывание звука. */
   onFired(id: WeaponId): void;
 }
@@ -78,6 +80,8 @@ export interface WeaponModifiers {
   damage?: number;
   /** Число экземпляров оружия: стволы пушки, дроны-компаньоны. */
   count?: number;
+  /** Радиус твёрдого снаряда (0 — снаряды бестелесные). */
+  solidRadius?: number;
 }
 
 /**
@@ -93,6 +97,8 @@ export interface WeaponUpgrades {
   guns: number;
   /** Число постоянных дронов-компаньонов. */
   drones: number;
+  /** Радиус твёрдого снаряда игрока (0 — снаряды бестелесные). */
+  solidBulletRadius: number;
 }
 
 /** Апгрейд, задающий число экземпляров оружия. */
@@ -108,6 +114,8 @@ export interface Weapon {
   readonly countUpgrade: WeaponCountUpgrade | null;
   /** Применять ли к оружию апгрейд урона. */
   readonly usesDamageUpgrade: boolean;
+  /** Применять ли к оружию апгрейд «твёрдые снаряды». */
+  readonly usesSolidUpgrade: boolean;
 
   /** Сбросить внутреннее состояние оружия (начало забега). */
   reset(ctx: WeaponContext): void;

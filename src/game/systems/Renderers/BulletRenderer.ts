@@ -14,6 +14,7 @@ export interface BulletRenderState {
   vy: number;
   life: number;
   dmg: number;
+  r?: number;
 }
 
 export interface EBulletRenderState {
@@ -60,6 +61,12 @@ export function renderBullets(
 
 /** Отрисовка пули игрока. */
 function renderPlayerBullet(R: Renderer, b: BulletRenderState): void {
+  if (b.r && b.r > 0) {
+    const col = rgba(C.bullet, 0.95);
+    R.circle(b.x, b.y, b.r, col, 10);
+    R.circle(b.x, b.y, b.r * 0.6, rgba(C.white, 0.35), 8);
+    return;
+  }
   const l = 7;
   const d = Math.hypot(b.vx, b.vy) || 1;
   R.pushLine(

@@ -17,26 +17,32 @@ export type LoadoutIcon =
   | "weapon-cannon"
   | "weapon-missile"
   | "pickup-drone"
+  | "weapon-weaver"
   /* бонусы */
   | "pickup-rate"
   | "pickup-gun"
   | "bonus-dash"
   | "pickup-heal"
-  | "pickup-mineral";
+  | "pickup-mineral"
+  /* способности */
+  | "ability-quantum-swap";
 
-/** Виды слотов строки снаряжения: оружие и бонусы. */
+/** Виды слотов строки снаряжения: оружие, бонусы и способности. */
 export type LoadoutSlotKind =
   /* оружие */
   | "cannon"
   | "missile"
   | "drone"
+  | "weaver"
   /* временные бонусы */
   | "rate"
   | "guns"
   | "dash"
   /* мгновенные бонусы */
   | "heal"
-  | "mineral";
+  | "mineral"
+  /* активные способности */
+  | "quantum_swap";
 
 /** Оформление слота: иконка, цвет, подпись и место в строке. */
 export interface LoadoutSlotMeta {

@@ -13,6 +13,7 @@
 import type { LoadoutSlotData } from "../loadout/LoadoutTypes";
 import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
 import type { AllyDrone, Bullet, Enemy } from "../types";
+import type { WeaveThread } from "../types";
 import { CANNON_TARGET_RANGE } from "./CannonWeapon";
 import { Targeting } from "./Targeting";
 import type {
@@ -38,6 +39,8 @@ export interface WeaponWorld {
   getDrones(): AllyDrone[];
   /** Текущие временные бонусы игрока. */
   getBonuses(): PlayerBonuses;
+  /** Нити ткани пространства. */
+  getWeaves?(): WeaveThread[];
 }
 
 export class WeaponManager {
@@ -87,6 +90,7 @@ export class WeaponManager {
       if (weapon.usesDamageUpgrade) mods.damage = upgrades.damageBonus;
       if (weapon.countUpgrade === "guns") mods.count = upgrades.guns;
       else if (weapon.countUpgrade === "drones") mods.count = upgrades.drones;
+      if (weapon.usesSolidUpgrade) mods.solidRadius = upgrades.solidBulletRadius;
       weapon.applyModifiers(mods, ctx);
     }
   }
@@ -147,6 +151,7 @@ export class WeaponManager {
       enemies: this.world.getEnemies(),
       bullets: this.world.getBullets(),
       drones: this.world.getDrones(),
+      weaves: this.world.getWeaves?.() ?? [],
       onFired: (id) => this.onWeaponFired(id),
     };
   }

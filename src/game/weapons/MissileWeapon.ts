@@ -42,6 +42,7 @@ export class MissileWeapon implements Weapon {
   };
   readonly countUpgrade = null;
   readonly usesDamageUpgrade = false;
+  readonly usesSolidUpgrade = true;
 
   /** Ракетомёт активен. */
   private active = false;
@@ -51,12 +52,15 @@ export class MissileWeapon implements Weapon {
   private cooldown = 0;
   /** Борт, из которого вылетает следующая ракета (0 — левый, 1 — правый). */
   private port: 0 | 1 = 0;
+  /** Радиус твёрдого снаряда (0 — снаряды бестелесные). */
+  private solidRadius = 0;
 
   reset(): void {
     this.active = false;
     this.timeLeft = 0;
     this.cooldown = 0;
     this.port = 0;
+    this.solidRadius = 0;
   }
 
   isAvailable(): boolean {
@@ -104,8 +108,8 @@ export class MissileWeapon implements Weapon {
     return this.active ? 1 : 0;
   }
 
-  applyModifiers(): void {
-    // Ракетомёт не масштабируется персистентными апгрейдами.
+  applyModifiers(mods: import("./Weapon").WeaponModifiers): void {
+    if (mods.solidRadius != null) this.solidRadius = mods.solidRadius;
   }
 
   /** Ближайший живой враг в пределах дистанции наведения. */
@@ -154,6 +158,7 @@ export class MissileWeapon implements Weapon {
       life: MISSILE_LIFE,
       dmg: MISSILE_DMG,
       homing: { target, turnRate: MISSILE_TURN_RATE },
+      r: this.solidRadius || undefined,
     });
 
     ctx.onFired(this.id);

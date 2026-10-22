@@ -22,10 +22,22 @@ export class DashBonus implements Bonus {
 
   /** Остаток времени рывка, секунды. */
   private timeLeft = 0;
+  /** Множитель длительности рывка из перманентного апгрейда. */
+  private durationMult = 1;
 
   /** Остаток времени рывка для физики движения. */
   getDashRemaining(): number {
     return this.timeLeft;
+  }
+
+  /** Задать множитель длительности рывка (апгрейд «длительность рывка»). */
+  setDurationMult(mult: number): void {
+    this.durationMult = mult;
+  }
+
+  /** Фактическая длительность рывка с учётом апгрейда, секунды. */
+  getDuration(): number {
+    return this.meta.duration * this.durationMult;
   }
 
   isActive(): boolean {
@@ -37,11 +49,11 @@ export class DashBonus implements Bonus {
   }
 
   getProgress(): number {
-    return Math.min(1, this.timeLeft / this.meta.duration);
+    return Math.min(1, this.timeLeft / this.getDuration());
   }
 
   activate(): void {
-    this.timeLeft = this.meta.duration;
+    this.timeLeft = this.getDuration();
   }
 
   update(dt: number): void {

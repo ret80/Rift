@@ -29,6 +29,9 @@ export class BulletSystem {
 
     for (let i = enemyBullets.length - 1; i >= 0; i--) {
       const b = enemyBullets[i];
+      // Предыдущая позиция нужна для swept-проверки пролёта мимо корабля.
+      b.px = b.x;
+      b.py = b.y;
       b.x += b.vx * dt;
       b.y += b.vy * dt;
       b.life -= dt;

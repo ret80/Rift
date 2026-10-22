@@ -76,6 +76,29 @@ export interface ZoneStateChangePayload {
   active: boolean;
 }
 
+/** Касание (грейз) вражеских снарядов игроком. */
+export interface BulletGrazedPayload {
+  /** Сколько снарядов засчитано как касание за кадр. */
+  count: number;
+  /** Позиция корабля в момент касания — для эффектов. */
+  x: number;
+  y: number;
+}
+
+/** Твёрдый снаряд игрока перехватил вражеский снаряд. */
+export interface BulletInterceptedPayload {
+  /** Число перехватов за кадр. */
+  count: number;
+  x: number;
+  y: number;
+}
+
+/** Начисление очков без прямого вызова системы счёта. */
+export interface ScoreAddedPayload {
+  /** Сколько очков начислено. */
+  amount: number;
+}
+
 // ===== GameEventMap — discriminated union =====
 
 export type GameEventMap = {
@@ -92,6 +115,9 @@ export type GameEventMap = {
   spawn_pickup: SpawnPickupPayload;
   enemy_fired: EnemyFiredPayload;
   zone_state_change: ZoneStateChangePayload;
+  bullet_grazed: BulletGrazedPayload;
+  bullet_intercepted: BulletInterceptedPayload;
+  score_added: ScoreAddedPayload;
 };
 
 export type EventType = keyof GameEventMap;

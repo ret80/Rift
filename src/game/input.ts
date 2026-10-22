@@ -20,6 +20,8 @@ const TOUCH_DEADZONE = 0.12;
 
 export class InputManager {
   private keys = new Set<string>();
+  /** Клавиши, нажатые с прошлой проверки consumePress(). */
+  private pressed = new Set<string>();
   private touchActive = false;
   private touchX = 0;
   private touchY = 0;
@@ -29,6 +31,8 @@ export class InputManager {
       this.hooks.onPauseKey();
       return;
     }
+    // Автоповтор удерживаемой клавиши не должен считаться новым нажатием.
+    if (!e.repeat) this.pressed.add(e.code);
     this.keys.add(e.code);
   };
 
@@ -89,9 +93,21 @@ export class InputManager {
     return this.keys.has(code);
   }
 
+  /**
+   * Проверить и погасить одиночное нажатие клавиши.
+   * Возвращает true один раз на каждое физическое нажатие —
+   * так активируются способности, а не «удержание» клавиши.
+   */
+  consumePress(code: string): boolean {
+    if (!this.pressed.has(code)) return false;
+    this.pressed.delete(code);
+    return true;
+  }
+
   /** Drop all held keys / touch (used on blur and pause). */
   clear() {
     this.keys.clear();
+    this.pressed.clear();
     this.touchActive = false;
   }
 

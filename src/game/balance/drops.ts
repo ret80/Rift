@@ -19,7 +19,9 @@ export type PickupKind =
   | "mineral"
   | "hp"
   | "rate"
-  | "missile";
+  | "missile"
+  | "weaver"
+  | "quantum_swap";
 
 /** All possible pickup kinds in display order */
 export const ALL_PICKUP_KINDS: PickupKind[] = [
@@ -36,6 +38,8 @@ export const ALL_PICKUP_KINDS: PickupKind[] = [
   "hp",
   "rate",
   "missile",
+  "weaver",
+  "quantum_swap",
 ];
 
 /** Map pickup kind to a canonical display key */

@@ -10,6 +10,7 @@ import { CannonWeapon } from "./CannonWeapon";
 import { DroneWeapon } from "./DroneWeapon";
 import { MissileWeapon } from "./MissileWeapon";
 import type { Weapon, WeaponId } from "./Weapon";
+import { WeaverWeapon } from "./WeaverWeapon";
 
 /** Создать свежий набор экземпляров всех видов оружия. */
 export function createWeaponRegistry(): Record<WeaponId, Weapon> {
@@ -17,5 +18,6 @@ export function createWeaponRegistry(): Record<WeaponId, Weapon> {
     cannon: new CannonWeapon(),
     missile: new MissileWeapon(),
     drone: new DroneWeapon(),
+    weaver: new WeaverWeapon(),
   };
 }

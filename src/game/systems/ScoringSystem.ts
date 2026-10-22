@@ -50,6 +50,9 @@ export class ScoringSystem {
       const scoreValue = event.payload.scoreValue ?? event.payload.score ?? 0;
       this._killedWave = this.onKill(scoreValue, this._killedWave);
     });
+    eventBus.subscribe('score_added', (event) => {
+      this.add(event.payload.amount);
+    });
   }
 
   // ── Core scoring ──────────────────────────────────────────────

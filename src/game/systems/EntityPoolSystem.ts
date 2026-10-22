@@ -1,9 +1,10 @@
 /**
  * EntityPoolSystem — entity pools with same-type operations.
- * Manages arrays: enemyList, bulletList, enemyBulletList, pickupList, allyDroneList.
+ * Manages arrays: enemyList, bulletList, enemyBulletList, pickupList,
+ * allyDroneList, weaveList.
  */
 
-import type { Enemy, Bullet, EBullet, Pickup, AllyDrone } from "../types";
+import type { Enemy, Bullet, EBullet, Pickup, AllyDrone, WeaveThread } from "../types";
 import type { PickupKind } from "../balance";
 
 export class EntityPoolSystem {
@@ -13,12 +14,14 @@ export class EntityPoolSystem {
   private _enemyBulletList: EBullet[] = [];
   private _pickupList: Pickup[] = [];
   private _allyDroneList: AllyDrone[] = [];
+  private _weaveList: WeaveThread[] = [];
 
   get enemyList(): Enemy[] { return this._enemyList; }
   get bulletList(): Bullet[] { return this._bulletList; }
   get enemyBulletList(): EBullet[] { return this._enemyBulletList; }
   get pickupList(): Pickup[] { return this._pickupList; }
   get allyDroneList(): AllyDrone[] { return this._allyDroneList; }
+  get weaveList(): WeaveThread[] { return this._weaveList; }
 
   /* Spawn enemy bullet */
   spawnEnemyBullet(
@@ -31,7 +34,12 @@ export class EntityPoolSystem {
     heavy: boolean,
     cruiser: boolean
   ): void {
-    this._enemyBulletList.push({ x, y, vx, vy, life, dmg, heavy, cruiser });
+    this._enemyBulletList.push({
+      x, y, vx, vy, life, dmg, heavy, cruiser,
+      r: cruiser ? 5.5 : heavy ? 3.4 : 2.5,
+      px: x, py: y,
+      grazed: false,
+    });
   }
 
   /* Spawn pickup */

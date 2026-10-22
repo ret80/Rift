@@ -42,17 +42,21 @@ export class CannonWeapon implements Weapon {
   };
   readonly countUpgrade = "guns" as const;
   readonly usesDamageUpgrade = true;
+  readonly usesSolidUpgrade = true;
 
   /** Базовое число стволов (персистентный апгрейд). */
   private baseBarrels = 1;
   /** Урон снаряда (персистентный апгрейд). */
   private damage = CANNON_BULLET_DMG;
+  /** Радиус твёрдого снаряда (0 — снаряды бестелесные). */
+  private solidRadius = 0;
   /** Остаток перезарядки. */
   private fireCd = 0;
 
   reset(): void {
     this.baseBarrels = 1;
     this.damage = CANNON_BULLET_DMG;
+    this.solidRadius = 0;
     this.fireCd = 0;
   }
 
@@ -91,6 +95,7 @@ export class CannonWeapon implements Weapon {
     if (mods.count != null) {
       this.baseBarrels = Math.min(CANNON_MAX_BARRELS, Math.max(1, mods.count));
     }
+    if (mods.solidRadius != null) this.solidRadius = mods.solidRadius;
   }
 
   /** Полная перезарядка пушки при текущем темпе стрельбы. */
@@ -114,6 +119,7 @@ export class CannonWeapon implements Weapon {
         vy: Math.sin(bulletAngle) * CANNON_BULLET_SPEED,
         life: CANNON_BULLET_LIFE,
         dmg: this.damage,
+        r: this.solidRadius || undefined,
       });
     }
 

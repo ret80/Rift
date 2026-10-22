@@ -4,17 +4,37 @@
  */
 
 import { massForRadius, type AsteroidKind } from '../balance';
+import {
+  GRAZE_BAND,
+  PLAYER_BULLET_HIT_OFFSET,
+  SOLID_BULLET_INTERCEPT_SCORE,
+  WEAVER_DPS,
+  WEAVER_HIT_RADIUS,
+  WEAVER_SLOW_DURATION,
+} from '../balance/player';
 import type { EventBus } from '../core/EventBus';
 
-import type { AllyDrone, Bullet, EBullet, Enemy } from '../types';
+import type { AllyDrone, Bullet, EBullet, Enemy, WeaveThread } from '../types';
 import { PLAYER_ASTEROID_DAMAGE, DRONE_PROXIMITY } from './CollisionConstants';
 import { softResolveCollision } from './EntityCollision';
 import {
   checkBulletCollisions,
+  checkBulletInterceptions,
   checkEnemyBulletVsPlayer,
   checkEnemyBulletVsDrones,
 } from './BulletCollision';
+import type { PlayerHitbox } from './GrazeCollision';
+import { distanceToSegment } from './GrazeCollision';
 import { checkPickupCollection } from './PickupCollection';
+
+/** Состояние корабля в виде, который видит система коллизий. */
+export interface CollisionPlayerState {
+  x: number; y: number; r: number;
+  hp: number; invuln: number;
+  mass: number; vx: number; vy: number;
+  /** Радиус безопасного ядра хитбокса (0 — ядра нет). */
+  core: number;
+}
 
 export class CollisionSystem {
   private eventBus: EventBus;
@@ -34,10 +54,7 @@ export class CollisionSystem {
    */
   update(
     dt: number,
-    playerState: {
-      x: number; y: number; r: number; hp: number; invuln: number;
-      mass: number; vx: number; vy: number;
-    },
+    playerState: CollisionPlayerState,
     enemies: Enemy[],
     bullets: Bullet[],
     enemyBullets: EBullet[],
@@ -46,7 +63,8 @@ export class CollisionSystem {
     asteroids: Array<{
       x: number; y: number; r: number; vx: number; vy: number;
       mass: number; kind: AsteroidKind; dead?: boolean;
-    }> = []
+    }> = [],
+    weaves: WeaveThread[] = []
   ): void {
     // === Bullet collisions ===
     const bulletToRemove = checkBulletCollisions(
@@ -57,19 +75,52 @@ export class CollisionSystem {
       bullets.splice(i, 1);
     }
 
-    // Enemy bullet → player
-    const enemyBulletPlayerIndex = checkEnemyBulletVsPlayer(
-      this.eventBus, enemyBullets,
-      playerState.x, playerState.y, playerState.r,
-      playerState.invuln, playerState.hp
+    // === Твёрдые снаряды игрока гасят вражеские ===
+    const interceptions = checkBulletInterceptions(bullets, enemyBullets);
+    if (interceptions.count > 0) {
+      for (const i of [...new Set(interceptions.playerBullets)].sort((a, b) => b - a)) {
+        bullets.splice(i, 1);
+      }
+      for (const i of [...new Set(interceptions.enemyBullets)].sort((a, b) => b - a)) {
+        enemyBullets.splice(i, 1);
+      }
+      this.eventBus.publish('bullet_intercepted', {
+        count: interceptions.count,
+        x: playerState.x,
+        y: playerState.y,
+      });
+      this.eventBus.publish('score_added', {
+        amount: interceptions.count * SOLID_BULLET_INTERCEPT_SCORE,
+      });
+    }
+
+    // Enemy bullet → player (попадание и касание считаются одним проходом)
+    const hitbox: PlayerHitbox = {
+      x: playerState.x,
+      y: playerState.y,
+      outer: playerState.r + PLAYER_BULLET_HIT_OFFSET,
+      core: playerState.core,
+    };
+    const bulletCheck = checkEnemyBulletVsPlayer(
+      this.eventBus, enemyBullets, hitbox,
+      playerState.invuln, playerState.hp, GRAZE_BAND
     );
-    if (enemyBulletPlayerIndex >= 0) {
-      enemyBullets.splice(enemyBulletPlayerIndex, 1);
+    if (bulletCheck.hitIndex >= 0) {
+      enemyBullets.splice(bulletCheck.hitIndex, 1);
+    }
+    if (bulletCheck.grazeIndices.length > 0) {
+      this.eventBus.publish('bullet_grazed', {
+        count: bulletCheck.grazeIndices.length,
+        x: playerState.x,
+        y: playerState.y,
+      });
     }
 
     // === Entity-entity collisions ===
     this.entityCollisions(playerState, enemies, asteroids);
 
+    // === Нити ткани пространства ===
+    this.weaveCollisions(enemies, weaves, dt);
     // === Drone-player avoidance ===
     this.checkDroneAvoidance(playerState, drones);
 
@@ -103,10 +154,7 @@ export class CollisionSystem {
    * enemy-asteroid, asteroid-asteroid.
    */
   private entityCollisions(
-    playerState: {
-      x: number; y: number; r: number; hp: number; invuln: number;
-      mass: number; vx: number; vy: number;
-    },
+    playerState: CollisionPlayerState,
     enemies: Enemy[],
     asteroids: Array<{
       x: number; y: number; r: number; vx: number; vy: number;
@@ -121,8 +169,10 @@ export class CollisionSystem {
         const dy = playerState.y - e.y;
         const dist = Math.hypot(dx, dy);
         const minDist = playerState.r + e.r;
+        // Хитбокс корабля — кольцо: пустое ядро не смертельно.
+        const inCore = dist < playerState.core;
 
-        if (dist < minDist) {
+        if (dist < minDist && !inCore) {
           this.eventBus.publish('player_damaged', {
             dmg: e.contact,
           });
@@ -147,8 +197,9 @@ export class CollisionSystem {
         const dy = playerState.y - a.y;
         const dist = Math.hypot(dx, dy);
         const minDist = playerState.r + a.r;
+        const inCore = dist < playerState.core;
 
-        if (dist < minDist) {
+        if (dist < minDist && !inCore) {
           this.eventBus.publish('player_damaged', {
             dmg: PLAYER_ASTEROID_DAMAGE,
           });
@@ -231,6 +282,41 @@ export class CollisionSystem {
           a1.vy = result.na.vy;
           a2.vx = result.nb.vx;
           a2.vy = result.nb.vy;
+        }
+      }
+    }
+  }
+
+  /**
+   * Нити ткани пространства: враг, пересекающий нить, получает урон по времени
+   * и замедляется. Нить — отрезок, поэтому проверка идёт по расстоянию
+   * от врага до отрезка, а не до его точек.
+   */
+  private weaveCollisions(enemies: Enemy[], weaves: WeaveThread[], dt: number): void {
+    if (weaves.length === 0) return;
+
+    for (const e of enemies) {
+      if (e.dead) continue;
+      for (const w of weaves) {
+        const dist = distanceToSegment(e.x, e.y, w.x1, w.y1, w.x2, w.y2);
+        if (dist > WEAVER_HIT_RADIUS + e.r) continue;
+
+        // Урон по времени и замедление на всё время пересечения.
+        e.hp -= WEAVER_DPS * dt;
+        e.flash = 1;
+        e.hitCd = 0.15;
+        e.slowT = WEAVER_SLOW_DURATION;
+
+        if (e.hp <= 0) {
+          e.dead = true;
+          this.onEnemyKilledCb?.(e);
+          this.eventBus.publish('enemy_killed', {
+            scoreValue: e.score,
+            kind: e.kind,
+            x: e.x,
+            y: e.y,
+          });
+          break;
         }
       }
     }

@@ -27,6 +27,8 @@ export interface LoadoutSources {
   getWeaponSlots: () => LoadoutSlotData[];
   /** Слоты активных временных бонусов. */
   getBonusSlots: () => LoadoutSlotData[];
+  /** Слоты выданных активных способностей. */
+  getAbilitySlots: () => LoadoutSlotData[];
 }
 
 export class LoadoutSystem {
@@ -71,6 +73,7 @@ export class LoadoutSystem {
     const out: LoadoutSlotData[] = [
       ...this.sources.getWeaponSlots(),
       ...this.sources.getBonusSlots(),
+      ...this.sources.getAbilitySlots(),
     ];
 
     // Мгновенные бонусы: короткая вспышка без таймера.

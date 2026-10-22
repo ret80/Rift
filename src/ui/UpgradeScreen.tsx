@@ -103,7 +103,10 @@ function getUpgradeValue(key: keyof Omit<PlayerUpgrades, "parts">, level: number
     case "speed": return `${(100 + level * 5).toFixed(0)}%`;
     case "guns": return `${1 + level} / ${5}`;
     case "drones": return `${level} / ${8}`;
-    case "dashCooldown": return `${(100 - level * 10).toFixed(0)}%`;
+    case "dashDuration": return `${(100 + level * 20).toFixed(0)}%`;
+    case "grazeMomentum": return `+${(level * 18).toFixed(0)}%`;
+    case "phantomHitbox": return `r${level > 0 ? [0, 8, 12, 15][Math.min(level, 3)] : 0}`;
+    case "solidBullets": return `r${level > 0 ? [0, 5, 7, 9][Math.min(level, 3)] : 0}`;
     default: return `${level}`;
   }
 }
@@ -118,7 +121,8 @@ export function UpgradeScreen(props: {
 }) {
   const t = useT();
   const [upgrades, setUpgrades] = useState<PlayerUpgrades>({
-    parts: 0, hull: 0, damage: 0, fireRate: 0, speed: 0, guns: 0, drones: 0, dashCooldown: 0,
+    parts: 0, hull: 0, damage: 0, fireRate: 0, speed: 0, guns: 0, drones: 0,
+    dashDuration: 0, grazeMomentum: 0, phantomHitbox: 0, solidBullets: 0,
   });
 
   // store an immutable snapshot so React re-renders after purchases

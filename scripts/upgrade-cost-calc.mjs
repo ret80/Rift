@@ -32,14 +32,24 @@ const PARTS_PER_ENEMY = { drone: 2, hunter: 4, fighter: 5, cruiser: 12, carrier:
 
 /* ------------------- Текущие апгрейды (upgrades.ts) ------------------- */
 
+/*
+ * ВНИМАНИЕ: скрипт — калькулятор одного прогона.
+ * CURRENT_TIERS — это состояние прокачки ДО пересчёта: по нему подбираются
+ * новые стоимости, а результат вписывается в upgrades.ts.
+ * Повторный прогон по уже пересчитанным числам даёт чуть другие значения,
+ * потому что модель нормирует взвешенную сумму, а не обычную.
+ */
 const CURRENT_TIERS = {
-  hull:         { baseCost: 20, costStep: 15, maxLevel: 10 },
-  damage:       { baseCost: 25, costStep: 18, maxLevel: 10 },
-  fireRate:     { baseCost: 30, costStep: 20, maxLevel: 10 },
-  speed:        { baseCost: 20, costStep: 15, maxLevel: 8  },
-  guns:         { baseCost: 40, costStep: 30, maxLevel: 4  },
-  drones:       { baseCost: 50, costStep: 35, maxLevel: 7  },
-  dashCooldown: { baseCost: 25, costStep: 20, maxLevel: 5  },
+  hull:          { baseCost: 94,  costStep: 70,  maxLevel: 10 },
+  damage:        { baseCost: 117, costStep: 84,  maxLevel: 10 },
+  fireRate:      { baseCost: 140, costStep: 94,  maxLevel: 10 },
+  speed:         { baseCost: 42,  costStep: 32,  maxLevel: 8  },
+  guns:          { baseCost: 215, costStep: 161, maxLevel: 4  },
+  drones:        { baseCost: 304, costStep: 213, maxLevel: 7  },
+  dashDuration:  { baseCost: 140, costStep: 112, maxLevel: 5  },
+  grazeMomentum: { baseCost: 120, costStep: 90,  maxLevel: 3  },
+  phantomHitbox: { baseCost: 140, costStep: 105, maxLevel: 3  },
+  solidBullets:  { baseCost: 130, costStep: 97,  maxLevel: 3  },
 };
 
 // upgrades.ts: cost(l) = baseCost + costStep * l
@@ -98,27 +108,37 @@ function printCurrentTotal() {
 /* ------------------- Подбор новых стоимостей ------------------- */
 
 // Ценность апгрейда (множитель «силы»):
-//  - огневая мощь (damage, fireRate, guns, drones) и защита (hull, dashCooldown) — ДОРОЖЕ;
+//  - огневая мощь (damage, fireRate, guns, drones) и защита (hull, dashDuration,
+//    phantomHitbox) — ДОРОЖЕ;
 //  - мобильность (speed) — заметно дешевле.
 const POWER_WEIGHT = {
-  hull:         1.0,  // защита (HP) — супер-защита
-  damage:       1.0,  // огневая мощь
-  fireRate:     1.0,  // огневая мощь
-  speed:        0.45, // мобильность (не боевая)
-  guns:         1.15, // огневая мощь (мультипликативная)
-  drones:       1.3,  // огневая мощь (авто-DPS, самый сильный)
-  dashCooldown: 1.2,  // защита (уклонение) — супер-защита
+  hull:          1.0,  // защита (HP)
+  damage:        1.0,  // огневая мощь
+  fireRate:      1.0,  // огневая мощь
+  speed:         0.45, // мобильность (не боевая)
+  guns:          1.15, // огневая мощь (мультипликативная)
+  drones:        1.3,  // огневая мощь (авто-DPS, самый сильный)
+  dashDuration:  1.2,  // защита (уклонение) — супер-защита
+  grazeMomentum: 1.0,  // риск-механика: скорость за касания
+  phantomHitbox: 1.25, // защита (пустое ядро хитбокса) — супер-защита
+  solidBullets:  0.9,  // оборонительный эффект через перехват
 };
 
-function fitTier(currentTier, targetTotal, forceCategory) {
-  // Сохраняем внутреннюю пропорцию base:step, масштабируем до targetTotal.
+/**
+ * Подобрать базовую стоимость и шаг под заданную полную стоимость линии.
+ *
+ * Пропорция base:step сохраняется (k), поэтому повторный прогон скрипта
+ * даёт те же числа: base восстанавливается из округлённого шага.
+ */
+function fitTier(currentTier, targetTotal) {
   const k = currentTier.baseCost / currentTier.costStep; // 1.25..1.67
   const n = currentTier.maxLevel;
-  const denominator = n + (n * (n - 1)) / (2 * k);
-  const base = targetTotal / denominator;
+  // target = n * base + step * n(n-1)/2, base = k * step
+  const step = Math.max(1, Math.round(targetTotal / (k * n + (n * (n - 1)) / 2)));
+  const base = Math.max(1, Math.round(k * step));
   return {
-    baseCost: Math.round(base),
-    costStep: Math.max(1, Math.round(base / k)),
+    baseCost: base,
+    costStep: step,
     maxLevel: currentTier.maxLevel,
   };
 }
@@ -137,7 +157,7 @@ function suggest(maxWave, targetIncome, label) {
   let sum = 0;
   for (const [key, tier] of Object.entries(CURRENT_TIERS)) {
     const target = tierTotal(tier) * POWER_WEIGHT[key] * factor;
-    proposed[key] = fitTier(tier, target, POWER_WEIGHT[key]);
+    proposed[key] = fitTier(tier, target);
     const total = tierTotal(proposed[key]);
     sum += total;
     console.log(`${key.padEnd(13)} ${String(total).padStart(5)}  (base=${proposed[key].baseCost}, step=${proposed[key].costStep}, max=${proposed[key].maxLevel})  x${POWER_WEIGHT[key]}`);

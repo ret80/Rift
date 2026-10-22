@@ -42,6 +42,11 @@ export class BonusManager {
     }
   }
 
+  /** Множитель длительности рывка из перманентного апгрейда. */
+  setDashDurationMult(mult: number): void {
+    this.bonuses.dash.setDurationMult(mult);
+  }
+
   /**
    * Применить временный бонус по поднятому пикапу.
    * Пикапы оружия и мгновенные бонусы игнорируются (не наша зона).

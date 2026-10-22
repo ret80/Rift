@@ -7,6 +7,7 @@
 import {
   EnemyKind,
   PickupKind,
+  PLAYER_HITBOX_RADIUS,
   PLAYER_MAX_SPEED,
   waveTotalFor
 } from "./balance";
@@ -71,6 +72,8 @@ import { PickupSystem } from "./systems/PickupSystem";
 import { PlayerSystem } from "./systems/PlayerSystem";
 import { RendererSystem } from "./systems/RendererSystem";
 import { SpawnSystem } from "./systems/SpawnSystem";
+import { GrazeSystem } from "./systems/GrazeSystem";
+import { AbilitySystem } from "./abilities/AbilitySystem";
 import { UpgradeSystem } from "./systems/UpgradeSystem";
 import { WaveFlowSystem } from "./systems/WaveFlowSystem";
 import { WaveOrchestrator } from "./systems/WaveOrchestrator";
@@ -141,6 +144,12 @@ export class Game {
 
   /* Temporary bonuses — владеют темпом огня, стволами, рывком */
   private bonusManager: BonusManager;
+
+  /* Касания и импульс от них */
+  private grazeSystem: GrazeSystem;
+
+  /* Активные способности */
+  private abilitySystem: AbilitySystem;
 
   /* Weapons — владеют пушкой, ракетами и дронами */
   private weaponManager: WeaponManager;
@@ -297,10 +306,28 @@ export class Game {
 
     /* Initialize game logic systems with dependency injection */
     this.bonusManager = new BonusManager();
+
+    /* Касания и импульс: система только слушает события, коллизии шлют их */
+    this.grazeSystem = new GrazeSystem(this.eventBus, this.fx, this.scoringSystem);
+
     this.playerSystem = new PlayerSystem(
       this.eventBus,
       this.input,
       this.fx,
+      () => this.grazeSystem.getSpeedMult(),
+    );
+
+    /* Активные способности: выдача по пикапу, активация по клавише Space */
+    this.abilitySystem = new AbilitySystem(
+      this.input,
+      {
+        getPlayerX: () => this.playerSystem.getPlayerRef().x,
+        getPlayerY: () => this.playerSystem.getPlayerRef().y,
+        movePlayerTo: (x, y) => this.playerSystem.teleportTo(x, y),
+        getEnemies: () => this.entityPool.enemyList,
+        killEnemy: (enemy) => this.killEnemy(enemy),
+      },
+      this.fx
     );
 
     this.enemySystem = new EnemySystem();
@@ -331,6 +358,7 @@ export class Game {
         getBullets: () => this.entityPool.bulletList,
         getDrones: () => this.entityPool.allyDroneList,
         getBonuses: () => this.bonusManager.getBonuses(),
+        getWeaves: () => this.entityPool.weaveList,
       },
       (id) => this.onWeaponFired(id),
     );
@@ -361,6 +389,7 @@ export class Game {
       heal: (amount: number) => this.playerSystem.heal(amount),
       applyBonus: (pickup: PickupKind) => this.bonusManager.applyPickup(pickup),
       equipWeapon: (id: WeaponId) => this.weaponManager.equipWeapon(id),
+      grantAbility: (id) => this.abilitySystem.grant(id),
       addMinerals: (count: number) => { this.minerals += count; },
       addScore: (amount: number) => this.scoringSystem.add(amount),
       playPickupSound: (kind: string) => this.audio.playPickupSound(kind as PickupKind),
@@ -368,11 +397,12 @@ export class Game {
 
     this.pickupSystem = new PickupSystem();
 
-    // HUD loadout row — weapon + bonus icons with their timers
+    // HUD loadout row — weapon + bonus + ability icons with their timers
     this.loadoutSystem = new LoadoutSystem(
       {
         getWeaponSlots: () => this.weaponManager.getSlots(),
         getBonusSlots: () => this.bonusManager.getSlots(),
+        getAbilitySlots: () => this.abilitySystem.getSlots(),
       },
       this.eventBus
     );
@@ -490,6 +520,11 @@ export class Game {
       this.audio.playDroneHit();
     });
 
+    // === Подбор пикапа: применить эффект (лечение, бонус, оружие, способность) ===
+    this.eventBus.subscribe("pickup_collected", (event) => {
+      this.applyPickupSystem.apply(event.payload.kind as PickupKind);
+    });
+
     // === Enemy firing ===
     this.eventBus.subscribe("enemy_fired", (event) => {
       const data = event.payload as import('./core/EventBus').EnemyFiredPayload;
@@ -530,6 +565,11 @@ export class Game {
     this.countdownSystem.update(dtScaled);
     this.scoringSystem.updateCombo(dtScaled);
     this.bonusManager.update(dtScaled);
+    // Импульс касаний утекает, способности тикают кулдаун.
+    this.grazeSystem.update(dtScaled);
+    if (this.fsm.is("playing", "active")) {
+      this.abilitySystem.update(dtScaled);
+    }
     this.playerSystem.update(
       dtScaled,
       this.fsm.not("menu", "over", "dying"),
@@ -574,19 +614,21 @@ export class Game {
         {
           x: playerState.x,
           y: playerState.y,
-          r: 16,
+          r: PLAYER_HITBOX_RADIUS,
           hp: playerState.hp,
           invuln: playerState.invuln,
           mass: playerState.mass || 1,
           vx: playerState.vx || 0,
           vy: playerState.vy || 0,
+          core: playerState.core,
         },
         this.entityPool.enemyList,
         this.entityPool.bulletList as Parameters<typeof this.collisionSystem.update>[3],
         this.entityPool.enemyBulletList as Parameters<typeof this.collisionSystem.update>[4],
         this.entityPool.pickupList as Parameters<typeof this.collisionSystem.update>[5],
         this.entityPool.allyDroneList as Parameters<typeof this.collisionSystem.update>[6],
-        asteroids as Parameters<typeof this.collisionSystem.update>[7]
+        asteroids as Parameters<typeof this.collisionSystem.update>[7],
+        this.entityPool.weaveList as Parameters<typeof this.collisionSystem.update>[8]
       );
       this.pickupSystem.update(dtScaled, this.entityPool.pickupList, playerState.x, playerState.y);
       this.spawnSystem.update(dtScaled, {
@@ -699,7 +741,9 @@ export class Game {
       pos.y,
       pos.zoom,
       window.innerWidth,
-      window.innerHeight
+      window.innerHeight,
+      this.upgradeSystem.playerUpgrades.phantomHitbox,
+      this.entityPool.weaveList
     );
   }
 
@@ -778,6 +822,10 @@ export class Game {
     this.upgradeSystem.applyToSystems({
       setMaxHp: (v) => this.playerSystem.setMaxHp(v),
       setWeaponUpgrades: (upgrades) => this.weaponManager.applyUpgrades(upgrades),
+      setSpeedMult: (v) => this.playerSystem.setSpeedMult(v),
+      setCoreRadius: (v) => this.playerSystem.setCoreRadius(v),
+      setDashDurationMult: (v) => this.bonusManager.setDashDurationMult(v),
+      setMomentumLevel: (v) => this.grazeSystem.setMomentumLevel(v),
     });
   }
 
@@ -867,11 +915,18 @@ export class Game {
     this.loadoutSystem.reset();
     this.weaponManager.reset();
     this.bonusManager.reset();
+    this.grazeSystem.reset();
+    this.abilitySystem.reset();
+    this.entityPool.weaveList.length = 0;
 
     // Apply persistent upgrades to the player and the weapons
     this.upgradeSystem.applyToSystems({
       setMaxHp: (v) => this.playerSystem.setMaxHp(v),
       setWeaponUpgrades: (upgrades) => this.weaponManager.applyUpgrades(upgrades),
+      setSpeedMult: (v) => this.playerSystem.setSpeedMult(v),
+      setCoreRadius: (v) => this.playerSystem.setCoreRadius(v),
+      setDashDurationMult: (v) => this.bonusManager.setDashDurationMult(v),
+      setMomentumLevel: (v) => this.grazeSystem.setMomentumLevel(v),
       resetHp: () => this.playerSystem.resetHp(),
     });
     
@@ -923,6 +978,27 @@ export class Game {
   private spawnEnemy(kind: EnemyKind, x: number, y: number, parent: Enemy | null) {
     const playerPos = this.getPlayerPosition();
     this.enemySystem.spawn(kind, x, y, parent, this.entityPool.enemyList, playerPos);
+  }
+
+  /**
+   * Убить врага из активной способности.
+   * Повторяет путь гибели из коллизий: дроп деталей и пикапов,
+   * затем событие enemy_killed для счёта и завершения волны.
+   */
+  private killEnemy(enemy: Enemy): void {
+    if (enemy.dead) return;
+    enemy.dead = true;
+    this.dropSystem.onEnemyKilled(
+      enemy,
+      (kind, x, y, vx, vy) => this.entityPool.spawnPickup(kind, x, y, vx, vy),
+      (n, _x, _y) => this.upgradeSystem.addParts(n)
+    );
+    this.eventBus.publish("enemy_killed", {
+      scoreValue: enemy.score,
+      kind: enemy.kind,
+      x: enemy.x,
+      y: enemy.y,
+    });
   }
 
   private getPlayerPosition(): { x: number; y: number; vx: number; vy: number } {

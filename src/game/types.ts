@@ -54,6 +54,10 @@ export interface Enemy {
   angle: number;
   hp: number; maxHp: number;
   r: number; speed: number;
+  /** Базовая скорость врага без замедления — источник для поля speed. */
+  baseSpeed: number;
+  /** Остаток замедления от нити ткани пространства, секунды. */
+  slowT: number;
   contact: number; score: number;
   boltDmg: number; fireCd: number;
   mode: number; modeT: number;
@@ -89,6 +93,8 @@ export interface Bullet {
   x: number; y: number;
   vx: number; vy: number;
   life: number; dmg: number;
+  /** Радиус снаряда. 0/нет — бестелесный, >0 — твёрдый: перехватывает вражеские снаряды. */
+  r?: number;
   /** Самонаведение: цель хранится живой ссылкой, поэтому ракета ведёт цель. */
   homing?: { target: Enemy; turnRate: number };
 }
@@ -99,6 +105,25 @@ export interface EBullet {
   life: number; dmg: number;
   heavy: boolean;
   cruiser: boolean;
+  /** Радиус снаряда — участвует в столкновениях снарядов и в грейзе. */
+  r: number;
+  /** Предыдущая позиция — нужна для за swept-проверки пролёта мимо корабля. */
+  px: number; py: number;
+  /** Снаряд уже засчитан как касание — повторно касанием не считается. */
+  grazed: boolean;
+}
+
+/**
+ * Нить ткани пространства — отрезок, оставленный кораблём на арене.
+ * Враги, пересекающие нить, получают урон и замедляются.
+ */
+export interface WeaveThread {
+  x1: number; y1: number;
+  x2: number; y2: number;
+  /** Остаток жизни нити, секунды. */
+  life: number;
+  /** Полная длительность нити — для расчёта прозрачности. */
+  maxLife: number;
 }
 
 export interface Pickup {

@@ -5,7 +5,12 @@
 
 import type { EventBus } from '../core/EventBus';
 import type { AllyDrone, Bullet, EBullet, Enemy } from '../types';
-import { HIT_RADIUS_OFFSET } from './CollisionConstants';
+import {
+  segmentGrazesHitbox,
+  segmentHitsHitbox,
+  type EnemyBulletCheck,
+  type PlayerHitbox,
+} from './GrazeCollision';
 
 /** A collidable target with position and radius. */
 interface Collidable {
@@ -22,6 +27,16 @@ export interface DroneHit {
   droneIndex: number;
   /** Дрон погиб и должен быть удалён. */
   killed: boolean;
+}
+
+/** Результат столкновения твёрдых снарядов игрока с вражескими. */
+export interface BulletInterception {
+  /** Индексы снарядов игрока, израсходованных на перехват. */
+  playerBullets: number[];
+  /** Индексы перехваченных вражеских снарядов. */
+  enemyBullets: number[];
+  /** Число перехватов — по нему начисляются очки. */
+  count: number;
 }
 
 /**
@@ -99,30 +114,74 @@ export function checkBulletCollisions(
 
 /**
  * Check enemy bullets against the player.
- * Returns index of enemy bullet to remove, or -1.
+ * Возвращает индекс попавшего снаряда и индексы засчитанных касаний.
+ *
+ * Попадание и касание считаются по отрезку движения снаряда, поэтому
+ * быстрый снаряд не может «проскочить» сквозь корабль между кадрами.
  */
 export function checkEnemyBulletVsPlayer(
   eventBus: EventBus,
   enemyBullets: EBullet[],
-  playerX: number,
-  playerY: number,
-  playerR: number,
+  hitbox: PlayerHitbox,
   playerInvuln: number,
-  playerHp: number
-): number {
-  if (playerInvuln <= 0 && playerHp > 0) {
-    const hitRadius = playerR + HIT_RADIUS_OFFSET;
-    for (let i = enemyBullets.length - 1; i >= 0; i--) {
-      const b = enemyBullets[i];
-      if (bulletHits(b.x, b.y, { x: playerX, y: playerY, r: hitRadius })) {
-        eventBus.publish('player_damaged', {
-          dmg: b.dmg,
-        });
-        return i;
+  playerHp: number,
+  grazeBand: number
+): EnemyBulletCheck {
+  const result: EnemyBulletCheck = { hitIndex: -1, grazeIndices: [] };
+  if (playerHp <= 0) return result;
+
+  for (let i = enemyBullets.length - 1; i >= 0; i--) {
+    const b = enemyBullets[i];
+    const hit = segmentHitsHitbox(hitbox, b.px, b.py, b.x, b.y);
+    if (hit) {
+      // За кадр игрок получает не больше одного урона: первое попадание
+      // засчитывается, остальные снаряды просто поглощаются.
+      if (playerInvuln <= 0 && result.hitIndex < 0) {
+        eventBus.publish('player_damaged', { dmg: b.dmg });
+        result.hitIndex = i;
       }
+      continue;
+    }
+    if (!b.grazed && segmentGrazesHitbox(hitbox, b.px, b.py, b.x, b.y, grazeBand)) {
+      b.grazed = true;
+      result.grazeIndices.push(i);
     }
   }
-  return -1;
+  return result;
+}
+
+/**
+ * Столкновение твёрдых снарядов игрока с вражескими снарядами.
+ *
+ * Твёрдый снаряд игрока (с радиусом) гасит вражеский снаряд: оба исчезают,
+ * игрок получает очки. Бестелесные снаряды (без радиуса) в столкновении
+ * не участвуют.
+ */
+export function checkBulletInterceptions(
+  bullets: Bullet[],
+  enemyBullets: EBullet[]
+): BulletInterception {
+  const result: BulletInterception = { playerBullets: [], enemyBullets: [], count: 0 };
+
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+    if (!b.r || b.r <= 0) continue;
+
+    for (let j = enemyBullets.length - 1; j >= 0; j--) {
+      const eb = enemyBullets[j];
+      const dx = b.x - eb.x;
+      const dy = b.y - eb.y;
+      const reach = b.r + eb.r;
+      if (dx * dx + dy * dy > reach * reach) continue;
+
+      result.playerBullets.push(i);
+      result.enemyBullets.push(j);
+      result.count++;
+      break;
+    }
+  }
+
+  return result;
 }
 
 /**

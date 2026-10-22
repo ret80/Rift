@@ -26,9 +26,14 @@ export type IconKind =
   | "upgrade-speed"
   | "upgrade-guns"
   | "upgrade-drones"
-  | "upgrade-dashCooldown"
+  | "upgrade-dashDuration"
+  | "upgrade-grazeMomentum"
+  | "upgrade-phantomHitbox"
+  | "upgrade-solidBullets"
   /* HUD loadout row */
   | LoadoutIcon;
+
+/* ======================== Icon ======================== */
 
 const ENEMY_COLORS: Record<string, string> = {
   "enemy-drone": "#ff5d7e",
@@ -44,6 +49,8 @@ const PICKUP_COLORS: Record<string, string> = {
   "pickup-gun": "#5ef2ff",
   "pickup-drone": "#9dffe8",
   "pickup-mineral": "#7dffb8",
+  "weapon-weaver": "#c06bff",
+  "ability-quantum-swap": "#7cf3ff",
 };
 
 const UPGRADE_COLORS: Record<string, string> = {
@@ -53,7 +60,10 @@ const UPGRADE_COLORS: Record<string, string> = {
   "upgrade-speed": "#7dff9e",
   "upgrade-guns": "#5ef2ff",
   "upgrade-drones": "#c06bff",
-  "upgrade-dashCooldown": "#ffd23e",
+  "upgrade-dashDuration": "#ffd23e",
+  "upgrade-grazeMomentum": "#b9f6ff",
+  "upgrade-phantomHitbox": "#e6c8ff",
+  "upgrade-solidBullets": "#9dffe8",
 };
 
 function getIconColor(kind: IconKind): string {
@@ -142,8 +152,25 @@ function getIconPaths(kind: IconKind): React.ReactNode {
           <circle cx="12" cy="12" r="9" strokeOpacity="0.4" />
         </>
       );
-    case "upgrade-dashCooldown":
+    case "upgrade-dashDuration":
       return <circle cx="12" cy="12" r="8" />;
+    case "upgrade-grazeMomentum":
+      return <path d="M4 12 C8 4, 16 20, 20 12" />;
+    case "upgrade-phantomHitbox":
+      return (
+        <>
+          <circle cx="12" cy="12" r="8" />
+          <circle cx="12" cy="12" r="3" strokeOpacity="0.4" />
+        </>
+      );
+    case "upgrade-solidBullets":
+      return (
+        <>
+          <rect x="7" y="7" width="10" height="10" rx="2" />
+          <line x1="7" y1="12" x2="17" y2="12" strokeOpacity="0.4" />
+          <line x1="12" y1="7" x2="12" y2="17" strokeOpacity="0.4" />
+        </>
+      );
 
     /* Loadout row */
     case "weapon-cannon":
@@ -163,6 +190,13 @@ function getIconPaths(kind: IconKind): React.ReactNode {
           <circle cx="12" cy="8" r="1.4" strokeOpacity="0.7" />
         </>
       );
+    case "weapon-weaver":
+      return (
+        <>
+          <path d="M4 6 C8 10, 16 14, 20 18" />
+          <path d="M4 18 C8 14, 16 10, 20 6" />
+        </>
+      );
     case "bonus-dash":
       return (
         <>
@@ -170,7 +204,14 @@ function getIconPaths(kind: IconKind): React.ReactNode {
           <polyline points="13,5 19,12 13,19" />
         </>
       );
-
+    case "ability-quantum-swap":
+      return (
+        <>
+          <polyline points="4,8 9,8 4,13 9,13" />
+          <polyline points="20,16 15,16 20,11 15,11" />
+          <line x1="3" y1="12" x2="21" y2="12" strokeOpacity="0.4" />
+        </>
+      );
     default:
       return <circle cx="12" cy="12" r="8" />;
   }

@@ -5,8 +5,13 @@
  * Временные бонусы (темп огня, доп. стволы, рывок) живут в модуле
  * бонусов под управлением BonusManager, поэтому система ничего о них
  * не знает: рендер и оружие читают бонусы напрямую из менеджера.
+ *
+ * Множитель скорости складывается из двух источников:
+ *   • апгрейд «скорость» — постоянный, задаётся через setSpeedMult();
+ *   • импульс от касаний — временный, приходит из GrazeSystem.
  */
 
+import { PLAYER_HIT_INVULN } from '../balance/player';
 import type { EventBus } from '../core/EventBus';
 import type { Fx } from '../fx';
 import type { InputManager } from '../input';
@@ -21,13 +26,23 @@ export class PlayerSystem {
   private eventBus: EventBus;
   private input: InputManager;
   private fx: Fx;
+  /** Постоянный множитель скорости из апгрейдов. */
+  private speedMult = 1;
+  /** Поставщик временного множителя скорости (импульс касаний). */
+  private getMomentumMult: () => number;
 
   private pState: PlayerState;
 
-  constructor(eventBus: EventBus, input: InputManager, fx: Fx) {
+  constructor(
+    eventBus: EventBus,
+    input: InputManager,
+    fx: Fx,
+    getMomentumMult: () => number = () => 1,
+  ) {
     this.eventBus = eventBus;
     this.input = input;
     this.fx = fx;
+    this.getMomentumMult = getMomentumMult;
 
     this.pState = createPlayerState();
 
@@ -60,6 +75,18 @@ export class PlayerSystem {
     this.pState.hp = this.pState.maxHp;
   }
 
+  // ---- Persistent upgrades ----
+
+  /** Постоянный множитель скорости из апгрейда «скорость». */
+  setSpeedMult(mult: number): void {
+    this.speedMult = mult;
+  }
+
+  /** Радиус безопасного ядра хитбокса (апгрейд «фантомный хитбокс»). */
+  setCoreRadius(radius: number): void {
+    this.pState.core = radius;
+  }
+
   // ---- Getters ----
 
   /** Живая ссылка на состояние игрока. */
@@ -79,11 +106,24 @@ export class PlayerSystem {
     return this.pState.maxHp;
   }
 
+  /**
+   * Мгновенно перенести корабль в точку, сбросив скорость.
+   * Используется активной способностью «телепорт-подмена».
+   */
+  teleportTo(x: number, y: number): void {
+    this.pState.x = x;
+    this.pState.y = y;
+    this.pState.vx = 0;
+    this.pState.vy = 0;
+  }
+
   // ---- Core methods ----
 
   hit(dmg: number): void {
     if (this.pState.invuln > 0) return;
     this.pState.hp -= dmg;
+    // Кадры неуязвимости после попадания: спасают от залпа в упор.
+    this.pState.invuln = PLAYER_HIT_INVULN;
     if (this.pState.hp <= 0) {
       this.pState.hp = 0;
       this.eventBus.publish('game_over', {});
@@ -119,6 +159,7 @@ export class PlayerSystem {
       this.fx,
       ax * ax + ay * ay > 0,
       dashT,
+      this.speedMult * this.getMomentumMult(),
     );
 
     // Invulnerability timer

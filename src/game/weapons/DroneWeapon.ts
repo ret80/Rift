@@ -54,6 +54,7 @@ export class DroneWeapon implements Weapon {
   };
   readonly countUpgrade = "drones" as const;
   readonly usesDamageUpgrade = false;
+  readonly usesSolidUpgrade = false;
 
   /** Постоянные дроны из апгрейда — восстанавливаются после гибели. */
   private permanentDrones = 0;
