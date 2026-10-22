@@ -1,0 +1,144 @@
+/**
+ * PlayerRenderer — отрисовка корабля игрока.
+ * Извлечён из RendererSystem для разделения ответственности.
+ */
+
+import { C, RATE_BOOST_TIME } from "../../balance";
+import { clamp, rgba } from "../../math";
+import type { Renderer, RGBA } from "../../render";
+import { CANNON_BARREL_OFFSETS } from "../../weapons/CannonWeapon";
+import { drawShipPoly } from "./ShipRenderer";
+
+export interface PlayerRenderState {
+  x: number;
+  y: number;
+  angle: number;
+  aimA: number | null;
+  hp: number;
+  maxHp: number;
+  invuln: number;
+  guns: number;
+  rateT: number;
+  rateBoost: number;
+  dashT: number;
+  thrusting: boolean;
+  pvx: number;
+  pvy: number;
+}
+
+/**
+ * Нарисовать корабль игрока со всеми эффектами.
+ */
+export function renderPlayer(
+  R: Renderer,
+  player: PlayerRenderState,
+  time: number
+): void {
+  const blink = player.invuln > 0 ? (Math.sin(time * 30) > 0 ? 0.35 : 1) : 1;
+
+  // thruster
+  if (player.thrusting) {
+    const cos = Math.cos(player.angle);
+    const sin = Math.sin(player.angle);
+    const len = 10 + Math.random() * 8;
+    R.pushLine(
+      player.x - cos * 12, player.y - sin * 12,
+      player.x - cos * (12 + len), player.y - sin * (12 + len),
+      rgba(C.player, 0.6 * blink)
+    );
+  }
+
+  // dash shell
+  if (player.dashT > 0) {
+    renderDashShell(R, player, time);
+  }
+
+  // hull
+  drawShipPoly(
+    R, player.x, player.y, player.angle,
+    [[16, 0], [-11, 10], [-6, 0], [-11, -10]],
+    rgba(C.player, blink)
+  );
+
+  // turret
+  renderTurret(R, player, blink);
+
+  // fire-rate boost ring
+  if (player.rateT > 0) {
+    renderRateRing(R, player, time);
+  }
+}
+
+/** Отрисовка оболочки рывка. */
+function renderDashShell(R: Renderer, player: PlayerRenderState, time: number): void {
+  const a = player.angle;
+  const ca = Math.cos(a);
+  const sa = Math.sin(a);
+  const pulse = 1 + Math.sin(time * 16) * 0.08;
+  const L = 30 * pulse;
+  const Wd = 20 * pulse;
+  const tipX = player.x + ca * L;
+  const tipY = player.y + sa * L;
+  const w1x = player.x - ca * L * 0.55 - sa * Wd;
+  const w1y = player.y - sa * L * 0.55 + ca * Wd;
+  const w2x = player.x - ca * L * 0.55 + sa * Wd;
+  const w2y = player.y - sa * L * 0.55 - ca * Wd;
+  let glow = clamp(player.dashT / 0.4, 0, 1);
+  if (player.dashT < 1.0) {
+    const hz = 6 + (1 - player.dashT) * 12;
+    glow *= 0.55 + 0.45 * Math.sin(time * hz);
+  }
+  R.pushLine(tipX, tipY, w1x, w1y, rgba(C.dash, 0.95 * glow));
+  R.pushLine(tipX, tipY, w2x, w2y, rgba(C.dash, 0.95 * glow));
+  const L2 = L * 0.62;
+  const W2 = Wd * 0.62;
+  R.pushLine(
+    player.x + ca * L2, player.y + sa * L2,
+    player.x - ca * L2 * 0.55 - sa * W2, player.y - sa * L2 * 0.55 + ca * W2,
+    rgba(C.dash, 0.4 * glow)
+  );
+  R.pushLine(
+    player.x + ca * L2, player.y + sa * L2,
+    player.x - ca * L2 * 0.55 + sa * W2, player.y - sa * L2 * 0.55 - ca * W2,
+    rgba(C.dash, 0.4 * glow)
+  );
+}
+
+/** Отрисовка турели игрока. */
+function renderTurret(R: Renderer, player: PlayerRenderState, blink: number): void {
+  const ba = player.aimA !== null ? player.aimA : player.angle;
+  const gcos = Math.cos(ba);
+  const gsin = Math.sin(ba);
+  for (let i = 0; i < player.guns; i++) {
+    const o = CANNON_BARREL_OFFSETS[i] ?? 0;
+    const bx = player.x + 8 * gcos - o * gsin;
+    const by = player.y + 8 * gsin + o * gcos;
+    R.pushLine(bx, by, bx + 8 * gcos, by + 8 * gsin, rgba(C.mint, 0.85 * blink));
+  }
+  if (player.aimA !== null) {
+    R.pushLine(
+      player.x + Math.cos(player.aimA) * 20, player.y + Math.sin(player.aimA) * 20,
+      player.x + Math.cos(player.aimA) * 30, player.y + Math.sin(player.aimA) * 30,
+      rgba(C.mint, 0.3 * blink)
+    );
+  }
+}
+
+/** Отрисовка кольца бонуса темпа огня. */
+function renderRateRing(R: Renderer, player: PlayerRenderState, time: number): void {
+  const f = clamp(player.rateT / RATE_BOOST_TIME, 0, 1);
+  const rr = 26;
+  const segs = Math.max(6, Math.round(30 * f));
+  const a0 = -Math.PI / 2;
+  let pxp = player.x + Math.cos(a0) * rr;
+  let pyp = player.y + Math.sin(a0) * rr;
+  const blink = f < 0.2 ? (Math.sin(time * 14) > 0 ? 1 : 0.45) : 1;
+  for (let i = 1; i <= segs; i++) {
+    const a = a0 + (i / segs) * f * Math.PI * 2;
+    const nx = player.x + Math.cos(a) * rr;
+    const ny = player.y + Math.sin(a) * rr;
+    R.pushLine(pxp, pyp, nx, ny, rgba(C.fighter, 0.75 * blink));
+    pxp = nx;
+    pyp = ny;
+  }
+}
