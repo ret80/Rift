@@ -1,6 +1,7 @@
 /**
  * PickupDropSystem — генерация дропов из убитых врагов.
- * Отвечает только за логику дропов (части, бонусы), без физики столкновений.
+ * Отвечает только за логику дропов (части, бонусы).
+ * Подписывается на событие enemy_killed — единый путь гибели врага.
  */
 
 import { dropChanceFor, type PickupKind } from "../balance";
@@ -17,12 +18,29 @@ interface Enemy {
   seed: number;
 }
 
+export interface PickupDropHooks {
+  /** Заспавнить пикап в мире. */
+  spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number): void;
+  /** Начислить детали прокачки. */
+  addParts(amount: number): void;
+}
+
 export class PickupDropSystem {
   private eventBus: EventBus;
+  private hooks: PickupDropHooks;
   private enabledPickups: PickupKind[] | null = null;
 
-  constructor(eventBus: EventBus) {
+  constructor(eventBus: EventBus, hooks: PickupDropHooks) {
     this.eventBus = eventBus;
+    this.hooks = hooks;
+    this.eventBus.subscribe("enemy_killed", (event) => {
+      this.onEnemyKilled({
+        x: event.payload.x,
+        y: event.payload.y,
+        kind: event.payload.kind,
+        seed: (event.payload.seed ?? 0),
+      });
+    });
   }
 
   /**
@@ -89,16 +107,11 @@ export class PickupDropSystem {
 
   /**
    * Handle enemy death — spawn parts and optionally a pickup.
-   * This is the main entry point called after an enemy is killed.
    */
-  onEnemyKilled(
-    enemy: Enemy,
-    spawnPickupFn: (kind: PickupKind, x: number, y: number, vx: number, vy: number) => void,
-    spawnPartsFn: (amount: number, x: number, y: number) => void
-  ): void {
+  private onEnemyKilled(enemy: Enemy): void {
     // Always drop parts (currency for upgrades)
     const parts = this.partsAmountFor(enemy.kind);
-    spawnPartsFn(parts, enemy.x + (Math.random() - 0.5) * 10, enemy.y + (Math.random() - 0.5) * 10);
+    this.hooks.addParts(parts);
 
     // Occasionally drop special pickups too
     const kind = this.generateDrop(enemy.kind, enemy.seed);
@@ -107,6 +120,12 @@ export class PickupDropSystem {
     const vx = (Math.random() - 0.5) * 30;
     const vy = (Math.random() - 0.5) * 30;
 
-    spawnPickupFn(kind, enemy.x + (Math.random() - 0.5) * 10, enemy.y + (Math.random() - 0.5) * 10, vx, vy);
+    this.hooks.spawnPickup(
+      kind,
+      enemy.x + (Math.random() - 0.5) * 10,
+      enemy.y + (Math.random() - 0.5) * 10,
+      vx,
+      vy
+    );
   }
 }

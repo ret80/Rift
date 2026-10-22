@@ -68,11 +68,6 @@ export class AbilitySystem {
     this.abilities[id]?.grant();
   }
 
-  /** Выдать способность по идентификатору пикапа (null — не способность). */
-  grantForPickup(id: AbilityId | null): void {
-    if (id) this.grant(id);
-  }
-
   /** Сброс всех способностей — начало забега. */
   reset(): void {
     for (const ability of Object.values(this.abilities)) {

@@ -35,7 +35,7 @@ export const CANNON_BARREL_OFFSETS = [0, 9, -9, 17, -17];
 /** Разброс ручного прицела — цели нет, упреждение применить не к чему. */
 const CANNON_MANUAL_SPREAD = 0.02;
 /** Дистанция автонаведения пушки. */
-export const CANNON_TARGET_RANGE = 420;
+const CANNON_TARGET_RANGE = 420;
 
 export class CannonWeapon implements Weapon {
   readonly id: WeaponId = "cannon";

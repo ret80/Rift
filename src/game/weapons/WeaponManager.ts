@@ -14,8 +14,7 @@ import { PLAYER_AIM_BASE_CHANCE } from "../balance";
 import type { LoadoutSlotData } from "../loadout/LoadoutTypes";
 import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
 import type { AllyDrone, Bullet, Enemy, WeaveThread } from "../types";
-import { CANNON_TARGET_RANGE } from "./CannonWeapon";
-import { Targeting } from "./Targeting";
+import { Targeting, DEFAULT_TARGET_RANGE } from "./Targeting";
 import type {
   AimState,
   PlayerSnapshot,
@@ -53,11 +52,15 @@ export class WeaponManager {
   /** Шанс попадания орудий игрока из персистентного апгрейда «точность». */
   private hitChance = PLAYER_AIM_BASE_CHANCE;
 
-  constructor(world: WeaponWorld, onWeaponFired: (id: WeaponId) => void) {
+  constructor(
+    world: WeaponWorld,
+    onWeaponFired: (id: WeaponId) => void,
+    targetRange: number = DEFAULT_TARGET_RANGE
+  ) {
     this.world = world;
     this.onWeaponFired = onWeaponFired;
     this.weapons = createWeaponRegistry();
-    this.targeting = new Targeting(CANNON_TARGET_RANGE);
+    this.targeting = new Targeting(targetRange);
   }
 
   /** Тик оружия: обновить наведение и все виды оружия. */

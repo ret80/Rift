@@ -132,7 +132,6 @@ export class PlayerSystem {
 
   heal(amount: number): void {
     this.pState.hp = Math.min(this.pState.maxHp, this.pState.hp + amount);
-    this.eventBus.publish('player_healed', { hp: this.pState.hp });
   }
 
   // ---- Input delegation ----

@@ -12,6 +12,9 @@
 import type { Enemy } from "../types";
 import type { PlayerSnapshot } from "./Weapon";
 
+/** Дальность автонаведения по умолчанию (базовая для пушки). */
+export const DEFAULT_TARGET_RANGE = 420;
+
 export class Targeting {
   /** Ручной прицел (мышь/тач); null — прицел не задан. */
   private manualAngle: number | null = null;

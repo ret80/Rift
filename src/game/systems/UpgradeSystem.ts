@@ -12,9 +12,11 @@ import {
   type AppliedUpgrades,
 } from "../upgrades";
 import type { WeaponUpgrades } from "../weapons/Weapon";
+import type { PersistencePort } from "../core/PersistencePort";
 
 export class UpgradeSystem {
   private _playerUpgrades: PlayerUpgrades = {} as PlayerUpgrades;
+  private _storage!: PersistencePort;
 
   get playerUpgrades(): PlayerUpgrades {
     return this._playerUpgrades;
@@ -24,9 +26,10 @@ export class UpgradeSystem {
 
   /* ======================== Factory ======================== */
 
-  static create(): UpgradeSystem {
+  static create(storage: PersistencePort): UpgradeSystem {
     const sys = new UpgradeSystem();
-    sys._playerUpgrades = loadUpgradesRaw();
+    sys._storage = storage;
+    sys._playerUpgrades = loadUpgradesRaw(storage);
     sys._appliedUpgrades = applyUpgradesRaw(sys._playerUpgrades);
     return sys;
   }
@@ -71,7 +74,7 @@ export class UpgradeSystem {
   /* ======================== Refresh / Reload ======================== */
 
   refresh(): void {
-    this._playerUpgrades = loadUpgradesRaw();
+    this._playerUpgrades = loadUpgradesRaw(this._storage);
     this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades);
   }
 
@@ -84,16 +87,22 @@ export class UpgradeSystem {
     }
     if (this._playerUpgrades[key] == null) return false;
     (this._playerUpgrades[key] as number) += 1;
-    saveUpgradesRaw(this._playerUpgrades);
+    saveUpgradesRaw(this._playerUpgrades, this._storage);
     this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades);
     return true;
   }
 
   /* ======================== Parts management ======================== */
 
+  /** Добавить детали к прокачке (localStorage — через порт). */
   addParts(amount: number): void {
     this._playerUpgrades.parts += amount;
-    saveUpgradesRaw(this._playerUpgrades);
+    saveUpgradesRaw(this._playerUpgrades, this._storage);
+  }
+
+  /** Сохранить текущее состояние прокачки. */
+  save(): void {
+    saveUpgradesRaw(this._playerUpgrades, this._storage);
   }
 
   /* ======================== Accessors ======================== */

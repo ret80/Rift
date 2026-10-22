@@ -58,7 +58,6 @@ export function checkBulletCollisions(
   bullets: Bullet[],
   enemies: Enemy[],
   asteroids: Array<{ x: number; y: number; r: number; dead?: boolean }>,
-  onEnemyKilledCb: ((enemy: Enemy) => void) | null,
   damageAsteroidFn: (index: number, dmg: number, vx: number, vy: number, x: number, y: number) => void
 ): Set<number> {
   const toRemove = new Set<number>();
@@ -79,12 +78,12 @@ export function checkBulletCollisions(
 
         if (e.hp <= 0) {
           e.dead = true;
-          onEnemyKilledCb?.(e);
           eventBus.publish('enemy_killed', {
-            scoreValue: e.score,
+            score: e.score,
             kind: e.kind,
             x: e.x,
             y: e.y,
+            seed: e.seed,
           });
         }
         break;
@@ -132,6 +131,7 @@ export function checkEnemyBulletVsPlayer(
 
   for (let i = enemyBullets.length - 1; i >= 0; i--) {
     const b = enemyBullets[i];
+    if (!b) continue;
     const hit = segmentHitsHitbox(hitbox, b.px, b.py, b.x, b.y);
     if (hit) {
       // За кадр игрок получает не больше одного урона: первое попадание
@@ -198,6 +198,7 @@ export function checkEnemyBulletVsDrones(
 
   for (let i = enemyBullets.length - 1; i >= 0; i--) {
     const b = enemyBullets[i];
+    if (!b) continue;
     for (let j = drones.length - 1; j >= 0; j--) {
       const d = drones[j];
       if (!bulletHits(b.x, b.y, { x: d.x, y: d.y, r: d.r })) continue;

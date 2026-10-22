@@ -9,11 +9,6 @@
  */
 
 import type { PickupKind } from "../../balance";
-import {
-  DASH_BONUS_TIME,
-  GUN_BONUS_TIME,
-  RATE_BOOST_TIME,
-} from "../../balance/player";
 import type { BonusId, BonusKind, BonusMeta } from "./Bonus";
 import { DashBonus } from "./DashBonus";
 import { GunsBonus } from "./GunsBonus";
@@ -67,18 +62,6 @@ export function createBonusRegistry(): BonusRegistryData {
     guns: new GunsBonus(),
     dash: new DashBonus(),
   };
-}
-
-/** Длительность временного бонуса из реестра (для таймеров баланса). */
-export function bonusDuration(id: BonusId): number {
-  switch (id) {
-    case "rate":
-      return RATE_BOOST_TIME;
-    case "guns":
-      return GUN_BONUS_TIME;
-    case "dash":
-      return DASH_BONUS_TIME;
-  }
 }
 
 /**

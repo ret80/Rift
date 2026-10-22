@@ -1,4 +1,5 @@
 import { PickupKind } from "../balance";
+import { PICKUP_CATALOG } from "../balance/pickupCatalog";
 import type { AbilityId } from "../abilities/Ability";
 import type { WeaponId } from "../weapons/Weapon";
 
@@ -21,49 +22,34 @@ interface PickupDependencies {
 
 /**
  * ApplyPickupSystem — применяет поднятый пикап.
- *
- * Диспетчеризация разделена по ответственности:
- *   • временные бонусы — делегируются BonusManager (он знает виды бонусов);
+ * Эффект подбора берётся из каталога PICKUP_CATALOG:
+ *   • временные бонусы — делегируются BonusManager;
  *   • мгновенные бонусы (ремонт, минерал) — применяются здесь;
- *   • оружие — делегируется менеджеру оружия.
+ *   • оружие и способности — делегируются менеджерам.
  */
 export class ApplyPickupSystem {
   constructor(private deps: PickupDependencies) {}
 
   apply(kind: PickupKind): void {
-    switch (kind) {
-      case "heal25":
-        this.deps.heal(25);
+    const effect = PICKUP_CATALOG[kind].effect;
+    switch (effect.type) {
+      case "heal":
+        this.deps.heal(effect.amount);
         break;
-      case "heal50":
-        this.deps.heal(50);
-        break;
-      case "heal100":
-        this.deps.heal(100);
-        break;
-      case "hp":
-        this.deps.heal(25);
-        break;
-      case "mineral":
-        this.deps.addMinerals(1);
-        this.deps.addScore(50);
-        break;
-      case "drone":
-        this.deps.equipWeapon("drone");
-        break;
-      case "missile":
-        this.deps.equipWeapon("missile");
-        break;
-      case "weaver":
-        this.deps.equipWeapon("weaver");
-        break;
-      case "quantum_swap":
-        this.deps.grantAbility("quantum_swap");
-        break;
-      default:
+      case "bonus":
         // Временные бонусы (темп огня, стволы, рывок) — BonusManager сам
         // решает, относится ли пикап к его видам.
         this.deps.applyBonus(kind);
+        break;
+      case "weapon":
+        this.deps.equipWeapon(effect.id);
+        break;
+      case "ability":
+        this.deps.grantAbility(effect.id);
+        break;
+      case "mineral":
+        this.deps.addMinerals(effect.amount);
+        this.deps.addScore(effect.score);
         break;
     }
 

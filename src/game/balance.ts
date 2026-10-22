@@ -123,6 +123,7 @@ export {
 // Drop chances, pickup kinds, asteroid kinds
 export { dropChanceFor, ALL_PICKUP_KINDS, pickupDisplayKey } from "./balance/drops";
 export type { PickupKind, AsteroidKind } from "./balance/drops";
+export { PICKUP_CATALOG } from "./balance/pickupCatalog";
 
 // Lead prediction and shot dispersion
 export {

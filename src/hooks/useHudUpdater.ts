@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import type { HudData } from "../game/types/ui";
 import type { HudRefs } from "../ui/hudRefs";
+import { formatTime } from "../ui/utils/formatTime";
 
 export type { HudRefs } from "../ui/hudRefs";
 
@@ -72,11 +73,4 @@ export function useHudUpdater(
     },
     [refs, t]
   );
-}
-
-/* Keep formatTime local — it's tiny and avoids circular imports */
-function formatTime(s: number): string {
-  const m = Math.floor(s / 60);
-  const ss = Math.floor(s % 60);
-  return `${m}:${ss < 10 ? "0" : ""}${ss}`;
 }

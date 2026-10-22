@@ -49,11 +49,6 @@ export function renderEnemies(
   enemies: EnemyRenderState[],
   _time: number
 ) {
-  // Debug: log enemy types
-  const droneCount = enemies.filter(e => e.kind === EnemyKind.Drone).length;
-  if (droneCount > 0 && Math.random() < 0.01) {
-    console.log(`[RENDER] Rendering ${enemies.length} enemies, ${droneCount} drones`);
-  }
   for (const e of enemies) {
     if (e.dead) continue;
     const base = kindColor(e.kind);

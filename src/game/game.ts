@@ -13,7 +13,8 @@ import {
 } from "./balance";
 import { AudioManager } from "./systems/AudioManager";
 import type { PlayerUpgrades } from "./upgrades";
-import { loadBestWave, saveBestWave } from "./upgrades";
+import { UPGRADE_TIERS, upgradeCost, loadBestWave, saveBestWave } from "./upgrades";
+import type { PersistencePort } from "./core/PersistencePort";
 
 
 import {
@@ -26,6 +27,8 @@ import { Renderer } from "./render";
 import { DebugSystem } from "./systems/DebugSystem";
 import { MenuScene } from "./systems/MenuScene";
 import { ScoringSystem } from "./systems/ScoringSystem";
+import type { WorldFrame, AsteroidWorld } from "./core/WorldFrame";
+import type { RenderScene } from "./types/render";
 
 /* UI types — единый источник правды */
 import type { BannerData, CountData, HudData, PopupData, StatsData, ToastData } from "./types/ui";
@@ -101,7 +104,6 @@ export class Game {
   private _destroyed = false;
   private lastT = 0;
   private time = 0;
-  private timeScale = 1;
 
   private fpsEma = 60;
   private startWave = 1;
@@ -163,9 +165,7 @@ export class Game {
   /* Persistent upgrades */
   private upgradeSystem: UpgradeSystem;
 
-  private popupId = 0;
   private countId = 0;
-  private countdownClearTimer = 0;
 
   /* Camera - система управления камерой (smooth follow) */
   private cameraSystem: CameraSystem;
@@ -179,6 +179,8 @@ export class Game {
   /* Game state */
   private minerals = 0;
 
+  private readonly storage: PersistencePort;
+
   private onResize = () => {
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -186,11 +188,12 @@ export class Game {
     this.cameraSystem.resize(w, h, Math.min(window.devicePixelRatio || 1, 1.75));
   };
 
-  constructor(canvas: HTMLCanvasElement, hooks: Hooks) {
+  constructor(canvas: HTMLCanvasElement, hooks: Hooks, storage: PersistencePort) {
     this.renderer = new Renderer(canvas);
     this.hooks = hooks;
-    this.scoringSystem = new ScoringSystem();
-    this.upgradeSystem = UpgradeSystem.create();
+    this.storage = storage;
+    this.scoringSystem = new ScoringSystem({}, storage);
+    this.upgradeSystem = UpgradeSystem.create(storage);
 
     /* Initialize camera system first (needed by onResize) */
     this.cameraSystem = new CameraSystem();
@@ -339,14 +342,8 @@ export class Game {
     this.bulletSystem = new BulletSystem();
 
     this.spawnSystem = new SpawnSystem({
-      hooks: {
-        fx: this.fx,
-        audio: this.audio,
-      },
       eventBus: this.eventBus,
       riftField: this.riftField,
-      fx: this.fx,
-      audio: this.audio,
     });
 
     /* Weapons own the cannon, the missiles and the companion drones */
@@ -406,19 +403,14 @@ export class Game {
       this.eventBus
     );
 
-    this.dropSystem = new PickupDropSystem(this.eventBus);
+    this.dropSystem = new PickupDropSystem(this.eventBus, {
+      spawnPickup: (kind, x, y, vx, vy) => this.entityPool.spawnPickup(kind, x, y, vx, vy),
+      addParts: (n) => this.upgradeSystem.addParts(n),
+    });
 
     this.collisionSystem = new CollisionSystem(
       this.eventBus
     );
-
-    // Wire drop system callback to collision system
-    this.collisionSystem.setOnEnemyKilled((enemy) => {
-      this.dropSystem.onEnemyKilled(enemy,
-        (kind, x, y, vx, vy) => this.entityPool.spawnPickup(kind, x, y, vx, vy),
-        (n, _x, _y) => this.upgradeSystem.addParts(n)
-      );
-    });
 
     /* Initialize wave flow system (coordinates wave lifecycle) */
     this.waveFlowSystem = new WaveFlowSystem({
@@ -447,7 +439,6 @@ export class Game {
         this.countdownSystem.startWave(this.waveOrchestrator.wave);
       },
       onWaveComplete: () => {},
-      onWaveAdvanced: (_wave: number) => {},
       countdownDone: () => { this.fsm.fire("countdown_done"); },
       onPause: (paused: boolean) => { this.hooks.onPause(paused); this.audio.setSuspended(paused); },
     };
@@ -543,7 +534,7 @@ export class Game {
 
   private step(dt: number) {
     if (this._destroyed) return;
-    const dtScaled = dt * this.timeScale;
+    const dtScaled = dt;
     this.time += dtScaled;
 
     this.handleDebugKeys(dt);
@@ -600,45 +591,46 @@ export class Game {
       this.bulletSystem.update(dtScaled, this.entityPool.bulletList, this.entityPool.enemyBulletList);
     }
     const playerState = this.playerSystem.getPlayerRef();
-    // Get asteroids from asteroid field for collision
-    const asteroids = this.asteroidField.asteroidList as Array<{
-      x: number; y: number; r: number; vx: number; vy: number;
-      mass: number; kind: string;
-    }>;
+    const zoneState = this.waveOrchestrator.zoneState;
+    // Мир кадра — единая структура для систем (справочная; без копий пулов).
+    const world: WorldFrame = {
+      player: {
+        x: playerState.x,
+        y: playerState.y,
+        angle: playerState.angle,
+        vx: playerState.vx || 0,
+        vy: playerState.vy || 0,
+        r: PLAYER_HITBOX_RADIUS,
+        hp: playerState.hp,
+        maxHp: playerState.maxHp,
+        invuln: playerState.invuln,
+        mass: playerState.mass || 1,
+        thrusting: playerState.thrusting,
+        core: playerState.core,
+      },
+      enemies: this.entityPool.enemyList,
+      bullets: this.entityPool.bulletList,
+      enemyBullets: this.entityPool.enemyBulletList,
+      pickups: this.entityPool.pickupList,
+      allyDrones: this.entityPool.allyDroneList,
+      weaves: this.entityPool.weaveList,
+      asteroids: this.asteroidField.asteroidList as AsteroidWorld[],
+      zone: zoneState && zoneState.active ? zoneState : null,
+    };
     if (!isDead) {
-      this.collisionSystem.update(
-        dtScaled,
-        {
-          x: playerState.x,
-          y: playerState.y,
-          r: PLAYER_HITBOX_RADIUS,
-          hp: playerState.hp,
-          invuln: playerState.invuln,
-          mass: playerState.mass || 1,
-          vx: playerState.vx || 0,
-          vy: playerState.vy || 0,
-          core: playerState.core,
-        },
-        this.entityPool.enemyList,
-        this.entityPool.bulletList as Parameters<typeof this.collisionSystem.update>[3],
-        this.entityPool.enemyBulletList as Parameters<typeof this.collisionSystem.update>[4],
-        this.entityPool.pickupList as Parameters<typeof this.collisionSystem.update>[5],
-        this.entityPool.allyDroneList as Parameters<typeof this.collisionSystem.update>[6],
-        asteroids as Parameters<typeof this.collisionSystem.update>[7],
-        this.entityPool.weaveList as Parameters<typeof this.collisionSystem.update>[8]
-      );
-      this.pickupSystem.update(dtScaled, this.entityPool.pickupList, playerState.x, playerState.y);
+      this.collisionSystem.update(dtScaled, world);
+      this.pickupSystem.update(dtScaled, world.pickups, world.player.x, world.player.y);
       this.spawnSystem.update(dtScaled, {
         countdownSystem: this.countdownSystem,
-        zoneState: this.waveOrchestrator.zoneState.active ? this.waveOrchestrator.zoneState : null,
+        zoneState: world.zone ?? null,
         riftField: this.riftField,
         hooks: {
           onToast: (data) => this.hooks.onToast(data),
         },
         wave: this.waveOrchestrator.wave,
         killedWave: this.scoringSystem.killedWave,
-        playerX: playerState.x,
-        playerY: playerState.y,
+        playerX: world.player.x,
+        playerY: world.player.y,
       });
     }
     this.riftField.update(dtScaled);
@@ -668,17 +660,6 @@ export class Game {
         : null,
     } as import("./asteroids").AsteroidEnv);
 
-    // Handle countdown clear timer (dt-based, pause-safe)
-    if (this.countdownClearTimer > 0) {
-      if (!isDead && !this.paused) {
-        this.countdownClearTimer -= dtScaled;
-      }
-      if (this.countdownClearTimer <= 0) {
-        this.hooks.onCountdown(null);
-        this.countdownClearTimer = 0;
-      }
-    }
-
     this.render(dt);
     this.renderDebug();
     this.loadoutSystem.update(dtScaled);
@@ -691,57 +672,50 @@ export class Game {
     // Smooth camera follow (delegated to CameraSystem)
     this.cameraSystem.update(playerState, dt);
     const pos = this.cameraSystem.getPosition();
+    const zoneState = this.waveOrchestrator.zoneState;
 
-    this.rendererSystem.render(
-      this.renderer,
-      {
-        type: this.fsm.state as string,
-        time: this.time,
-        wave: this.waveOrchestrator.wave,
-        score: this.scoringSystem.score,
-      },
-      // Raw player data — RendererSystem builds PlayerRenderState
-      {
+    const scene: RenderScene = {
+      state: this.fsm.state as string,
+      time: this.time,
+      wave: this.waveOrchestrator.wave,
+      score: this.scoringSystem.score,
+      player: {
         x: playerState.x,
         y: playerState.y,
         angle: playerState.angle,
+        vx: playerState.vx || 0,
+        vy: playerState.vy || 0,
+        r: PLAYER_HITBOX_RADIUS,
         hp: playerState.hp,
         maxHp: playerState.maxHp,
         invuln: playerState.invuln,
+        mass: playerState.mass || 1,
         thrusting: playerState.thrusting,
-        pvx: playerState.vx || 0,
-        pvy: playerState.vy || 0,
+        core: playerState.core,
       },
-      this.weaponManager.getAimAngle(),
-      this.weaponManager.getInstanceCount("cannon"),
-      this.bonusManager.getRenderSnapshot(),
-      // Raw enemies
-      this.entityPool.enemyList,
-      // Raw bullets
-      this.entityPool.bulletList,
-      // Raw enemy bullets
-      this.entityPool.enemyBulletList,
-      // Raw pickups
-      this.entityPool.pickupList,
-      // Raw drones
-      this.entityPool.allyDroneList,
-      // Raw zone state
-      {
-        active: this.waveOrchestrator.zoneState.active,
-        x: this.waveOrchestrator.zoneState.x,
-        y: this.waveOrchestrator.zoneState.y,
-        radius: this.waveOrchestrator.zoneState.radius,
-        targetRadius: this.waveOrchestrator.zoneState.targetRadius,
-        alpha: this.waveOrchestrator.zoneState.alpha,
-      },
-      pos.x,
-      pos.y,
-      pos.zoom,
-      window.innerWidth,
-      window.innerHeight,
-      this.upgradeSystem.playerUpgrades.phantomHitbox,
-      this.entityPool.weaveList
-    );
+      aim: this.weaponManager.getAimAngle(),
+      guns: this.weaponManager.getInstanceCount("cannon"),
+      bonus: this.bonusManager.getRenderSnapshot(),
+      enemies: this.entityPool.enemyList,
+      bullets: this.entityPool.bulletList,
+      enemyBullets: this.entityPool.enemyBulletList,
+      pickups: this.entityPool.pickupList,
+      allyDrones: this.entityPool.allyDroneList,
+      weaves: this.entityPool.weaveList,
+      zone: zoneState.active ? {
+        active: zoneState.active,
+        x: zoneState.x,
+        y: zoneState.y,
+        radius: zoneState.radius,
+        targetRadius: zoneState.targetRadius,
+        alpha: zoneState.alpha,
+      } : null,
+      camera: { x: pos.x, y: pos.y, zoom: pos.zoom },
+      view: { width: window.innerWidth, height: window.innerHeight },
+      phantomLevel: this.upgradeSystem.playerUpgrades.phantomHitbox,
+    };
+
+    this.rendererSystem.render(this.renderer, scene);
   }
 
   private updateMenu(dt: number) {
@@ -833,6 +807,21 @@ export class Game {
       this.refreshUpgrades();
     }
     return success;
+  }
+
+  /** Купить апгрейд с проверкой стоимости (через порт хранилища). */
+  purchaseUpgradeCosted(key: keyof Omit<PlayerUpgrades, "parts">): boolean {
+    const ups = this.upgradeSystem.playerUpgrades;
+    const level = ups[key];
+    const cost = upgradeCost(key, level);
+    const tier = UPGRADE_TIERS[key];
+    if (level >= tier.maxLevel) return false;
+    if (ups.parts < cost) return false;
+    ups.parts -= cost;
+    (ups[key] as number) += 1;
+    this.upgradeSystem.save();
+    this.refreshUpgrades();
+    return true;
   }
 
   private handleDebugKeys(_dt: number) {
@@ -931,7 +920,7 @@ export class Game {
     this.spawnSystem.clearAnnounced();
     this.enemySystem.reset();
     this.enemyShootingSystem.reset();
-    const resetWaveStart = Math.max(this.startWave, loadBestWave());
+    const resetWaveStart = Math.max(this.startWave, loadBestWave(this.storage));
     this.enemySystem.setWave(resetWaveStart);
     this.enemyShootingSystem.setWave(resetWaveStart);
 
@@ -947,10 +936,9 @@ export class Game {
       this.audio,
       this.entityPool,
       this.scoringSystem,
-      (n) => this.spawnParts(n, 0, 0),
       {
         onGameOver: () => {
-          saveBestWave(this.waveOrchestrator.wave);
+          saveBestWave(this.waveOrchestrator.wave, this.storage);
           this.hooks.onGameOver();
         },
         onStats: (score, best, isBest, wave, kills, time) => {
@@ -968,10 +956,6 @@ export class Game {
     this.countdownSystem.startWave(this.waveOrchestrator.wave);
   }
 
-  private spawnParts(amount: number, _x: number, _y: number) {
-    this.upgradeSystem.addParts(amount);
-  }
-
   private spawnEnemy(kind: EnemyKind, x: number, y: number, parent: Enemy | null) {
     const playerPos = this.getPlayerPosition();
     this.enemySystem.spawn(kind, x, y, parent, this.entityPool.enemyList, playerPos);
@@ -979,22 +963,18 @@ export class Game {
 
   /**
    * Убить врага из активной способности.
-   * Повторяет путь гибели из коллизий: дроп деталей и пикапов,
-   * затем событие enemy_killed для счёта и завершения волны.
+   * Единый путь гибели: публикуется enemy_killed — дроп, счёт
+   * и завершение волны подписаны на это событие.
    */
   private killEnemy(enemy: Enemy): void {
     if (enemy.dead) return;
     enemy.dead = true;
-    this.dropSystem.onEnemyKilled(
-      enemy,
-      (kind, x, y, vx, vy) => this.entityPool.spawnPickup(kind, x, y, vx, vy),
-      (n, _x, _y) => this.upgradeSystem.addParts(n)
-    );
     this.eventBus.publish("enemy_killed", {
-      scoreValue: enemy.score,
+      score: enemy.score,
       kind: enemy.kind,
       x: enemy.x,
       y: enemy.y,
+      seed: enemy.seed,
     });
   }
 

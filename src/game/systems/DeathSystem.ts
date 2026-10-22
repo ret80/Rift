@@ -31,7 +31,6 @@ export class DeathSystem {
     private readonly audio: AudioManager,
     private readonly entityPool: EntityPoolSystem,
     private readonly scoringSystem: ScoringSystem,
-    private readonly addParts: (n: number) => void,
     private readonly hooks: DeathSystemHooks,
   ) {}
 

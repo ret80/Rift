@@ -14,11 +14,4 @@ export interface IEnemyStrategy {
    * @param dt - дельта времени в секундах
    */
   update(enemy: Enemy, context: GameContext, dt: number): void;
-
-  /**
-   * Отрисовать врага (опционально, может быть вынесено в рендерер).
-   * @param enemy - враг для отрисовки
-   * @param context - контекст для получения дополнительных данных
-   */
-  draw?(enemy: Enemy, context: GameContext): void;
 }

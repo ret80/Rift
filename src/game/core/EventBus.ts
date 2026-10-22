@@ -6,16 +6,13 @@
 // ===== Event Payload Types =====
 
 export interface EnemyKilledPayload {
-  scoreValue?: number;
-  kind?: string;
+  /** Очки за убийство врага. */
+  score: number;
+  kind: string;
   x: number;
   y: number;
-  enemy?: unknown;
-  score?: number;
-}
-
-export interface PlayerHealedPayload {
-  hp: number;
+  /** Семя врага — для детерминированного дропа. */
+  seed?: number;
 }
 
 export interface WaveStartedPayload {
@@ -49,14 +46,6 @@ export interface DronePushPlayerPayload {
   vy: number;
 }
 
-export interface SpawnPickupPayload {
-  kind: string;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-}
-
 export interface EnemyFiredPayload {
   x: number;
   y: number;
@@ -70,14 +59,6 @@ export interface EnemyFiredPayload {
   boltLife: number;
 }
 
-export interface ZoneStateChangePayload {
-  x: number;
-  y: number;
-  radius: number;
-  active: boolean;
-}
-
-/** Касание (грейз) вражеских снарядов игроком. */
 export interface BulletGrazedPayload {
   /** Сколько снарядов засчитано как касание за кадр. */
   count: number;
@@ -105,7 +86,6 @@ export interface ScoreAddedPayload {
 export type GameEventMap = {
   enemy_killed: EnemyKilledPayload;
   player_damaged: { dmg: number };
-  player_healed: PlayerHealedPayload;
   wave_started: WaveStartedPayload;
   wave_cleared: Record<string, never>;
   pickup_collected: PickupCollectedPayload;
@@ -113,9 +93,7 @@ export type GameEventMap = {
   game_over: Record<string, never>;
   drone_hit: DroneHitPayload;
   drone_push_player: DronePushPlayerPayload;
-  spawn_pickup: SpawnPickupPayload;
   enemy_fired: EnemyFiredPayload;
-  zone_state_change: ZoneStateChangePayload;
   bullet_grazed: BulletGrazedPayload;
   bullet_intercepted: BulletInterceptedPayload;
   score_added: ScoreAddedPayload;

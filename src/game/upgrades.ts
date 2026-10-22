@@ -8,6 +8,7 @@ import { playerHitChance } from "./balance/accuracy";
 import { PHANTOM_CORE_RADII, SOLID_BULLET_RADII } from "./balance/player";
 import { CANNON_MAX_BARRELS } from "./weapons/CannonWeapon";
 import { MAX_ALLY_DRONES } from "./weapons/DroneWeapon";
+import type { PersistencePort } from "./core/PersistencePort";
 
 /* ======================== Storage keys ======================== */
 
@@ -122,18 +123,6 @@ export function isMaxed(upgrades: PlayerUpgrades, key: UpgradeKey): boolean {
   return upgrades[key] >= UPGRADE_TIERS[key].maxLevel;
 }
 
-/** Purchase an upgrade (deducts parts, increases level) */
-export function purchaseUpgrade(upgrades: PlayerUpgrades, key: UpgradeKey): boolean {
-  const level = upgrades[key];
-  if (isMaxed(upgrades, key)) return false;
-  const cost = upgradeCost(key, level);
-  if (upgrades.parts < cost) return false;
-  upgrades.parts -= cost;
-  upgrades[key]++;
-  saveUpgrades(upgrades); // persist immediately
-  return true;
-}
-
 /* ======================== Persistence ======================== */
 
 /**
@@ -159,9 +148,9 @@ function migrate(parsed: Partial<PlayerUpgrades> & { dashCooldown?: number }): P
   return migrated;
 }
 
-export function loadUpgrades(): PlayerUpgrades {
+export function loadUpgrades(storage: PersistencePort): PlayerUpgrades {
   try {
-    const raw = localStorage.getItem(LS_KEY);
+    const raw = storage.get(LS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<PlayerUpgrades> & { dashCooldown?: number };
       if (parsed && typeof parsed === "object" && parsed.parts != null) {
@@ -172,19 +161,17 @@ export function loadUpgrades(): PlayerUpgrades {
   return defaultUpgrades();
 }
 
-export function saveUpgrades(upgrades: PlayerUpgrades): void {
+export function saveUpgrades(upgrades: PlayerUpgrades, storage: PersistencePort): void {
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify(upgrades));
+    storage.set(LS_KEY, JSON.stringify(upgrades));
   } catch { /* ignore */ }
 }
 
 /** Сбросить всю прокачку и детали */
-export function resetUpgrades(): PlayerUpgrades {
+export function resetUpgrades(storage: PersistencePort): PlayerUpgrades {
   const fresh = defaultUpgrades();
-  try {
-    localStorage.removeItem(LS_KEY);
-    localStorage.removeItem(LS_BEST_WAVE);
-  } catch { /* ignore */ }
+  storage.remove(LS_KEY);
+  storage.remove(LS_BEST_WAVE);
   return fresh;
 }
 
@@ -193,9 +180,9 @@ export function resetUpgrades(): PlayerUpgrades {
 /* ======================== Best wave tracking ======================== */
 
 /** Загрузить лучший результат по волнам */
-export function loadBestWave(): number {
+export function loadBestWave(storage: PersistencePort): number {
   try {
-    const raw = localStorage.getItem(LS_BEST_WAVE);
+    const raw = storage.get(LS_BEST_WAVE);
     if (raw) {
       const n = parseInt(raw, 10);
       if (!isNaN(n) && n > 0) return n;
@@ -205,11 +192,11 @@ export function loadBestWave(): number {
 }
 
 /** Сохранить лучший результат по волнам */
-export function saveBestWave(wave: number): void {
+export function saveBestWave(wave: number, storage: PersistencePort): void {
   try {
-    const current = loadBestWave();
+    const current = loadBestWave(storage);
     if (wave > current) {
-      localStorage.setItem(LS_BEST_WAVE, String(wave));
+      storage.set(LS_BEST_WAVE, String(wave));
     }
   } catch { /* ignore */ }
 }

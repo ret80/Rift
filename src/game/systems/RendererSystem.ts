@@ -17,7 +17,7 @@
 import type { AsteroidField } from "../asteroids";
 import { EnemyKind } from "../balance";
 import type { Fx } from "../fx";
-import type { Renderer } from "../render";
+import type { RenderScene } from "../types/render";import type { Renderer } from "../render";
 import { RiftField } from "../rifts";
 import type { Starfield } from "../starfield";
 import { renderPickups, buildPickupState, type PickupRenderState as PRS } from "./Renderers/PickupRenderer";
@@ -53,53 +53,34 @@ export class RendererSystem {
   /* ============================== main draw ============================== */
 
   /**
-   * Отрисовать игровой кадр.
-   * Принимает raw-данные — каждый рендерер строит свой state через buildState.
+   * Отрисовать игровой кадр по DTO.
+   * Каждый рендерер сам строит свой state через buildState.
    */
   render(
     R: Renderer,
-    gameState: { type: string; time: number; wave: number; score: number },
-    // Raw player data
-    playerState: {
-      x: number; y: number; angle: number; hp: number; maxHp: number;
-      invuln: number; thrusting: boolean; pvx: number; pvy: number;
-    } | null,
-    aimA: number | null,
-    guns: number,
-    bonus: { rateT: number; rateBoost: number; dashT: number },
-    // Raw enemy list
-    enemies: unknown[],
-    // Raw bullet lists
-    bullets: unknown[],
-    ebullets: unknown[],
-    // Raw pickups
-    pickups: unknown[],
-    // Raw drones
-    drones: unknown[],
-    // Raw zone state
-    zoneState: { active: boolean; x: number; y: number; radius: number; targetRadius: number; alpha: number } | null,
-    camX: number,
-    camY: number,
-    zoom: number,
-    viewW: number,
-    viewH: number,
-    phantomLevel = 0,
-    weaves: unknown[] = []
+    scene: RenderScene
   ) {
+    const {
+      state, time,
+      player, aim, guns, bonus,
+      enemies, bullets, enemyBullets: ebullets, pickups, allyDrones: drones, weaves,
+      zone: zoneState, camera, view, phantomLevel,
+    } = scene;
+
     // Build render states — each renderer owns its transformation
-    const playerRender = playerState
+    const playerRender = player
       ? buildPlayerState(
-          playerState.x, playerState.y, playerState.angle,
-          playerState.hp, playerState.maxHp, playerState.invuln,
-          playerState.thrusting, playerState.pvx, playerState.pvy,
-          aimA, guns, bonus, phantomLevel
+          player.x, player.y, player.angle,
+          player.hp, player.maxHp, player.invuln,
+          player.thrusting, player.vx, player.vy,
+          aim, guns, bonus, phantomLevel
         )
       : null;
 
     const enemyRender = buildEnemyState(enemies);
     const bulletRender = buildBulletState(bullets);
     const ebulletRender = buildEBulletState(ebullets);
-    const pickupRender = buildPickupState(pickups as any);
+    const pickupRender = buildPickupState(pickups as never[] as Parameters<typeof buildPickupState>[0]);
     const droneRender = buildDroneState(drones);
     const zoneRender = zoneState ? buildZoneState(
       zoneState.active, zoneState.x, zoneState.y,
@@ -108,11 +89,11 @@ export class RendererSystem {
 
     this.draw(
       R,
-      gameState.time,
-      camX,
-      camY,
-      zoom,
-      gameState.type as "menu" | "playing" | "active" | "cleared" | "dying" | "over",
+      time,
+      camera.x,
+      camera.y,
+      camera.zoom,
+      state as "menu" | "playing" | "active" | "cleared" | "dying" | "over",
       playerRender,
       enemyRender,
       bulletRender,
@@ -120,8 +101,8 @@ export class RendererSystem {
       pickupRender,
       droneRender,
       zoneRender,
-      viewW,
-      viewH,
+      view.width,
+      view.height,
       weaves as Array<{ x1: number; y1: number; x2: number; y2: number; life: number; maxLife: number }>
     );
   }

@@ -21,7 +21,6 @@ export interface GameFSMContext {
   onStartRun: (wave: number) => void;
   onWaveStart: (wave: number) => void;
   onWaveComplete: () => void;
-  onWaveAdvanced: (wave: number) => void;
   countdownDone: () => void;
   onPause: (paused: boolean) => void;
 }

@@ -4,6 +4,7 @@
  */
 
 import { C } from "../../balance";
+import { PICKUP_CATALOG } from "../../balance/pickupCatalog";
 import type { PickupKind } from "../../balance";
 import { rgba } from "../../math";
 import type { Renderer } from "../../render";
@@ -25,33 +26,9 @@ export function buildPickupState(pickups: unknown[]): PickupRenderState[] {
   return pickups as unknown as PickupRenderState[];
 }
 
-/** Цвет пикапа по его виду. */
+/** Цвет пикапа по его виду — из каталога. */
 function colorFor(kind: PickupKind): string {
-  switch (kind) {
-    case "heal25":
-    case "heal50":
-    case "heal100":
-    case "hp":
-    case "mineral":
-      return C.heal;
-    case "rate20":
-    case "rate40":
-    case "rate60":
-    case "rate":
-      return C.fighter;
-    case "gun":
-      return C.player;
-    case "dash":
-      return C.dash;
-    case "drone":
-      return C.mint;
-    case "missile":
-      return C.bullet;
-    case "weaver":
-      return C.cruiser;
-    case "quantum_swap":
-      return "#7cf3ff";
-  }
+  return PICKUP_CATALOG[kind].color;
 }
 
 export function renderPickups(

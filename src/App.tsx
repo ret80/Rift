@@ -10,13 +10,13 @@ import type {
     ToastData
 } from "./game/types/ui";
 
-import {
-    Game
-} from "./game/game";
+import { Game } from "./game/game";
 import { resetGameState } from "./game/resetGameState";
 import { resetUpgrades } from "./game/upgrades";
+import { createLocalStoragePort } from "./game/core/PersistencePort";
+import type { PersistencePort } from "./game/core/PersistencePort";
 import { useHudUpdater } from "./hooks/useHudUpdater";
-import { usePersistedState } from "./hooks/usePersistedState";
+import { usePersistentSettings } from "./hooks/usePersistentSettings";
 import { t } from "./i18n";
 import FloatingPopup from "./ui/FloatingPopup";
 import {
@@ -109,27 +109,25 @@ export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const gameRef = useRef<Game | null>(null);
   const fpsTextRef = useRef<HTMLDivElement | null>(null);
+  const popupTimers = useRef(new Map<number, number>());
+  const storageRef = useRef<PersistencePort | null>(null);
+  if (!storageRef.current) {
+    storageRef.current = createLocalStoragePort();
+  }
 
   const [state, dispatch] = useReducer(appReducer, initState);
   const { screen, paused, stats, banner, toast, countdown, popups } = state;
 
-  /* Persisted state — replaces 4× localStorage boilerplate */
-  const [vols, setVols] = usePersistedState(
-    "rift9_volumes",
-    { master: 0.8, sfx: 0.8, music: 0.55 }
-  );
-  const [debugFps, setDebugFps] = usePersistedState("rift9_debug_fps", false);
-  const [debugGod, setDebugGod] = usePersistedState("rift9_debug_god", false);
-  const [debugWave, setDebugWave] = usePersistedState("rift9_debug_wave", 1);
-  const [debugDetails, setDebugDetails] = usePersistedState("rift9_debug_details", false);
-  const [enabledEnemies, setEnabledEnemies] = usePersistedState<EnemyKind[]>(
-    "rift9_debug_enemies",
-    [EnemyKind.Drone, EnemyKind.Hunter, EnemyKind.Fighter, EnemyKind.Cruiser, EnemyKind.Carrier]
-  );
-  const [enabledPickups, setEnabledPickups] = usePersistedState<PickupKind[]>(
-    "rift9_debug_pickups",
-    [...ALL_PICKUP_KINDS]
-  );
+  /* Persisted state — настройки вынесены в отдельный хук */
+  const {
+    vols, setVols,
+    debugFps, setDebugFps,
+    debugGod, setDebugGod,
+    debugWave, setDebugWave,
+    debugDetails, setDebugDetails,
+    enabledEnemies, setEnabledEnemies,
+    enabledPickups, setEnabledPickups,
+  } = usePersistentSettings();
 
   /* Touch detection (runtime only, not persisted) */
   const [isTouch] = useState(
@@ -194,10 +192,10 @@ export default function App() {
       gameRef.current = null;
     }
 
-    const mqCompact = window.matchMedia("(max-width: 639px)");
-
     let bannerId = 0;
     let toastId = 0;
+    const timers = popupTimers.current;
+    const storage = storageRef.current!;
     const game = new Game(canvas, {
       onHud,
       onBanner: (b) => dispatch({ type: "SET_BANNER", banner: b ? { ...b, id: bannerId++ } : null }),
@@ -205,9 +203,11 @@ export default function App() {
       onCountdown: (c) => dispatch({ type: "SET_COUNTDOWN", countdown: c }),
       onPopup: (p) => {
         dispatch({ type: "ADD_POPUP", popup: p });
-        window.setTimeout(() => {
+        // Таймаут очистки попапа — без утечки: сбрасывается при размонтировании.
+        timers.set(p.id, window.setTimeout(() => {
+          timers.delete(p.id);
           dispatch({ type: "REMOVE_POPUP", id: p.id });
-        }, 950);
+        }, 950));
       },
       onStats: (s) => {
         dispatch({ type: "SET_STATS", stats: s });
@@ -217,7 +217,7 @@ export default function App() {
       onGameOver: () => {
         // Stats will be set via onStats when dying → over transition completes
       },
-    });
+    }, storage);
     game.setVolumes(vols);
     game.setEnabledEnemies(enabledEnemies.length === ENEMY_KIND_COUNT ? null : enabledEnemies);
     gameRef.current = game;
@@ -263,6 +263,10 @@ export default function App() {
     return () => {
       window.removeEventListener("pointerdown", onFirstGesture, true);
       window.removeEventListener("keydown", onFirstGesture, true);
+      for (const id of timers.values()) {
+        window.clearTimeout(id);
+      }
+      timers.clear();
       game.destroy();
       gameRef.current = null;
     };
@@ -271,7 +275,7 @@ export default function App() {
 
   /* ---------------- dev tools ---------------- */
 
-  const toggleDebugFps = () => setDebugFps((v) => !v);
+  const toggleDebugFps = () => setDebugFps(!debugFps);
 
   const toggleDebugGod = () => {
     const nv = !debugGod;
@@ -284,7 +288,7 @@ export default function App() {
     gameRef.current?.setStartWave(n);
   };
 
-  const toggleDebugDetails = () => setDebugDetails((v) => !v);
+  const toggleDebugDetails = () => setDebugDetails(!debugDetails);
 
   // Sync enabled enemies/pickups to game when changing from persisted state
   useEffect(() => {
@@ -420,7 +424,7 @@ export default function App() {
           }}
           onReset={() => {
             if (window.confirm(t("settings.resetConfirm"))) {
-              resetUpgrades(); // clear localStorage
+              resetUpgrades(storageRef.current!);
               if (gameRef.current) {
                 gameRef.current.refreshUpgrades();
               }

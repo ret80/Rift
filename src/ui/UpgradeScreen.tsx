@@ -1,12 +1,7 @@
 import { useEffect, useState } from "react";
 import { playerHitChance } from "../game/balance/accuracy";
 import type { Game } from "../game/game";
-import {
-    purchaseUpgrade,
-    UPGRADE_TIERS,
-    upgradeCost,
-    type PlayerUpgrades
-} from "../game/upgrades";
+import { UPGRADE_TIERS, upgradeCost, type PlayerUpgrades } from "../game/upgrades";
 import { useT } from "../i18n";
 import { Icon } from "./components/Icon";
 
@@ -145,16 +140,7 @@ export function UpgradeScreen(props: {
     }
     const success = props.detailsOn
       ? props.game.purchaseUpgradeNoCost(key)
-      : (() => {
-          const ups = props.game.getPlayerUpgrades();
-          // snapshot for the check — never mutate the live object
-          const maxed = ups[key] >= UPGRADE_TIERS[key].maxLevel;
-          if (maxed) {
-            console.warn(`[UpgradeScreen] ${key} is maxed`);
-            return false;
-          }
-          return purchaseUpgrade(ups, key);
-        })();
+      : props.game.purchaseUpgradeCosted(key);
     if (success) {
       setUpgrades(copyUpgrades(props.game.getPlayerUpgrades()));
     }

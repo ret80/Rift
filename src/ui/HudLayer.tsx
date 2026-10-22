@@ -51,7 +51,7 @@ export function HudLayer(props: { r: HudRefs; godOn: boolean }) {
                 <div ref={r.minerals} className="flex items-center gap-1 text-[9px] font-bold tracking-[0.08em] text-[#7dffb8] sm:text-[10px]">
                   <MineralGlyph /> 0
                 </div>
-                <div className="parts-display flex items-center gap-1 text-[9px] font-bold tracking-[0.08em] text-[#ffb84d] sm:text-[10px]" aria-label={t("hud.partsLabel", { defaultValue: "parts" })}>
+                <div className="parts-display flex items-center gap-1 text-[9px] font-bold tracking-[0.08em] text-[#ffb84d] sm:text-[10px]" aria-label={t("upgrade.partsLabel")}>
                   <PartsGlyph /> <span ref={r.parts}>0</span>
                 </div>
               </div>

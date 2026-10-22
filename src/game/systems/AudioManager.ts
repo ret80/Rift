@@ -5,7 +5,7 @@
  */
 
 import { AudioEngine, type Volumes } from "../audio";
-import { PickupKind } from "../balance";
+import { PickupKind, PICKUP_CATALOG } from "../balance";
 
 export class AudioManager {
   readonly engine: AudioEngine;
@@ -40,19 +40,13 @@ export class AudioManager {
 
   /** Воспроизвести звук подбора предмета */
   playPickupSound(kind: PickupKind): void {
-    switch (kind) {
+    switch (PICKUP_CATALOG[kind].display) {
       // Heal pickups → heal sound
-      case "heal25":
-      case "heal50":
-      case "heal100":
-      case "hp":
+      case "heal":
         this.engine.pickupHeal();
         break;
 
       // Rate pickups → rate sound
-      case "rate20":
-      case "rate40":
-      case "rate60":
       case "rate":
         this.engine.pickupRate();
         break;
@@ -75,6 +69,9 @@ export class AudioManager {
 
       // Mineral → no special sound (silence)
       case "mineral":
+      // Weaver / quantum_swap — без отдельного звука (как было раньше)
+      case "weaver":
+      case "quantum_swap":
         break;
     }
   }

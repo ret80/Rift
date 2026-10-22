@@ -4,6 +4,7 @@
  */
 
 import type { EventBus } from '../core/EventBus';
+import type { PersistencePort } from '../core/PersistencePort';
 
 const BEST_KEY = "voxbest";
 const COMBO_TIMEOUT = 3;
@@ -31,23 +32,19 @@ export class ScoringSystem {
   private _runTime = 0;
 
   private readonly hooks: ScoringHooks;
+  private readonly storage: PersistencePort;
   private _killedWave = 0;
 
-  constructor(hooks: ScoringHooks = {}) {
+  constructor(hooks: ScoringHooks = {}, storage: PersistencePort) {
     this.hooks = hooks;
-    this._best = (() => {
-      try {
-        return Number(localStorage.getItem(BEST_KEY)) || 0;
-      } catch {
-        return 0;
-      }
-    })();
+    this.storage = storage;
+    this._best = Number(storage.get(BEST_KEY)) || 0;
   }
 
   /** Subscribe to enemy_killed events and auto-update score/kills/combo */
   subscribeToEvents(eventBus: EventBus): void {
     eventBus.subscribe('enemy_killed', (event) => {
-      const scoreValue = event.payload.scoreValue ?? event.payload.score ?? 0;
+      const scoreValue = event.payload.score;
       this._killedWave = this.onKill(scoreValue, this._killedWave);
     });
     eventBus.subscribe('score_added', (event) => {
@@ -115,12 +112,7 @@ export class ScoringSystem {
   checkNewBest(): boolean {
     if (this._score > this._best) {
       this._best = this._score;
-      try {
-        localStorage.setItem(BEST_KEY, String(this._best));
-      } catch {
-        /* storage full / private mode — silent */
-      }
-      // Новый рекорд сохранён; UI при желании может реагировать через hooks (убрано)
+      this.storage.set(BEST_KEY, String(this._best));
       return true;
     }
     return false;

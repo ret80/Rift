@@ -14,10 +14,8 @@ import {
     zoneRadiusFor,
 } from "../balance";
 import type { EventBus } from "../core/EventBus";
-import type { Fx } from "../fx";
 import { TAU } from "../math";
 import type { RiftField } from "../rifts";
-import type { AudioManager } from "./AudioManager";
 
 /** Dependencies injected to avoid tight coupling with Game. */
 export interface SpawnDependencies {
@@ -82,11 +80,8 @@ export class SpawnSystem {
   }
 
   constructor(config: {
-    hooks?: unknown;
     eventBus: EventBus;
     riftField: RiftField;
-    fx?: unknown;
-    audio?: unknown;
   }) {
     this.eventBus = config.eventBus;
     this.riftField = config.riftField;
