@@ -62,10 +62,10 @@ export type WaveStateId = "inactive" | "active" | "cleared";
 
 // ============================== Internal Timing Constants ==============================
 
-/** Duration for clearing short toast notifications (ms) */
-const TOAST_CLEAR_SHORT = 1500;
-/** Duration for clearing banner toast notifications (ms) */
-const TOAST_CLEAR_LONG = 2000;
+/** Duration for clearing short toast notifications (seconds, frame-based) */
+const TOAST_CLEAR_SHORT = 1.5;
+/** Duration for clearing banner toast notifications (seconds, frame-based) */
+const TOAST_CLEAR_LONG = 2.0;
 
 export class WaveOrchestrator {
   private hooks: WaveOrchestratorHooks;
@@ -89,8 +89,8 @@ export class WaveOrchestrator {
   private edgeTickT: number = 0;
   private edgeWarned: boolean = false;
 
-  // Timeout tracking — cleared on reset to prevent leaks
-  private timeoutIds: ReturnType<typeof setTimeout>[] = [];
+  // Toast clear timer — frame-based, cleared on reset to prevent leaks
+  private toastClearTimer: number = 0;
 
   constructor(config: WaveOrchestratorConfig) {
     this.hooks = config.hooks;
@@ -253,11 +253,8 @@ export class WaveOrchestrator {
     // Reset wave state
     this._waveState = "active";
 
-    // Clear all pending timeouts to prevent leaks
-    for (const id of this.timeoutIds) {
-      clearTimeout(id);
-    }
-    this.timeoutIds = [];
+    // Сбросить таймер очистки toast
+    this.toastClearTimer = 0;
   }
 
   // ============================== Private methods ==============================
@@ -283,9 +280,17 @@ export class WaveOrchestrator {
         t("game.nextWave", { wave: this._wave + 1 }),
         "#6f6"
       );
-      // Schedule toast clear after TOAST_CLEAR_LONG ms
-      const toastClearId = setTimeout(() => this.hooks.onToast("", ""), TOAST_CLEAR_LONG);
-      this.timeoutIds.push(toastClearId);
+      // Запускаем frame-based таймер очистки toast
+      this.toastClearTimer = TOAST_CLEAR_LONG;
+    }
+
+    // Обновляем таймер очистки toast
+    if (this.toastClearTimer > 0) {
+      this.toastClearTimer -= dt;
+      if (this.toastClearTimer <= 0) {
+        this.hooks.onToast("", "");
+        this.toastClearTimer = 0;
+      }
     }
 
     // Smoothly expand zone and reduce alpha before disappearing
@@ -327,9 +332,8 @@ export class WaveOrchestrator {
       if (!this.edgeWarned && this.edgeOutT > ZONE_EDGE_WARNING_DELAY) {
         this.edgeWarned = true;
         this.hooks.onToast(t("game.zoneWarning"), "#fa5");
-        // Schedule toast clear after TOAST_CLEAR_SHORT ms
-        const toastClearId = setTimeout(() => this.hooks.onToast("", ""), TOAST_CLEAR_SHORT);
-        this.timeoutIds.push(toastClearId);
+        // Запускаем frame-based таймер очистки toast
+        this.toastClearTimer = TOAST_CLEAR_SHORT;
       }
       if (this.edgeTickT > ZONE_EDGE_DAMAGE_INTERVAL) {
         this.edgeTickT = 0;

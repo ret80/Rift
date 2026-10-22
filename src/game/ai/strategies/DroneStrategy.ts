@@ -9,7 +9,7 @@
 import type { Enemy } from '../../types';
 import type { GameContext } from '../GameContext';
 import type { IEnemyStrategy } from '../IEnemyStrategy';
-import { lerpAngle } from '../../math';
+import { lerpAngle, angleTo, smoothVelocity } from '../../math';
 
 export class DroneStrategy implements IEnemyStrategy {
   update(enemy: Enemy, context: GameContext, dt: number): void {
@@ -62,46 +62,48 @@ export class DroneStrategy implements IEnemyStrategy {
     * Атака — преследование игрока
     */
    private updateAttacking(enemy: Enemy, context: GameContext, dt: number): void {
-     const { playerX, playerY } = context;
-     const angleToPlayer = Math.atan2(playerY - enemy.y, playerX - enemy.x);
+      const { playerX, playerY } = context;
+      const angleToPlayer = angleTo(enemy.x, enemy.y, playerX, playerY);
 
-    // Фланговое смещение
-    const flankFactor = Math.min(0.3, 0.05 + context.wave * 0.01);
-    const flankAngle = Math.sin(enemy.seed + context.wave * 0.5) * flankFactor;
-    const targetAngle = angleToPlayer + flankAngle;
+     // Фланговое смещение
+     const flankFactor = Math.min(0.3, 0.05 + context.wave * 0.01);
+     const flankAngle = Math.sin(enemy.seed + context.wave * 0.5) * flankFactor;
+     const targetAngle = angleToPlayer + flankAngle;
 
-    const speed = enemy.speed;
+     const speed = enemy.speed;
 
-    const k = 1 - Math.exp(-6 * dt);
-    enemy.vx += (Math.cos(targetAngle) * speed - enemy.vx) * k;
-    enemy.vy += (Math.sin(targetAngle) * speed - enemy.vy) * k;
+     // Целевая скорость в направлении targetAngle
+     const targetVx = Math.cos(targetAngle) * speed;
+     const targetVy = Math.sin(targetAngle) * speed;
+     smoothVelocity(enemy, targetVx, targetVy, 6, dt);
 
-    const dsp = Math.hypot(enemy.vx, enemy.vy);
-    if (dsp > 5) {
-      const movementAngle = Math.atan2(enemy.vy, enemy.vx);
-      enemy.angle = lerpAngle(enemy.angle, movementAngle, 1 - Math.exp(-5 * dt));
-    }
-  }
+     const dsp = Math.hypot(enemy.vx, enemy.vy);
+     if (dsp > 5) {
+       const movementAngle = Math.atan2(enemy.vy, enemy.vx);
+       enemy.angle = lerpAngle(enemy.angle, movementAngle, 1 - Math.exp(-5 * dt));
+     }
+   }
 
   /**
     * Обычное поведение — прямое преследование (без parent)
     */
    private updateNormal(enemy: Enemy, context: GameContext, dt: number): void {
-     const { playerX, playerY } = context;
-     const angleToPlayer = Math.atan2(playerY - enemy.y, playerX - enemy.x);
-    const flankFactor = Math.min(0.3, 0.05 + context.wave * 0.01);
-    const flankAngle = Math.sin(enemy.seed + context.wave * 0.5) * flankFactor;
-    const targetAngle = angleToPlayer + flankAngle;
+      const { playerX, playerY } = context;
+      const angleToPlayer = angleTo(enemy.x, enemy.y, playerX, playerY);
+     const flankFactor = Math.min(0.3, 0.05 + context.wave * 0.01);
+     const flankAngle = Math.sin(enemy.seed + context.wave * 0.5) * flankFactor;
+     const targetAngle = angleToPlayer + flankAngle;
 
-    const speed = enemy.speed;
-    const k = 1 - Math.exp(-6 * dt);
-    enemy.vx += (Math.cos(targetAngle) * speed - enemy.vx) * k;
-    enemy.vy += (Math.sin(targetAngle) * speed - enemy.vy) * k;
+     const speed = enemy.speed;
+     // Целевая скорость в направлении targetAngle
+     const targetVx = Math.cos(targetAngle) * speed;
+     const targetVy = Math.sin(targetAngle) * speed;
+     smoothVelocity(enemy, targetVx, targetVy, 6, dt);
 
-    const dsp = Math.hypot(enemy.vx, enemy.vy);
-    if (dsp > 5) {
-      const movementAngle = Math.atan2(enemy.vy, enemy.vx);
-      enemy.angle = lerpAngle(enemy.angle, movementAngle, 1 - Math.exp(-5 * dt));
-    }
-  }
+     const dsp = Math.hypot(enemy.vx, enemy.vy);
+     if (dsp > 5) {
+       const movementAngle = Math.atan2(enemy.vy, enemy.vx);
+       enemy.angle = lerpAngle(enemy.angle, movementAngle, 1 - Math.exp(-5 * dt));
+     }
+   }
 }

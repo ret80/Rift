@@ -13,7 +13,7 @@
  *    (движение внутрь зоны/к игроку tangent не перехватывает).
  */
 
-import { lerpAngle } from '../../math';
+import { lerpAngle, smoothVelocity } from '../../math';
 import type { Enemy } from '../../types';
 import type { GameContext } from '../GameContext';
 import type { IEnemyStrategy } from '../IEnemyStrategy';
@@ -173,9 +173,10 @@ export class FighterStrategy implements IEnemyStrategy {
     // --- Плавный разворот и применение скорости ---
     enemy.angle = lerpAngle(enemy.angle, targetMoveAngle, turnRate);
 
-    const k = 1 - Math.exp(-5 * dt);
-    enemy.vx += (Math.cos(targetMoveAngle) * speed - enemy.vx) * k;
-    enemy.vy += (Math.sin(targetMoveAngle) * speed - enemy.vy) * k;
+    // Целевая скорость в направлении targetMoveAngle
+    const targetVx = Math.cos(targetMoveAngle) * speed;
+    const targetVy = Math.sin(targetMoveAngle) * speed;
+    smoothVelocity(enemy, targetVx, targetVy, 5, dt);
   }
 
   /**

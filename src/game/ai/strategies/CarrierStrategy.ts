@@ -21,7 +21,7 @@ import type { Enemy } from '../../types';
 import type { GameContext } from '../GameContext';
 import type { IEnemyStrategy } from '../IEnemyStrategy';
 import { ENEMY_MAX_DRONES } from '../../balance';
-import { lerpAngle } from '../../math';
+import { lerpAngle, smoothVelocity } from '../../math';
 
 export class CarrierStrategy implements IEnemyStrategy {
 
@@ -58,9 +58,7 @@ export class CarrierStrategy implements IEnemyStrategy {
     }
 
     // Применяем скорость с сглаживанием
-    const k = 1 - Math.exp(-2.2 * dt);
-    enemy.vx += (desX - enemy.vx) * k;
-    enemy.vy += (desY - enemy.vy) * k;
+    smoothVelocity(enemy, desX, desY, 2.2, dt);
 
     // Вращение: смотреть по направлению движения
     const sp = Math.hypot(enemy.vx, enemy.vy);

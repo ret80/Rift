@@ -9,7 +9,7 @@
  * точка встречи смещается, и хантер автоматически корректирует маршрут.
  */
 
-import { lerpAngle } from '../../math';
+import { lerpAngle, smoothVelocity } from '../../math';
 import type { Enemy } from '../../types';
 import type { GameContext } from '../GameContext';
 import type { IEnemyStrategy } from '../IEnemyStrategy';
@@ -96,9 +96,10 @@ export class HunterStrategy implements IEnemyStrategy {
     // У самой точки встречи тормозим, чтобы не проскочить мимо игрока
     const targetSpeed = enemy.speed * Math.min(1, gd / BRAKE_DIST);
 
-    const k = 1 - Math.exp(-(gd < 120 ? 7.5 : 4.5) * dt);
-    enemy.vx += ((gx / gd) * targetSpeed - enemy.vx) * k;
-    enemy.vy += ((gy / gd) * targetSpeed - enemy.vy) * k;
+    // Целевая скорость в направлении цели
+    const targetVx = (gx / gd) * targetSpeed;
+    const targetVy = (gy / gd) * targetSpeed;
+    smoothVelocity(enemy, targetVx, targetVy, gd < 120 ? 7.5 : 4.5, dt);
 
     // Вращение: смотреть по направлению движения
     const hv = Math.hypot(enemy.vx, enemy.vy);

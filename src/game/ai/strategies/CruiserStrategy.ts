@@ -7,7 +7,7 @@ import type { Enemy } from '../../types';
 import type { GameContext } from '../GameContext';
 import type { IEnemyStrategy } from '../IEnemyStrategy';
 import { EnemyKind } from '../../balance';
-import { lerpAngle } from '../../math';
+import { lerpAngle, smoothVelocity } from '../../math';
 
 export class CruiserStrategy implements IEnemyStrategy {
   update(enemy: Enemy, context: GameContext, dt: number): void {
@@ -67,9 +67,7 @@ export class CruiserStrategy implements IEnemyStrategy {
     }
 
     // Применяем скорость с сглаживанием
-    const k = 1 - Math.exp(-2.8 * dt);
-    enemy.vx += (desX - enemy.vx) * k;
-    enemy.vy += (desY - enemy.vy) * k;
+    smoothVelocity(enemy, desX, desY, 2.8, dt);
 
     // Вращение: смотреть по направлению движения
     const sp = Math.hypot(enemy.vx, enemy.vy);

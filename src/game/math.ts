@@ -68,3 +68,36 @@ export function createRng(seed: number) {
     return (s >>> 0) / 4294967296;
   };
 }
+
+// ============================== AI helpers ==============================
+
+/**
+ * Вычислить угол от позиции (fx, fy) до позиции (tx, ty).
+ * Утилита для AI-стратегий — заменяет повторяющийся Math.atan2(dy, dx).
+ */
+export function angleTo(fx: number, fy: number, tx: number, ty: number): number {
+  return Math.atan2(ty - fy, tx - fx);
+}
+
+/**
+ * Плавное применение target velocity к enemy с exponential smoothing.
+ * Используется во всех AI-стратегиях — заменяет дублирующийся паттерн:
+ *   const k = 1 - Math.exp(-rate * dt);
+ *   enemy.vx += (targetVx - enemy.vx) * k;
+ *   enemy.vy += (targetVy - enemy.vy) * k;
+ *
+ * @param enemy — объект врага с полями vx, vy
+ * @param targetVx, targetVy — целевая скорость
+ * @param rate — коэффициент сглаживания (чем больше, тем резче поворот)
+ */
+export function smoothVelocity(
+  enemy: { vx: number; vy: number },
+  targetVx: number,
+  targetVy: number,
+  rate: number,
+  dt: number
+): void {
+  const k = 1 - Math.exp(-rate * dt);
+  enemy.vx += (targetVx - enemy.vx) * k;
+  enemy.vy += (targetVy - enemy.vy) * k;
+}
