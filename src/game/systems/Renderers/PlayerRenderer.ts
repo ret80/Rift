@@ -26,6 +26,43 @@ export interface PlayerRenderState {
   pvy: number;
 }
 
+/** Снимок бонусов для buildState */
+export interface PlayerBonusSnapshot {
+  rateT: number;
+  rateBoost: number;
+  dashT: number;
+}
+
+/**
+ * Строит render-state из raw-данных игрока.
+ * Единственный источник правды для преобразования PlayerState → PlayerRenderState.
+ */
+export function buildPlayerState(
+  x: number,
+  y: number,
+  angle: number,
+  hp: number,
+  maxHp: number,
+  invuln: number,
+  thrusting: boolean,
+  pvx: number,
+  pvy: number,
+  aimA: number | null,
+  guns: number,
+  bonus: PlayerBonusSnapshot
+): PlayerRenderState {
+  return {
+    x, y, angle, aimA,
+    hp, maxHp, invuln,
+    guns,
+    rateT: bonus.rateT,
+    rateBoost: bonus.rateBoost,
+    dashT: bonus.dashT,
+    thrusting,
+    pvx, pvy,
+  };
+}
+
 /**
  * Нарисовать корабль игрока со всеми эффектами.
  */

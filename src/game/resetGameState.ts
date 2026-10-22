@@ -1,4 +1,4 @@
-import type { BannerData, CountData, PopupData, StatsData, ToastData } from "./game";
+import type { BannerData, CountData, PopupData, StatsData, ToastData } from "./types/ui";
 
 /**
  * Resets all transient game state to pre-game defaults.

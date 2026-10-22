@@ -28,6 +28,21 @@ export interface EBulletRenderState {
 }
 
 /**
+ * Строит render-state из raw-массива пуль.
+ * BulletRenderState структурно идентичен Bullet.
+ */
+export function buildBulletState(bullets: unknown[]): BulletRenderState[] {
+  return bullets as unknown as BulletRenderState[];
+}
+
+/**
+ * Строит render-state из raw-массива вражеских пуль.
+ */
+export function buildEBulletState(bullets: unknown[]): EBulletRenderState[] {
+  return bullets as unknown as EBulletRenderState[];
+}
+
+/**
  * Нарисовать все пули (игрока и врагов).
  */
 export function renderBullets(

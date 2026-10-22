@@ -18,6 +18,13 @@ export interface PickupRenderState {
   seed: number;
 }
 
+/**
+ * Строит render-state из raw-массива пикапов.
+ */
+export function buildPickupState(pickups: unknown[]): PickupRenderState[] {
+  return pickups as unknown as PickupRenderState[];
+}
+
 /** Цвет пикапа по его виду. */
 function colorFor(kind: PickupKind): string {
   switch (kind) {

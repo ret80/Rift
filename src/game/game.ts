@@ -28,6 +28,12 @@ import { DebugSystem } from "./systems/DebugSystem";
 import { MenuScene } from "./systems/MenuScene";
 import { ScoringSystem } from "./systems/ScoringSystem";
 
+/* UI types — единый источник правды */
+import type { BannerData, ToastData, CountData, PopupData, StatsData, HudData } from "./types/ui";
+
+/* Re-export for backward compatibility */
+export type { BannerData, ToastData, CountData, PopupData, StatsData, HudData };
+
 /* Core systems */
 import { EventBus } from "./core/EventBus";
 import type { GameFSMContext } from "./core/FSMBridge";
@@ -58,6 +64,7 @@ import { CollisionSystem } from "./systems/CollisionSystem";
 import { CountdownSystem } from "./systems/CountdownSystem";
 import { DeathSystem } from "./systems/DeathSystem";
 import { EnemySystem } from "./systems/EnemySystem";
+import { EnemyShootingSystem } from "./systems/EnemyShootingSystem";
 import { EntityPoolSystem } from "./systems/EntityPoolSystem";
 import { InputSystem } from "./systems/InputSystem";
 import { PickupDropSystem } from "./systems/PickupDropSystem";
@@ -69,63 +76,6 @@ import { UpgradeSystem } from "./systems/UpgradeSystem";
 import { WaveOrchestrator } from "./systems/WaveOrchestrator";
 import { WaveFlowSystem } from "./systems/WaveFlowSystem";
 import { ZoneSystem } from "./systems/ZoneSystem";
-
-/* ============================== UI types ============================== */
-
-export interface HudData {
-  wave: number;
-  score: number;
-  best: number;
-  hp: number;
-  maxHp: number;
-  killed: number;
-  total: number;
-  enemies: number;
-  comboMult: number;
-  time: number;
-  guns: number;
-  rateMult: number;
-  rateT: number;
-  drones: number;
-  minerals: number;
-  parts: number;
-  /** Weapon + bonus slots rendered in the HUD loadout row. */
-  loadout: LoadoutSlotData[];
-}
-
-export interface BannerData {
-  title: string;
-  sub?: string;
-  color?: string;
-}
-
-export interface ToastData {
-  text: string;
-  color?: string;
-}
-
-export interface PopupData {
-  id: number;
-  x: number;
-  y: number;
-  text: string;
-  color: string;
-}
-
-export interface CountData {
-  id: number;
-  label: string;
-  value: string;
-}
-
-export interface StatsData {
-  score: number;
-  best: number;
-  isBest: boolean;
-  wave: number;
-  kills: number;
-  time: number;
-}
 
 interface Hooks {
   onHud: (h: HudData) => void;
@@ -188,6 +138,7 @@ export class Game {
   /* Game logic systems */
   private playerSystem: PlayerSystem;
   private enemySystem: EnemySystem;
+  private enemyShootingSystem: EnemyShootingSystem;
   private bulletSystem: BulletSystem;
   private spawnSystem: SpawnSystem;
   private countdownSystem: CountdownSystem;
@@ -360,7 +311,11 @@ export class Game {
 
     this.enemySystem = new EnemySystem(
       this.eventBus,
-      this.fx,
+      this.fx
+    );
+
+    this.enemyShootingSystem = new EnemyShootingSystem(
+      this.eventBus,
       this.audio
     );
 
@@ -626,6 +581,10 @@ export class Game {
         this.entityPool.enemyBulletList,
         this.getZoneBounds()
       );
+      // Enemy shooting: separate from movement/AI
+      if (this.fsm.is("playing", "active")) {
+        this.enemyShootingSystem.update(dtScaled, this.entityPool.enemyList, this.getPlayerPosition());
+      }
       // Weapons: targeting, cannon fire, missiles, drones
       if (this.fsm.is("playing", "active")) {
         this.weaponManager.update(dtScaled);
@@ -719,12 +678,6 @@ export class Game {
     this.cameraSystem.update(playerState, dt);
     const pos = this.cameraSystem.getPosition();
 
-    const playerRender = this.playerSystem.getRenderState(
-      this.weaponManager.getAimAngle(),
-      this.weaponManager.getInstanceCount("cannon"),
-      this.bonusManager.getRenderSnapshot(),
-    );
-    
     this.rendererSystem.render(
       this.renderer,
       {
@@ -733,12 +686,32 @@ export class Game {
         wave: this.waveOrchestrator.wave,
         score: this.scoringSystem.score,
       },
-      playerRender,
+      // Raw player data — RendererSystem builds PlayerRenderState
+      {
+        x: playerState.x,
+        y: playerState.y,
+        angle: playerState.angle,
+        hp: playerState.hp,
+        maxHp: playerState.maxHp,
+        invuln: playerState.invuln,
+        thrusting: playerState.thrusting,
+        pvx: playerState.vx || 0,
+        pvy: playerState.vy || 0,
+      },
+      this.weaponManager.getAimAngle(),
+      this.weaponManager.getInstanceCount("cannon"),
+      this.bonusManager.getRenderSnapshot(),
+      // Raw enemies
       this.entityPool.enemyList,
+      // Raw bullets
       this.entityPool.bulletList,
+      // Raw enemy bullets
       this.entityPool.enemyBulletList,
+      // Raw pickups
       this.entityPool.pickupList,
+      // Raw drones
       this.entityPool.allyDroneList,
+      // Raw zone state
       {
         active: this.waveOrchestrator.zoneState.active,
         x: this.waveOrchestrator.zoneState.x,
@@ -930,6 +903,7 @@ export class Game {
     // Reset spawn and enemy system state for new game
     this.spawnSystem.clearAnnounced();
     this.enemySystem.reset();
+    this.enemyShootingSystem.reset();
 
     // Reset zone state via orchestrator
     this.waveOrchestrator.reset(Math.max(this.startWave, loadBestWave()));

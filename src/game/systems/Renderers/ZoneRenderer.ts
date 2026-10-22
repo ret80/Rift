@@ -17,6 +17,22 @@ export interface ZoneRenderState {
 }
 
 /**
+ * Строит render-state из raw-данных зоны.
+ */
+export function buildZoneState(
+  active: boolean,
+  x: number,
+  y: number,
+  radius: number,
+  targetRadius: number,
+  alpha: number
+): ZoneRenderState {
+  return {
+    active, x, y, radius, targetRadius, alpha,
+  };
+}
+
+/**
  * Нарисовать зону (круг с волнами).
  */
 export function renderZone(

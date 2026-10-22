@@ -2,13 +2,16 @@ import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { PickupKind } from "./game/balance";
 import { ALL_PICKUP_KINDS } from "./game/balance/drops";
 import { EnemyKind } from "./game/balance/enemies";
-import {
+import type {
     BannerData,
     CountData,
-    Game,
     PopupData,
     StatsData,
     ToastData
+} from "./game/types/ui";
+
+import {
+    Game
 } from "./game/game";
 import { resetGameState } from "./game/resetGameState";
 import { resetUpgrades } from "./game/upgrades";

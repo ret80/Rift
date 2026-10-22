@@ -7,7 +7,7 @@
  */
 
 import { massForRadius, PLAYER_RADIUS } from '../balance';
-import type { PlayerRenderState } from './RendererSystem';
+import type { PlayerRenderState } from './Renderers/PlayerRenderer';
 
 /* ============================== constants ============================== */
 
@@ -57,26 +57,23 @@ export function resetPlayerState(state: PlayerState): void {
 
 /* ============================== render ============================== */
 
+import { buildPlayerState } from './Renderers/PlayerRenderer';
+
+/**
+ * @deprecated — используйте PlayerRenderer.buildPlayerState напрямую.
+ * Сохранён для обратной совместимости с PlayerSystem.
+ */
 export function getRenderState(
   state: PlayerState,
   aimAngle: number | null,
   barrelCount: number,
   bonus: { rateT: number; rateBoost: number; dashT: number },
 ): PlayerRenderState {
-  return {
-    x: state.x,
-    y: state.y,
-    angle: state.angle,
-    aimA: aimAngle,
-    hp: state.hp,
-    maxHp: state.maxHp,
-    invuln: state.invuln,
-    guns: barrelCount,
-    rateT: bonus.rateT,
-    rateBoost: bonus.rateBoost,
-    dashT: bonus.dashT,
-    thrusting: state.thrusting,
-    pvx: state.vx,
-    pvy: state.vy,
-  };
+  return buildPlayerState(
+    state.x, state.y, state.angle,
+    state.hp, state.maxHp, state.invuln,
+    state.thrusting,
+    state.vx, state.vy,
+    aimAngle, barrelCount, bonus,
+  );
 }

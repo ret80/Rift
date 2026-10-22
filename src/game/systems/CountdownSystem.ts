@@ -5,23 +5,7 @@
 
 import { t } from "../../i18n";
 import type { EventBus } from "../core/EventBus";
-
-export interface BannerData {
-  title: string;
-  sub?: string;
-  color?: string;
-}
-
-export interface ToastData {
-  text: string;
-  color?: string;
-}
-
-export interface CountData {
-  id: number;
-  label: string;
-  value: string;
-}
+import type { BannerData, ToastData, CountData } from "../types/ui";
 
 export interface CountdownHooks {
   onBanner: (b: BannerData | null) => void;

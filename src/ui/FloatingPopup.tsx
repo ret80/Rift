@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { PopupData } from "../game/game";
+import type { PopupData } from "../game/types/ui";
 
 /* Type guard instead of unsafe cast for Game internals */
 interface GameInternals {

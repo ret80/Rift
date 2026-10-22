@@ -40,6 +40,13 @@ export interface PlayerRenderState {
 }
 
 /**
+ * Строит render-state из raw-массива союзных дронов.
+ */
+export function buildDroneState(drones: unknown[]): AllyDroneRenderState[] {
+  return drones as unknown as AllyDroneRenderState[];
+}
+
+/**
  * Нарисовать союзных дронов и орбитальное кольцо игрока.
  */
 export function renderAllyDrones(

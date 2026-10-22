@@ -10,7 +10,8 @@
  *   - ZoneRenderer     — игровая зона
  *   - RiftAnimation    — разломы
  *
- * Управляет только lifecycle: beginFrame, camera, finish.
+ * Управляет lifecycle: beginFrame, camera, finish.
+ * Каждый рендерер сам строит свой render-state через buildState.
  */
 
 import type { AsteroidField } from "../asteroids";
@@ -19,12 +20,12 @@ import type { Fx } from "../fx";
 import type { Renderer } from "../render";
 import { RiftField } from "../rifts";
 import type { Starfield } from "../starfield";
-import { renderPickups, type PickupRenderState as PRS } from "./Renderers/PickupRenderer";
-import { renderEnemies, type EnemyRenderState as ERS } from "./Renderers/EnemyRenderer";
-import { renderPlayer, type PlayerRenderState } from "./Renderers/PlayerRenderer";
-import { renderAllyDrones, type AllyDroneRenderState } from "./Renderers/DroneRenderer";
-import { renderBullets, type BulletRenderState, type EBulletRenderState } from "./Renderers/BulletRenderer";
-import { renderZone, type ZoneRenderState } from "./Renderers/ZoneRenderer";
+import { renderPickups, buildPickupState, type PickupRenderState as PRS } from "./Renderers/PickupRenderer";
+import { renderEnemies, buildEnemyState, type EnemyRenderState as ERS } from "./Renderers/EnemyRenderer";
+import { renderPlayer, buildPlayerState, type PlayerRenderState } from "./Renderers/PlayerRenderer";
+import { renderAllyDrones, buildDroneState, type AllyDroneRenderState } from "./Renderers/DroneRenderer";
+import { renderBullets, buildBulletState, buildEBulletState, type BulletRenderState, type EBulletRenderState } from "./Renderers/BulletRenderer";
+import { renderZone, buildZoneState, type ZoneRenderState } from "./Renderers/ZoneRenderer";
 import { calcRiftAnim, drawRift } from "./Renderers/RiftAnimation";
 import { calcMenuRiftAnim } from "./Renderers/RiftAnimation";
 import { drawShipPoly } from "./Renderers/ShipRenderer";
@@ -51,22 +52,58 @@ export class RendererSystem {
 
   /* ============================== main draw ============================== */
 
+  /**
+   * Отрисовать игровой кадр.
+   * Принимает raw-данные — каждый рендерер строит свой state через buildState.
+   */
   render(
     R: Renderer,
     gameState: { type: string; time: number; wave: number; score: number },
-    player: PlayerRenderState | null,
-    enemies: ERS[],
-    bullets: BulletRenderState[],
-    ebullets: EBulletRenderState[],
-    pickups: PRS[],
-    allyDrones: AllyDroneRenderState[],
-    zone: ZoneRenderState | null,
+    // Raw player data
+    playerState: {
+      x: number; y: number; angle: number; hp: number; maxHp: number;
+      invuln: number; thrusting: boolean; pvx: number; pvy: number;
+    } | null,
+    aimA: number | null,
+    guns: number,
+    bonus: { rateT: number; rateBoost: number; dashT: number },
+    // Raw enemy list
+    enemies: unknown[],
+    // Raw bullet lists
+    bullets: unknown[],
+    ebullets: unknown[],
+    // Raw pickups
+    pickups: unknown[],
+    // Raw drones
+    drones: unknown[],
+    // Raw zone state
+    zoneState: { active: boolean; x: number; y: number; radius: number; targetRadius: number; alpha: number } | null,
     camX: number,
     camY: number,
     zoom: number,
     viewW: number,
     viewH: number
   ) {
+    // Build render states — each renderer owns its transformation
+    const playerRender = playerState
+      ? buildPlayerState(
+          playerState.x, playerState.y, playerState.angle,
+          playerState.hp, playerState.maxHp, playerState.invuln,
+          playerState.thrusting, playerState.pvx, playerState.pvy,
+          aimA, guns, bonus
+        )
+      : null;
+
+    const enemyRender = buildEnemyState(enemies);
+    const bulletRender = buildBulletState(bullets);
+    const ebulletRender = buildEBulletState(ebullets);
+    const pickupRender = buildPickupState(pickups as any);
+    const droneRender = buildDroneState(drones);
+    const zoneRender = zoneState ? buildZoneState(
+      zoneState.active, zoneState.x, zoneState.y,
+      zoneState.radius, zoneState.targetRadius, zoneState.alpha
+    ) : null;
+
     this.draw(
       R,
       gameState.time,
@@ -74,13 +111,13 @@ export class RendererSystem {
       camY,
       zoom,
       gameState.type as "menu" | "playing" | "active" | "cleared" | "dying" | "over",
-      player,
-      enemies,
-      bullets,
-      ebullets,
-      pickups,
-      allyDrones,
-      zone,
+      playerRender,
+      enemyRender,
+      bulletRender,
+      ebulletRender,
+      pickupRender,
+      droneRender,
+      zoneRender,
       viewW,
       viewH
     );

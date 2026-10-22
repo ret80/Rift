@@ -13,7 +13,6 @@ import type { InputManager } from '../input';
 import { updateMovement } from './PlayerMovement';
 import {
   createPlayerState,
-  getRenderState as getRenderStateHelper,
   resetPlayerState,
   type PlayerState,
 } from './PlayerState';
@@ -78,14 +77,6 @@ export class PlayerSystem {
 
   getMaxHp(): number {
     return this.pState.maxHp;
-  }
-
-  getRenderState(
-    aimAngle: number | null,
-    barrelCount: number,
-    bonus: { rateT: number; rateBoost: number; dashT: number },
-  ): import('./RendererSystem').PlayerRenderState {
-    return getRenderStateHelper(this.pState, aimAngle, barrelCount, bonus);
   }
 
   // ---- Core methods ----

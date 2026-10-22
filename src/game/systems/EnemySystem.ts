@@ -1,23 +1,26 @@
 /**
  * EnemySystem - управление врагами.
- * Отвечает за AI, движение, стрельбу и состояние врагов.
+ * Отвечает за AI, движение и состояние врагов.
+ * Стрельба вынесена в EnemyShootingSystem.
  */
 
 import { EnemyAI } from '../ai/EnemyAI';
 import { GameContext } from '../ai/GameContext';
-import { CARRIER_BASE_SPEED, CRUISER_BASE_SPEED, CRUISER_FIRE_RANGE, DRONE_BASE_SPEED, EnemyKind, FIGHTER_BASE_SPEED, HUNTER_SPEED, massForRadius,
+import {
+  CARRIER_BASE_SPEED,
+  CRUISER_BASE_SPEED,
+  DRONE_BASE_SPEED,
+  EnemyKind,
+  FIGHTER_BASE_SPEED,
+  HUNTER_SPEED,
+  massForRadius,
   AI_MIN_DIST,
   AI_BASE_PUSH,
-  ENEMY_SHOOT_RANGE,
-  ENEMY_ACCURACY_MIN,
-  ENEMY_ACCURACY_MAX,
-  ENEMY_ACCURACY_RAMP,
 } from '../balance';
 import type { EventBus } from '../core/EventBus';
 import type { Fx } from '../fx';
 import { TAU, rand } from '../math';
 import type { Enemy } from '../types';
-import type { AudioManager } from './AudioManager';
 
 
 /** Пуля врага для уклонения от неё */
@@ -45,18 +48,15 @@ export class EnemySystem {
   
   private eventBus: EventBus;
   private fx: Fx;
-  private audio: AudioManager;
   
   private wave = 1;
   
   constructor(
     eventBus: EventBus,
-    fx: Fx,
-    audio: AudioManager
+    fx: Fx
   ) {
     this.eventBus = eventBus;
     this.fx = fx;
-    this.audio = audio;
     this.ai = new EnemyAI();
     this.context = new GameContext(this.eventBus);
   }
@@ -182,83 +182,11 @@ export class EnemySystem {
       }
       enemyList.push(drone);
     }
-    // shooting logic
-    this.updateFiring(enemyList, dt);
     
     // Simple collision avoidance between all enemies
     this.applyAvoidance(enemyList, dt);
   }
   
-  /** Enemy shooting logic */
-  private updateFiring(enemyList: Enemy[], dt: number): void {
-    for (const e of enemyList) {
-      if (e.dead) continue;
-      
-      // Только стреляющие типы
-      if (e.kind !== EnemyKind.Fighter && e.kind !== EnemyKind.Cruiser && e.kind !== EnemyKind.Carrier) continue;
-      
-      const dx = this.context.playerX - e.x;
-      const dy = this.context.playerY - e.y;
-      const dist = Math.hypot(dx, dy) || 1;
-      
-      const canShoot = (e.kind === EnemyKind.Fighter && dist < ENEMY_SHOOT_RANGE) ||
-                       (e.kind === EnemyKind.Cruiser && dist < CRUISER_FIRE_RANGE) ||
-                       (e.kind === EnemyKind.Carrier && dist < ENEMY_SHOOT_RANGE);
-      
-      if (!canShoot) continue;
-      
-      if (e.kind === EnemyKind.Cruiser) {
-        // Cruiser: dual independent turrets
-        const accuracy = this.getAccuracy(this.wave);
-        const spread = (1 - accuracy) * 0.8;
-        const rate = 1.5 / (3 + this.wave * 0.08);
-        
-        e.tCd1! -= dt;
-        if (e.tCd1! <= 0) {
-          e.tCd1! = rate + rand(-0.15, 0.15);
-          const tx = e.x - Math.sin(e.angle) * 14;
-          const ty = e.y + Math.cos(e.angle) * 14;
-          const tAngle = Math.atan2(this.context.playerY - ty, this.context.playerX - tx) + (Math.random() - 0.5) * 2 * spread;
-          this.eventBus.publish('enemy_fired', { x: tx, y: ty, kind: e.kind, angle: tAngle, r: e.r, boltDmg: e.boltDmg, heavy: true, cruiser: true });
-          this.audio.playHeavyShoot();
-        }
-        
-        e.tCd2! -= dt;
-        if (e.tCd2! <= 0) {
-          e.tCd2! = rate + rand(-0.15, 0.15);
-          const tx = e.x + Math.sin(e.angle) * 14;
-          const ty = e.y - Math.cos(e.angle) * 14;
-          const tAngle = Math.atan2(this.context.playerY - ty, this.context.playerX - tx) + (Math.random() - 0.5) * 2 * spread;
-          this.eventBus.publish('enemy_fired', { x: tx, y: ty, kind: e.kind, angle: tAngle, r: e.r, boltDmg: e.boltDmg, heavy: true, cruiser: true });
-          this.audio.playHeavyShoot();
-        }
-      } else {
-        // Fighter and Carrier: single turret
-        const accuracy = this.getAccuracy(this.wave);
-        const spread = (1 - accuracy) * 1.2;
-        const baseRate = e.kind === EnemyKind.Carrier ? 1.5 : 0.8;
-        const waveBoost = Math.min(2.5, 1 + this.wave * 0.08);
-        e.fireCd -= dt * waveBoost;
-        
-        if (e.fireCd <= 0) {
-          e.fireCd = baseRate;
-          const heavy = e.kind === EnemyKind.Carrier;
-          // Fighter: стреляем в игрока, Carrier: по корпусу
-          const fireAngle = e.kind === EnemyKind.Fighter
-            ? Math.atan2(this.context.playerY - e.y, this.context.playerX - e.x)
-            : e.angle;
-          this.eventBus.publish('enemy_fired', {
-            x: e.x, y: e.y, kind: e.kind,
-            angle: fireAngle + (Math.random() - 0.5) * 2 * spread,
-            r: e.r, boltDmg: e.boltDmg, heavy, cruiser: false,
-          });
-          if (heavy) this.audio.playHeavyShoot();
-          else this.audio.playEnemyShoot();
-        }
-      }
-    }
-  }
-
   /** Мягко раздвигает врагов, которые слишком близко друг к другу */
   private applyAvoidance(enemyList: Enemy[], dt: number): void {
     const minDistSq = AI_MIN_DIST * AI_MIN_DIST;
@@ -331,11 +259,6 @@ export class EnemySystem {
     if (parent) {
       parent.spawnCd = 0;
     }
-  }
-
-  /** Меткость врагов: ENEMY_ACCURACY_MIN на волне 1, растёт до ENEMY_ACCURACY_MAX к волне 30. */
-  private getAccuracy(wave: number): number {
-    return Math.min(ENEMY_ACCURACY_MAX, ENEMY_ACCURACY_MIN + wave * ENEMY_ACCURACY_RAMP);
   }
 
   private getEnemyDef(kind: EnemyKind): EnemyDef {

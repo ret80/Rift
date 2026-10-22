@@ -1,26 +1,10 @@
 import { useCallback } from "react";
-import type { LoadoutSlotData } from "../game/loadout/LoadoutTypes";
+import type { HudData } from "../game/types/ui";
 import type { HudRefs } from "../ui/hudRefs";
 
 export type { HudRefs } from "../ui/hudRefs";
 
-export interface HudData {
-  wave: number;
-  killed: number;
-  total: number;
-  guns: number;
-  drones: number;
-  hp: number;
-  maxHp: number;
-  time: number;
-  score: number;
-  best: number;
-  comboMult: number;
-  minerals: number;
-  parts: number;
-  /** Weapon + bonus slots rendered in the HUD loadout row. */
-  loadout: LoadoutSlotData[];
-}
+export type { HudData } from "../game/types/ui";
 
 type UpdateCallback = (data: Partial<HudData>) => void;
 

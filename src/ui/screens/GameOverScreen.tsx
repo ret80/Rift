@@ -1,5 +1,5 @@
 import React from "react";
-import type { StatsData } from "../../game/game";
+import type { StatsData } from "../../game/types/ui";
 import GameButton from "../components/GameButton";
 import { formatTime } from "../utils/formatTime";
 import { useT } from "../../i18n";

@@ -36,6 +36,14 @@ export interface EnemyRenderState {
   parent: EnemyRenderState | null;
 }
 
+/**
+ * Строит render-state из raw-массива врагов.
+ * EnemyRenderState структурно идентичен Enemy — просто приведение типов.
+ */
+export function buildEnemyState(enemies: unknown[]): EnemyRenderState[] {
+  return enemies as unknown as EnemyRenderState[];
+}
+
 export function renderEnemies(
   R: Renderer,
   enemies: EnemyRenderState[],
