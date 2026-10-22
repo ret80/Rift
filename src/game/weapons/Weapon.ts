@@ -13,10 +13,10 @@
 
 import type { LoadoutSlotMeta } from "../loadout/LoadoutTypes";
 import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
-import type { AllyDrone, Bullet, Enemy, WeaveThread } from "../types";
+import type { AllyDrone, Bullet, Enemy, LaserBeam, WeaveThread } from "../types";
 
 /** Идентификаторы видов оружия. */
-export type WeaponId = "cannon" | "missile" | "drone" | "weaver";
+export type WeaponId = "cannon" | "missile" | "drone" | "weaver" | "laser";
 
 /** Оформление слота оружия в строке снаряжения. */
 export type WeaponMeta = LoadoutSlotMeta;
@@ -59,8 +59,12 @@ export interface WeaponContext {
   readonly drones: AllyDrone[];
   /** Пул нитей ткани пространства. */
   readonly weaves: WeaveThread[];
+  /** Пул лучей лазера — визуальная трасса выстрела. */
+  readonly beams: LaserBeam[];
   /** Колбэк выстрела — проигрывание звука. */
   onFired(id: WeaponId): void;
+  /** Колбэк гибели врага — единый путь enemy_killed (дроп, счёт, волна). */
+  killEnemy?(enemy: Enemy): void;
 }
 
 /** Снимок слота оружия для строки снаряжения. */

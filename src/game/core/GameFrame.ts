@@ -132,6 +132,7 @@ export class GameFrame {
       pickups: ctx.entityPool.pickupList,
       allyDrones: ctx.entityPool.allyDroneList,
       weaves: ctx.entityPool.weaveList,
+      beams: ctx.entityPool.beamList,
       asteroids: ctx.asteroidField.asteroidList as AsteroidWorld[],
       zone: zoneState && zoneState.active ? zoneState : null,
     };

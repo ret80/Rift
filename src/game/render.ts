@@ -23,6 +23,51 @@ void main() {
 }
 `;
 
+/*
+ * Beam shader — лазерный луч как светящаяся линия.
+ * Каждый луч — квад (2 треугольника), в фрагменте считается поперечная
+ * координата: яркое ядро на оси и мягкий ореол по краям. Аддитивное
+ * смешивание + приборный bloom дают свечение линии.
+ */
+const BEAM_VERT = `
+attribute vec2 aPos;
+attribute vec4 aColor;
+attribute vec2 aUv;
+attribute float aSeed;
+uniform float uZoom;
+uniform vec2 uOffset;
+uniform vec2 uScale;
+uniform vec2 uFlip;
+varying vec4 vColor;
+varying vec2 vUv;
+varying float vSeed;
+void main() {
+  vec2 p = aPos * uZoom + uOffset;
+  gl_Position = vec4(p * uScale + uFlip, 0.0, 1.0);
+  vColor = aColor;
+  vUv = aUv;
+  vSeed = aSeed;
+}
+`;
+
+const BEAM_FRAG = `
+precision mediump float;
+varying vec4 vColor;
+varying vec2 vUv;
+varying float vSeed;
+uniform float uTime;
+void main() {
+  float d = abs(vUv.y - 0.5) * 2.0;
+  float core = exp(-d * d * 22.0);
+  float halo = pow(max(0.0, 1.0 - d), 2.2) * 0.35;
+  float endFade = 1.0 - smoothstep(0.92, 1.0, vUv.x);
+  float flicker = 0.82 + 0.18 * sin(uTime * 42.0 + vSeed * 6.2831);
+  float glow = (core + halo) * endFade * flicker * vColor.a;
+  vec3 col = mix(vColor.rgb, vec3(1.0), core * 0.65);
+  gl_FragColor = vec4(col, glow);
+}
+`;
+
 const FULL_VERT = `
 attribute vec2 aPos;
 varying vec2 vUv;
@@ -105,6 +150,8 @@ export type RGBA = [number, number, number, number];
 
 const MAX_VERTS = 60000;
 const FLOATS_PER_VERT = 6;
+const MAX_BEAM_VERTS = 6000;
+const FLOATS_PER_BEAM_VERT = 9;
 
 interface FBO {
   fb: WebGLFramebuffer;
@@ -118,13 +165,17 @@ export class Renderer {
   private gl: WebGLRenderingContext;
 
   private lineProg: WebGLProgram;
+  private beamProg: WebGLProgram;
   private blurProg: WebGLProgram;
   private compProg: WebGLProgram;
 
   private lineBuf: WebGLBuffer;
+  private beamBuf: WebGLBuffer;
   private triBuf: WebGLBuffer;
   private verts = new Float32Array(MAX_VERTS * FLOATS_PER_VERT);
   private count = 0;
+  private beamVerts = new Float32Array(MAX_BEAM_VERTS * FLOATS_PER_BEAM_VERT);
+  private beamCount = 0;
 
   private sceneFbo: FBO | null = null;
   private bloomA: FBO | null = null;
@@ -154,13 +205,16 @@ export class Renderer {
     this.gl = gl;
 
     this.lineProg = this.makeProgram(LINE_VERT, LINE_FRAG);
+    this.beamProg = this.makeProgram(BEAM_VERT, BEAM_FRAG);
     this.blurProg = this.makeProgram(FULL_VERT, BLUR_FRAG);
     this.compProg = this.makeProgram(FULL_VERT, COMPOSITE_FRAG);
 
     const lb = gl.createBuffer();
+    const bb = gl.createBuffer();
     const tb = gl.createBuffer();
-    if (!lb || !tb) throw new Error("Не удалось создать буферы WebGL");
+    if (!lb || !bb || !tb) throw new Error("Не удалось создать буферы WebGL");
     this.lineBuf = lb;
+    this.beamBuf = bb;
     this.triBuf = tb;
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.triBuf);
@@ -189,7 +243,7 @@ export class Renderer {
       "uRes",
       "uTime",
     ];
-    const progs = [this.lineProg, this.blurProg, this.compProg];
+    const progs = [this.lineProg, this.beamProg, this.blurProg, this.compProg];
     this.u = progs.map((p) => {
       const map: Record<string, WebGLUniformLocation | null> = {};
       for (const n of names) map[n] = gl.getUniformLocation(p, n);
@@ -197,7 +251,7 @@ export class Renderer {
     });
   }
 
-  /** program index: 0 = lines, 1 = blur, 2 = composite */
+  /** program index: 0 = lines, 1 = beams, 2 = blur, 3 = composite */
   private loc(idx: number, name: string) {
     return this.u[idx][name] ?? null;
   }
@@ -267,6 +321,7 @@ export class Renderer {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
     this.count = 0;
+    this.beamCount = 0;
     this.mode = "world";
   }
 
@@ -281,6 +336,7 @@ export class Renderer {
   setMode(m: "screen" | "world") {
     if (m !== this.mode) {
       this.flush();
+      this.flushBeams();
       this.mode = m;
     }
   }
@@ -308,6 +364,56 @@ export class Renderer {
     v[i++] = c[2];
     v[i++] = c[3];
     this.count += 2;
+  }
+
+  /**
+   * Нарисовать лазерный луч: светящаяся полоса с ядром и ореолом.
+   * Ширина задаётся в мировых единицах; фрагментный шейдер превращает
+   * поперечную координату в яркое ядро и мягкое затухание к краям.
+   */
+  pushBeam(
+    x1: number, y1: number, x2: number, y2: number,
+    width: number, c: RGBA, seed: number
+  ) {
+    const len = Math.hypot(x2 - x1, y2 - y1);
+    if (len <= 0.001) return;
+    if (this.beamCount + 6 > MAX_BEAM_VERTS) {
+      this.flushBeams();
+      // После сброса квад помещается.
+    }
+    const nx = -(y2 - y1) / len;
+    const ny = (x2 - x1) / len;
+    const hw = Math.max(0.4, width * 0.5);
+    const x1n = x1 + nx * hw, y1n = y1 + ny * hw;
+    const x1o = x1 - nx * hw, y1o = y1 - ny * hw;
+    const x2n = x2 + nx * hw, y2n = y2 + ny * hw;
+    const x2o = x2 - nx * hw, y2o = y2 - ny * hw;
+
+    const v = this.beamVerts;
+    let i = this.beamCount * FLOATS_PER_BEAM_VERT;
+
+    // Два треугольника, покрывающие квад; uv.x — вдоль луча (0 у ствола, 1 у конца),
+    // uv.y — поперёк (0 и 1 у краёв, 0.5 на оси).
+    const quad = [
+      [x1n, y1n, 0, 0],
+      [x2n, y2n, 1, 0],
+      [x1o, y1o, 0, 1],
+      [x2o, y2o, 1, 1],
+    ];
+    const tris = [0, 1, 2, 1, 3, 2];
+    for (const idx of tris) {
+      const q = quad[idx];
+      v[i++] = q[0];
+      v[i++] = q[1];
+      v[i++] = c[0];
+      v[i++] = c[1];
+      v[i++] = c[2];
+      v[i++] = c[3];
+      v[i++] = q[2];
+      v[i++] = q[3];
+      v[i++] = seed;
+    }
+    this.beamCount += 6;
   }
 
   polyline(pts: Array<[number, number]>, closed: boolean, c: RGBA) {
@@ -388,6 +494,46 @@ export class Renderer {
     }
   }
 
+  private flushBeams(time = 0) {
+    if (this.beamCount === 0 || !this.sceneFbo) return;
+    const gl = this.gl;
+    gl.useProgram(this.beamProg);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.beamBuf);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      this.beamVerts.subarray(0, this.beamCount * FLOATS_PER_BEAM_VERT),
+      gl.DYNAMIC_DRAW
+    );
+    const aPos = gl.getAttribLocation(this.beamProg, "aPos");
+    const aColor = gl.getAttribLocation(this.beamProg, "aColor");
+    const aUv = gl.getAttribLocation(this.beamProg, "aUv");
+    const aSeed = gl.getAttribLocation(this.beamProg, "aSeed");
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 36, 0);
+    gl.enableVertexAttribArray(aColor);
+    gl.vertexAttribPointer(aColor, 4, gl.FLOAT, false, 36, 8);
+    gl.enableVertexAttribArray(aUv);
+    gl.vertexAttribPointer(aUv, 2, gl.FLOAT, false, 36, 24);
+    gl.enableVertexAttribArray(aSeed);
+    gl.vertexAttribPointer(aSeed, 1, gl.FLOAT, false, 36, 32);
+
+    const zoom = this.mode === "world" ? this.zoom : 1;
+    const ox = this.mode === "world" ? this.offX : 0;
+    const oy = this.mode === "world" ? this.offY : 0;
+    gl.uniform1f(this.loc(1, "uZoom"), zoom);
+    gl.uniform2f(this.loc(1, "uOffset"), ox, oy);
+    gl.uniform2f(this.loc(1, "uScale"), 2 / this.width, -2 / this.height);
+    gl.uniform2f(this.loc(1, "uFlip"), -1, 1);
+    gl.uniform1f(this.loc(1, "uTime"), time);
+    gl.drawArrays(gl.TRIANGLES, 0, this.beamCount);
+    this.beamCount = 0;
+    // Полноэкранный проход ниже использует только aPos: не оставляем
+    // включёнными атрибуты луча, иначе некоторые драйверы будут валидировать
+    // их буферы при drawArrays.
+    gl.disableVertexAttribArray(aUv);
+    gl.disableVertexAttribArray(aSeed);
+  }
+
   private flush() {
     if (this.count === 0 || !this.sceneFbo) return;
     const gl = this.gl;
@@ -420,6 +566,7 @@ export class Renderer {
     const gl = this.gl;
     if (!this.sceneFbo || !this.bloomA || !this.bloomB) return;
     this.flush();
+    this.flushBeams(time);
     gl.disable(gl.BLEND);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomA.fb);
@@ -428,14 +575,14 @@ export class Renderer {
     this.bindTri(this.blurProg);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.sceneFbo.tex);
-    gl.uniform1i(this.loc(1, "uTex"), 0);
-    gl.uniform2f(this.loc(1, "uDir"), 1.4 / this.sceneFbo.w, 0);
+    gl.uniform1i(this.loc(2, "uTex"), 0);
+    gl.uniform2f(this.loc(2, "uDir"), 1.4 / this.sceneFbo.w, 0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomB.fb);
     gl.viewport(0, 0, this.bloomB.w, this.bloomB.h);
     gl.bindTexture(gl.TEXTURE_2D, this.bloomA.tex);
-    gl.uniform2f(this.loc(1, "uDir"), 0, 1.4 / this.bloomA.h);
+    gl.uniform2f(this.loc(2, "uDir"), 0, 1.4 / this.bloomA.h);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -444,12 +591,12 @@ export class Renderer {
     this.bindTri(this.compProg);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.sceneFbo.tex);
-    gl.uniform1i(this.loc(2, "uScene"), 0);
+    gl.uniform1i(this.loc(3, "uScene"), 0);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, this.bloomB.tex);
-    gl.uniform1i(this.loc(2, "uBloom"), 1);
-    gl.uniform2f(this.loc(2, "uRes"), this.width, this.height);
-    gl.uniform1f(this.loc(2, "uTime"), time);
+    gl.uniform1i(this.loc(3, "uBloom"), 1);
+    gl.uniform2f(this.loc(3, "uRes"), this.width, this.height);
+    gl.uniform1f(this.loc(3, "uTime"), time);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.activeTexture(gl.TEXTURE0);
   }

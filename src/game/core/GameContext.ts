@@ -240,6 +240,8 @@ export class GameContext {
         getDrones: () => this.entityPool.allyDroneList,
         getBonuses: () => this.bonusManager.getBonuses(),
         getWeaves: () => this.entityPool.weaveList,
+        getBeams: () => this.entityPool.beamList,
+        killEnemy: (enemy) => this.killEnemy(enemy),
       },
       (id) => this.onWeaponFired(id),
     );

@@ -210,6 +210,15 @@ function getIconPaths(kind: IconKind): React.ReactNode {
           <path d="M4 18 C8 14, 16 10, 20 6" />
         </>
       );
+    case "weapon-laser":
+      return (
+        <>
+          <line x1="3" y1="12" x2="16" y2="12" />
+          <line x1="16" y1="12" x2="21" y2="8" strokeOpacity="0.75" />
+          <line x1="16" y1="12" x2="21" y2="16" strokeOpacity="0.75" />
+          <circle cx="3" cy="12" r="1.6" />
+        </>
+      );
     case "bonus-dash":
       return (
         <>

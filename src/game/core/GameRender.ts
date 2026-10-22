@@ -35,6 +35,7 @@ export class GameRender {
       pickups: ctx.entityPool.pickupList,
       allyDrones: ctx.entityPool.allyDroneList,
       weaves: ctx.entityPool.weaveList,
+      beams: ctx.entityPool.beamList,
       zone: zoneState.active
         ? {
             active: zoneState.active,

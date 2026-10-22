@@ -21,6 +21,7 @@ export type PickupKind =
   | "rate"
   | "missile"
   | "weaver"
+  | "laser"
   | "quantum_swap";
 
 /** All possible pickup kinds in display order */
@@ -39,6 +40,7 @@ export const ALL_PICKUP_KINDS: PickupKind[] = [
   "rate",
   "missile",
   "weaver",
+  "laser",
   "quantum_swap",
 ];
 

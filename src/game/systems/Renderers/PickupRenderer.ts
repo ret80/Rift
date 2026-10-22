@@ -121,6 +121,21 @@ export function renderPickups(
         );
         break;
       }
+      case "laser": {
+        // Луч: центральная линия с расходящимся пучком на конце.
+        R.pushLine(p.x - 7 * c1, p.y - 7 * s1, p.x + 7 * c1, p.y + 7 * s1, rgba(col, blinkA));
+        R.pushLine(
+          p.x + 7 * c1, p.y + 7 * s1,
+          p.x + 10 * c1 - 3 * s1, p.y + 10 * s1 + 3 * c1,
+          rgba(col, blinkA)
+        );
+        R.pushLine(
+          p.x + 7 * c1, p.y + 7 * s1,
+          p.x + 10 * c1 + 3 * s1, p.y + 10 * s1 - 3 * c1,
+          rgba(col, blinkA)
+        );
+        break;
+      }
       case "quantum_swap": {
         // Две стрелки навстречу: подмена местами.
         R.pushLine(p.x - 7, p.y - 4, p.x + 7, p.y - 4, rgba(col, blinkA));

@@ -3,7 +3,7 @@
  * Содержит только данные; RendererSystem сам строит render-state'ы.
  */
 
-import type { AllyDrone, Bullet, EBullet, Enemy, Pickup, WeaveThread } from "../types";
+import type { AllyDrone, Bullet, EBullet, Enemy, Pickup, WeaveThread, LaserBeam } from "../types";
 import type { CameraWorld, PlayerWorld, ViewWorld, ZoneWorld } from "../core/WorldFrame";
 
 /** Снимок временных бонусов для HUD/рендера. */
@@ -30,6 +30,7 @@ export interface RenderScene {
   pickups: Pickup[];
   allyDrones: AllyDrone[];
   weaves: WeaveThread[];
+  beams: LaserBeam[];
   zone: ZoneWorld | null;
   camera: CameraWorld;
   view: ViewWorld;

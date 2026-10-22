@@ -82,6 +82,7 @@ const ru = {
   "debug.hp": "КОРПУС",
   "debug.missile": "РАКЕТА",
   "debug.weaver": "ТКАНЬ ПРОСТРАНСТВА",
+  "debug.laser": "ЛАЗЕР",
   "debug.quantum_swap": "ПОДМЕНА",
 
   "upgrade.title": "ПРОКАЧКА",
@@ -124,6 +125,7 @@ const ru = {
   "hud.loadout.missile": "РАКЕТОМЁТ",
   "hud.loadout.drone": "ДРОН",
   "hud.loadout.weaver": "ТКАНЬ ПРОСТРАНСТВА",
+  "hud.loadout.laser": "ЛАЗЕР",
   "hud.loadout.quantum_swap": "ТЕЛЕПОРТ-ПОДМЕНА",
   "hud.loadout.rate": "ТЕМП ОГНЯ",
   "hud.loadout.guns": "ДОП. СТВОЛЫ",
@@ -256,6 +258,7 @@ const en: Dict = {
   "debug.hp": "HULL",
   "debug.missile": "MISSILE",
   "debug.weaver": "SPATIAL WEAVER",
+  "debug.laser": "LASER",
   "debug.quantum_swap": "QUANTUM SWAP",
 
   "upgrade.title": "UPGRADES",
@@ -298,6 +301,7 @@ const en: Dict = {
   "hud.loadout.missile": "MISSILE POD",
   "hud.loadout.drone": "DRONE",
   "hud.loadout.weaver": "SPATIAL WEAVER",
+  "hud.loadout.laser": "LASER",
   "hud.loadout.quantum_swap": "QUANTUM SWAP",
   "hud.loadout.rate": "FIRE RATE",
   "hud.loadout.guns": "EXTRA BARRELS",

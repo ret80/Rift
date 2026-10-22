@@ -126,6 +126,24 @@ export interface WeaveThread {
   maxLife: number;
 }
 
+/**
+ * Луч лазера — мгновенный отрезок от ствола до цели.
+ * Нанесённый урон уже учтён в момент зажигания, поэтому луч живёт
+ * только как визуал и не участвует в столкновениях.
+ */
+export interface LaserBeam {
+  x1: number; y1: number;
+  x2: number; y2: number;
+  /** Остаток жизни луча, секунды. */
+  life: number;
+  /** Полная длительность луча — для расчёта затухания. */
+  maxLife: number;
+  /** Случайная фаза мерцания — чтобы контуры не совпадали между кадрами. */
+  seed: number;
+  /** Цель, занятая лучом — другие залпы не стреляют в неё повторно. */
+  target?: Enemy | null;
+}
+
 export interface Pickup {
   kind: PickupKind;
   x: number; y: number;

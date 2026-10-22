@@ -24,6 +24,7 @@ const PICKUP_LABEL: Record<PickupDisplay, TKey> = {
   drone: "debug.drone",
   missile: "debug.missile",
   weaver: "debug.weaver",
+  laser: "debug.laser",
   quantum_swap: "debug.quantum_swap",
 };
 

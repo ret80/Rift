@@ -51,9 +51,10 @@ export class AudioManager {
         this.engine.pickupRate();
         break;
 
-      // Gun / missile pickups → gun sound
+      // Gun / missile / laser pickups → gun sound
       case "gun":
       case "missile":
+      case "laser":
         this.engine.pickupGun();
         break;
 

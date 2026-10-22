@@ -1,10 +1,10 @@
 /**
  * EntityPoolSystem — entity pools with same-type operations.
  * Manages arrays: enemyList, bulletList, enemyBulletList, pickupList,
- * allyDroneList, weaveList.
+ * allyDroneList, weaveList, beamList.
  */
 
-import type { Enemy, Bullet, EBullet, Pickup, AllyDrone, WeaveThread } from "../types";
+import type { Enemy, Bullet, EBullet, Pickup, AllyDrone, WeaveThread, LaserBeam } from "../types";
 import type { PickupKind } from "../balance";
 
 export class EntityPoolSystem {
@@ -15,6 +15,7 @@ export class EntityPoolSystem {
   private _pickupList: Pickup[] = [];
   private _allyDroneList: AllyDrone[] = [];
   private _weaveList: WeaveThread[] = [];
+  private _beamList: LaserBeam[] = [];
 
   get enemyList(): Enemy[] { return this._enemyList; }
   get bulletList(): Bullet[] { return this._bulletList; }
@@ -22,6 +23,7 @@ export class EntityPoolSystem {
   get pickupList(): Pickup[] { return this._pickupList; }
   get allyDroneList(): AllyDrone[] { return this._allyDroneList; }
   get weaveList(): WeaveThread[] { return this._weaveList; }
+  get beamList(): LaserBeam[] { return this._beamList; }
 
   /* Spawn enemy bullet */
   spawnEnemyBullet(

@@ -13,7 +13,7 @@
 import { PLAYER_AIM_BASE_CHANCE } from "../balance";
 import type { LoadoutSlotData } from "../loadout/LoadoutTypes";
 import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
-import type { AllyDrone, Bullet, Enemy, WeaveThread } from "../types";
+import type { AllyDrone, Bullet, Enemy, LaserBeam, WeaveThread } from "../types";
 import { Targeting, DEFAULT_TARGET_RANGE } from "./Targeting";
 import type {
   AimState,
@@ -40,6 +40,10 @@ export interface WeaponWorld {
   getBonuses(): PlayerBonuses;
   /** Нити ткани пространства. */
   getWeaves?(): WeaveThread[];
+  /** Пул лучей лазера — визуальная трасса выстрела. */
+  getBeams?(): LaserBeam[];
+  /** Убить врага через единый путь (дроп, счёт, волна). */
+  killEnemy?(enemy: Enemy): void;
 }
 
 export class WeaponManager {
@@ -161,7 +165,9 @@ export class WeaponManager {
       bullets: this.world.getBullets(),
       drones: this.world.getDrones(),
       weaves: this.world.getWeaves?.() ?? [],
+      beams: this.world.getBeams?.() ?? [],
       onFired: (id) => this.onWeaponFired(id),
+      killEnemy: (enemy) => this.world.killEnemy?.(enemy),
     };
   }
 }

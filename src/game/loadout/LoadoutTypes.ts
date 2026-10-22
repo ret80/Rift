@@ -18,6 +18,7 @@ export type LoadoutIcon =
   | "weapon-missile"
   | "pickup-drone"
   | "weapon-weaver"
+  | "weapon-laser"
   /* бонусы */
   | "pickup-rate"
   | "pickup-gun"
@@ -34,6 +35,7 @@ export type LoadoutSlotKind =
   | "missile"
   | "drone"
   | "weaver"
+  | "laser"
   /* временные бонусы */
   | "rate"
   | "guns"

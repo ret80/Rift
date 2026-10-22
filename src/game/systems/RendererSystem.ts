@@ -63,7 +63,7 @@ export class RendererSystem {
     const {
       state, time,
       player, aim, guns, bonus,
-      enemies, bullets, enemyBullets: ebullets, pickups, allyDrones: drones, weaves,
+      enemies, bullets, enemyBullets: ebullets, pickups, allyDrones: drones, weaves, beams,
       zone: zoneState, camera, view, phantomLevel,
     } = scene;
 
@@ -103,7 +103,8 @@ export class RendererSystem {
       zoneRender,
       view.width,
       view.height,
-      weaves as Array<{ x1: number; y1: number; x2: number; y2: number; life: number; maxLife: number }>
+      weaves as Array<{ x1: number; y1: number; x2: number; y2: number; life: number; maxLife: number }>,
+      beams as Array<{ x1: number; y1: number; x2: number; y2: number; life: number; maxLife: number; seed: number }>
     );
   }
 
@@ -152,7 +153,8 @@ export class RendererSystem {
     zone: ZoneRenderState | null,
     viewW: number,
     viewH: number,
-    weaves: Array<{ x1: number; y1: number; x2: number; y2: number; life: number; maxLife: number }> = []
+    weaves: Array<{ x1: number; y1: number; x2: number; y2: number; life: number; maxLife: number }> = [],
+    beams: Array<{ x1: number; y1: number; x2: number; y2: number; life: number; maxLife: number; seed: number }> = []
   ) {
     R.resize(viewW, viewH);
     R.beginFrame();
@@ -175,6 +177,7 @@ export class RendererSystem {
       }
       renderBullets(R, bullets, ebullets);
       this.drawWeaves(R, weaves, time);
+      this.drawBeams(R, beams, time);
       this.config.fx.draw(R);
     }
 
@@ -193,6 +196,23 @@ export class RendererSystem {
       const a = t * 0.7;
       if (a <= 0) continue;
       R.pushLine(w.x1, w.y1, w.x2, w.y2, rgba("#c06bff", a));
+    }
+  }
+
+  /* ============================== beams ============================== */
+
+  private drawBeams(
+    R: Renderer,
+    beams: Array<{ x1: number; y1: number; x2: number; y2: number; life: number; maxLife: number; seed: number }>,
+    _time: number
+  ): void {
+    for (const b of beams) {
+      const t = b.maxLife > 0 ? Math.max(0, b.life / b.maxLife) : 0;
+      const a = t;
+      if (a <= 0) continue;
+      R.pushBeam(b.x1, b.y1, b.x2, b.y2, 5, rgba("#ff2d55", a), b.seed);
+      // Внутреннее яркое ядро — оно даёт «белый» центр луча.
+      R.pushBeam(b.x1, b.y1, b.x2, b.y2, 1.6, rgba("#ffd9e0", a), b.seed + 1);
     }
   }
 
