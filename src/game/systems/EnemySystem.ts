@@ -6,59 +6,26 @@
 
 import { EnemyAI } from '../ai/EnemyAI';
 import { GameContext } from '../ai/GameContext';
+import type { EnemyDef } from '../balance';
 import {
-  CARRIER_BASE_SPEED,
-  CRUISER_BASE_SPEED,
-  DRONE_BASE_SPEED,
-  EnemyKind,
-  FIGHTER_BASE_SPEED,
-  HUNTER_SPEED,
-  massForRadius,
-  AI_MIN_DIST,
   AI_BASE_PUSH,
+  AI_MIN_DIST,
+  EnemyKind,
+  enemyDefFor,
+  massForRadius,
 } from '../balance';
-import type { EventBus } from '../core/EventBus';
-import type { Fx } from '../fx';
 import { TAU, rand } from '../math';
 import type { Enemy } from '../types';
-
-
-/** Пуля врага для уклонения от неё */
-interface EnemyBullet {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-}
-
-interface EnemyDef {
-  hp: number;
-  r: number;
-  speed: number;
-  contact: number;
-  score: number;
-  bolt: number;
-  mass: number;
-}
 
 export class EnemySystem {
   private ai: EnemyAI;
   private context: GameContext;
   
-  private eventBus: EventBus;
-  private fx: Fx;
-  
   private wave = 1;
   
-  constructor(
-    eventBus: EventBus,
-    fx: Fx
-  ) {
-    this.eventBus = eventBus;
-    this.fx = fx;
+  constructor() {
     this.ai = new EnemyAI();
-    this.context = new GameContext(this.eventBus);
+    this.context = new GameContext();
   }
   
   reset(): void {
@@ -125,7 +92,6 @@ export class EnemySystem {
     dt: number,
     enemyList: Enemy[],
     playerPos: { x: number; y: number; vx?: number; vy?: number },
-    enemyBullets?: EnemyBullet[],
     zoneBounds?: { x: number; y: number; radius: number }
   ): void {
     const playerX = playerPos.x;
@@ -136,15 +102,12 @@ export class EnemySystem {
     const zoneY = zoneBounds?.y ?? 0;
     const zoneRadius = zoneBounds?.radius ?? 0;
     
-    // Update game context for strategies
-    this.context.update(
-      dt,
+    // Sync game context for strategies
+    this.context.sync({
       playerX, playerY, playerVx, playerVy,
-      0, 0, 0,
-      this.wave,
-      enemyBullets || [],
-      zoneX, zoneY, zoneRadius
-    );
+      zoneX, zoneY, zoneRadius,
+      wave: this.wave,
+    });
     
     // AI movement via strategy pattern
     this.context.enemies = enemyList;
@@ -262,21 +225,7 @@ export class EnemySystem {
   }
 
   private getEnemyDef(kind: EnemyKind): EnemyDef {
-    const w = this.wave;
-    switch (kind) {
-      case EnemyKind.Drone:
-        return { hp: 8, r: 14, speed: DRONE_BASE_SPEED + w * 2, contact: 12, score: 10, bolt: 8, mass: massForRadius(14) };
-      case EnemyKind.Hunter:
-        return { hp: 20, r: 14, speed: HUNTER_SPEED + w * 2, contact: 16, score: 25, bolt: 12, mass: massForRadius(14) };
-      case EnemyKind.Fighter:
-        return { hp: 35, r: 18, speed: FIGHTER_BASE_SPEED + w * 0.5, contact: 20, score: 40, bolt: 15, mass: massForRadius(18) };
-      case EnemyKind.Cruiser:
-        return { hp: 250, r: 26, speed: CRUISER_BASE_SPEED + w * 1.5, contact: 24, score: 80, bolt: 18, mass: massForRadius(26) };
-      case EnemyKind.Carrier:
-        return { hp: 350, r: 41, speed: CARRIER_BASE_SPEED + w * 1, contact: 30, score: 150, bolt: 25, mass: massForRadius(41) };
-      default:
-        return { hp: 10, r: 12, speed: 80, contact: 14, score: 15, bolt: 10, mass: massForRadius(12) };
-    }
+    return enemyDefFor(kind, this.wave);
   }
 
   /** Сложение двух углов с учётом весов (для blended dodge) */

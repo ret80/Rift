@@ -21,7 +21,6 @@ import {
   FPS_SMOOTHING_FACTOR
 } from "./balance";
 
-import type { LoadoutSlotData } from "./loadout/LoadoutTypes";
 import { clamp } from "./math";
 import { Renderer } from "./render";
 import { DebugSystem } from "./systems/DebugSystem";
@@ -29,16 +28,16 @@ import { MenuScene } from "./systems/MenuScene";
 import { ScoringSystem } from "./systems/ScoringSystem";
 
 /* UI types — единый источник правды */
-import type { BannerData, ToastData, CountData, PopupData, StatsData, HudData } from "./types/ui";
+import type { BannerData, CountData, HudData, PopupData, StatsData, ToastData } from "./types/ui";
 
 /* Re-export for backward compatibility */
-export type { BannerData, ToastData, CountData, PopupData, StatsData, HudData };
+export type { BannerData, CountData, HudData, PopupData, StatsData, ToastData };
 
 /* Core systems */
-import { EventBus } from "./core/EventBus";
-import type { GameFSMContext } from "./core/FSMBridge";
-import { FSMBridge } from "./core/FSMBridge";
-import { GameStateMachine } from "./core/StateMachine";
+  import { EventBus } from "./core/EventBus";
+  import type { GameFSMContext } from "./core/GameFSM";
+  import { GAME_TRANSITIONS } from "./core/GameFSM";
+  import { GameStateMachine } from "./core/StateMachine";
 
 /* Subsystems */
 import { AsteroidField } from "./asteroids";
@@ -63,8 +62,8 @@ import { CameraSystem } from "./systems/CameraSystem";
 import { CollisionSystem } from "./systems/CollisionSystem";
 import { CountdownSystem } from "./systems/CountdownSystem";
 import { DeathSystem } from "./systems/DeathSystem";
-import { EnemySystem } from "./systems/EnemySystem";
 import { EnemyShootingSystem } from "./systems/EnemyShootingSystem";
+import { EnemySystem } from "./systems/EnemySystem";
 import { EntityPoolSystem } from "./systems/EntityPoolSystem";
 import { InputSystem } from "./systems/InputSystem";
 import { PickupDropSystem } from "./systems/PickupDropSystem";
@@ -73,8 +72,8 @@ import { PlayerSystem } from "./systems/PlayerSystem";
 import { RendererSystem } from "./systems/RendererSystem";
 import { SpawnSystem } from "./systems/SpawnSystem";
 import { UpgradeSystem } from "./systems/UpgradeSystem";
-import { WaveOrchestrator } from "./systems/WaveOrchestrator";
 import { WaveFlowSystem } from "./systems/WaveFlowSystem";
+import { WaveOrchestrator } from "./systems/WaveOrchestrator";
 import { ZoneSystem } from "./systems/ZoneSystem";
 
 interface Hooks {
@@ -114,15 +113,7 @@ export class Game {
   private deathSystem!: DeathSystem;
 
   /* FSM */
-  private fsmBridge: FSMBridge | null = null;
-  private fsmCtx: GameFSMContext;
-  
-  /** Shorthand for FSM machine — used throughout Game */
-  private get fsm(): GameStateMachine<GameFSMContext> {
-    const b = this.fsmBridge;
-    if (!b) throw new Error("FSM not initialized");
-    return b.fsmMachine;
-  }
+  private fsm: GameStateMachine<GameFSMContext>;
 
   /* Core systems */
   private eventBus: EventBus;
@@ -235,7 +226,7 @@ export class Game {
         shakeScreen: (strength, _duration) => {
           this.fx.addShake(strength);
         },
-        onWaveAdvanced: (wave) => {
+        onWaveAdvanced: (_wave) => {
           // Wave orchestrator triggers this when clear transition is done
           // Go from cleared → playing for new wave countdown
           this.fsm.fire("next_wave");
@@ -309,10 +300,7 @@ export class Game {
       this.fx,
     );
 
-    this.enemySystem = new EnemySystem(
-      this.eventBus,
-      this.fx
-    );
+    this.enemySystem = new EnemySystem();
 
     this.enemyShootingSystem = new EnemyShootingSystem(
       this.eventBus,
@@ -359,7 +347,7 @@ export class Game {
           }
         },
         countdownDone: () => {
-          this.fsmBridge?.context.countdownDone?.();
+          this.fsm.fire("countdown_done");
         },
       },
       eventBus: this.eventBus,
@@ -414,43 +402,20 @@ export class Game {
 
     // DeathSystem is initialized in startRun() to avoid duplicate creation
 
-    // Initialize FSM bridge with lifecycle hooks
-    this.fsmBridge = new FSMBridge({
-      onPlayerDeath: () => {
-        this.deathSystem.startDeath();
-      },
-      onDeathAnimationEnd: () => {
-        this.deathSystem.onFinishDeath();
-      },
-      onGameOver: () => {
-        // No-op — handled by DeathSystem
-      },
-      onReturnToMenu: () => {
-        // Menu state is handled by toMenu() caller
-      },
-      onStartRun: (_wave: number) => {
-        this.startRun();
-      },
-      onWaveStart: (_wave: number) => {
-        this.countdownSystem.startWave(this.waveOrchestrator.wave);
-      },
-      countdownDone: () => {
-        if (this.fsmBridge) this.fsmBridge.fsmMachine.fire("countdown_done");
-      },
-      onPause: (paused: boolean) => {
-        this.hooks.onPause(paused);
-        this.audio.setSuspended(paused);
-      },
-      onWaveComplete: () => {
-        // Wave complete handled by WaveOrchestrator
-      },
-      onWaveAdvanced: (_wave: number) => {
-        // Handled by waveOrchestrator hooks
-      },
-    });
-    
-    // Store context reference for direct access
-    this.fsmCtx = this.fsmBridge.context;
+    // Initialize FSM with lifecycle context
+    const fsmCtx: GameFSMContext = {
+      onPlayerDeath: () => { this.deathSystem.startDeath(); },
+      onDeathAnimationEnd: () => { this.deathSystem.onFinishDeath(); },
+      onGameOver: () => {},
+      onReturnToMenu: () => {},
+      onStartRun: (_wave: number) => { this.startRun(); },
+      onWaveStart: (_wave: number) => { this.countdownSystem.startWave(this.waveOrchestrator.wave); },
+      onWaveComplete: () => {},
+      onWaveAdvanced: (_wave: number) => {},
+      countdownDone: () => { this.fsm.fire("countdown_done"); },
+      onPause: (paused: boolean) => { this.hooks.onPause(paused); this.audio.setSuspended(paused); },
+    };
+    this.fsm = new GameStateMachine<GameFSMContext>("menu", GAME_TRANSITIONS, fsmCtx);
     
     // Subscribe scoring system to events FIRST so it increments killedWave
     // before Game.checkWaveClear()
@@ -578,7 +543,6 @@ export class Game {
         dtScaled,
         this.entityPool.enemyList,
         this.getPlayerPosition(),
-        this.entityPool.enemyBulletList,
         this.getZoneBounds()
       );
       // Enemy shooting: separate from movement/AI
@@ -650,7 +614,11 @@ export class Game {
       viewW: window.innerWidth,
       viewH: window.innerHeight,
       zone: this.waveOrchestrator.zoneState.active
-        ? { x: this.waveOrchestrator.zoneState.x, y: this.waveOrchestrator.zoneState.y, r: this.waveOrchestrator.zoneState.radius }
+        ? {
+            x: this.waveOrchestrator.zoneState.x,
+            y: this.waveOrchestrator.zoneState.y,
+            r: this.waveOrchestrator.zoneState.radius,
+          }
         : null,
     } as import("./asteroids").AsteroidEnv);
 

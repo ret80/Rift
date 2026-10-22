@@ -1,145 +1,53 @@
 /**
- * GameContext - контекст, передаваемый в системы для чтения состояния.
- * Содержит ссылки на ключевые объекты и состояние игры.
+ * GameContext — контекст, передаваемый AI стратегиям для чтения.
+ * Содержит только те данные, которые реально используются стратегиями.
  */
 
 import type { Enemy } from '../types';
-import type { EventBus } from '../core/EventBus';
 
-export interface GameContextData {
-  eventBus: EventBus;
-  
-  // Быстрый доступ к сущностям
+/** Данные для синхронизации контекста (объектный параметр вместо 12 positional args). */
+export interface GameContextInput {
   playerX: number;
   playerY: number;
   playerVx: number;
   playerVy: number;
-  playerAngle: number;
-  playerHp: number;
-  playerMaxHp: number;
-  
   zoneX: number;
   zoneY: number;
   zoneRadius: number;
-  
-  enemies: Enemy[];
-  deltaTime: number;
-  
-  // Для AI стратегий
   wave: number;
-  enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number }>;
-  
-  // Carrier spawn queue (для передачи в EnemySystem)
-  carrierSpawns: Array<{ x: number; y: number }>;
 }
 
-export class GameContext implements GameContextData {
-  public eventBus: EventBus;
-  
-  public playerX: number = 0;
-  public playerY: number = 0;
-  public playerVx: number = 0;
-  public playerVy: number = 0;
-  public playerAngle: number = 0;
-  public playerHp: number = 0;
-  public playerMaxHp: number = 0;
-  
-  public zoneX: number = 0;
-  public zoneY: number = 0;
-  public zoneRadius: number = 0;
-  
+export class GameContext {
+  public playerX = 0;
+  public playerY = 0;
+  public playerVx = 0;
+  public playerVy = 0;
+
+  public zoneX = 0;
+  public zoneY = 0;
+  public zoneRadius = 0;
+
+  public wave = 1;
+
+  /** Живой список врагов (присваивается из EnemySystem перед AI pass). */
   public enemies: Enemy[] = [];
-  public deltaTime: number = 0;
-  
-  public wave: number = 1;
-  public enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number }> = [];
+
+  /** Выходной буфер CarrierStrategy — спавн дронов. */
   public carrierSpawns: Array<{ x: number; y: number }> = [];
 
-  constructor(
-    eventBus: EventBus,
-  ) {
-    this.eventBus = eventBus;
-  }
-
   /**
-    * Update context before each frame.
-    * Player position is now passed from external systems (PlayerSystem).
-    */
-  update(
-    dt: number,
-    playerX: number,
-    playerY: number,
-    playerVx: number,
-    playerVy: number,
-    playerAngle: number,
-    playerHp: number,
-    playerMaxHp: number,
-    wave: number,
-    enemyBullets: Array<{ x: number; y: number; vx: number; vy: number; life: number }>,
-    zoneX: number,
-    zoneY: number,
-    zoneRadius: number
-  ): void {
-    this.deltaTime = dt;
-    
-    // Sync with state
-    this.playerX = playerX;
-    this.playerY = playerY;
-    this.playerVx = playerVx;
-    this.playerVy = playerVy;
-    this.playerAngle = playerAngle;
-    this.playerHp = playerHp;
-    this.playerMaxHp = playerMaxHp;
-    
-    this.zoneX = zoneX;
-    this.zoneY = zoneY;
-    this.zoneRadius = zoneRadius;
-    
-    this.wave = wave;
-    this.enemyBullets = enemyBullets;
+   * Синхронизировать контекст с текущим состоянием мира.
+   * Вызывается один раз за кадр перед AI pass.
+   */
+  sync(input: GameContextInput): void {
+    this.playerX = input.playerX;
+    this.playerY = input.playerY;
+    this.playerVx = input.playerVx;
+    this.playerVy = input.playerVy;
+    this.zoneX = input.zoneX;
+    this.zoneY = input.zoneY;
+    this.zoneRadius = input.zoneRadius;
+    this.wave = input.wave;
     this.carrierSpawns = [];
-  }
-
-  /**
-   * Получить расстояние от точки до игрока.
-   */
-  distanceToPlayer(x: number, y: number): number {
-    return Math.hypot(x - this.playerX, y - this.playerY);
-  }
-
-  /**
-   * Получить угол к игроку из точки.
-   */
-  angleToPlayer(x: number, y: number): number {
-    return Math.atan2(this.playerY - y, this.playerX - x);
-  }
-
-  /**
-   * Проверить, находится ли точка внутри зоны.
-   */
-  isInsideZone(x: number, y: number): boolean {
-    const dist = Math.hypot(x - this.zoneX, y - this.zoneY);
-    return dist <= this.zoneRadius;
-  }
-
-  /**
-   * Получить ближайшего врага к точке (опционально с фильтром).
-   */
-  getNearestEnemy(x: number, y: number, filter?: (e: Enemy) => boolean): Enemy | null {
-    let nearest: Enemy | null = null;
-    let minDist = Infinity;
-
-    for (const enemy of this.enemies) {
-      if (enemy.dead) continue;
-      if (filter && !filter(enemy)) continue;
-
-      const dist = Math.hypot(enemy.x - x, enemy.y - y);
-      if (dist < minDist) {
-        minDist = dist;
-        nearest = enemy;
-      }
-    }
-
-    return nearest;
   }
 }

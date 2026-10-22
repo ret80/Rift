@@ -76,8 +76,6 @@ export class WaveOrchestrator {
   // Wave tracking
   private _wave: number = 1;
   private _waveTotal: number = 0;
-  private allocated: number = 0;
-  private killedWave: number = 0;
   private clearT: number = 0;
   private waveClearSent: boolean = false;
 
@@ -136,8 +134,6 @@ export class WaveOrchestrator {
   ): void {
     this._wave = wave;
     this._waveTotal = waveTotal;
-    this.allocated = 0;
-    this.killedWave = 0;
     this.clearT = 0;
     this.waveClearSent = false;
     this.edgeOutT = 0;
@@ -173,8 +169,6 @@ export class WaveOrchestrator {
 
   advanceWave(): void {
     this._wave++;
-    this.killedWave = 0;
-    this.allocated = 0;
     this.clearT = 0;
     // Transition from cleared back to active
     this._waveState = "active";
@@ -182,11 +176,6 @@ export class WaveOrchestrator {
     this.zone.active = false;
     // Notify Game to start countdown
     this.hooks.onWaveAdvanced(this._wave);
-  }
-
-  markAllSpawnedAndKilled(): void {
-    this.allocated = this._waveTotal;
-    this.killedWave = this._waveTotal;
   }
 
   tryCheckWaveClear(allSpawned: boolean, allKilled: boolean): void {
@@ -242,8 +231,6 @@ export class WaveOrchestrator {
     };
     this._wave = targetWave;
     this._waveTotal = 0;
-    this.allocated = 0;
-    this.killedWave = 0;
     this.clearT = 0;
     this.waveClearSent = false;
     this.edgeOutT = 0;
