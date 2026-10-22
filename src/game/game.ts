@@ -229,8 +229,11 @@ export class Game {
         onWaveAdvanced: (_wave) => {
           // Wave orchestrator triggers this when clear transition is done
           // Go from cleared → playing for new wave countdown
+          const nextWave = this.waveOrchestrator.wave;
+          this.enemySystem.setWave(nextWave);
+          this.enemyShootingSystem.setWave(nextWave);
           this.fsm.fire("next_wave");
-          this.countdownSystem.startWave(this.waveOrchestrator.wave);
+          this.countdownSystem.startWave(nextWave);
         },
       },
       playerMaxSpeed: PLAYER_MAX_SPEED,
@@ -409,7 +412,11 @@ export class Game {
       onGameOver: () => {},
       onReturnToMenu: () => {},
       onStartRun: (_wave: number) => { this.startRun(); },
-      onWaveStart: (_wave: number) => { this.countdownSystem.startWave(this.waveOrchestrator.wave); },
+      onWaveStart: (wave: number) => {
+        this.enemySystem.setWave(wave);
+        this.enemyShootingSystem.setWave(wave);
+        this.countdownSystem.startWave(this.waveOrchestrator.wave);
+      },
       onWaveComplete: () => {},
       onWaveAdvanced: (_wave: number) => {},
       countdownDone: () => { this.fsm.fire("countdown_done"); },
@@ -774,7 +781,7 @@ export class Game {
     });
   }
 
-  /** Purchase upgrade bypassing cost check (debug: +1000 details) */
+  /** Purchase upgrade bypassing cost check (debug/dev) */
   purchaseUpgradeNoCost(key: keyof Omit<PlayerUpgrades, "parts">): boolean {
     const success = this.upgradeSystem.purchaseNoCost(key);
     if (success) {
@@ -872,9 +879,12 @@ export class Game {
     this.spawnSystem.clearAnnounced();
     this.enemySystem.reset();
     this.enemyShootingSystem.reset();
+    const resetWaveStart = Math.max(this.startWave, loadBestWave());
+    this.enemySystem.setWave(resetWaveStart);
+    this.enemyShootingSystem.setWave(resetWaveStart);
 
     // Reset zone state via orchestrator
-    this.waveOrchestrator.reset(Math.max(this.startWave, loadBestWave()));
+    this.waveOrchestrator.reset(resetWaveStart);
 
     this.riftField.reset();
     this.asteroidField.hardReset();

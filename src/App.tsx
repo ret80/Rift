@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { PickupKind } from "./game/balance";
 import { ALL_PICKUP_KINDS } from "./game/balance/drops";
-import { EnemyKind } from "./game/balance/enemies";
+import { EnemyKind, ENEMY_KIND_COUNT } from "./game/balance/enemies";
 import type {
     BannerData,
     CountData,
@@ -219,7 +219,7 @@ export default function App() {
       },
     });
     game.setVolumes(vols);
-    game.setEnabledEnemies(enabledEnemies.length === 5 ? null : enabledEnemies);
+    game.setEnabledEnemies(enabledEnemies.length === ENEMY_KIND_COUNT ? null : enabledEnemies);
     gameRef.current = game;
     setBest(Number(localStorage.getItem("rift9_best")) || 0);
 
@@ -290,7 +290,7 @@ export default function App() {
   useEffect(() => {
     if (screen === "debug") {
       gameRef.current?.setEnabledEnemies(
-        enabledEnemies.length === 5 ? null : enabledEnemies
+        enabledEnemies.length === ENEMY_KIND_COUNT ? null : enabledEnemies
       );
       gameRef.current?.setEnabledPickups(
         enabledPickups.length === ALL_PICKUP_KINDS.length ? null : enabledPickups
@@ -305,7 +305,7 @@ export default function App() {
         : [...prev, kind];
       // Update game immediately if running
       gameRef.current?.setEnabledEnemies(
-        next.length === 5 ? null : next
+        next.length === ENEMY_KIND_COUNT ? null : next
       );
       return next;
     });
@@ -343,7 +343,7 @@ export default function App() {
     g.audio.init();
     g.audio.startMusic();
     g.setStartWave(debugWave);
-    g.setEnabledEnemies(enabledEnemies.length === 5 ? null : enabledEnemies);
+    g.setEnabledEnemies(enabledEnemies.length === ENEMY_KIND_COUNT ? null : enabledEnemies);
     resetGameState({
       setStats: (s) => dispatch({ type: "SET_STATS", stats: s }),
       setBanner: (b) => dispatch({ type: "SET_BANNER", banner: b }),

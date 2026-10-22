@@ -65,10 +65,16 @@ export class UpgradeSystem {
 
   /* ======================== Purchase (debug) ======================== */
 
-  /** Debug-only: purchase upgrade without cost. Currently disabled in production. */
-  purchaseNoCost(_key: keyof Omit<PlayerUpgrades, "parts">): boolean {
-    // Debug feature: gated by build environment in production
-    return false;
+  /** Debug-only: purchase upgrade without cost (dev only). */
+  purchaseNoCost(key: keyof Omit<PlayerUpgrades, "parts">): boolean {
+    if (typeof process !== "undefined" && process.env?.NODE_ENV === "production") {
+      return false;
+    }
+    if (this._playerUpgrades[key] == null) return false;
+    (this._playerUpgrades[key] as number) += 1;
+    saveUpgradesRaw(this._playerUpgrades);
+    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades);
+    return true;
   }
 
   /* ======================== Parts management ======================== */

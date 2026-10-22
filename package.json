@@ -11,10 +11,6 @@
     "check:i18n": "node scripts/check-i18n-consistency.ts"
   },
   "dependencies": {
-    "canvas-confetti": "^1.9.3",
-    "framer-motion": "^11.16.1",
-    "kinetics.ts": "^1.4.1",
-    "lucide-react": "^0.294.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

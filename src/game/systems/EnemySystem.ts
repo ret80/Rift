@@ -228,14 +228,6 @@ export class EnemySystem {
     return enemyDefFor(kind, this.wave);
   }
 
-  /** Сложение двух углов с учётом весов (для blended dodge) */
-  private lerpAngleAngle(a: number, b: number, t: number): number {
-    let diff = b - a;
-    while (diff > Math.PI) diff -= TAU;
-    while (diff < -Math.PI) diff += TAU;
-    return a + diff * t;
-  }
-
   /** Найти ближайшего живого Carrier для дрона */
   private findCarrierForDrone(enemies: Enemy[], spawnPos: { x: number; y: number }): Enemy | null {
     let closest: Enemy | null = null;

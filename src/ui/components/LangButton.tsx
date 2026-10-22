@@ -1,5 +1,5 @@
 import React from "react";
-import { useLang, setLang, type Lang } from "../../i18n";
+import { setLang, type Lang } from "../../i18n";
 
 interface LangButtonProps {
   code: Lang;

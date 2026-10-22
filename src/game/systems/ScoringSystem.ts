@@ -20,10 +20,7 @@ export interface ScoringState {
   comboMult: number;
 }
 
-export interface ScoringHooks {
-  /** Called when best score is broken — used to persist / show new-best banner */
-  onNewBest?: (best: number) => void;
-}
+export interface ScoringHooks {}
 
 export class ScoringSystem {
   private _score = 0;
@@ -120,7 +117,7 @@ export class ScoringSystem {
       } catch {
         /* storage full / private mode — silent */
       }
-      this.hooks.onNewBest?.(this._best);
+      // Новый рекорд сохранён; UI при желании может реагировать через hooks (убрано)
       return true;
     }
     return false;

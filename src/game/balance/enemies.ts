@@ -20,6 +20,8 @@ export enum EnemyKind {
   Carrier = "carrier",
 }
 
+export const ENEMY_KIND_COUNT = Object.keys(EnemyKind).length;
+
 /* Cruiser tuning */
 export const CRUISER_FIRE_RANGE = 760; // range at which cruiser starts shooting (2× base)
 export const CRUISER_BULLET_SPEED = 364; // 260 × 1.4 — 40% faster heavy bolts

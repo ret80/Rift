@@ -134,10 +134,7 @@ export function resetUpgrades(): PlayerUpgrades {
   return fresh;
 }
 
-/** Сохранить прокачку в localStorage (для синхронизации in-memory) */
-export function persistUpgrades(upgrades: PlayerUpgrades): void {
-  saveUpgrades(upgrades);
-}
+
 
 /* ======================== Best wave tracking ======================== */
 

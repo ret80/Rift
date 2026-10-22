@@ -143,15 +143,6 @@ export class RiftField {
     }
   }
 
-  /** True while any rift still has enemies left to release. */
-  anyPending() {
-    return this.riftList.some((r) => r.queue.length > 0);
-  }
-
-  clear() {
-    this.riftList.length = 0;
-  }
-
   reset() {
     this.riftList.length = 0;
   }

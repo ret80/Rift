@@ -19,11 +19,6 @@ import { TAU } from "../math";
 import type { RiftField } from "../rifts";
 import type { AudioManager } from "./AudioManager";
 
-export interface SpawnHooks {
-  fx: Fx;
-  audio: AudioManager;
-}
-
 /** Dependencies injected to avoid tight coupling with Game. */
 export interface SpawnDependencies {
   countdownSystem: { isCountdownActive?(): boolean };
@@ -46,8 +41,6 @@ export interface SpawnDependencies {
 
 /** Процент врагов для стартового залпа (30%) */
 const START_SPAWN_PCT = 0.3;
-/** Процент врагов для подкрепления (10%) */
-const REINFORCEMENT_PCT = 0.1;
 /** Процент убитых для создания нового разлома (10%) */
 const KILL_THRESHOLD_PCT = 0.1;
 /** Зона расширения для разломов (90%) */
@@ -66,11 +59,8 @@ const RIFT_ANGLE_STEP = 0.4;
 const RIFT_RADIUS_PROBES = 4;
 
 export class SpawnSystem {
-  private hooks: SpawnHooks;
   private eventBus: EventBus;
   private riftField: RiftField;
-  private fx: Fx;
-  private audio: AudioManager;
   private announcedKinds = new Set<EnemyKind>();
   private enabledEnemies: EnemyKind[] | null = null;
 
@@ -92,17 +82,14 @@ export class SpawnSystem {
   }
 
   constructor(config: {
-    hooks: SpawnHooks;
+    hooks?: unknown;
     eventBus: EventBus;
     riftField: RiftField;
-    fx: Fx;
-    audio: AudioManager;
+    fx?: unknown;
+    audio?: unknown;
   }) {
-    this.hooks = config.hooks;
     this.eventBus = config.eventBus;
     this.riftField = config.riftField;
-    this.fx = config.fx;
-    this.audio = config.audio;
   }
 
   /**
@@ -356,7 +343,7 @@ export class SpawnSystem {
 
     // Количество врагов для подкрепления: 10% от total
     const count = Math.min(
-      Math.ceil(this.total * REINFORCEMENT_PCT),
+      Math.ceil(this.total * 0.1),
       this.total - this.spawned
     );
     if (count <= 0) return;

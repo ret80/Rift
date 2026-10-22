@@ -55,7 +55,8 @@ export class CountdownSystem {
     const c = Math.ceil(this.cdT);
 
     // Публикуем wave_started ОДИН РАЗ когда отсчёт начинается
-    if (!this.started && c === 5) {
+    if (!this.started && c === 5) { // countdown uses fixed steps in codebase
+
       this.started = true;
       this.eventBus.publish("wave_started", { wave: this.currentWave });
     }
@@ -94,19 +95,6 @@ export class CountdownSystem {
    */
   showToast(toast: ToastData | null): void {
     this.hooks.onToast(toast);
-  }
-
-  /**
-     * Сбросить состояние.
-     */
-  reset(): void {
-    this.cdT = 0;
-    this.cdLast = -1;
-    this.started = false;
-    this.doneCalled = false;
-    this.hooks.onCountdown(null);
-    this.hooks.onBanner(null);
-    this.hooks.onToast(null);
   }
 
   /**

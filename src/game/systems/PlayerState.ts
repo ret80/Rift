@@ -56,24 +56,3 @@ export function resetPlayerState(state: PlayerState): void {
 }
 
 /* ============================== render ============================== */
-
-import { buildPlayerState } from './Renderers/PlayerRenderer';
-
-/**
- * @deprecated — используйте PlayerRenderer.buildPlayerState напрямую.
- * Сохранён для обратной совместимости с PlayerSystem.
- */
-export function getRenderState(
-  state: PlayerState,
-  aimAngle: number | null,
-  barrelCount: number,
-  bonus: { rateT: number; rateBoost: number; dashT: number },
-): PlayerRenderState {
-  return buildPlayerState(
-    state.x, state.y, state.angle,
-    state.hp, state.maxHp, state.invuln,
-    state.thrusting,
-    state.vx, state.vy,
-    aimAngle, barrelCount, bonus,
-  );
-}

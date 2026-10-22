@@ -30,8 +30,6 @@ export interface PlayerSnapshot {
   hp: number;
   maxHp: number;
 }
-/** @deprecated Используйте PlayerBonuses из loadout/bonuses/Bonus. */
-export type { PlayerBonuses };
 
 /** Состояние наведения оружия. */
 export interface AimState {
