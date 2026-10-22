@@ -1,11 +1,16 @@
 /**
  * CannonWeapon — основная пушка игрока.
  *
- * Пушка доступна всегда, стреляет по текущему прицелу (автонаведение
- * или ручной прицел). Число стволов складывается из персистентного
- * апгрейда и временного бонуса «доп. стволы».
+ * Пушка доступна всегда. Если есть автоцель, орудие берёт упреждение:
+ * снаряд летит не в текущую позицию врага, а в точку, где враг будет
+ * к моменту подлёта. Точность задаётся апгрейдом «точность» и никогда
+ * не бывает стопроцентной — промах остаётся разбросом угла.
+ *
+ * Число стволов складывается из персистентного апгрейда и временного
+ * бонуса «доп. стволы».
  */
 
+import { aimAtTarget } from "../aiming/AimSolver";
 import type {
   Weapon,
   WeaponContext,
@@ -27,8 +32,8 @@ const CANNON_FIRE_CD = 0.455;
 export const CANNON_MAX_BARRELS = 5;
 /** Смещения стволов относительно центра корабля. */
 export const CANNON_BARREL_OFFSETS = [0, 9, -9, 17, -17];
-/** Точность стрельбы: 1 — без разброса. */
-const CANNON_ACCURACY = 0.98;
+/** Разброс ручного прицела — цели нет, упреждение применить не к чему. */
+const CANNON_MANUAL_SPREAD = 0.02;
 /** Дистанция автонаведения пушки. */
 export const CANNON_TARGET_RANGE = 420;
 
@@ -73,7 +78,7 @@ export class CannonWeapon implements Weapon {
     if (!ctx.aim.firing || ctx.aim.angle === null) return;
     if (this.fireCd > 0) return;
     this.fireCd = this.getReloadTime(ctx);
-    this.fire(ctx, ctx.aim.angle);
+    this.fire(ctx);
   }
 
   getSlot(ctx: WeaponContext): WeaponSlotState {
@@ -103,20 +108,42 @@ export class CannonWeapon implements Weapon {
     return CANNON_FIRE_CD / ctx.bonuses.rateMult;
   }
 
-  /** Выстрел: по одному снаряду из каждого ствола. */
-  private fire(ctx: WeaponContext, angle: number): void {
+  /**
+   * Направление стволов: с автоцелью — упреждающий угол с рассеиванием,
+   * без цели — ручной прицел с минимальным разбросом.
+   */
+  private turretAngle(ctx: WeaponContext): number {
+    const target = ctx.aim.target;
+    if (!target) return ctx.aim.angle ?? 0;
+
+    return aimAtTarget(
+      {
+        sx: ctx.player.x,
+        sy: ctx.player.y,
+        target,
+        bulletSpeed: CANNON_BULLET_SPEED,
+        maxFlightTime: CANNON_BULLET_LIFE,
+      },
+      ctx.aim.hitChance,
+      target.r
+    );
+  }
+
+  /** Выстрел: по одному снаряду из каждого ствола, у каждого свой разброс. */
+  private fire(ctx: WeaponContext): void {
     const barrels = this.getInstanceCount(ctx);
-    // Разброс: как у врагов — случайное отклонение угла.
-    const spread = (1 - CANNON_ACCURACY) * 0.3;
-    const bulletAngle = angle + (Math.random() - 0.5) * 2 * spread;
+    const turret = this.turretAngle(ctx);
+    // Разброс стволов: при автонаведении он уже внесён упреждающим расчётом.
+    const spread = ctx.aim.target ? 0 : CANNON_MANUAL_SPREAD;
 
     for (let i = 0; i < barrels; i++) {
+      const barrelAngle = turret + (Math.random() - 0.5) * 2 * spread;
       const offset = CANNON_BARREL_OFFSETS[i] ?? 0;
       ctx.bullets.push({
-        x: ctx.player.x + Math.cos(angle) * 14 - Math.sin(angle) * offset,
-        y: ctx.player.y + Math.sin(angle) * 14 + Math.cos(angle) * offset,
-        vx: Math.cos(bulletAngle) * CANNON_BULLET_SPEED,
-        vy: Math.sin(bulletAngle) * CANNON_BULLET_SPEED,
+        x: ctx.player.x + Math.cos(turret) * 14 - Math.sin(turret) * offset,
+        y: ctx.player.y + Math.sin(turret) * 14 + Math.cos(turret) * offset,
+        vx: Math.cos(barrelAngle) * CANNON_BULLET_SPEED,
+        vy: Math.sin(barrelAngle) * CANNON_BULLET_SPEED,
         life: CANNON_BULLET_LIFE,
         dmg: this.damage,
         r: this.solidRadius || undefined,

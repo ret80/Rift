@@ -58,14 +58,14 @@ export {
   EnemyKind,
   CRUISER_FIRE_RANGE,
   CRUISER_BULLET_SPEED,
+  ENEMY_BOLT_SPEED,
+  ENEMY_BOLT_LIFE,
+  CRUISER_BOLT_LIFE,
   ENEMY_BASES,
   massForRadius,
   AI_MIN_DIST,
   AI_BASE_PUSH,
   ENEMY_SHOOT_RANGE,
-  ENEMY_ACCURACY_MIN,
-  ENEMY_ACCURACY_MAX,
-  ENEMY_ACCURACY_RAMP,
   ENEMY_MAX_DRONES,
 } from "./balance/enemies";
 export type { EnemyDef, EnemyBaseDef } from "./balance/enemies";
@@ -123,3 +123,28 @@ export {
 // Drop chances, pickup kinds, asteroid kinds
 export { dropChanceFor, ALL_PICKUP_KINDS, pickupDisplayKey } from "./balance/drops";
 export type { PickupKind, AsteroidKind } from "./balance/drops";
+
+// Lead prediction and shot dispersion
+export {
+  LEAD_MIN_TIME,
+  LEAD_MAX_TIME,
+  AIM_CHANCE_CEILING,
+  AIM_CHANCE_FLOOR,
+  AIM_MIN_SPREAD,
+  AIM_MAX_SPREAD,
+  AIM_MANEUVER_FACTOR,
+} from "./balance/aiming";
+
+// Hit chances of the player and of enemy turrets
+export {
+  PLAYER_AIM_BASE_CHANCE,
+  PLAYER_AIM_PER_LEVEL,
+  PLAYER_AIM_MAX_CHANCE,
+  playerHitChance,
+  ENEMY_AIM_BASE_CHANCE,
+  ENEMY_AIM_PER_WAVE,
+  ENEMY_AIM_MAX_CHANCE,
+  ENEMY_AIM_RAMP_WAVE,
+  ENEMY_AIM_KIND_MULT,
+  enemyHitChance,
+} from "./balance/accuracy";

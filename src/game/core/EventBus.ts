@@ -66,7 +66,8 @@ export interface EnemyFiredPayload {
   boltDmg: number;
   heavy: boolean;
   cruiser: boolean;
-  boltSpeed?: number;
+  boltSpeed: number;
+  boltLife: number;
 }
 
 export interface ZoneStateChangePayload {

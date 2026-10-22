@@ -50,6 +50,7 @@ const CURRENT_TIERS = {
   grazeMomentum: { baseCost: 120, costStep: 90,  maxLevel: 3  },
   phantomHitbox: { baseCost: 140, costStep: 105, maxLevel: 3  },
   solidBullets:  { baseCost: 130, costStep: 97,  maxLevel: 3  },
+  accuracy:      { baseCost: 170, costStep: 127, maxLevel: 4  },
 };
 
 // upgrades.ts: cost(l) = baseCost + costStep * l
@@ -122,6 +123,7 @@ const POWER_WEIGHT = {
   grazeMomentum: 1.0,  // риск-механика: скорость за касания
   phantomHitbox: 1.25, // защита (пустое ядро хитбокса) — супер-защита
   solidBullets:  0.9,  // оборонительный эффект через перехват
+  accuracy:      1.1,  // огневая мощь: шанс попадания умножает эффективный DPS
 };
 
 /**

@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
+import { playerHitChance } from "../game/balance/accuracy";
 import type { Game } from "../game/game";
 import {
-  purchaseUpgrade,
-  UPGRADE_TIERS,
-  upgradeCost,
-  type PlayerUpgrades
+    purchaseUpgrade,
+    UPGRADE_TIERS,
+    upgradeCost,
+    type PlayerUpgrades
 } from "../game/upgrades";
 import { useT } from "../i18n";
 import { Icon } from "./components/Icon";
@@ -107,6 +108,7 @@ function getUpgradeValue(key: keyof Omit<PlayerUpgrades, "parts">, level: number
     case "grazeMomentum": return `+${(level * 18).toFixed(0)}%`;
     case "phantomHitbox": return `r${level > 0 ? [0, 8, 12, 15][Math.min(level, 3)] : 0}`;
     case "solidBullets": return `r${level > 0 ? [0, 5, 7, 9][Math.min(level, 3)] : 0}`;
+    case "accuracy": return `${Math.round(playerHitChance(level) * 100)}%`;
     default: return `${level}`;
   }
 }
@@ -123,6 +125,7 @@ export function UpgradeScreen(props: {
   const [upgrades, setUpgrades] = useState<PlayerUpgrades>({
     parts: 0, hull: 0, damage: 0, fireRate: 0, speed: 0, guns: 0, drones: 0,
     dashDuration: 0, grazeMomentum: 0, phantomHitbox: 0, solidBullets: 0,
+    accuracy: 0,
   });
 
   // store an immutable snapshot so React re-renders after purchases

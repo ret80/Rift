@@ -15,7 +15,6 @@ import { AudioManager } from "./systems/AudioManager";
 import type { PlayerUpgrades } from "./upgrades";
 import { loadBestWave, saveBestWave } from "./upgrades";
 
-import { CRUISER_BULLET_SPEED } from "./balance";
 
 import {
   // FPS
@@ -57,6 +56,7 @@ import type { WeaponId } from "./weapons/Weapon";
 import { WeaponManager } from "./weapons/WeaponManager";
 
 /* Game systems */
+import { AbilitySystem } from "./abilities/AbilitySystem";
 import { ApplyPickupSystem } from "./systems/ApplyPickupSystem";
 import { BulletSystem } from "./systems/BulletSystem";
 import { CameraSystem } from "./systems/CameraSystem";
@@ -66,14 +66,13 @@ import { DeathSystem } from "./systems/DeathSystem";
 import { EnemyShootingSystem } from "./systems/EnemyShootingSystem";
 import { EnemySystem } from "./systems/EnemySystem";
 import { EntityPoolSystem } from "./systems/EntityPoolSystem";
+import { GrazeSystem } from "./systems/GrazeSystem";
 import { InputSystem } from "./systems/InputSystem";
 import { PickupDropSystem } from "./systems/PickupDropSystem";
 import { PickupSystem } from "./systems/PickupSystem";
 import { PlayerSystem } from "./systems/PlayerSystem";
 import { RendererSystem } from "./systems/RendererSystem";
 import { SpawnSystem } from "./systems/SpawnSystem";
-import { GrazeSystem } from "./systems/GrazeSystem";
-import { AbilitySystem } from "./abilities/AbilitySystem";
 import { UpgradeSystem } from "./systems/UpgradeSystem";
 import { WaveFlowSystem } from "./systems/WaveFlowSystem";
 import { WaveOrchestrator } from "./systems/WaveOrchestrator";
@@ -529,14 +528,12 @@ export class Game {
     this.eventBus.subscribe("enemy_fired", (event) => {
       const data = event.payload as import('./core/EventBus').EnemyFiredPayload;
       const heavy = data.cruiser || data.heavy;
-      const speed = data.boltSpeed ?? (data.cruiser ? CRUISER_BULLET_SPEED : 300);
-      const life = data.cruiser ? 1.8 : 1.35;
       this.entityPool.spawnEnemyBullet(
         data.x + Math.cos(data.angle) * 14,
         data.y + Math.sin(data.angle) * 14,
-        Math.cos(data.angle) * speed,
-        Math.sin(data.angle) * speed,
-        life,
+        Math.cos(data.angle) * data.boltSpeed,
+        Math.sin(data.angle) * data.boltSpeed,
+        data.boltLife,
         data.boltDmg,
         heavy,
         data.cruiser,

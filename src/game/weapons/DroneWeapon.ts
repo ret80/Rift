@@ -2,21 +2,23 @@
  * DroneWeapon — дроны-компаньоны игрока.
  *
  * Дроны кружат по орбите вокруг корабля, сами выбирают цель
- * и стреляют по ней настоящими снарядами.
+ * и стреляют по ней настоящими снарядами с упреждением — так же,
+ * как пушка игрока.
  *
  * Состав роя складывается из двух источников:
  *   • постоянные дроны — апгрейд «дроны», восстанавливаются после гибели;
  *   • бонусные дроны — пикап «дрон», гибнут безвозвратно.
  */
 
+import { aimAtTarget } from "../aiming/AimSolver";
 import type { AllyDrone, Enemy } from "../types";
 import type {
-  Weapon,
-  WeaponContext,
-  WeaponId,
-  WeaponMeta,
-  WeaponModifiers,
-  WeaponSlotState,
+    Weapon,
+    WeaponContext,
+    WeaponId,
+    WeaponMeta,
+    WeaponModifiers,
+    WeaponSlotState,
 } from "./Weapon";
 
 /** Радиус орбиты дронов вокруг корабля. */
@@ -153,19 +155,30 @@ export class DroneWeapon implements Weapon {
 
     const dx = target.x - drone.x;
     const dy = target.y - drone.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist > DRONE_TARGET_RANGE) return false;
+    if (Math.hypot(dx, dy) > DRONE_TARGET_RANGE) return false;
     if (drone.fireCd > 0) return false;
 
-    // Выстрел.
+    // Выстрел с упреждением: снаряд летит в точку, куда цель придёт к подлёту.
+    const angle = aimAtTarget(
+      {
+        sx: drone.x,
+        sy: drone.y,
+        target,
+        bulletSpeed: DRONE_BULLET_SPEED,
+        maxFlightTime: DRONE_BULLET_LIFE,
+      },
+      ctx.aim.hitChance,
+      target.r
+    );
+
     drone.fireCd = DRONE_FIRE_CD;
     drone.flash = DRONE_FLASH_TIME;
-    drone.angle = Math.atan2(dy, dx);
+    drone.angle = angle;
     ctx.bullets.push({
       x: drone.x,
       y: drone.y,
-      vx: (dx / dist) * DRONE_BULLET_SPEED,
-      vy: (dy / dist) * DRONE_BULLET_SPEED,
+      vx: Math.cos(angle) * DRONE_BULLET_SPEED,
+      vy: Math.sin(angle) * DRONE_BULLET_SPEED,
       life: DRONE_BULLET_LIFE,
       dmg: DRONE_BULLET_DMG,
     });

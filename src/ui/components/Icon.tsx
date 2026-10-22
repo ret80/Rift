@@ -30,6 +30,7 @@ export type IconKind =
   | "upgrade-grazeMomentum"
   | "upgrade-phantomHitbox"
   | "upgrade-solidBullets"
+  | "upgrade-accuracy"
   /* HUD loadout row */
   | LoadoutIcon;
 
@@ -64,6 +65,7 @@ const UPGRADE_COLORS: Record<string, string> = {
   "upgrade-grazeMomentum": "#b9f6ff",
   "upgrade-phantomHitbox": "#e6c8ff",
   "upgrade-solidBullets": "#9dffe8",
+  "upgrade-accuracy": "#ffb84d",
 };
 
 function getIconColor(kind: IconKind): string {
@@ -169,6 +171,17 @@ function getIconPaths(kind: IconKind): React.ReactNode {
           <rect x="7" y="7" width="10" height="10" rx="2" />
           <line x1="7" y1="12" x2="17" y2="12" strokeOpacity="0.4" />
           <line x1="12" y1="7" x2="12" y2="17" strokeOpacity="0.4" />
+        </>
+      );
+    case "upgrade-accuracy":
+      return (
+        <>
+          <circle cx="12" cy="12" r="7" />
+          <circle cx="12" cy="12" r="1.6" />
+          <line x1="12" y1="2" x2="12" y2="7" />
+          <line x1="12" y1="17" x2="12" y2="22" />
+          <line x1="2" y1="12" x2="7" y2="12" />
+          <line x1="17" y1="12" x2="22" y2="12" />
         </>
       );
 

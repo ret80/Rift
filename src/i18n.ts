@@ -111,6 +111,8 @@ const ru: Dict = {
   "upgrade.phantomHitboxDesc": "Пустое ядро корабля пропускает пули сквозь центр",
   "upgrade.solidBullets": "ТВЁРДЫЕ СНАРЯДЫ",
   "upgrade.solidBulletsDesc": "Снаряды игрока перехватывают вражеские пули",
+  "upgrade.accuracy": "ТОЧНОСТЬ",
+  "upgrade.accuracyDesc": "Увеличивает шанс попадания упреждающего выстрела",
 
   "hud.wave": "ВОЛНА",
   "hud.scoreLabel": "СЧЁТ",
@@ -276,6 +278,8 @@ const en: Dict = {
   "upgrade.phantomHitboxDesc": "Empty core lets bullets pass through the center",
   "upgrade.solidBullets": "SOLID BULLETS",
   "upgrade.solidBulletsDesc": "Player bullets intercept enemy bullets",
+  "upgrade.accuracy": "ACCURACY",
+  "upgrade.accuracyDesc": "Increases the hit chance of predictive fire",
 
   "hud.wave": "WAVE",
   "hud.scoreLabel": "SCORE",

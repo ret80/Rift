@@ -3,11 +3,11 @@
    ============================================================ */
 
 import {
-  DRONE_BASE_SPEED,
-  HUNTER_SPEED,
-  FIGHTER_BASE_SPEED,
-  CRUISER_BASE_SPEED,
-  CARRIER_BASE_SPEED,
+    CARRIER_BASE_SPEED,
+    CRUISER_BASE_SPEED,
+    DRONE_BASE_SPEED,
+    FIGHTER_BASE_SPEED,
+    HUNTER_SPEED,
 } from "./player";
 
 /* ------------------------------- enemies ------------------------------- */
@@ -25,6 +25,15 @@ export const ENEMY_KIND_COUNT = Object.keys(EnemyKind).length;
 /* Cruiser tuning */
 export const CRUISER_FIRE_RANGE = 760; // range at which cruiser starts shooting (2× base)
 export const CRUISER_BULLET_SPEED = 364; // 260 × 1.4 — 40% faster heavy bolts
+
+/* --------------------------- enemy bolts --------------------------- */
+
+/** Скорость болта файтера и дрононосца. */
+export const ENEMY_BOLT_SPEED = 300;
+/** Время жизни болта файтера и дрононосца — ограничивает дальность поражения. */
+export const ENEMY_BOLT_LIFE = 1.35;
+/** Время жизни тяжёлого болта крейсера. */
+export const CRUISER_BOLT_LIFE = 1.8;
 
 /**
  * EnemyDef — static base stats for each enemy kind.
@@ -97,11 +106,6 @@ export const AI_BASE_PUSH = 1.2;
 
 /** Дальность стрельбы врагов */
 export const ENEMY_SHOOT_RANGE = 500;
-
-/** Меткость врагов: ENEMY_ACCURACY_MIN на волне 1, растёт до ENEMY_ACCURACY_MAX к волне 30 */
-export const ENEMY_ACCURACY_MIN = 0.3;
-export const ENEMY_ACCURACY_MAX = 0.7;
-export const ENEMY_ACCURACY_RAMP = 0.013;
 
 /** Максимальное количество дронов у одного Carrier */
 export const ENEMY_MAX_DRONES = 10;

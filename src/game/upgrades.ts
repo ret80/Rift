@@ -4,6 +4,7 @@
  * На экране прокачки детали тратятся на постоянные улучшения.
  */
 
+import { playerHitChance } from "./balance/accuracy";
 import { PHANTOM_CORE_RADII, SOLID_BULLET_RADII } from "./balance/player";
 import { CANNON_MAX_BARRELS } from "./weapons/CannonWeapon";
 import { MAX_ALLY_DRONES } from "./weapons/DroneWeapon";
@@ -32,7 +33,8 @@ export type UpgradeKey =
   | "dashDuration"
   | "grazeMomentum"
   | "phantomHitbox"
-  | "solidBullets";
+  | "solidBullets"
+  | "accuracy";
 
 export interface PlayerUpgrades {
   parts: number;          // доступные детали (валюта)
@@ -46,6 +48,7 @@ export interface PlayerUpgrades {
   grazeMomentum: number;  // уровень поглощения импульса (макс 3)
   phantomHitbox: number;  // уровень фантомного хитбокса (макс 3)
   solidBullets: number;   // уровень твёрдых снарядов (макс 3)
+  accuracy: number;       // уровень точности (шанс попадания орудий)
 }
 
 /* ======================== Default state ======================== */
@@ -63,6 +66,7 @@ export function defaultUpgrades(): PlayerUpgrades {
     grazeMomentum: 0,
     phantomHitbox: 0,
     solidBullets: 0,
+    accuracy: 0,
   };
 }
 
@@ -82,6 +86,7 @@ export function defaultUpgrades(): PlayerUpgrades {
  *  - dashDuration (×1.2) — супер-защита (дольше уклоняешься);
  *  - guns (×1.15) — мультипликативный рост урона;
  *  - hull / damage / fireRate / grazeMomentum (×1.0) — защита и огневая мощь;
+ *  - accuracy (×1.0) — огневая мощь: точность упреждающего выстрела;
  *  - solidBullets (×0.9) — оборонительный эффект через перехват;
  *  - speed (×0.45) — чистая мобильность, самый дешёвый.
  */
@@ -96,6 +101,7 @@ export const UPGRADE_TIERS: Record<UpgradeKey, UpgradeTier> = {
   grazeMomentum:{ baseCost: 104, costStep: 78,  maxLevel: 3  },
   phantomHitbox:{ baseCost: 151, costStep: 113, maxLevel: 3  },
   solidBullets: { baseCost: 101, costStep: 75,  maxLevel: 3  },
+  accuracy:     { baseCost: 170, costStep: 127, maxLevel: 4  },
 };
 
 /* ======================== Cost calculation ======================== */
@@ -231,6 +237,8 @@ export interface AppliedUpgrades {
   phantomCoreRadius: number;
   /** Радиус твёрдого снаряда игрока (0 — снаряды бестелесные). */
   solidBulletRadius: number;
+  /** Шанс попадания орудий игрока (0..1, всегда < 1) по уровню «точность». */
+  hitChance: number;
 }
 
 /** Взять значение по уровню из таблицы радиусов. */
@@ -270,6 +278,9 @@ export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
   // Твёрдые снаряды: радиус физического снаряда игрока.
   const solidBulletRadius = radiusForLevel(SOLID_BULLET_RADII, upgrades.solidBullets);
 
+  // Шанс попадания: линейно растёт с уровнем апгрейда, никогда не 100%.
+  const hitChance = playerHitChance(upgrades.accuracy);
+
   return {
     baseHp,
     fireRateMult,
@@ -281,5 +292,6 @@ export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
     momentumLevel,
     phantomCoreRadius,
     solidBulletRadius,
+    hitChance,
   };
 }

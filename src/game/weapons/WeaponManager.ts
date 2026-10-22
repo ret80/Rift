@@ -10,10 +10,10 @@
  * он получает через WeaponWorld — набор провайдеров живых данных.
  */
 
+import { PLAYER_AIM_BASE_CHANCE } from "../balance";
 import type { LoadoutSlotData } from "../loadout/LoadoutTypes";
 import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
-import type { AllyDrone, Bullet, Enemy } from "../types";
-import type { WeaveThread } from "../types";
+import type { AllyDrone, Bullet, Enemy, WeaveThread } from "../types";
 import { CANNON_TARGET_RANGE } from "./CannonWeapon";
 import { Targeting } from "./Targeting";
 import type {
@@ -50,6 +50,8 @@ export class WeaponManager {
   private onWeaponFired: (id: WeaponId) => void;
   /** Множитель темпа стрельбы из персистентного апгрейда. */
   private fireRateMult = 1;
+  /** Шанс попадания орудий игрока из персистентного апгрейда «точность». */
+  private hitChance = PLAYER_AIM_BASE_CHANCE;
 
   constructor(world: WeaponWorld, onWeaponFired: (id: WeaponId) => void) {
     this.world = world;
@@ -75,6 +77,7 @@ export class WeaponManager {
   /** Сбросить оружие — начало забега. */
   reset(): void {
     this.fireRateMult = 1;
+    this.hitChance = PLAYER_AIM_BASE_CHANCE;
     const ctx = this.buildContext();
     for (const weapon of Object.values(this.weapons)) {
       weapon.reset(ctx);
@@ -84,6 +87,7 @@ export class WeaponManager {
   /** Применить персистентные апгрейды к подходящим видам оружия. */
   applyUpgrades(upgrades: WeaponUpgrades): void {
     this.fireRateMult = upgrades.fireRateMult;
+    this.hitChance = upgrades.hitChance;
     const ctx = this.buildContext();
     for (const weapon of Object.values(this.weapons)) {
       const mods: WeaponModifiers = {};
@@ -138,6 +142,8 @@ export class WeaponManager {
     const aim: AimState = {
       angle: this.targeting.angle,
       firing: this.targeting.firing,
+      target: this.targeting.currentTarget,
+      hitChance: this.hitChance,
     };
     const bonuses = this.world.getBonuses();
 
