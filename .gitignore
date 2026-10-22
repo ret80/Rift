@@ -44,6 +44,7 @@ coverage/
 htmlcov/
 .coverage/
 screenshots/
+.doaid/
 
 # System files
 .DS_Store
