@@ -63,8 +63,8 @@ export class RendererSystem {
     const {
       state, time,
       player, aim, guns, bonus,
-      enemies, bullets, enemyBullets: ebullets, pickups, allyDrones: drones, weaves, beams,
-      zone: zoneState, camera, view, phantomLevel,
+      enemies, bullets, enemyBullets: ebullets, pickups, allyDrones: drones, beams,
+      zone: zoneState, camera, view,
     } = scene;
 
     // Build render states — each renderer owns its transformation
@@ -73,7 +73,7 @@ export class RendererSystem {
           player.x, player.y, player.angle,
           player.hp, player.maxHp, player.invuln,
           player.thrusting, player.vx, player.vy,
-          aim, guns, bonus, phantomLevel
+          aim, guns, bonus
         )
       : null;
 
@@ -103,7 +103,6 @@ export class RendererSystem {
       zoneRender,
       view.width,
       view.height,
-      weaves as Array<{ x1: number; y1: number; x2: number; y2: number; life: number; maxLife: number }>,
       beams as Array<{ x1: number; y1: number; x2: number; y2: number; life: number; maxLife: number; seed: number }>
     );
   }
@@ -153,7 +152,6 @@ export class RendererSystem {
     zone: ZoneRenderState | null,
     viewW: number,
     viewH: number,
-    weaves: Array<{ x1: number; y1: number; x2: number; y2: number; life: number; maxLife: number }> = [],
     beams: Array<{ x1: number; y1: number; x2: number; y2: number; life: number; maxLife: number; seed: number }> = []
   ) {
     R.resize(viewW, viewH);
@@ -176,27 +174,11 @@ export class RendererSystem {
         renderPlayer(R, player, time);
       }
       renderBullets(R, bullets, ebullets);
-      this.drawWeaves(R, weaves, time);
       this.drawBeams(R, beams, time);
       this.config.fx.draw(R);
     }
 
     R.finish(time);
-  }
-
-  /* ============================== weaves ============================== */
-
-  private drawWeaves(
-    R: Renderer,
-    weaves: Array<{ x1: number; y1: number; x2: number; y2: number; life: number; maxLife: number }>,
-    _time: number
-  ): void {
-    for (const w of weaves) {
-      const t = w.maxLife > 0 ? Math.max(0, w.life / w.maxLife) : 0;
-      const a = t * 0.7;
-      if (a <= 0) continue;
-      R.pushLine(w.x1, w.y1, w.x2, w.y2, rgba("#c06bff", a));
-    }
   }
 
   /* ============================== beams ============================== */

@@ -14,10 +14,10 @@
 import type { LoadoutSlotMeta } from "../loadout/LoadoutTypes";
 import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
 import type { DroneFleetSpec } from "../drones/Drone";
-import type { AllyDrone, Bullet, Enemy, LaserBeam, WeaveThread } from "../types";
+import type { AllyDrone, Bullet, Enemy, LaserBeam } from "../types";
 
 /** Идентификаторы видов оружия. */
-export type WeaponId = "cannon" | "missile" | "drone" | "weaver" | "laser";
+export type WeaponId = "cannon" | "missile" | "drone" | "laser";
 
 /** Оформление слота оружия в строке снаряжения. */
 export type WeaponMeta = LoadoutSlotMeta;
@@ -40,7 +40,7 @@ export interface AimState {
   firing: boolean;
   /** Автоцель — враг, на который наведено орудие (null — ручной прицел). */
   target: Enemy | null;
-  /** Шанс попадания автонаведения (0..1, всегда < 1) от апгрейда «точность». */
+  /** Шанс попадания автонаведения (0..1, всегда < 1). */
   hitChance: number;
 }
 
@@ -69,8 +69,6 @@ export interface WeaponContext {
   readonly bullets: Bullet[];
   /** Пул дронов-компаньонов. */
   readonly drones: AllyDrone[];
-  /** Пул нитей ткани пространства. */
-  readonly weaves: WeaveThread[];
   /** Пул лучей лазера — визуальная трасса выстрела. */
   readonly beams: LaserBeam[];
   /** Граница игровой зоны (null — зона не задана). */
@@ -131,16 +129,12 @@ export type WeaponLoadout = Record<WeaponId, WeaponLoadoutEntry>;
 export interface WeaponModifiers {
   /** Оружие куплено в арсенале (постоянно доступно). */
   owned?: boolean;
-  /** Дополнительный урон снарядов оружия (глобальный апгрейд). */
-  damage?: number;
-  /** Персональный множитель урона оружия (апгрейд «урон»). */
-  damageMult?: number;
   /** Число экземпляров оружия: стволы пушки, дроны-компаньоны. */
   count?: number;
-  /** Радиус твёрдого снаряда (0 — снаряды бестелесные). */
-  solidRadius?: number;
   /** Персональный множитель перезарядки оружия (меньше — быстрее). */
   reloadMult?: number;
+  /** Персональный множитель урона оружия (арсенал). */
+  damageMult?: number;
   /** Персональная модель оружия (уровни линий арсенала). */
   model?: WeaponModelUpgrades;
   /** Снимок флота купленных дронов (для DroneWeapon). */
@@ -157,18 +151,8 @@ export interface WeaponModifiers {
  * Структурно совместим с результатом applyUpgrades() из upgrades.ts.
  */
 export interface WeaponUpgrades {
-  /** Множитель темпа стрельбы от апгрейда «темп огня». */
-  fireRateMult: number;
-  /** Дополнительный урон снарядов от апгрейда «урон». */
-  damageBonus: number;
-  /** Число слотов оружия корабля. */
-  weaponSlots: number;
   /** Число слотов под дроны корабля. */
   droneSlots: number;
-  /** Радиус твёрдого снаряда игрока (0 — снаряды бестелесные). */
-  solidBulletRadius: number;
-  /** Шанс попадания орудий игрока с учётом упреждения (0..1, всегда < 1). */
-  hitChance: number;
 }
 
 /** Апгрейд, задающий число экземпляров оружия. */
@@ -182,10 +166,6 @@ export interface Weapon {
   readonly meta: WeaponMeta;
   /** Апгрейд, задающий число экземпляров (null — оружие не масштабируется). */
   readonly countUpgrade: WeaponCountUpgrade | null;
-  /** Применять ли к оружию апгрейд урона. */
-  readonly usesDamageUpgrade: boolean;
-  /** Применять ли к оружию апгрейд «твёрдые снаряды». */
-  readonly usesSolidUpgrade: boolean;
   /** Поддерживает ли оружие персональную точность арсенала. */
   readonly usesPersonalAccuracy: boolean;
   /** Базовый урон одной порции оружия (для расчёта множителя урона). */

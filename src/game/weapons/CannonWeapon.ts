@@ -3,11 +3,11 @@
  *
  * Пушка доступна всегда. Если есть автоцель, орудие берёт упреждение:
  * снаряд летит не в текущую позицию врага, а в точку, где враг будет
- * к моменту подлёта. Точность задаётся апгрейдом «точность» и никогда
+ * к моменту подлёта. Точность задаётся апгрейдом арсенала и никогда
  * не бывает стопроцентной — промах остаётся разбросом угла.
  *
- * Число стволов складывается из персистентного апгрейда и временного
- * бонуса «доп. стволы».
+ * Число стволов складывается из постоянного слотового апгрейда
+ * и временного бонуса «доп. стволы».
  */
 
 import { aimAtTarget } from "../aiming/AimSolver";
@@ -46,30 +46,22 @@ export class CannonWeapon implements Weapon {
     order: 0,
   };
   readonly countUpgrade = null;
-  readonly usesDamageUpgrade = true;
-  readonly usesSolidUpgrade = true;
   readonly usesPersonalAccuracy = true;
   readonly baseDamage = CANNON_BULLET_DMG;
 
   /** Пушка куплена в арсенале (всегда true). */
   private owned = true;
-  /** Урон снаряда (персистентный апгрейд). */
-  private damage = CANNON_BULLET_DMG;
-  /** Радиус твёрдого снаряда (0 — снаряды бестелесные). */
-  private solidRadius = 0;
   /** Остаток перезарядки. */
   private fireCd = 0;
   /** Персональный множитель перезарядки (арсенал). */
   private reloadMult = 1;
   /** Персональный множитель урона (арсенал). */
   private damageMult = 1;
-  /** Персональная точность из арсенала (null — общий апгрейд). */
+  /** Персональная точность из арсенала. */
   private personalAccuracy: number | null = null;
 
   reset(): void {
     this.owned = true;
-    this.damage = CANNON_BULLET_DMG;
-    this.solidRadius = 0;
     this.fireCd = 0;
     this.reloadMult = 1;
     this.damageMult = 1;
@@ -108,11 +100,9 @@ export class CannonWeapon implements Weapon {
 
   applyModifiers(mods: WeaponModifiers): void {
     if (mods.owned != null) this.owned = mods.owned;
-    if (mods.damage != null) this.damage = CANNON_BULLET_DMG + mods.damage;
     if (mods.damageMult != null) this.damageMult = mods.damageMult;
     if (mods.reloadMult != null) this.reloadMult = mods.reloadMult;
     if (mods.accuracy != null) this.personalAccuracy = mods.accuracy;
-    if (mods.solidRadius != null) this.solidRadius = mods.solidRadius;
   }
 
   /** Полная перезарядка пушки при текущем темпе стрельбы. */
@@ -162,8 +152,7 @@ export class CannonWeapon implements Weapon {
         vx: Math.cos(barrelAngle) * CANNON_BULLET_SPEED,
         vy: Math.sin(barrelAngle) * CANNON_BULLET_SPEED,
         life: CANNON_BULLET_LIFE,
-        dmg: this.damage * this.damageMult,
-        r: this.solidRadius || undefined,
+        dmg: CANNON_BULLET_DMG * this.damageMult,
       });
     }
 

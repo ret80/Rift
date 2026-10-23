@@ -6,9 +6,8 @@
  * бонусов под управлением BonusManager, поэтому система ничего о них
  * не знает: рендер и оружие читают бонусы напрямую из менеджера.
  *
- * Множитель скорости складывается из двух источников:
- *   • апгрейд «скорость» — постоянный, задаётся через setSpeedMult();
- *   • импульс от касаний — временный, приходит из GrazeSystem.
+ * Множитель скорости приходит из персистентного апгрейда «скорость»,
+ * задаётся через setSpeedMult().
  */
 
 import { PLAYER_HIT_INVULN } from '../balance/player';
@@ -28,8 +27,6 @@ export class PlayerSystem {
   private fx: Fx;
   /** Постоянный множитель скорости из апгрейдов. */
   private speedMult = 1;
-  /** Поставщик временного множителя скорости (импульс касаний). */
-  private getMomentumMult: () => number;
 
   private pState: PlayerState;
 
@@ -37,13 +34,10 @@ export class PlayerSystem {
     eventBus: EventBus,
     input: InputManager,
     fx: Fx,
-    getMomentumMult: () => number = () => 1,
   ) {
     this.eventBus = eventBus;
     this.input = input;
     this.fx = fx;
-    this.getMomentumMult = getMomentumMult;
-
     this.pState = createPlayerState();
 
     // Subscribe to player damage events
@@ -80,11 +74,6 @@ export class PlayerSystem {
   /** Постоянный множитель скорости из апгрейда «скорость». */
   setSpeedMult(mult: number): void {
     this.speedMult = mult;
-  }
-
-  /** Радиус безопасного ядра хитбокса (апгрейд «фантомный хитбокс»). */
-  setCoreRadius(radius: number): void {
-    this.pState.core = radius;
   }
 
   // ---- Getters ----
@@ -158,7 +147,7 @@ export class PlayerSystem {
       this.fx,
       ax * ax + ay * ay > 0,
       dashT,
-      this.speedMult * this.getMomentumMult(),
+      this.speedMult,
     );
 
     // Invulnerability timer

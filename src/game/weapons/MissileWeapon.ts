@@ -47,8 +47,6 @@ export class MissileWeapon implements Weapon {
     order: 1,
   };
   readonly countUpgrade = null;
-  readonly usesDamageUpgrade = false;
-  readonly usesSolidUpgrade = true;
   readonly usesPersonalAccuracy = false;
   readonly baseDamage = MISSILE_DMG;
 
@@ -62,8 +60,6 @@ export class MissileWeapon implements Weapon {
   private cooldown = 0;
   /** Борт, из которого вылетает следующая ракета (0 — левый, 1 — правый). */
   private port: 0 | 1 = 0;
-  /** Радиус твёрдого снаряда (0 — снаряды бестелесные). */
-  private solidRadius = 0;
   /** Персональный множитель перезарядки (арсенал). */
   private reloadMult = 1;
   /** Персональный множитель урона (арсенал). */
@@ -75,7 +71,6 @@ export class MissileWeapon implements Weapon {
     this.timeLeft = 0;
     this.cooldown = 0;
     this.port = 0;
-    this.solidRadius = 0;
     this.reloadMult = 1;
     this.damageMult = 1;
   }
@@ -147,7 +142,6 @@ export class MissileWeapon implements Weapon {
     if (mods.owned != null) this.owned = mods.owned;
     if (mods.reloadMult != null) this.reloadMult = mods.reloadMult;
     if (mods.damageMult != null) this.damageMult = mods.damageMult;
-    if (mods.solidRadius != null) this.solidRadius = mods.solidRadius;
   }
 
   /** Ближайший живой враг в пределах дистанции наведения. */
@@ -193,7 +187,6 @@ export class MissileWeapon implements Weapon {
       life: MISSILE_LIFE,
       dmg: MISSILE_DMG * this.damageMult,
       homing: { target, turnRate: MISSILE_TURN_RATE, lockRange: MISSILE_LOCK_RANGE },
-      r: this.solidRadius || undefined,
     });
 
     ctx.onFired(this.id);

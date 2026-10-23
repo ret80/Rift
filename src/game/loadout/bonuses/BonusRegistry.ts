@@ -90,7 +90,6 @@ const PICKUP_BONUS_MAP: Record<PickupKind, PickupBonusMapping> = {
   // Пикапы оружия — не являются бонусами
   drone: { bonusId: null, bonusKind: null },
   missile: { bonusId: null, bonusKind: null },
-  weaver: { bonusId: null, bonusKind: null },
   laser: { bonusId: null, bonusKind: null },
   // Пикапы способностей — не являются бонусами
   quantum_swap: { bonusId: null, bonusKind: null },

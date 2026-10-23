@@ -34,7 +34,6 @@ export class GameRender {
       enemyBullets: ctx.entityPool.enemyBulletList,
       pickups: ctx.entityPool.pickupList,
       allyDrones: ctx.entityPool.allyDroneList,
-      weaves: ctx.entityPool.weaveList,
       beams: ctx.entityPool.beamList,
       zone: zoneState.active
         ? {
@@ -48,7 +47,6 @@ export class GameRender {
         : null,
       camera: { x: pos.x, y: pos.y, zoom: pos.zoom },
       view: { width: window.innerWidth, height: window.innerHeight },
-      phantomLevel: ctx.upgradeSystem.playerUpgrades.phantomHitbox,
     };
 
     ctx.rendererSystem.render(ctx.renderer, scene);

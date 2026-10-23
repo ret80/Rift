@@ -21,16 +21,10 @@ export type IconKind =
   | "pickup-mineral"
   /* upgrade screen */
   | "upgrade-hull"
-  | "upgrade-damage"
-  | "upgrade-fireRate"
   | "upgrade-speed"
   | "upgrade-guns"
   | "upgrade-drones"
   | "upgrade-dashDuration"
-  | "upgrade-grazeMomentum"
-  | "upgrade-phantomHitbox"
-  | "upgrade-solidBullets"
-  | "upgrade-accuracy"
   /* drones */
   | "drone-scout"
   | "drone-striker"
@@ -54,22 +48,15 @@ const PICKUP_COLORS: Record<string, string> = {
   "pickup-gun": "#5ef2ff",
   "pickup-drone": "#9dffe8",
   "pickup-mineral": "#7dffb8",
-  "weapon-weaver": "#c06bff",
   "ability-quantum-swap": "#7cf3ff",
 };
 
 const UPGRADE_COLORS: Record<string, string> = {
   "upgrade-hull": "#5ef2ff",
-  "upgrade-damage": "#ff5c54",
-  "upgrade-fireRate": "#ffb84d",
   "upgrade-speed": "#7dff9e",
   "upgrade-guns": "#5ef2ff",
   "upgrade-drones": "#c06bff",
   "upgrade-dashDuration": "#ffd23e",
-  "upgrade-grazeMomentum": "#b9f6ff",
-  "upgrade-phantomHitbox": "#e6c8ff",
-  "upgrade-solidBullets": "#9dffe8",
-  "upgrade-accuracy": "#ffb84d",
 };
 
 const DRONE_COLORS: Record<string, string> = {
@@ -144,10 +131,6 @@ function getIconPaths(kind: IconKind): React.ReactNode {
           <line x1="8" y1="12" x2="16" y2="12" strokeOpacity="0.4" />
         </>
       );
-    case "upgrade-damage":
-      return <polyline points="12,3 7,13 12,13 11,21" />;
-    case "upgrade-fireRate":
-      return <polyline points="13,3 7,13 12,13 11,21 17,11 12,11" />;
     case "upgrade-speed":
       return <path d="M3 12 L12 3 L12 8 L21 3 L21 21 L12 16 L12 21 Z" />;
     case "upgrade-guns":
@@ -167,34 +150,6 @@ function getIconPaths(kind: IconKind): React.ReactNode {
       );
     case "upgrade-dashDuration":
       return <circle cx="12" cy="12" r="8" />;
-    case "upgrade-grazeMomentum":
-      return <path d="M4 12 C8 4, 16 20, 20 12" />;
-    case "upgrade-phantomHitbox":
-      return (
-        <>
-          <circle cx="12" cy="12" r="8" />
-          <circle cx="12" cy="12" r="3" strokeOpacity="0.4" />
-        </>
-      );
-    case "upgrade-solidBullets":
-      return (
-        <>
-          <rect x="7" y="7" width="10" height="10" rx="2" />
-          <line x1="7" y1="12" x2="17" y2="12" strokeOpacity="0.4" />
-          <line x1="12" y1="7" x2="12" y2="17" strokeOpacity="0.4" />
-        </>
-      );
-    case "upgrade-accuracy":
-      return (
-        <>
-          <circle cx="12" cy="12" r="7" />
-          <circle cx="12" cy="12" r="1.6" />
-          <line x1="12" y1="2" x2="12" y2="7" />
-          <line x1="12" y1="17" x2="12" y2="22" />
-          <line x1="2" y1="12" x2="7" y2="12" />
-          <line x1="17" y1="12" x2="22" y2="12" />
-        </>
-      );
 
     /* Drones */
     case "drone-scout":
@@ -239,13 +194,6 @@ function getIconPaths(kind: IconKind): React.ReactNode {
           <line x1="8" y1="12" x2="4" y2="17" />
           <line x1="16" y1="12" x2="20" y2="17" />
           <circle cx="12" cy="8" r="1.4" strokeOpacity="0.7" />
-        </>
-      );
-    case "weapon-weaver":
-      return (
-        <>
-          <path d="M4 6 C8 10, 16 14, 20 18" />
-          <path d="M4 18 C8 14, 16 10, 20 6" />
         </>
       );
     case "weapon-laser":

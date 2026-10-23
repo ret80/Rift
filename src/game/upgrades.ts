@@ -4,11 +4,8 @@
  * На экране прокачки детали тратятся на постоянные улучшения.
  */
 
-import { playerHitChance } from "./balance/accuracy";
-import { PHANTOM_CORE_RADII, SOLID_BULLET_RADII } from "./balance/player";
-import { CANNON_MAX_BARRELS } from "./weapons/CannonWeapon";
-import { MAX_ALLY_DRONES } from "./weapons/DroneWeapon";
 import { resetDroneLoadout } from "./drones/DroneSystem";
+import { PLAYER_AIM_BASE_CHANCE } from "./balance/accuracy";
 import {
   BASE_WEAPON_MODEL,
   type WeaponId,
@@ -36,30 +33,18 @@ export interface UpgradeTier {
 /** Все прокачиваемые линии прокачки. */
 export type UpgradeKey =
   | "hull"
-  | "damage"
-  | "fireRate"
   | "speed"
   | "guns"
   | "drones"
-  | "dashDuration"
-  | "grazeMomentum"
-  | "phantomHitbox"
-  | "solidBullets"
-  | "accuracy";
+  | "dashDuration";
 
 export interface PlayerUpgrades {
   parts: number;          // доступные детали (валюта)
   hull: number;           // уровень прокачки корпуса (+20 HP за уровень)
-  damage: number;         // уровень урона (+2 HP за уровень)
-  fireRate: number;       // уровень темпа стрельбы (+8% за уровень)
   speed: number;          // уровень скорости (+5% за уровень)
   guns: number;           // уровень орудий (+1 слот оружия за уровень, макс 5)
   drones: number;         // уровень дронов (+1 дрон за уровень, макс 8)
   dashDuration: number;   // уровень длительности рывка (+20% за уровень, макс 5)
-  grazeMomentum: number;  // уровень поглощения импульса (макс 3)
-  phantomHitbox: number;  // уровень фантомного хитбокса (макс 3)
-  solidBullets: number;   // уровень твёрдых снарядов (макс 3)
-  accuracy: number;       // уровень точности (шанс попадания орудий)
 }
 
 /* ======================== Weapon loadout (armory) ======================== */
@@ -78,7 +63,6 @@ export function defaultWeaponLoadout(): WeaponLoadout {
     cannon: { owned: true, model: { ...BASE_WEAPON_MODEL } },
     missile: emptyWeaponEntry(),
     drone: emptyWeaponEntry(),
-    weaver: emptyWeaponEntry(),
     laser: emptyWeaponEntry(),
   };
 }
@@ -112,6 +96,18 @@ export function weaponDamageMult(model: WeaponModelUpgrades): number {
   return 1 + level * WEAPON_DAMAGE_PER_LEVEL;
 }
 
+/**
+ * Эффективная точность оружия в бою: для пушки и лазера
+ * персональная линия «точность» арсенала добавляется поверх базового шанса.
+ */
+export function weaponHitChance(id: WeaponId, model: WeaponModelUpgrades): number {
+  if (id === "cannon" || id === "laser") {
+    const level = Math.max(0, Math.min(WEAPON_STAT_MAX_LEVEL, model.accuracy));
+    return Math.min(WEAPON_ACCURACY_MAX, PLAYER_AIM_BASE_CHANCE + level * WEAPON_ACCURACY_PER_LEVEL);
+  }
+  return PLAYER_AIM_BASE_CHANCE;
+}
+
 /** Стоимость уровня линии оружия (идёт после текущего уровня). */
 export function weaponUpgradeCost(level: number): number {
   return 180 + 140 * Math.max(0, level);
@@ -122,38 +118,16 @@ export function weaponCost(id: WeaponId): number {
   return id === "cannon" ? 0 : 900;
 }
 
-/**
- * Эффективная точность оружия в бою: для пушки и лазера
- * персональная линия «точность» добавляется поверх общего апгрейда.
- */
-export function weaponHitChance(
-  id: WeaponId,
-  model: WeaponModelUpgrades,
-  globalHitChance: number
-): number {
-  if (id === "cannon" || id === "laser") {
-    const level = Math.max(0, Math.min(WEAPON_STAT_MAX_LEVEL, model.accuracy));
-    return Math.min(WEAPON_ACCURACY_MAX, globalHitChance + level * WEAPON_ACCURACY_PER_LEVEL);
-  }
-  return globalHitChance;
-}
-
 /* ======================== Default state ======================== */
 
 export function defaultUpgrades(): PlayerUpgrades {
   return {
     parts: 0,
     hull: 0,
-    damage: 0,
-    fireRate: 0,
     speed: 0,
     guns: 0,
     drones: 0,
     dashDuration: 0,
-    grazeMomentum: 0,
-    phantomHitbox: 0,
-    solidBullets: 0,
-    accuracy: 0,
   };
 }
 
@@ -161,49 +135,33 @@ export function defaultUpgrades(): PlayerUpgrades {
 
 /**
  * Стоимости подобраны так, чтобы суммарная стоимость ВСЕХ апгрейдов
- * (~26 140 деталей) совпадала с ожидаемым кумулятивным доходом деталей
- * к 50-й волне (~26 140 при полном сборе дропа).
+ * совпадала с ожидаемым кумулятивным доходом деталей к 50-й волне.
  *
  * Пересчёт выполняется скриптом scripts/upgrade-cost-calc.mjs:
  * в него попадают те же линии и те же веса ценности, что и здесь.
  *
  * Вес ценности (что дороже):
  *  - drones (×1.3) — авто-DPS, самый сильный боевой апгрейд;
- *  - phantomHitbox (×1.25) — супер-защита (пустое ядро хитбокса);
  *  - dashDuration (×1.2) — супер-защита (дольше уклоняешься);
  *  - guns (×1.15) — мультипликативный рост урона;
- *  - hull / damage / fireRate / grazeMomentum (×1.0) — защита и огневая мощь;
- *  - accuracy (×1.0) — огневая мощь: точность упреждающего выстрела;
- *  - solidBullets (×0.9) — оборонительный эффект через перехват;
+ *  - hull (×1.0) — защита;
  *  - speed (×0.45) — чистая мобильность, самый дешёвый.
  */
 export const UPGRADE_TIERS: Record<UpgradeKey, UpgradeTier> = {
   hull:         { baseCost: 81,  costStep: 60,  maxLevel: 10 },
-  damage:       { baseCost: 102, costStep: 73,  maxLevel: 10 },
-  fireRate:     { baseCost: 121, costStep: 81,  maxLevel: 10 },
   speed:        { baseCost: 16,  costStep: 12,  maxLevel: 8  },
   guns:         { baseCost: 214, costStep: 160, maxLevel: 4  },
   drones:       { baseCost: 341, costStep: 239, maxLevel: 7  },
   dashDuration: { baseCost: 145, costStep: 116, maxLevel: 5  },
-  grazeMomentum:{ baseCost: 104, costStep: 78,  maxLevel: 3  },
-  phantomHitbox:{ baseCost: 151, costStep: 113, maxLevel: 3  },
-  solidBullets: { baseCost: 101, costStep: 75,  maxLevel: 3  },
-  accuracy:     { baseCost: 170, costStep: 127, maxLevel: 4  },
 };
 
 /** Ключи локализации для каждой ветки прокачки (статический маппинг). */
 export const UPGRADE_LABEL: Record<UpgradeKey, { label: TKey; desc: TKey }> = {
   hull:         { label: "upgrade.hull",         desc: "upgrade.hullDesc" },
-  damage:       { label: "upgrade.damage",       desc: "upgrade.damageDesc" },
-  fireRate:     { label: "upgrade.fireRate",     desc: "upgrade.fireRateDesc" },
   speed:        { label: "upgrade.speed",        desc: "upgrade.speedDesc" },
   guns:         { label: "upgrade.guns",         desc: "upgrade.gunsDesc" },
   drones:       { label: "upgrade.drones",       desc: "upgrade.dronesDesc" },
   dashDuration: { label: "upgrade.dashDuration", desc: "upgrade.dashDurationDesc" },
-  grazeMomentum:{ label: "upgrade.grazeMomentum", desc: "upgrade.grazeMomentumDesc" },
-  phantomHitbox:{ label: "upgrade.phantomHitbox", desc: "upgrade.phantomHitboxDesc" },
-  solidBullets: { label: "upgrade.solidBullets", desc: "upgrade.solidBulletsDesc" },
-  accuracy:     { label: "upgrade.accuracy",     desc: "upgrade.accuracyDesc" },
 };
 
 /* ======================== Cost calculation ======================== */
@@ -226,11 +184,7 @@ export function isMaxed(upgrades: PlayerUpgrades, key: UpgradeKey): boolean {
 
 /* ======================== Persistence ======================== */
 
-/**
- * Миграция сохранённых данных.
- * Раньше длительность рывка называлась dashCooldown, хотя по факту
- * апгрейд всегда повышал длительность рывка, а не кулдаун.
- */
+/** Миграция сохранённых данных. */
 function migrate(parsed: Partial<PlayerUpgrades> & { dashCooldown?: number }): PlayerUpgrades {
   const fresh = defaultUpgrades();
   const migrated: PlayerUpgrades = { ...fresh };
@@ -358,79 +312,37 @@ export function saveBestWave(wave: number, storage: PersistencePort): void {
 export interface AppliedUpgrades {
   /** Максимальный корпус: 100 базис + 20 за уровень. */
   baseHp: number;
-  /** Множитель темпа стрельбы: 1.0 база + 0.08 за уровень. */
-  fireRateMult: number;
   /** Множитель скорости: 1.0 база + 0.05 за уровень. */
   speedMult: number;
-  /** Дополнительный урон снарядов: +2 за уровень. */
-  damageBonus: number;
   /** Число слотов оружия корабля: 1 база + уровень, макс 5. */
   weaponSlots: number;
   /** Число слотов под дроны корабля: 1 база + уровень, макс 8. */
   droneSlots: number;
   /** Множитель длительности рывка: 1.0 база, +20% за уровень. */
   dashDurationMult: number;
-  /** Уровень апгрейда «поглощение импульса»: сколько импульса даёт скорость. */
-  momentumLevel: number;
-  /** Радиус безопасного ядра хитбокса (0 — ядра нет). */
-  phantomCoreRadius: number;
-  /** Радиус твёрдого снаряда игрока (0 — снаряды бестелесные). */
-  solidBulletRadius: number;
-  /** Шанс попадания орудий игрока (0..1, всегда < 1) по уровню «точность». */
-  hitChance: number;
-}
-
-/** Взять значение по уровню из таблицы радиусов. */
-function radiusForLevel(table: number[], level: number): number {
-  if (level <= 0) return 0;
-  return table[Math.min(level, table.length - 1)];
 }
 
 export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
   // hp: 100 base + 20 per hull level
   const baseHp = 100 + upgrades.hull * 20;
 
-  // fire rate: 1.0 base + 0.08 per level
-  const fireRateMult = 1.0 + upgrades.fireRate * 0.08;
-
   // speed: 1.0 base + 0.05 per level
   const speedMult = 1.0 + upgrades.speed * 0.05;
 
-  // bullet damage: +2 per damage level
-  const damageBonus = upgrades.damage * 2;
+  // weapon slots: base 1 + level, capped at 5
+  const weaponSlots = Math.min(1 + upgrades.guns, 5);
 
-  // weapon slots: base 1 + level, capped at CANNON_MAX_BARRELS
-  const weaponSlots = Math.min(1 + upgrades.guns, CANNON_MAX_BARRELS);
-
-  // drone slots: base 1 + level, capped at MAX_ALLY_DRONES
-  const droneSlots = Math.min(1 + upgrades.drones, MAX_ALLY_DRONES);
+  // drone slots: base 1 + level, capped at 8
+  const droneSlots = Math.min(1 + upgrades.drones, 8);
 
   // dash duration: base 1.0, +20% per level
   const dashDurationMult = 1.0 + upgrades.dashDuration * 0.2;
 
-  // Поглощение импульса: уровень напрямую задаёт силу прироста скорости.
-  const momentumLevel = Math.max(0, upgrades.grazeMomentum);
-
-  // Фантомный хитбокс: радиус безопасного ядра корабля.
-  const phantomCoreRadius = radiusForLevel(PHANTOM_CORE_RADII, upgrades.phantomHitbox);
-
-  // Твёрдые снаряды: радиус физического снаряда игрока.
-  const solidBulletRadius = radiusForLevel(SOLID_BULLET_RADII, upgrades.solidBullets);
-
-  // Шанс попадания: линейно растёт с уровнем апгрейда, никогда не 100%.
-  const hitChance = playerHitChance(upgrades.accuracy);
-
   return {
     baseHp,
-    fireRateMult,
     speedMult,
-    damageBonus,
     weaponSlots,
     droneSlots,
     dashDurationMult,
-    momentumLevel,
-    phantomCoreRadius,
-    solidBulletRadius,
-    hitChance,
   };
 }

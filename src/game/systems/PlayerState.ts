@@ -29,8 +29,6 @@ export interface PlayerState {
   invuln: number;
   thrusting: boolean;
   mass: number;
-  /** Радиус безопасного ядра хитбокса (0 — хитбокс залит целиком). */
-  core: number;
 }
 
 /* ============================== factory ============================== */
@@ -47,7 +45,6 @@ export function createPlayerState(): PlayerState {
     invuln: 0,
     thrusting: false,
     mass: massForRadius(PLAYER_RADIUS),
-    core: 0,
   };
 }
 

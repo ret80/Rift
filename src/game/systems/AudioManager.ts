@@ -70,8 +70,7 @@ export class AudioManager {
 
       // Mineral → no special sound (silence)
       case "mineral":
-      // Weaver / quantum_swap — без отдельного звука (как было раньше)
-      case "weaver":
+      // quantum_swap — без отдельного звука
       case "quantum_swap":
         break;
     }

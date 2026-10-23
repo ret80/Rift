@@ -20,7 +20,6 @@ export type PickupKind =
   | "hp"
   | "rate"
   | "missile"
-  | "weaver"
   | "laser"
   | "quantum_swap";
 
@@ -39,7 +38,6 @@ export const ALL_PICKUP_KINDS: PickupKind[] = [
   "hp",
   "rate",
   "missile",
-  "weaver",
   "laser",
   "quantum_swap",
 ];

@@ -19,7 +19,7 @@ interface Collidable {
   r: number;
 }
 
-/** Попадание снаряда врага в дрона. */
+/** Результат проверки вражеских снарядов против дронов. */
 export interface DroneHit {
   /** Индекс снаряда в пуле вражеских снарядов. */
   bulletIndex: number;
@@ -27,16 +27,6 @@ export interface DroneHit {
   droneIndex: number;
   /** Дрон погиб и должен быть удалён. */
   killed: boolean;
-}
-
-/** Результат столкновения твёрдых снарядов игрока с вражескими. */
-export interface BulletInterception {
-  /** Индексы снарядов игрока, израсходованных на перехват. */
-  playerBullets: number[];
-  /** Индексы перехваченных вражеских снарядов. */
-  enemyBullets: number[];
-  /** Число перехватов — по нему начисляются очки. */
-  count: number;
 }
 
 /**
@@ -112,7 +102,7 @@ export function checkBulletCollisions(
 }
 
 /**
- * Check enemy bullets against the player.
+ * Проверка вражеских снарядов против игрока.
  * Возвращает индекс попавшего снаряда и индексы засчитанных касаний.
  *
  * Попадание и касание считаются по отрезку движения снаряда, поэтому
@@ -147,40 +137,6 @@ export function checkEnemyBulletVsPlayer(
       result.grazeIndices.push(i);
     }
   }
-  return result;
-}
-
-/**
- * Столкновение твёрдых снарядов игрока с вражескими снарядами.
- *
- * Твёрдый снаряд игрока (с радиусом) гасит вражеский снаряд: оба исчезают,
- * игрок получает очки. Бестелесные снаряды (без радиуса) в столкновении
- * не участвуют.
- */
-export function checkBulletInterceptions(
-  bullets: Bullet[],
-  enemyBullets: EBullet[]
-): BulletInterception {
-  const result: BulletInterception = { playerBullets: [], enemyBullets: [], count: 0 };
-
-  for (let i = bullets.length - 1; i >= 0; i--) {
-    const b = bullets[i];
-    if (!b.r || b.r <= 0) continue;
-
-    for (let j = enemyBullets.length - 1; j >= 0; j--) {
-      const eb = enemyBullets[j];
-      const dx = b.x - eb.x;
-      const dy = b.y - eb.y;
-      const reach = b.r + eb.r;
-      if (dx * dx + dy * dy > reach * reach) continue;
-
-      result.playerBullets.push(i);
-      result.enemyBullets.push(j);
-      result.count++;
-      break;
-    }
-  }
-
   return result;
 }
 

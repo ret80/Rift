@@ -67,14 +67,6 @@ export interface BulletGrazedPayload {
   y: number;
 }
 
-/** Твёрдый снаряд игрока перехватил вражеский снаряд. */
-export interface BulletInterceptedPayload {
-  /** Число перехватов за кадр. */
-  count: number;
-  x: number;
-  y: number;
-}
-
 /** Начисление очков без прямого вызова системы счёта. */
 export interface ScoreAddedPayload {
   /** Сколько очков начислено. */
@@ -94,7 +86,6 @@ export type GameEventMap = {
   drone_push_player: DronePushPlayerPayload;
   enemy_fired: EnemyFiredPayload;
   bullet_grazed: BulletGrazedPayload;
-  bullet_intercepted: BulletInterceptedPayload;
   score_added: ScoreAddedPayload;
 };
 

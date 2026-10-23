@@ -36,7 +36,6 @@ export class GameStart {
     ctx.bonusManager.reset();
     ctx.grazeSystem.reset();
     ctx.abilitySystem.reset();
-    ctx.entityPool.weaveList.length = 0;
     ctx.entityPool.beamList.length = 0;
 
     // Apply persistent upgrades to the player and the weapons

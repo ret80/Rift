@@ -10,23 +10,8 @@ import type { EnemyKind } from "./enemies";
 
 /* ------------------------------ Игрок ------------------------------ */
 
-/** Шанс попадания автонаведения без прокачки точности (0..1). */
+/** Шанс попадания автонаведения орудий игрока (0..1). */
 export const PLAYER_AIM_BASE_CHANCE = 0.75;
-
-/** Прирост шанса попадания за один уровень апгрейда «точность». */
-export const PLAYER_AIM_PER_LEVEL = 0.05;
-
-/** Потолок шанса попадания игрока — сколько бы уровней ни было куплено. */
-export const PLAYER_AIM_MAX_CHANCE = 0.95;
-
-/**
- * Шанс попадания орудия игрока по уровню апгрейда «точность».
- * Уровень 0 — базовый шанс, дальше линейно до PLAYER_AIM_MAX_CHANCE.
- */
-export function playerHitChance(level: number): number {
-  const raw = PLAYER_AIM_BASE_CHANCE + Math.max(0, level) * PLAYER_AIM_PER_LEVEL;
-  return Math.min(raw, PLAYER_AIM_MAX_CHANCE, AIM_CHANCE_CEILING);
-}
 
 /* ------------------------------ Враги ------------------------------ */
 

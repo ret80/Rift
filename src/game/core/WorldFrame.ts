@@ -4,7 +4,7 @@
  * а не получают 9–18 позиционных аргументов.
  */
 
-import type { AllyDrone, Bullet, EBullet, Enemy, Pickup, WeaveThread, LaserBeam } from "../types";
+import type { AllyDrone, Bullet, EBullet, Enemy, Pickup, LaserBeam } from "../types";
 import type { AsteroidKind } from "../balance";
 
 /** Астероид в том виде, в котором видят его системы. */
@@ -32,8 +32,6 @@ export interface PlayerWorld {
   invuln: number;
   mass: number;
   thrusting: boolean;
-  /** Радиус безопасного ядра хитбокса (0 — ядра нет). */
-  core: number;
 }
 
 /** Состояние зоны арены. */
@@ -67,7 +65,6 @@ export interface WorldFrame {
   enemyBullets: EBullet[];
   pickups: Pickup[];
   allyDrones: AllyDrone[];
-  weaves: WeaveThread[];
   beams: LaserBeam[];
   asteroids: AsteroidWorld[];
   zone?: ZoneWorld | null;

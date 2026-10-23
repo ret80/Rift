@@ -209,7 +209,6 @@ export class GameContext {
       this.eventBus,
       this.input,
       this.fx,
-      () => this.grazeSystem.getSpeedMult(),
     );
 
     this.abilitySystem = new AbilitySystem(
@@ -239,7 +238,6 @@ export class GameContext {
         getBullets: () => this.entityPool.bulletList,
         getDrones: () => this.entityPool.allyDroneList,
         getBonuses: () => this.bonusManager.getBonuses(),
-        getWeaves: () => this.entityPool.weaveList,
         getBeams: () => this.entityPool.beamList,
         getZone: () => this.getZoneSnapshot(),
         killEnemy: (enemy) => this.killEnemy(enemy),
@@ -432,7 +430,6 @@ export class GameContext {
       invuln: s.invuln,
       mass: s.mass || 1,
       thrusting: s.thrusting,
-      core: s.core,
     };
   }
 
@@ -459,9 +456,7 @@ export class GameContext {
       setMaxHp: (v) => this.playerSystem.setMaxHp(v),
       setWeaponUpgrades: (upgrades) => this.weaponManager.applyUpgrades(upgrades),
       setSpeedMult: (v) => this.playerSystem.setSpeedMult(v),
-      setCoreRadius: (v) => this.playerSystem.setCoreRadius(v),
       setDashDurationMult: (v) => this.bonusManager.setDashDurationMult(v),
-      setMomentumLevel: (v) => this.grazeSystem.setMomentumLevel(v),
       ...(withResetHp ? { resetHp: () => this.playerSystem.resetHp() } : {}),
     });
   }

@@ -4,7 +4,6 @@
  */
 
 import { C, RATE_BOOST_TIME } from "../../balance";
-import { PHANTOM_CORE_RADII } from "../../balance/player";
 import { clamp, rgba } from "../../math";
 import type { Renderer, RGBA } from "../../render";
 import { CANNON_BARREL_OFFSETS } from "../../weapons/CannonWeapon";
@@ -25,8 +24,6 @@ export interface PlayerRenderState {
   thrusting: boolean;
   pvx: number;
   pvy: number;
-  /** Уровень фантомного хитбокса (0-3). */
-  phantomLevel: number;
 }
 
 /** Снимок бонусов для buildState */
@@ -52,8 +49,7 @@ export function buildPlayerState(
   pvy: number,
   aimA: number | null,
   guns: number,
-  bonus: PlayerBonusSnapshot,
-  phantomLevel = 0
+  bonus: PlayerBonusSnapshot
 ): PlayerRenderState {
   return {
     x, y, angle, aimA,
@@ -64,7 +60,6 @@ export function buildPlayerState(
     dashT: bonus.dashT,
     thrusting,
     pvx, pvy,
-    phantomLevel,
   };
 }
 
@@ -77,11 +72,6 @@ export function renderPlayer(
   time: number
 ): void {
   const blink = player.invuln > 0 ? (Math.sin(time * 30) > 0 ? 0.35 : 1) : 1;
-
-  const core = PHANTOM_CORE_RADII[Math.min(Math.max(0, player.phantomLevel), PHANTOM_CORE_RADII.length - 1)];
-  if (core > 0) {
-    R.circle(player.x, player.y, core, rgba("#e6c8ff", 0.16), 16);
-  }
 
   // thruster
   if (player.thrusting) {

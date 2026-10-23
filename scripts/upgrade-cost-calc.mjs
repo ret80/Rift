@@ -40,17 +40,11 @@ const PARTS_PER_ENEMY = { drone: 2, hunter: 4, fighter: 5, cruiser: 12, carrier:
  * потому что модель нормирует взвешенную сумму, а не обычную.
  */
 const CURRENT_TIERS = {
-  hull:          { baseCost: 94,  costStep: 70,  maxLevel: 10 },
-  damage:        { baseCost: 117, costStep: 84,  maxLevel: 10 },
-  fireRate:      { baseCost: 140, costStep: 94,  maxLevel: 10 },
-  speed:         { baseCost: 42,  costStep: 32,  maxLevel: 8  },
-  guns:          { baseCost: 215, costStep: 161, maxLevel: 4  },
-  drones:        { baseCost: 304, costStep: 213, maxLevel: 7  },
-  dashDuration:  { baseCost: 140, costStep: 112, maxLevel: 5  },
-  grazeMomentum: { baseCost: 120, costStep: 90,  maxLevel: 3  },
-  phantomHitbox: { baseCost: 140, costStep: 105, maxLevel: 3  },
-  solidBullets:  { baseCost: 130, costStep: 97,  maxLevel: 3  },
-  accuracy:      { baseCost: 170, costStep: 127, maxLevel: 4  },
+  hull:          { baseCost: 81,  costStep: 60,  maxLevel: 10 },
+  speed:         { baseCost: 16,  costStep: 12,  maxLevel: 8  },
+  guns:          { baseCost: 214, costStep: 160, maxLevel: 4  },
+  drones:        { baseCost: 341, costStep: 239, maxLevel: 7  },
+  dashDuration:  { baseCost: 145, costStep: 116, maxLevel: 5  },
 };
 
 // upgrades.ts: cost(l) = baseCost + costStep * l
@@ -109,21 +103,14 @@ function printCurrentTotal() {
 /* ------------------- Подбор новых стоимостей ------------------- */
 
 // Ценность апгрейда (множитель «силы»):
-//  - огневая мощь (damage, fireRate, guns, drones) и защита (hull, dashDuration,
-//    phantomHitbox) — ДОРОЖЕ;
+//  - огневая мощь (guns, drones) и защита (hull, dashDuration) — ДОРОЖЕ;
 //  - мобильность (speed) — заметно дешевле.
 const POWER_WEIGHT = {
   hull:          1.0,  // защита (HP)
-  damage:        1.0,  // огневая мощь
-  fireRate:      1.0,  // огневая мощь
   speed:         0.45, // мобильность (не боевая)
   guns:          1.15, // огневая мощь (мультипликативная)
   drones:        1.3,  // огневая мощь (авто-DPS, самый сильный)
   dashDuration:  1.2,  // защита (уклонение) — супер-защита
-  grazeMomentum: 1.0,  // риск-механика: скорость за касания
-  phantomHitbox: 1.25, // защита (пустое ядро хитбокса) — супер-защита
-  solidBullets:  0.9,  // оборонительный эффект через перехват
-  accuracy:      1.1,  // огневая мощь: шанс попадания умножает эффективный DPS
 };
 
 /**

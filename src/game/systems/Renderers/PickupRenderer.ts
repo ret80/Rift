@@ -106,21 +106,6 @@ export function renderPickups(
         R.pushLine(nx, ny, nx - 3 * c1, ny - 3 * s1, rgba(col, 0.6 * blinkA));
         break;
       }
-      case "weaver": {
-        const L = 7;
-        R.pushLine(p.x - L * c1, p.y - L * s1, p.x + L * c1, p.y + L * s1, rgba(col, blinkA));
-        R.pushLine(
-          p.x + L * c1, p.y + L * s1,
-          p.x + (L - 4) * c1 - 4 * s1, p.y + (L - 4) * s1 + 4 * c1,
-          rgba(col, blinkA)
-        );
-        R.pushLine(
-          p.x + L * c1, p.y + L * s1,
-          p.x + (L - 4) * c1 + 4 * s1, p.y + (L - 4) * s1 - 4 * c1,
-          rgba(col, blinkA)
-        );
-        break;
-      }
       case "laser": {
         // Луч: центральная линия с расходящимся пучком на конце.
         R.pushLine(p.x - 7 * c1, p.y - 7 * s1, p.x + 7 * c1, p.y + 7 * s1, rgba(col, blinkA));

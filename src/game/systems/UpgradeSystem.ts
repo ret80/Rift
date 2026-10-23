@@ -76,12 +76,8 @@ export class UpgradeSystem {
     setWeaponUpgrades: (upgrades: WeaponUpgrades) => void;
     /** Задать постоянный множитель скорости игрока. */
     setSpeedMult: (v: number) => void;
-    /** Задать радиус безопасного ядра хитбокса (0 — ядра нет). */
-    setCoreRadius: (v: number) => void;
     /** Задать множитель длительности рывка. */
     setDashDurationMult: (v: number) => void;
-    /** Задать уровень апгрейда «поглощение импульса». */
-    setMomentumLevel: (v: number) => void;
     /** Восстановить корпус игрока до максимума. */
     resetHp?: () => void;
   }): void {
@@ -90,9 +86,7 @@ export class UpgradeSystem {
     targets.setMaxHp(up.baseHp);
     targets.setWeaponUpgrades(up);
     targets.setSpeedMult(up.speedMult);
-    targets.setCoreRadius(up.phantomCoreRadius);
     targets.setDashDurationMult(up.dashDurationMult);
-    targets.setMomentumLevel(up.momentumLevel);
     if (targets.resetHp) {
       targets.resetHp();
     }

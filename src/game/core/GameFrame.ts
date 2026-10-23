@@ -36,8 +36,6 @@ export class GameFrame {
     ctx.countdownSystem.update(dt);
     ctx.scoringSystem.updateCombo(dt);
     ctx.bonusManager.update(dt);
-    // Импульс касаний утекает, способности тикают кулдаун.
-    ctx.grazeSystem.update(dt);
     if (fsm.is("playing", "active")) {
       ctx.abilitySystem.update(dt);
     }
@@ -131,7 +129,6 @@ export class GameFrame {
       enemyBullets: ctx.entityPool.enemyBulletList,
       pickups: ctx.entityPool.pickupList,
       allyDrones: ctx.entityPool.allyDroneList,
-      weaves: ctx.entityPool.weaveList,
       beams: ctx.entityPool.beamList,
       asteroids: ctx.asteroidField.asteroidList as AsteroidWorld[],
       zone: zoneState && zoneState.active ? zoneState : null,

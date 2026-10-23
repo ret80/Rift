@@ -11,10 +11,10 @@
  */
 
 import { PLAYER_AIM_BASE_CHANCE } from "../balance";
-import { weaponDamageMult, weaponHitChance, weaponReloadMult } from "../upgrades";
+import { weaponDamageMult, weaponReloadMult, weaponHitChance } from "../upgrades";
 import type { LoadoutSlotData } from "../loadout/LoadoutTypes";
 import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
-import type { AllyDrone, Bullet, Enemy, LaserBeam, WeaveThread } from "../types";
+import type { AllyDrone, Bullet, Enemy, LaserBeam } from "../types";
 import { Targeting, DEFAULT_TARGET_RANGE } from "./Targeting";
 import type {
   AimState,
@@ -42,8 +42,6 @@ export interface WeaponWorld {
   getDrones(): AllyDrone[];
   /** Текущие временные бонусы игрока. */
   getBonuses(): PlayerBonuses;
-  /** Нити ткани пространства. */
-  getWeaves?(): WeaveThread[];
   /** Пул лучей лазера — визуальная трасса выстрела. */
   getBeams?(): LaserBeam[];
   /** Граница игровой зоны (null — зона не задана). */
@@ -57,9 +55,7 @@ export class WeaponManager {
   private targeting: Targeting;
   private world: WeaponWorld;
   private onWeaponFired: (id: WeaponId) => void;
-  /** Множитель темпа стрельбы из персистентного апгрейда. */
-  private fireRateMult = 1;
-  /** Шанс попадания орудий игрока из персистентного апгрейда «точность». */
+  /** Шанс попадания орудий игрока (0..1, всегда < 1). */
   private hitChance = PLAYER_AIM_BASE_CHANCE;
   /** Арсенал: купленные виды оружия и их модели. */
   private loadout: WeaponLoadout | null = null;
@@ -93,7 +89,6 @@ export class WeaponManager {
 
   /** Сбросить оружие — начало забега. */
   reset(): void {
-    this.fireRateMult = 1;
     this.hitChance = PLAYER_AIM_BASE_CHANCE;
     const ctx = this.buildContext();
     for (const weapon of Object.values(this.weapons)) {
@@ -103,14 +98,10 @@ export class WeaponManager {
 
   /** Применить персистентные апгрейды к подходящим видам оружия. */
   applyUpgrades(upgrades: WeaponUpgrades): void {
-    this.fireRateMult = upgrades.fireRateMult;
-    this.hitChance = upgrades.hitChance;
     const ctx = this.buildContext();
     for (const weapon of Object.values(this.weapons)) {
       const mods: WeaponModifiers = {};
-      if (weapon.usesDamageUpgrade) mods.damage = upgrades.damageBonus;
       if (weapon.countUpgrade === "drones") mods.count = upgrades.droneSlots;
-      if (weapon.usesSolidUpgrade) mods.solidRadius = upgrades.solidBulletRadius;
       const entry = this.loadout?.[weapon.id];
       if (entry) {
         mods.owned = entry.owned;
@@ -118,7 +109,7 @@ export class WeaponManager {
         mods.reloadMult = weaponReloadMult(entry.model);
         mods.damageMult = weaponDamageMult(entry.model);
         if (weapon.usesPersonalAccuracy) {
-          mods.accuracy = weaponHitChance(weapon.id, entry.model, upgrades.hitChance);
+          mods.accuracy = weaponHitChance(weapon.id, entry.model);
         }
       }
       if (weapon.id === "drone") {
@@ -193,15 +184,11 @@ export class WeaponManager {
 
     return {
       player: this.world.getPlayer(),
-      bonuses: {
-        ...bonuses,
-        rateMult: bonuses.rateMult * this.fireRateMult,
-      },
+      bonuses: { ...bonuses },
       aim,
       enemies: this.world.getEnemies(),
       bullets: this.world.getBullets(),
       drones: this.world.getDrones(),
-      weaves: this.world.getWeaves?.() ?? [],
       beams: this.world.getBeams?.() ?? [],
       zone: this.world.getZone?.() ?? null,
       onFired: (id) => this.onWeaponFired(id),

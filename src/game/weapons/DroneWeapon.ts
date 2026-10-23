@@ -50,8 +50,6 @@ export class DroneWeapon implements Weapon {
     order: 2,
   };
   readonly countUpgrade = "drones" as const;
-  readonly usesDamageUpgrade = false;
-  readonly usesSolidUpgrade = false;
   readonly usesPersonalAccuracy = false;
   readonly baseDamage = 8;
 

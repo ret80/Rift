@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { playerHitChance } from "../game/balance/accuracy";
 import type { Game } from "../game/game";
 import {
   UPGRADE_TIERS,
@@ -118,16 +117,10 @@ function getEffectText(
 function getUpgradeValue(key: keyof Omit<PlayerUpgrades, "parts">, level: number): string {
   switch (key) {
     case "hull": return `${100 + level * 20} HP`;
-    case "damage": return `${14 + level * 2} DMG`;
-    case "fireRate": return `${(100 + level * 8).toFixed(0)}%`;
     case "speed": return `${(100 + level * 5).toFixed(0)}%`;
     case "guns": return `${1 + level}`;
     case "drones": return `${1 + level}`;
     case "dashDuration": return `${(100 + level * 20).toFixed(0)}%`;
-    case "grazeMomentum": return `+${(level * 18).toFixed(0)}%`;
-    case "phantomHitbox": return `r${level > 0 ? [0, 8, 12, 15][Math.min(level, 3)] : 0}`;
-    case "solidBullets": return `r${level > 0 ? [0, 5, 7, 9][Math.min(level, 3)] : 0}`;
-    case "accuracy": return `${Math.round(playerHitChance(level) * 100)}%`;
     default: return `${level}`;
   }
 }
@@ -227,9 +220,8 @@ export function UpgradeScreen(props: {
   const free = props.detailsOn;
   const [tab, setTab] = useState<"ship" | "armory" | "drones">("ship");
   const [upgrades, setUpgrades] = useState<PlayerUpgrades>({
-    parts: 0, hull: 0, damage: 0, fireRate: 0, speed: 0, guns: 0, drones: 0,
-    dashDuration: 0, grazeMomentum: 0, phantomHitbox: 0, solidBullets: 0,
-    accuracy: 0,
+    parts: 0, hull: 0, speed: 0, guns: 0, drones: 0,
+    dashDuration: 0,
   });
   const [loadout, setLoadout] = useState<WeaponLoadout | null>(null);
   const [droneLoadout, setDroneLoadout] = useState<DroneLoadout | null>(null);

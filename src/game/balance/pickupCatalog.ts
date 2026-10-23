@@ -16,7 +16,6 @@ export type PickupDisplay =
   | "mineral"
   | "drone"
   | "missile"
-  | "weaver"
   | "laser"
   | "quantum_swap";
 
@@ -24,7 +23,7 @@ export type PickupDisplay =
 export type PickupEffect =
   | { type: "heal"; amount: number }
   | { type: "bonus" }
-  | { type: "weapon"; id: "cannon" | "missile" | "drone" | "weaver" | "laser" }
+  | { type: "weapon"; id: "cannon" | "missile" | "drone" | "laser" }
   | { type: "ability"; id: "quantum_swap" }
   | { type: "mineral"; amount: number; score: number };
 
@@ -53,7 +52,6 @@ export const PICKUP_CATALOG: Record<PickupKind, PickupDefinition> = {
   mineral: { display: "mineral", color: C.heal, effect: { type: "mineral", amount: 1, score: 50 } },
   drone: { display: "drone", color: C.mint, effect: { type: "weapon", id: "drone" } },
   missile: { display: "missile", color: C.bullet, effect: { type: "weapon", id: "missile" } },
-  weaver: { display: "weaver", color: C.cruiser, effect: { type: "weapon", id: "weaver" } },
   laser: { display: "laser", color: "#ff4d6d", effect: { type: "weapon", id: "laser" } },
   quantum_swap: { display: "quantum_swap", color: "#7cf3ff", effect: { type: "ability", id: "quantum_swap" } },
 };

@@ -85,8 +85,6 @@ export class LaserWeapon implements Weapon {
     order: 4,
   };
   readonly countUpgrade = null;
-  readonly usesDamageUpgrade = false;
-  readonly usesSolidUpgrade = false;
   readonly usesPersonalAccuracy = true;
   readonly baseDamage = LASER_DMG;
 

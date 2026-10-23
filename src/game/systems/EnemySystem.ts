@@ -16,7 +16,6 @@ import {
 } from '../balance';
 import { TAU, rand } from '../math';
 import type { Enemy } from '../types';
-import { WEAVER_SLOW_MULT } from '../balance/player';
 
 export class EnemySystem {
   private ai: EnemyAI;
@@ -70,7 +69,6 @@ export class EnemySystem {
     return {
       kind, x, y, vx: 0, vy: 0, angle,
       hp: def.hp, maxHp: def.hp, r: def.r, speed: def.speed,
-      baseSpeed: def.speed, slowT: 0,
       contact: def.contact, score: def.score, boltDmg: def.bolt,
       fireCd: rand(0.3, 1), mode: 0, modeT: 0,
       strafeDir: Math.random() < 0.5 ? -1 : 1,
@@ -111,18 +109,6 @@ export class EnemySystem {
       wave: this.wave,
     });
 
-    // Замедление от нитей ткани пространства: множитель применяется к целевой
-    // скорости ИИ, поэтому враг не разгоняется обратно в следующем кадре.
-    for (const e of enemyList) {
-      if (e.dead) continue;
-      if (e.slowT > 0) {
-        e.slowT = Math.max(0, e.slowT - dt);
-        e.speed = e.baseSpeed * WEAVER_SLOW_MULT;
-      } else {
-        e.speed = e.baseSpeed;
-      }
-    }
-    
     // AI movement via strategy pattern
     this.context.enemies = enemyList;
     this.ai.updateAI(enemyList, this.context, dt);
