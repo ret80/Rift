@@ -43,6 +43,8 @@ export class MissileWeapon implements Weapon {
   readonly countUpgrade = null;
   readonly usesDamageUpgrade = false;
   readonly usesSolidUpgrade = true;
+  readonly usesPersonalAccuracy = false;
+  readonly baseDamage = MISSILE_DMG;
 
   /** Ракетомёт активен. */
   private active = false;

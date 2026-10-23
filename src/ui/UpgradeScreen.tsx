@@ -1,38 +1,50 @@
 import { useEffect, useState } from "react";
 import { playerHitChance } from "../game/balance/accuracy";
 import type { Game } from "../game/game";
-import { UPGRADE_TIERS, UPGRADE_LABEL, upgradeCost, type PlayerUpgrades } from "../game/upgrades";
+import {
+  UPGRADE_TIERS,
+  UPGRADE_LABEL,
+  upgradeCost,
+  weaponCost,
+  weaponUpgradeCost,
+  weaponReloadMult,
+  weaponDamageMult,
+  WEAPON_ACCURACY_PER_LEVEL,
+  WEAPON_STAT_MAX_LEVEL,
+  type PlayerUpgrades,
+  type WeaponStatKey,
+} from "../game/upgrades";
+import type { WeaponId, WeaponLoadout } from "../game/weapons/Weapon";
 import { useT, type TKey } from "../i18n";
 import { Icon } from "./components/Icon";
 
-/* ======================== UpgradeRow ======================== */
+/* ======================== Ship upgrades ======================== */
 
 interface UpgradeRowProps {
   upgradeKey: keyof Omit<PlayerUpgrades, "parts">;
   upgrades: PlayerUpgrades;
   onPurchase: (key: keyof Omit<PlayerUpgrades, "parts">) => void;
-  game: Game | null;
-  detailsOn: boolean;
+  free: boolean;
 }
 
 function UpgradeRow(props: UpgradeRowProps) {
   const t = useT();
-  const { upgradeKey, upgrades, onPurchase, game, detailsOn } = props;
-  
+  const { upgradeKey, upgrades, onPurchase, free } = props;
+
   const level = upgrades[upgradeKey];
   const tier = UPGRADE_TIERS[upgradeKey];
   const maxed = level >= tier.maxLevel;
   const cost = upgradeCost(upgradeKey, level);
-  const affordable = maxed ? false : detailsOn ? true : upgrades.parts >= cost;
-  
+  const affordable = maxed ? false : free ? true : upgrades.parts >= cost;
+
   const labelKey: TKey = UPGRADE_LABEL[upgradeKey].label;
   const descKey: TKey = UPGRADE_LABEL[upgradeKey].desc;
-  
+
   const label = t(labelKey);
   const desc = t(descKey);
-  
+
   const effectText = getEffectText(upgradeKey, level, tier);
-  
+
   return (
     <div
       className={`flex items-center justify-between gap-3 rounded border px-4 py-3 transition-colors ${
@@ -58,7 +70,7 @@ function UpgradeRow(props: UpgradeRowProps) {
           </div>
         </div>
       </div>
-      
+
       {/* Right: buy button or maxed */}
       {maxed ? (
         <div className="font-mono text-[10px] tracking-[0.2em] text-[#5ef2ff]">
@@ -66,10 +78,7 @@ function UpgradeRow(props: UpgradeRowProps) {
         </div>
       ) : (
         <button
-          onClick={() => {
-            onPurchase(upgradeKey);
-            game?.refreshUpgrades();
-          }}
+          onClick={() => onPurchase(upgradeKey)}
           disabled={!affordable}
           className={`clip-btn px-4 py-2 text-xs font-mono tracking-[0.15em] transition-all ${
             affordable
@@ -84,7 +93,11 @@ function UpgradeRow(props: UpgradeRowProps) {
   );
 }
 
-function getEffectText(key: keyof Omit<PlayerUpgrades, "parts">, level: number, tier: { baseCost: number; costStep: number; maxLevel: number }): string {
+function getEffectText(
+  key: keyof Omit<PlayerUpgrades, "parts">,
+  level: number,
+  tier: { baseCost: number; costStep: number; maxLevel: number }
+): string {
   const maxLevel = tier.maxLevel;
   const currentValue = getUpgradeValue(key, level);
   const maxValue = getUpgradeValue(key, maxLevel);
@@ -108,7 +121,62 @@ function getUpgradeValue(key: keyof Omit<PlayerUpgrades, "parts">, level: number
   }
 }
 
-/* ======================== UpgradeScreen ======================== */
+/* ======================== Armory (weapons) ======================== */
+
+/** Виды оружия, доступные в арсенале. */
+const ARMORY_WEAPONS: Array<{
+  id: WeaponId;
+  icon: "weapon-cannon" | "weapon-laser";
+  color: string;
+  titleKey: TKey;
+  descKey: TKey;
+}> = [
+  {
+    id: "cannon",
+    icon: "weapon-cannon",
+    color: "#5ef2ff",
+    titleKey: "upgrade.weapon.cannon",
+    descKey: "upgrade.weapon.cannonDesc",
+  },
+  {
+    id: "laser",
+    icon: "weapon-laser",
+    color: "#ff4d6d",
+    titleKey: "upgrade.weapon.laser",
+    descKey: "upgrade.weapon.laserDesc",
+  },
+];
+
+const WEAPON_STATS: Array<{ stat: WeaponStatKey; valueKey: TKey; descKey: TKey }> = [
+  { stat: "reload", valueKey: "upgrade.weapon.reload", descKey: "upgrade.weapon.reloadDesc" },
+  { stat: "damage", valueKey: "upgrade.weapon.damage", descKey: "upgrade.weapon.damageDesc" },
+  { stat: "accuracy", valueKey: "upgrade.weapon.accuracy", descKey: "upgrade.weapon.accuracyDesc" },
+];
+
+/** Оформление строки линии оружия. */
+const WEAPON_STAT_ROW_CLASS =
+  "flex items-center justify-between gap-3 rounded border " +
+  "border-[#3d4f6d]/25 bg-[#04070d]/40 px-3 py-2";
+
+function statValue(stat: WeaponStatKey, model: WeaponLoadout[WeaponId]["model"]): string {
+  if (stat === "reload") {
+    return `${Math.round(weaponReloadMult(model) * 100)}%`;
+  }
+  if (stat === "damage") {
+    return `+${Math.round((weaponDamageMult(model) - 1) * 100)}%`;
+  }
+  const level = Math.max(0, Math.min(WEAPON_STAT_MAX_LEVEL, model.accuracy));
+  return `+${Math.round(level * WEAPON_ACCURACY_PER_LEVEL * 100)}%`;
+}
+
+function copyLoadout(source: WeaponLoadout): WeaponLoadout {
+  const out = {} as WeaponLoadout;
+  for (const id of Object.keys(source) as WeaponId[]) {
+    const entry = source[id];
+    out[id] = { owned: entry.owned, model: { ...entry.model } };
+  }
+  return out;
+}
 
 export function UpgradeScreen(props: {
   game: Game | null;
@@ -117,37 +185,59 @@ export function UpgradeScreen(props: {
   onBack: () => void;
 }) {
   const t = useT();
+  const free = props.detailsOn;
+  const [tab, setTab] = useState<"ship" | "armory">("ship");
   const [upgrades, setUpgrades] = useState<PlayerUpgrades>({
     parts: 0, hull: 0, damage: 0, fireRate: 0, speed: 0, guns: 0, drones: 0,
     dashDuration: 0, grazeMomentum: 0, phantomHitbox: 0, solidBullets: 0,
     accuracy: 0,
   });
+  const [loadout, setLoadout] = useState<WeaponLoadout | null>(null);
 
   // store an immutable snapshot so React re-renders after purchases
-  const copyUpgrades = (source: PlayerUpgrades): PlayerUpgrades => ({ ...source });
-
-  // Load fresh upgrades on mount (snapshot)
-  useEffect(() => {
+  const refresh = () => {
     if (!props.game) return;
-    setUpgrades(copyUpgrades(props.game.getPlayerUpgrades()));
+    setUpgrades({ ...props.game.getPlayerUpgrades() });
+    setLoadout(copyLoadout(props.game.getWeaponLoadout()));
+  };
+
+  // Load fresh state on mount (snapshot)
+  useEffect(() => {
+    refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // run once on mount
-  
+
   const handlePurchase = (key: keyof Omit<PlayerUpgrades, "parts">) => {
     if (!props.game) {
       console.warn('[UpgradeScreen] game is null');
       return;
     }
-    const success = props.detailsOn
+    const success = free
       ? props.game.purchaseUpgradeNoCost(key)
       : props.game.purchaseUpgradeCosted(key);
     if (success) {
-      setUpgrades(copyUpgrades(props.game.getPlayerUpgrades()));
+      refresh();
     }
   };
-  
+
+  const handleBuyWeapon = (id: WeaponId) => {
+    if (!props.game) return;
+    const success = free
+      ? props.game.purchaseWeaponNoCost(id)
+      : props.game.purchaseWeapon(id);
+    if (success) refresh();
+  };
+
+  const handleBuyStat = (id: WeaponId, stat: WeaponStatKey) => {
+    if (!props.game) return;
+    const success = free
+      ? props.game.upgradeWeaponStatNoCost(id, stat)
+      : props.game.upgradeWeaponStat(id, stat);
+    if (success) refresh();
+  };
+
   const upgradeKeys = Object.keys(UPGRADE_TIERS) as Array<keyof Omit<PlayerUpgrades, "parts">>;
-  
+
   return (
     <div
       className="anim-overlay absolute inset-0 z-20 flex items-center justify-center p-4"
@@ -155,12 +245,15 @@ export function UpgradeScreen(props: {
       aria-modal="true"
       aria-label={t("upgrade.title")}
     >
-      <div className="anim-fade-up w-[min(520px,96vw)] max-h-[90vh]">
+      <div className="anim-fade-up w-[min(620px,96vw)] max-h-[90vh]">
         <div className="hud-panel p-5 sm:p-7">
           {/* Header */}
           <div className="mb-5 text-center">
             <div className="hud-label mb-2">{t("upgrade.title")}</div>
-            <div className="flex items-center justify-center gap-2 text-[12px] text-[#ffb84d]" aria-label={`Parts: ${upgrades.parts ?? 0}`}>
+            <div
+              className="flex items-center justify-center gap-2 text-[12px] text-[#ffb84d]"
+              aria-label={`Parts: ${upgrades.parts ?? 0}`}
+            >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#ffb84d" strokeWidth="1.5">
                 <polygon points="7,1 9,5 13,5 10,8 11,13 7,10 3,13 4,8 1,5 5,5" />
               </svg>
@@ -168,21 +261,166 @@ export function UpgradeScreen(props: {
               <span className="text-[10px] text-[#6f86a8]">{t("upgrade.partsLabel")}</span>
             </div>
           </div>
-          
-          {/* Upgrade list */}
-          <div className="flex flex-col gap-2 overflow-y-auto pr-1" style={{ maxHeight: "calc(90vh - 220px)" }}>
-            {upgradeKeys.map((upgradeKey) => (
-              <UpgradeRow
-                key={upgradeKey}
-                game={props.game}
-                detailsOn={props.detailsOn}
-                upgradeKey={upgradeKey}
-                upgrades={upgrades}
-                onPurchase={handlePurchase}
-              />
-            ))}
+
+          {/* Tabs */}
+          <div className="mb-4 flex justify-center gap-2">
+            <button
+              onClick={() => setTab("ship")}
+              className={`clip-btn px-5 py-2 text-xs font-mono tracking-[0.2em] transition-all ${
+                tab === "ship"
+                  ? "border border-[#5ef2ff]/60 bg-[#5ef2ff]/20 text-[#eaffff]"
+                  : "border border-[#3d4f6d]/30 bg-[#0a1020]/50 text-[#6f86a8] hover:text-[#eaffff]"
+              }`}
+            >
+              {t("upgrade.tabShip")}
+            </button>
+            <button
+              onClick={() => setTab("armory")}
+              className={`clip-btn px-5 py-2 text-xs font-mono tracking-[0.2em] transition-all ${
+                tab === "armory"
+                  ? "border border-[#5ef2ff]/60 bg-[#5ef2ff]/20 text-[#eaffff]"
+                  : "border border-[#3d4f6d]/30 bg-[#0a1020]/50 text-[#6f86a8] hover:text-[#eaffff]"
+              }`}
+            >
+              {t("upgrade.tabArmory")}
+            </button>
           </div>
-          
+
+          {tab === "ship" ? (
+            /* Upgrade list */
+            <div
+              className="flex flex-col gap-2 overflow-y-auto pr-1"
+              style={{ maxHeight: "calc(90vh - 260px)" }}
+            >
+              {upgradeKeys.map((upgradeKey) => (
+                <UpgradeRow
+                  key={upgradeKey}
+                  free={free}
+                  upgradeKey={upgradeKey}
+                  upgrades={upgrades}
+                  onPurchase={handlePurchase}
+                />
+              ))}
+            </div>
+          ) : (
+            /* Armory list */
+            <div
+              className="flex flex-col gap-2 overflow-y-auto pr-1"
+              style={{ maxHeight: "calc(90vh - 260px)" }}
+            >
+              {ARMORY_WEAPONS.map((weapon) => {
+                const entry = loadout?.[weapon.id];
+                const owned = entry?.owned ?? false;
+                return (
+                  <div
+                    key={weapon.id}
+                    className={`rounded border px-4 py-3 ${
+                      owned
+                        ? "border-[#ffb84d]/40 bg-[#ffb84d]/5"
+                        : "border-[#3d4f6d]/40 bg-[#0a1020]/60"
+                    }`}
+                  >
+                    {/* Weapon header */}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Icon kind={weapon.icon} color={weapon.color} />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[13px] font-bold text-[#eaffff]">
+                              {t(weapon.titleKey)}
+                            </span>
+                            {owned ? (
+                              weapon.id === "cannon" ? (
+                                <span className="font-mono text-[9px] tracking-[0.15em] text-[#5ef2ff]">
+                                  {t("upgrade.weapon.start")}
+                                </span>
+                              ) : (
+                                <span className="font-mono text-[9px] tracking-[0.15em] text-[#ffb84d]">
+                                  {t("upgrade.weapon.owned")}
+                                </span>
+                              )
+                            ) : null}
+                          </div>
+                          <div className="text-[10px] text-[#6f86a8]">{t(weapon.descKey)}</div>
+                        </div>
+                      </div>
+                      {!owned && (
+                        <button
+                          onClick={() => handleBuyWeapon(weapon.id)}
+                          disabled={!free && upgrades.parts < weaponCost(weapon.id)}
+                          className={`clip-btn px-4 py-2 text-xs font-mono tracking-[0.15em] transition-all ${
+                            free || upgrades.parts >= weaponCost(weapon.id)
+                              ? "cursor-pointer border border-[#ffb84d]/60 bg-[#ffb84d]/15 " +
+                                "text-[#eaffff] hover:bg-[#ffb84d]/25"
+                              : "cursor-not-allowed border border-[#3d4f6d]/30 " +
+                                "bg-[#0a1020]/50 text-[#3d4f6d]"
+                          }`}
+                        >
+                          ⚙ {weaponCost(weapon.id)}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Stat rows */}
+                    {owned && (
+                      <div className="mt-3 flex flex-col gap-1.5">
+                        {WEAPON_STATS.map((row) => {
+                          const level = entry!.model[row.stat];
+                          const maxed = level >= WEAPON_STAT_MAX_LEVEL;
+                          const cost = weaponUpgradeCost(level);
+                          const affordable = maxed ? false : upgrades.parts >= cost;
+                          return (
+                            <div
+                              key={row.stat}
+                              className={WEAPON_STAT_ROW_CLASS}
+                            >
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[11px] font-bold text-[#eaffff]">
+                                    {t(row.valueKey)}
+                                  </span>
+                                  <span className="font-mono text-[9px] text-[#6f86a8]">
+                                    {maxed ? "/// MAX" : `lv.${level}`}
+                                  </span>
+                                </div>
+                                <div className="text-[9px] text-[#6f86a8]">
+                                  {t(row.descKey)} ·{" "}
+                                  <span className="text-[#5ef2ff]">
+                                    {statValue(row.stat, entry!.model)}
+                                  </span>
+                                </div>
+                              </div>
+                              {maxed ? (
+                                <div className="font-mono text-[9px] tracking-[0.2em] text-[#5ef2ff]">
+                                  MAX
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => handleBuyStat(weapon.id, row.stat)}
+                                  disabled={!free && !affordable}
+                                  className={`clip-btn px-3 py-1.5 text-[10px] font-mono tracking-[0.15em] ` +
+                                    `transition-all ${
+                                    free || affordable
+                                      ? "cursor-pointer border border-[#5ef2ff]/50 " +
+                                        "bg-[#5ef2ff]/15 text-[#eaffff] hover:bg-[#5ef2ff]/25"
+                                      : "cursor-not-allowed border border-[#3d4f6d]/30 " +
+                                        "bg-[#0a1020]/50 text-[#3d4f6d]"
+                                  }`}
+                                >
+                                  ⚙ {cost}
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* Footer */}
           <div className="mt-5 border-t border-[#5ef2ff]/15 pt-4 text-center">
             <button

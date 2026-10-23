@@ -8,7 +8,8 @@
  */
 
 import { EnemyKind, type PickupKind } from "./balance";
-import type { PlayerUpgrades } from "./upgrades";
+import type { PlayerUpgrades, WeaponStatKey } from "./upgrades";
+import type { WeaponId } from "./weapons/Weapon";
 import type { PersistencePort } from "./core/PersistencePort";
 import { GameContext } from "./core/GameContext";
 import type { Hooks } from "./core/GameHooks";
@@ -76,6 +77,31 @@ export class Game {
   /** Купить апгрейд с проверкой стоимости (через порт хранилища). */
   purchaseUpgradeCosted(key: keyof Omit<PlayerUpgrades, "parts">): boolean {
     return this.ctx.upgrades.purchaseCosted(key);
+  }
+
+  /** Купить оружие в арсенале. */
+  purchaseWeapon(id: WeaponId): boolean {
+    return this.ctx.upgrades.purchaseWeapon(id);
+  }
+
+  /** Debug-only: получить оружие бесплатно. */
+  purchaseWeaponNoCost(id: WeaponId): boolean {
+    return this.ctx.upgrades.purchaseWeaponNoCost(id);
+  }
+
+  /** Купить уровень линии оружия в арсенале. */
+  upgradeWeaponStat(id: WeaponId, stat: WeaponStatKey): boolean {
+    return this.ctx.upgrades.upgradeWeaponStat(id, stat);
+  }
+
+  /** Debug-only: прокачать линию оружия бесплатно. */
+  upgradeWeaponStatNoCost(id: WeaponId, stat: WeaponStatKey): boolean {
+    return this.ctx.upgrades.upgradeWeaponStatNoCost(id, stat);
+  }
+
+  /** Персистентный арсенал игрока. */
+  getWeaponLoadout() {
+    return this.ctx.upgrades.getLoadout();
   }
 
   public togglePause(): void {

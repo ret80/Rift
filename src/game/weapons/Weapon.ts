@@ -43,6 +43,17 @@ export interface AimState {
   hitChance: number;
 }
 
+/** Снимок границы игровой зоны для оружия. */
+export interface ZoneSnapshot {
+  /** Зона волны активна. */
+  active: boolean;
+  /** Центр зоны (мировые координаты). */
+  x: number;
+  y: number;
+  /** Радиус зоны. */
+  radius: number;
+}
+
 /** Всё, что доступно оружию во время работы. */
 export interface WeaponContext {
   /** Положение и состояние игрока. */
@@ -61,6 +72,8 @@ export interface WeaponContext {
   readonly weaves: WeaveThread[];
   /** Пул лучей лазера — визуальная трасса выстрела. */
   readonly beams: LaserBeam[];
+  /** Граница игровой зоны (null — зона не задана). */
+  readonly zone: ZoneSnapshot | null;
   /** Колбэк выстрела — проигрывание звука. */
   onFired(id: WeaponId): void;
   /** Колбэк гибели врага — единый путь enemy_killed (дроп, счёт, волна). */
@@ -79,17 +92,61 @@ export interface WeaponSlotState {
   remaining: number;
 }
 
+/** Модель оружия, расширяемая апгрейдом в меню «Арсенал». */
+export type WeaponStatKey = "reload" | "damage" | "accuracy";
+
+/** Модель оружия в арсенале: база + уровни трёх линий. */
+export interface WeaponModelUpgrades {
+  /** Уровень ускорения перезарядки. */
+  reload: number;
+  /** Уровень повышения урона. */
+  damage: number;
+  /** Уровень повышения точности. */
+  accuracy: number;
+}
+
+/** Шаблон «нулевой» модели оружия. */
+export const BASE_WEAPON_MODEL: WeaponModelUpgrades = {
+  reload: 0,
+  damage: 0,
+  accuracy: 0,
+};
+
+/** Запись арсенала: куплено ли оружие и уровни его линий. */
+export interface WeaponLoadoutEntry {
+  /** Оружие куплено (пушка куплена по умолчанию). */
+  owned: boolean;
+  /** Уровни линий апгрейда оружия. */
+  model: WeaponModelUpgrades;
+}
+
+/** Персистентный арсенал игрока: модели всех видов оружия. */
+export type WeaponLoadout = Record<WeaponId, WeaponLoadoutEntry>;
+
 /**
  * Персистентные модификаторы оружия, приходящие из апгрейдов.
  * Каждое оружие само решает, какие из них к нему относятся.
  */
 export interface WeaponModifiers {
-  /** Дополнительный урон снарядов оружия. */
+  /** Оружие куплено в арсенале (постоянно доступно). */
+  owned?: boolean;
+  /** Дополнительный урон снарядов оружия (глобальный апгрейд). */
   damage?: number;
+  /** Персональный множитель урона оружия (апгрейд «урон»). */
+  damageMult?: number;
   /** Число экземпляров оружия: стволы пушки, дроны-компаньоны. */
   count?: number;
   /** Радиус твёрдого снаряда (0 — снаряды бестелесные). */
   solidRadius?: number;
+  /** Персональный множитель перезарядки оружия (меньше — быстрее). */
+  reloadMult?: number;
+  /** Персональная модель оружия (уровни линий арсенала). */
+  model?: WeaponModelUpgrades;
+  /**
+   * Персональная точность оружия: замещает общий шанс попадания,
+   * если оружие поддерживает персональную точность (usesPersonalAccuracy).
+   */
+  accuracy?: number;
 }
 
 /**
@@ -126,6 +183,10 @@ export interface Weapon {
   readonly usesDamageUpgrade: boolean;
   /** Применять ли к оружию апгрейд «твёрдые снаряды». */
   readonly usesSolidUpgrade: boolean;
+  /** Поддерживает ли оружие персональную точность арсенала. */
+  readonly usesPersonalAccuracy: boolean;
+  /** Базовый урон одной порции оружия (для расчёта множителя урона). */
+  readonly baseDamage: number;
 
   /** Сбросить внутреннее состояние оружия (начало забега). */
   reset(ctx: WeaponContext): void;

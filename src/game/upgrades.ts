@@ -8,6 +8,13 @@ import { playerHitChance } from "./balance/accuracy";
 import { PHANTOM_CORE_RADII, SOLID_BULLET_RADII } from "./balance/player";
 import { CANNON_MAX_BARRELS } from "./weapons/CannonWeapon";
 import { MAX_ALLY_DRONES } from "./weapons/DroneWeapon";
+import {
+  BASE_WEAPON_MODEL,
+  type WeaponId,
+  type WeaponLoadout,
+  type WeaponLoadoutEntry,
+  type WeaponModelUpgrades,
+} from "./weapons/Weapon";
 import type { TKey } from "../i18n";
 import type { PersistencePort } from "./core/PersistencePort";
 
@@ -15,6 +22,7 @@ import type { PersistencePort } from "./core/PersistencePort";
 
 const LS_KEY = "rift9_upgrades";
 const LS_BEST_WAVE = "rift9_best_wave";
+const LS_WEAPON_LOADOUT = "rift9_weapon_loadout";
 
 /* ======================== Types ======================== */
 
@@ -51,6 +59,82 @@ export interface PlayerUpgrades {
   phantomHitbox: number;  // уровень фантомного хитбокса (макс 3)
   solidBullets: number;   // уровень твёрдых снарядов (макс 3)
   accuracy: number;       // уровень точности (шанс попадания орудий)
+}
+
+/* ======================== Weapon loadout (armory) ======================== */
+
+/** Линии апгрейда оружия в арсенале. */
+export type WeaponStatKey = keyof WeaponModelUpgrades;
+
+/** Пустая запись арсенала (оружие не куплено, всё на нуле). */
+function emptyWeaponEntry(): WeaponLoadoutEntry {
+  return { owned: false, model: { reload: 0, damage: 0, accuracy: 0 } };
+}
+
+/** Арсенал по умолчанию: куплена только пушка. */
+export function defaultWeaponLoadout(): WeaponLoadout {
+  return {
+    cannon: { owned: true, model: { ...BASE_WEAPON_MODEL } },
+    missile: emptyWeaponEntry(),
+    drone: emptyWeaponEntry(),
+    weaver: emptyWeaponEntry(),
+    laser: emptyWeaponEntry(),
+  };
+}
+
+/* ======================== Weapon stat scaling ======================== */
+
+/** Максимальный уровень линии апгрейда оружия. */
+export const WEAPON_STAT_MAX_LEVEL = 5;
+
+/** Максимальный уровень точности оружия (0..1). */
+export const WEAPON_ACCURACY_MAX = 0.97;
+
+/** Скорость перезарядки за уровень (например, +4%). */
+export const WEAPON_RELOAD_PER_LEVEL = 0.04;
+
+/** Урон за уровень (например, +12%). */
+export const WEAPON_DAMAGE_PER_LEVEL = 0.12;
+
+/** Точность за уровень (например, +3%). */
+export const WEAPON_ACCURACY_PER_LEVEL = 0.03;
+
+/** Текущий множитель времени перезарядки оружия (меньше — быстрее). */
+export function weaponReloadMult(model: WeaponModelUpgrades): number {
+  const level = Math.max(0, Math.min(WEAPON_STAT_MAX_LEVEL, model.reload));
+  return Math.max(0.2, 1 - level * WEAPON_RELOAD_PER_LEVEL);
+}
+
+/** Текущий множитель урона оружия. */
+export function weaponDamageMult(model: WeaponModelUpgrades): number {
+  const level = Math.max(0, Math.min(WEAPON_STAT_MAX_LEVEL, model.damage));
+  return 1 + level * WEAPON_DAMAGE_PER_LEVEL;
+}
+
+/** Стоимость уровня линии оружия (идёт после текущего уровня). */
+export function weaponUpgradeCost(level: number): number {
+  return 180 + 140 * Math.max(0, level);
+}
+
+/** Стоимость покупки оружия. Пушка стартовое — стоимость 0. */
+export function weaponCost(id: WeaponId): number {
+  return id === "cannon" ? 0 : 900;
+}
+
+/**
+ * Эффективная точность оружия в бою: для пушки и лазера
+ * персональная линия «точность» добавляется поверх общего апгрейда.
+ */
+export function weaponHitChance(
+  id: WeaponId,
+  model: WeaponModelUpgrades,
+  globalHitChance: number
+): number {
+  if (id === "cannon" || id === "laser") {
+    const level = Math.max(0, Math.min(WEAPON_STAT_MAX_LEVEL, model.accuracy));
+    return Math.min(WEAPON_ACCURACY_MAX, globalHitChance + level * WEAPON_ACCURACY_PER_LEVEL);
+  }
+  return globalHitChance;
 }
 
 /* ======================== Default state ======================== */
@@ -183,11 +267,61 @@ export function saveUpgrades(upgrades: PlayerUpgrades, storage: PersistencePort)
   } catch { /* ignore */ }
 }
 
+/* ======================== Weapon loadout persistence ======================== */
+
+/** Прочитать сохранённую запись арсенала (с миграцией полей). */
+function migrateWeaponEntry(raw: unknown): WeaponLoadoutEntry {
+  const fresh: WeaponLoadoutEntry = emptyWeaponEntry();
+  if (!raw || typeof raw !== "object") return fresh;
+  const entry = raw as Partial<WeaponLoadoutEntry> & { model?: Partial<WeaponModelUpgrades> };
+  fresh.owned = entry.owned === true;
+  const model = entry.model;
+  if (model && typeof model === "object") {
+    for (const key of ["reload", "damage", "accuracy"] as const) {
+      const value = model[key];
+      if (typeof value === "number" && Number.isFinite(value)) {
+        fresh.model[key] = Math.max(0, Math.floor(value));
+      }
+    }
+  }
+  return fresh;
+}
+
+export function loadWeaponLoadout(storage: PersistencePort): WeaponLoadout {
+  const loadout = defaultWeaponLoadout();
+  try {
+    const raw = storage.get(LS_WEAPON_LOADOUT);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<Record<WeaponId, unknown>>;
+      if (parsed && typeof parsed === "object") {
+        for (const id of Object.keys(parsed) as WeaponId[]) {
+          if (id in loadout) loadout[id] = migrateWeaponEntry(parsed[id]);
+        }
+      }
+    }
+  } catch { /* ignore */ }
+  return loadout;
+}
+
+export function saveWeaponLoadout(loadout: WeaponLoadout, storage: PersistencePort): void {
+  try {
+    storage.set(LS_WEAPON_LOADOUT, JSON.stringify(loadout));
+  } catch { /* ignore */ }
+}
+
+/** Сбросить арсенал: снова доступна только пушка. */
+export function resetWeaponLoadout(storage: PersistencePort): WeaponLoadout {
+  const fresh = defaultWeaponLoadout();
+  storage.remove(LS_WEAPON_LOADOUT);
+  return fresh;
+}
+
 /** Сбросить всю прокачку и детали */
 export function resetUpgrades(storage: PersistencePort): PlayerUpgrades {
   const fresh = defaultUpgrades();
   storage.remove(LS_KEY);
   storage.remove(LS_BEST_WAVE);
+  storage.remove(LS_WEAPON_LOADOUT);
   return fresh;
 }
 

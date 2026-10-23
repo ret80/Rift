@@ -241,6 +241,7 @@ export class GameContext {
         getBonuses: () => this.bonusManager.getBonuses(),
         getWeaves: () => this.entityPool.weaveList,
         getBeams: () => this.entityPool.beamList,
+        getZone: () => this.getZoneSnapshot(),
         killEnemy: (enemy) => this.killEnemy(enemy),
       },
       (id) => this.onWeaponFired(id),
@@ -409,6 +410,13 @@ export class GameContext {
     return { x: z.x, y: z.y, radius: z.radius, active: z.active };
   }
 
+  /** Снимок игровой зоны для оружия (луч лазера упирается в её край). */
+  getZoneSnapshot(): { active: boolean; x: number; y: number; radius: number } | null {
+    const z = this.waveOrchestrator.zoneState;
+    if (!z.active || z.radius <= 0) return null;
+    return { active: z.active, x: z.x, y: z.y, radius: z.radius };
+  }
+
   /** Снимок игрока в едином виде WorldFrame (для кадра и рендера). */
   getPlayerWorld(): PlayerWorld {
     const s = this.playerSystem.getPlayerRef();
@@ -445,6 +453,7 @@ export class GameContext {
   // ===== Upgrades application (dedup between start/refresh) =====
 
   applyUpgrades(withResetHp: boolean): void {
+    this.weaponManager.setLoadout(this.upgradeSystem.loadout);
     this.upgradeSystem.applyToSystems({
       setMaxHp: (v) => this.playerSystem.setMaxHp(v),
       setWeaponUpgrades: (upgrades) => this.weaponManager.applyUpgrades(upgrades),

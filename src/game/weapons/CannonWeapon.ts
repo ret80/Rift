@@ -48,7 +48,11 @@ export class CannonWeapon implements Weapon {
   readonly countUpgrade = "guns" as const;
   readonly usesDamageUpgrade = true;
   readonly usesSolidUpgrade = true;
+  readonly usesPersonalAccuracy = true;
+  readonly baseDamage = CANNON_BULLET_DMG;
 
+  /** Пушка куплена в арсенале (всегда true). */
+  private owned = true;
   /** Базовое число стволов (персистентный апгрейд). */
   private baseBarrels = 1;
   /** Урон снаряда (персистентный апгрейд). */
@@ -57,16 +61,26 @@ export class CannonWeapon implements Weapon {
   private solidRadius = 0;
   /** Остаток перезарядки. */
   private fireCd = 0;
+  /** Персональный множитель перезарядки (арсенал). */
+  private reloadMult = 1;
+  /** Персональный множитель урона (арсенал). */
+  private damageMult = 1;
+  /** Персональная точность из арсенала (null — общий апгрейд). */
+  private personalAccuracy: number | null = null;
 
   reset(): void {
+    this.owned = true;
     this.baseBarrels = 1;
     this.damage = CANNON_BULLET_DMG;
     this.solidRadius = 0;
     this.fireCd = 0;
+    this.reloadMult = 1;
+    this.damageMult = 1;
+    this.personalAccuracy = null;
   }
 
   isAvailable(): boolean {
-    return true;
+    return this.owned;
   }
 
   activate(): void {
@@ -96,7 +110,11 @@ export class CannonWeapon implements Weapon {
   }
 
   applyModifiers(mods: WeaponModifiers): void {
+    if (mods.owned != null) this.owned = mods.owned;
     if (mods.damage != null) this.damage = CANNON_BULLET_DMG + mods.damage;
+    if (mods.damageMult != null) this.damageMult = mods.damageMult;
+    if (mods.reloadMult != null) this.reloadMult = mods.reloadMult;
+    if (mods.accuracy != null) this.personalAccuracy = mods.accuracy;
     if (mods.count != null) {
       this.baseBarrels = Math.min(CANNON_MAX_BARRELS, Math.max(1, mods.count));
     }
@@ -105,7 +123,12 @@ export class CannonWeapon implements Weapon {
 
   /** Полная перезарядка пушки при текущем темпе стрельбы. */
   private getReloadTime(ctx: WeaponContext): number {
-    return CANNON_FIRE_CD / ctx.bonuses.rateMult;
+    return (CANNON_FIRE_CD * this.reloadMult) / ctx.bonuses.rateMult;
+  }
+
+  /** Точность пушки: персональная из арсенала или общий апгрейд. */
+  private getHitChance(ctx: WeaponContext): number {
+    return this.personalAccuracy ?? ctx.aim.hitChance;
   }
 
   /**
@@ -124,7 +147,7 @@ export class CannonWeapon implements Weapon {
         bulletSpeed: CANNON_BULLET_SPEED,
         maxFlightTime: CANNON_BULLET_LIFE,
       },
-      ctx.aim.hitChance,
+      this.getHitChance(ctx),
       target.r
     );
   }
@@ -145,7 +168,7 @@ export class CannonWeapon implements Weapon {
         vx: Math.cos(barrelAngle) * CANNON_BULLET_SPEED,
         vy: Math.sin(barrelAngle) * CANNON_BULLET_SPEED,
         life: CANNON_BULLET_LIFE,
-        dmg: this.damage,
+        dmg: this.damage * this.damageMult,
         r: this.solidRadius || undefined,
       });
     }

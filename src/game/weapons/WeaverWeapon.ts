@@ -10,6 +10,7 @@
  */
 
 import {
+  WEAVER_DPS,
   WEAVER_DURATION,
   WEAVER_MAX_THREADS,
   WEAVER_SEGMENT_LENGTH,
@@ -35,6 +36,8 @@ export class WeaverWeapon implements Weapon {
   readonly countUpgrade = null;
   readonly usesDamageUpgrade = false;
   readonly usesSolidUpgrade = false;
+  readonly usesPersonalAccuracy = false;
+  readonly baseDamage = WEAVER_DPS;
 
   /** Ткацкое оружие активно. */
   private active = false;

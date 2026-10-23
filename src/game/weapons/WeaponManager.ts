@@ -11,6 +11,7 @@
  */
 
 import { PLAYER_AIM_BASE_CHANCE } from "../balance";
+import { weaponDamageMult, weaponHitChance, weaponReloadMult } from "../upgrades";
 import type { LoadoutSlotData } from "../loadout/LoadoutTypes";
 import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
 import type { AllyDrone, Bullet, Enemy, LaserBeam, WeaveThread } from "../types";
@@ -21,8 +22,10 @@ import type {
   Weapon,
   WeaponContext,
   WeaponId,
+  WeaponLoadout,
   WeaponModifiers,
   WeaponUpgrades,
+  ZoneSnapshot,
 } from "./Weapon";
 import { createWeaponRegistry } from "./WeaponRegistry";
 
@@ -42,6 +45,8 @@ export interface WeaponWorld {
   getWeaves?(): WeaveThread[];
   /** Пул лучей лазера — визуальная трасса выстрела. */
   getBeams?(): LaserBeam[];
+  /** Граница игровой зоны (null — зона не задана). */
+  getZone?(): ZoneSnapshot | null;
   /** Убить врага через единый путь (дроп, счёт, волна). */
   killEnemy?(enemy: Enemy): void;
 }
@@ -55,6 +60,8 @@ export class WeaponManager {
   private fireRateMult = 1;
   /** Шанс попадания орудий игрока из персистентного апгрейда «точность». */
   private hitChance = PLAYER_AIM_BASE_CHANCE;
+  /** Арсенал: купленные виды оружия и их модели. */
+  private loadout: WeaponLoadout | null = null;
 
   constructor(
     world: WeaponWorld,
@@ -102,8 +109,28 @@ export class WeaponManager {
       if (weapon.countUpgrade === "guns") mods.count = upgrades.guns;
       else if (weapon.countUpgrade === "drones") mods.count = upgrades.drones;
       if (weapon.usesSolidUpgrade) mods.solidRadius = upgrades.solidBulletRadius;
+      const entry = this.loadout?.[weapon.id];
+      if (entry) {
+        mods.owned = entry.owned;
+        mods.model = { ...entry.model };
+        mods.reloadMult = weaponReloadMult(entry.model);
+        mods.damageMult = weaponDamageMult(entry.model);
+        if (weapon.usesPersonalAccuracy) {
+          mods.accuracy = weaponHitChance(weapon.id, entry.model, upgrades.hitChance);
+        }
+      }
       weapon.applyModifiers(mods, ctx);
     }
+  }
+
+  /** Установить персистентный арсенал из хранилища. */
+  setLoadout(loadout: WeaponLoadout): void {
+    this.loadout = loadout;
+  }
+
+  /** Оружие куплено игроком. */
+  isOwned(id: WeaponId): boolean {
+    return this.loadout?.[id]?.owned ?? false;
   }
 
   /** Слоты оружия для строки снаряжения. */
@@ -166,6 +193,7 @@ export class WeaponManager {
       drones: this.world.getDrones(),
       weaves: this.world.getWeaves?.() ?? [],
       beams: this.world.getBeams?.() ?? [],
+      zone: this.world.getZone?.() ?? null,
       onFired: (id) => this.onWeaponFired(id),
       killEnemy: (enemy) => this.world.killEnemy?.(enemy),
     };

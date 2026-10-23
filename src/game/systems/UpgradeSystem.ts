@@ -8,18 +8,35 @@ import {
   loadUpgrades as loadUpgradesRaw,
   saveUpgrades as saveUpgradesRaw,
   applyUpgrades as applyUpgradesRaw,
+  loadWeaponLoadout,
+  saveWeaponLoadout,
+  defaultWeaponLoadout,
+  weaponCost,
+  weaponUpgradeCost,
+  WEAPON_STAT_MAX_LEVEL,
   type PlayerUpgrades,
   type AppliedUpgrades,
+  type WeaponStatKey,
 } from "../upgrades";
-import type { WeaponUpgrades } from "../weapons/Weapon";
+import type {
+  WeaponId,
+  WeaponLoadout,
+  WeaponUpgrades,
+} from "../weapons/Weapon";
 import type { PersistencePort } from "../core/PersistencePort";
 
 export class UpgradeSystem {
   private _playerUpgrades: PlayerUpgrades = {} as PlayerUpgrades;
+  private _loadout: WeaponLoadout = defaultWeaponLoadout();
   private _storage!: PersistencePort;
 
   get playerUpgrades(): PlayerUpgrades {
     return this._playerUpgrades;
+  }
+
+  /** Персистентный арсенал: купленные виды оружия и их модели. */
+  get loadout(): WeaponLoadout {
+    return this._loadout;
   }
 
   private _appliedUpgrades: AppliedUpgrades | null = null!;
@@ -30,6 +47,7 @@ export class UpgradeSystem {
     const sys = new UpgradeSystem();
     sys._storage = storage;
     sys._playerUpgrades = loadUpgradesRaw(storage);
+    sys._loadout = loadWeaponLoadout(storage);
     sys._appliedUpgrades = applyUpgradesRaw(sys._playerUpgrades);
     return sys;
   }
@@ -75,6 +93,7 @@ export class UpgradeSystem {
 
   refresh(): void {
     this._playerUpgrades = loadUpgradesRaw(this._storage);
+    this._loadout = loadWeaponLoadout(this._storage);
     this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades);
   }
 
@@ -82,9 +101,6 @@ export class UpgradeSystem {
 
   /** Debug-only: purchase upgrade without cost (dev only). */
   purchaseNoCost(key: keyof Omit<PlayerUpgrades, "parts">): boolean {
-    if (typeof process !== "undefined" && process.env?.NODE_ENV === "production") {
-      return false;
-    }
     if (this._playerUpgrades[key] == null) return false;
     (this._playerUpgrades[key] as number) += 1;
     saveUpgradesRaw(this._playerUpgrades, this._storage);
@@ -103,6 +119,58 @@ export class UpgradeSystem {
   /** Сохранить текущее состояние прокачки. */
   save(): void {
     saveUpgradesRaw(this._playerUpgrades, this._storage);
+  }
+
+  /* ======================== Weapon loadout management ======================== */
+
+  /** Купить оружие в арсенале. Возвращает true при успехе. */
+  purchaseWeapon(id: WeaponId): boolean {
+    return this.purchaseWeaponImpl(id, false);
+  }
+
+  /** Debug-only: получить оружие без стоимости. */
+  purchaseWeaponNoCost(id: WeaponId): boolean {
+    return this.purchaseWeaponImpl(id, true);
+  }
+
+  /** Купить уровень линии оружия в арсенале. Возвращает true при успехе. */
+  upgradeWeaponStat(id: WeaponId, stat: WeaponStatKey): boolean {
+    return this.upgradeWeaponStatImpl(id, stat, false);
+  }
+
+  /** Debug-only: прокачать линию оружия без стоимости. */
+  upgradeWeaponStatNoCost(id: WeaponId, stat: WeaponStatKey): boolean {
+    return this.upgradeWeaponStatImpl(id, stat, true);
+  }
+
+  private purchaseWeaponImpl(id: WeaponId, free: boolean): boolean {
+    const entry = this._loadout[id];
+    if (!entry || entry.owned) return false;
+    if (!free) {
+      const cost = weaponCost(id);
+      if (this._playerUpgrades.parts < cost) return false;
+      this._playerUpgrades.parts -= cost;
+    }
+    entry.owned = true;
+    saveUpgradesRaw(this._playerUpgrades, this._storage);
+    saveWeaponLoadout(this._loadout, this._storage);
+    return true;
+  }
+
+  private upgradeWeaponStatImpl(id: WeaponId, stat: WeaponStatKey, free: boolean): boolean {
+    const entry = this._loadout[id];
+    if (!entry || !entry.owned) return false;
+    const level = entry.model[stat];
+    if (level >= WEAPON_STAT_MAX_LEVEL) return false;
+    if (!free) {
+      const cost = weaponUpgradeCost(level);
+      if (this._playerUpgrades.parts < cost) return false;
+      this._playerUpgrades.parts -= cost;
+    }
+    entry.model[stat] = level + 1;
+    saveUpgradesRaw(this._playerUpgrades, this._storage);
+    saveWeaponLoadout(this._loadout, this._storage);
+    return true;
   }
 
   /* ======================== Accessors ======================== */
