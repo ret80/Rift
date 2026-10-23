@@ -421,10 +421,10 @@ export function UpgradeScreen(props: {
                       {!owned && (
                         <button
                           onClick={() => handleBuyWeapon(weapon.id)}
-                          disabled={!free && (noFreeSlots || upgrades.parts < weaponCost(weapon.id))}
+                          disabled={noFreeSlots || (!free && upgrades.parts < weaponCost(weapon.id))}
                           title={noFreeSlots ? t("upgrade.weapon.noSlots") : undefined}
                           className={`clip-btn px-4 py-2 text-xs font-mono tracking-[0.15em] transition-all ${
-                            free || (!noFreeSlots && upgrades.parts >= weaponCost(weapon.id))
+                            !noFreeSlots && (free || upgrades.parts >= weaponCost(weapon.id))
                               ? "cursor-pointer border border-[#ffb84d]/60 bg-[#ffb84d]/15 " +
                                 "text-[#eaffff] hover:bg-[#ffb84d]/25"
                               : "cursor-not-allowed border border-[#3d4f6d]/30 " +
@@ -545,10 +545,10 @@ export function UpgradeScreen(props: {
                       </div>
                       <button
                         onClick={() => handleBuyDrone(drone.id)}
-                        disabled={!free && (noFreeSlots || upgrades.parts < droneCost(drone.id))}
+                        disabled={noFreeSlots || (!free && upgrades.parts < droneCost(drone.id))}
                         title={noFreeSlots ? t("upgrade.drone.noSlots") : undefined}
                         className={`clip-btn px-4 py-2 text-xs font-mono tracking-[0.15em] transition-all ${
-                          free || (!noFreeSlots && upgrades.parts >= droneCost(drone.id))
+                          !noFreeSlots && (free || upgrades.parts >= droneCost(drone.id))
                             ? "cursor-pointer border border-[#ff9de0]/60 bg-[#ff9de0]/15 " +
                               "text-[#eaffff] hover:bg-[#ff9de0]/25"
                             : "cursor-not-allowed border border-[#3d4f6d]/30 " +
