@@ -96,8 +96,10 @@ export interface Bullet {
   life: number; dmg: number;
   /** Радиус снаряда. 0/нет — бестелесный, >0 — твёрдый: перехватывает вражеские снаряды. */
   r?: number;
-  /** Самонаведение: цель хранится живой ссылкой, поэтому ракета ведёт цель. */
-  homing?: { target: Enemy; turnRate: number };
+  /** Самонаведение: цель хранится живой ссылкой, поэтому ракета ведёт цель.
+   *  При гибели цели ракета перенаводится на ближайшего живого врага,
+   *  ограниченного radius захвата; null — целей в радиусе нет. */
+  homing?: { target: Enemy | null; turnRate: number; lockRange: number };
 }
 
 export interface EBullet {

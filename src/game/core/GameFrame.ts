@@ -67,7 +67,7 @@ export class GameFrame {
       if (fsm.is("playing", "active")) {
         ctx.weaponManager.update(dt);
       }
-      ctx.bulletSystem.update(dt, ctx.entityPool.bulletList, ctx.entityPool.enemyBulletList);
+      ctx.bulletSystem.update(dt, ctx.entityPool.bulletList, ctx.entityPool.enemyBulletList, ctx.entityPool.enemyList);
     }
 
     const world = this.buildWorld();

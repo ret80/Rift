@@ -15,6 +15,8 @@ export interface BulletRenderState {
   life: number;
   dmg: number;
   r?: number;
+  /** Самонаводящийся снаряд (ракета) — рисуется крупным корпусом с носом. */
+  homing?: unknown;
 }
 
 export interface EBulletRenderState {
@@ -61,6 +63,10 @@ export function renderBullets(
 
 /** Отрисовка пули игрока. */
 function renderPlayerBullet(R: Renderer, b: BulletRenderState): void {
+  if (b.homing) {
+    renderMissile(R, b);
+    return;
+  }
   if (b.r && b.r > 0) {
     const col = rgba(C.bullet, 0.95);
     R.circle(b.x, b.y, b.r, col, 10);
@@ -74,6 +80,27 @@ function renderPlayerBullet(R: Renderer, b: BulletRenderState): void {
     b.x, b.y,
     rgba(C.bullet, 0.95)
   );
+}
+
+/**
+ * Ракета: небольшой прямоугольный корпус с треугольным носом-пирамидой,
+ * хвостовыми стабилизаторами и продольной осью. Размер — примерно
+ * с дрона-компаньона, чтобы не превышать корабль. Ориентация — по скорости.
+ */
+function renderMissile(R: Renderer, b: BulletRenderState): void {
+  const angle = Math.atan2(b.vy, b.vx);
+  const col = rgba("#9dffe8", 0.95);
+  const core = rgba("#eaffff", 0.5);
+
+  // Корпус (прямоугольник).
+  R.drawPolygon(b.x, b.y, angle, [[-5, -2], [4, -2], [4, 2], [-5, 2]], col);
+  // Нос — пирамида (треугольник) на конце.
+  R.drawPolygon(b.x, b.y, angle, [[4, -2], [9, 0], [4, 2]], col);
+  // Хвостовые стабилизаторы.
+  R.drawPolygon(b.x, b.y, angle, [[-5, -2], [-7.5, -4]], col, false);
+  R.drawPolygon(b.x, b.y, angle, [[-5, 2], [-7.5, 4]], col, false);
+  // Продольная ось ракеты.
+  R.drawPolygon(b.x, b.y, angle, [[-5.5, 0], [4, 0]], core, false);
 }
 
 /** Отрисовка пули врага с учётом типа. */

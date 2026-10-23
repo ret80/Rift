@@ -134,13 +134,21 @@ function getUpgradeValue(key: keyof Omit<PlayerUpgrades, "parts">, level: number
 
 /* ======================== Armory (weapons) ======================== */
 
+/** Строки линий оружия. */
+const WEAPON_STATS: Array<{ stat: WeaponStatKey; valueKey: TKey; descKey: TKey }> = [
+  { stat: "reload", valueKey: "upgrade.weapon.reload", descKey: "upgrade.weapon.reloadDesc" },
+  { stat: "damage", valueKey: "upgrade.weapon.damage", descKey: "upgrade.weapon.damageDesc" },
+  { stat: "accuracy", valueKey: "upgrade.weapon.accuracy", descKey: "upgrade.weapon.accuracyDesc" },
+];
+
 /** Виды оружия, доступные в арсенале. */
 const ARMORY_WEAPONS: Array<{
   id: WeaponId;
-  icon: "weapon-cannon" | "weapon-laser";
+  icon: "weapon-cannon" | "weapon-missile" | "weapon-laser";
   color: string;
   titleKey: TKey;
   descKey: TKey;
+  stats?: Array<{ stat: WeaponStatKey; valueKey: TKey; descKey: TKey }>;
 }> = [
   {
     id: "cannon",
@@ -150,18 +158,21 @@ const ARMORY_WEAPONS: Array<{
     descKey: "upgrade.weapon.cannonDesc",
   },
   {
+    id: "missile",
+    icon: "weapon-missile",
+    color: "#9dffe8",
+    titleKey: "upgrade.weapon.missile",
+    descKey: "upgrade.weapon.missileDesc",
+    // У ракетницы нет линии точности: наведение самонаводящееся.
+    stats: WEAPON_STATS.filter((row) => row.stat !== "accuracy"),
+  },
+  {
     id: "laser",
     icon: "weapon-laser",
     color: "#ff4d6d",
     titleKey: "upgrade.weapon.laser",
     descKey: "upgrade.weapon.laserDesc",
   },
-];
-
-const WEAPON_STATS: Array<{ stat: WeaponStatKey; valueKey: TKey; descKey: TKey }> = [
-  { stat: "reload", valueKey: "upgrade.weapon.reload", descKey: "upgrade.weapon.reloadDesc" },
-  { stat: "damage", valueKey: "upgrade.weapon.damage", descKey: "upgrade.weapon.damageDesc" },
-  { stat: "accuracy", valueKey: "upgrade.weapon.accuracy", descKey: "upgrade.weapon.accuracyDesc" },
 ];
 
 /** Оформление строки линии оружия. */
@@ -439,7 +450,7 @@ export function UpgradeScreen(props: {
                     {/* Stat rows */}
                     {owned && (
                       <div className="mt-3 flex flex-col gap-1.5">
-                        {WEAPON_STATS.map((row) => {
+                        {(weapon.stats ?? WEAPON_STATS).map((row) => {
                           const level = entry!.model[row.stat];
                           const maxed = level >= WEAPON_STAT_MAX_LEVEL;
                           const cost = weaponUpgradeCost(level);
