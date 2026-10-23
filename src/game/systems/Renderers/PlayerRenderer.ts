@@ -20,17 +20,31 @@ export interface PlayerRenderState {
   guns: number;
   rateT: number;
   rateBoost: number;
-  dashT: number;
   thrusting: boolean;
   pvx: number;
   pvy: number;
+  /** Запас энергии щита 0..1. */
+  shieldEnergy: number;
+  /** Щит в перезагрузке. */
+  shieldOverloaded: boolean;
+  /** Остаток вспышки щита 0..1. */
+  shieldFlash: number;
 }
 
 /** Снимок бонусов для buildState */
 export interface PlayerBonusSnapshot {
   rateT: number;
   rateBoost: number;
-  dashT: number;
+}
+
+/** Снимок щита для buildState. */
+export interface PlayerShieldSnapshot {
+  /** Запас энергии 0..1. */
+  energy: number;
+  /** Щит в перезагрузке. */
+  overloaded: boolean;
+  /** Остаток вспышки после срабатывания 0..1. */
+  flash: number;
 }
 
 /**
@@ -49,7 +63,8 @@ export function buildPlayerState(
   pvy: number,
   aimA: number | null,
   guns: number,
-  bonus: PlayerBonusSnapshot
+  bonus: PlayerBonusSnapshot,
+  shield: PlayerShieldSnapshot
 ): PlayerRenderState {
   return {
     x, y, angle, aimA,
@@ -57,9 +72,11 @@ export function buildPlayerState(
     guns,
     rateT: bonus.rateT,
     rateBoost: bonus.rateBoost,
-    dashT: bonus.dashT,
     thrusting,
     pvx, pvy,
+    shieldEnergy: shield.energy,
+    shieldOverloaded: shield.overloaded,
+    shieldFlash: shield.flash,
   };
 }
 
@@ -85,10 +102,8 @@ export function renderPlayer(
     );
   }
 
-  // dash shell
-  if (player.dashT > 0) {
-    renderDashShell(R, player, time);
-  }
+  // shield stripes
+  renderShieldStripes(R, player, time);
 
   // hull
   drawShipPoly(
@@ -106,38 +121,48 @@ export function renderPlayer(
   }
 }
 
-/** Отрисовка оболочки рывка. */
-function renderDashShell(R: Renderer, player: PlayerRenderState, time: number): void {
-  const a = player.angle;
-  const ca = Math.cos(a);
-  const sa = Math.sin(a);
-  const pulse = 1 + Math.sin(time * 16) * 0.08;
-  const L = 30 * pulse;
-  const Wd = 20 * pulse;
+/**
+ * Отрисовка щита — шеврон (треугольник) вокруг корпуса, как у прежнего рывка.
+ * Вершина вынесена вперёд, лучи уходят за борта и за корму, поэтому контур
+ * читается как треугольник возле рёбер корабля. Яркость зависит от остатка
+ * энергии; при поглощении урона контур мигает, при перезагрузке щита его нет.
+ */
+function renderShieldStripes(R: Renderer, player: PlayerRenderState, time: number): void {
+  if (player.shieldOverloaded) return;
+  const energy = clamp(player.shieldEnergy, 0, 1);
+  if (energy <= 0.001) return;
+
+  const ca = Math.cos(player.angle);
+  const sa = Math.sin(player.angle);
+  const L = 30;
+  const Wd = 20;
+
+  let glow = 0.35 + energy * 0.55;
+  if (player.shieldFlash > 0) {
+    // Жёсткое мигание после срабатывания: контур то вспыхивает, то почти гаснет.
+    glow = Math.sin(time * 45) > 0 ? 1 : 0.08;
+  }
+
   const tipX = player.x + ca * L;
   const tipY = player.y + sa * L;
   const w1x = player.x - ca * L * 0.55 - sa * Wd;
   const w1y = player.y - sa * L * 0.55 + ca * Wd;
   const w2x = player.x - ca * L * 0.55 + sa * Wd;
   const w2y = player.y - sa * L * 0.55 - ca * Wd;
-  let glow = clamp(player.dashT / 0.4, 0, 1);
-  if (player.dashT < 1.0) {
-    const hz = 6 + (1 - player.dashT) * 12;
-    glow *= 0.55 + 0.45 * Math.sin(time * hz);
-  }
-  R.pushLine(tipX, tipY, w1x, w1y, rgba(C.dash, 0.95 * glow));
-  R.pushLine(tipX, tipY, w2x, w2y, rgba(C.dash, 0.95 * glow));
+  R.pushLine(tipX, tipY, w1x, w1y, rgba(C.shieldStripe, 0.95 * glow));
+  R.pushLine(tipX, tipY, w2x, w2y, rgba(C.shieldStripe, 0.95 * glow));
+
   const L2 = L * 0.62;
   const W2 = Wd * 0.62;
   R.pushLine(
     player.x + ca * L2, player.y + sa * L2,
     player.x - ca * L2 * 0.55 - sa * W2, player.y - sa * L2 * 0.55 + ca * W2,
-    rgba(C.dash, 0.4 * glow)
+    rgba(C.shieldStripe, 0.4 * glow)
   );
   R.pushLine(
     player.x + ca * L2, player.y + sa * L2,
     player.x - ca * L2 * 0.55 + sa * W2, player.y - sa * L2 * 0.55 - ca * W2,
-    rgba(C.dash, 0.4 * glow)
+    rgba(C.shieldStripe, 0.4 * glow)
   );
 }
 

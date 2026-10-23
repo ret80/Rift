@@ -44,7 +44,8 @@ const CURRENT_TIERS = {
   speed:         { baseCost: 16,  costStep: 12,  maxLevel: 8  },
   guns:          { baseCost: 214, costStep: 160, maxLevel: 4  },
   drones:        { baseCost: 341, costStep: 239, maxLevel: 7  },
-  dashDuration:  { baseCost: 145, costStep: 116, maxLevel: 5  },
+  shieldPercent: { baseCost: 160, costStep: 120, maxLevel: 7  },
+  shieldRegen:   { baseCost: 110, costStep: 85,  maxLevel: 5  },
 };
 
 // upgrades.ts: cost(l) = baseCost + costStep * l
@@ -103,14 +104,15 @@ function printCurrentTotal() {
 /* ------------------- Подбор новых стоимостей ------------------- */
 
 // Ценность апгрейда (множитель «силы»):
-//  - огневая мощь (guns, drones) и защита (hull, dashDuration) — ДОРОЖЕ;
+//  - огневая мощь (guns, drones) и защита (hull, shieldPercent) — ДОРОЖЕ;
 //  - мобильность (speed) — заметно дешевле.
 const POWER_WEIGHT = {
   hull:          1.0,  // защита (HP)
   speed:         0.45, // мобильность (не боевая)
   guns:          1.15, // огневая мощь (мультипликативная)
   drones:        1.3,  // огневая мощь (авто-DPS, самый сильный)
-  dashDuration:  1.2,  // защита (уклонение) — супер-защита
+  shieldPercent: 1.25, // защита: постоянный срез урона
+  shieldRegen:   1.1,  // защита: быстрее возвращается щит
 };
 
 /**

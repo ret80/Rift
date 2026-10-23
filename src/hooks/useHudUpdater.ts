@@ -51,6 +51,21 @@ export function useHudUpdater(
         r.hpFill.current.style.background = color;
         r.hpFill.current.style.boxShadow = `0 0 7px ${color}`;
       }
+      if (r.shieldFill.current && data.shield) {
+        const s = data.shield;
+        const energyPct = Math.max(0, Math.min(1, s.energy)) * 100;
+        r.shieldFill.current.style.width = `${energyPct}%`;
+        r.shieldFill.current.style.background = s.overloaded ? "#ff3b52" : "#66e0ff";
+        r.shieldFill.current.style.boxShadow = s.overloaded
+          ? "0 0 6px #ff3b52"
+          : "0 0 6px #66e0ff";
+      }
+      if (r.shieldLabel.current && data.shield) {
+        const block = Math.round(data.shield.block * 100);
+        r.shieldLabel.current.textContent = data.shield.overloaded
+          ? `${t("hud.shield")} ⟳ ${data.shield.overloadLeft.toFixed(1)}`
+          : `${t("hud.shield")} ${block}%`;
+      }
       if (r.time.current && data.time !== undefined) {
         r.time.current.textContent = `T+${formatTime(data.time)}`;
       }

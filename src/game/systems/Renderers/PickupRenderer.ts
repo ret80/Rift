@@ -81,13 +81,19 @@ export function renderPickups(
         R.circle(p.x, p.y, 9.5, rgba(col, 0.4 * blinkA), 18);
         break;
       }
-      case "dash": {
-        const L = 10;
-        const Wd = 7;
-        const tx = p.x + L * c1;
-        const ty = p.y + L * s1;
-        R.pushLine(tx, ty, p.x - L * 0.5 * c1 - Wd * s1, p.y - L * 0.5 * s1 + Wd * c1, rgba(col, blinkA));
-        R.pushLine(tx, ty, p.x - L * 0.5 * c1 + Wd * s1, p.y - L * 0.5 * s1 - Wd * c1, rgba(col, blinkA));
+      case "shield": {
+        // Щит: контур с вертикальной осью.
+        const L = 8;
+        const pts: Array<[number, number]> = [
+          [p.x, p.y - L],
+          [p.x + L * 0.8, p.y - L * 0.5],
+          [p.x + L * 0.8, p.y + L * 0.3],
+          [p.x, p.y + L],
+          [p.x - L * 0.8, p.y + L * 0.3],
+          [p.x - L * 0.8, p.y - L * 0.5],
+        ];
+        R.polyline(pts, true, rgba(col, blinkA));
+        R.pushLine(p.x, p.y - L * 0.6, p.x, p.y + L * 0.6, rgba(col, 0.45 * blinkA));
         break;
       }
       case "missile": {

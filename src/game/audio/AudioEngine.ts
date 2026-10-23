@@ -153,8 +153,7 @@ export class AudioEngine {
   pickupRate() { this.sfxSynth.pickupRate(); }
   pickupGun() { this.sfxSynth.pickupGun(); }
   pickupDrone() { this.sfxSynth.pickupDrone(); }
-  pickupDash() { this.sfxSynth.pickupDash(); }
-  dashRam() { this.sfxSynth.dashRam(); }
+  pickupShield() { this.sfxSynth.pickupShield(); }
   droneShot() { this.sfxSynth.droneShot(); }
   droneHit() { this.sfxSynth.droneHit(); }
 

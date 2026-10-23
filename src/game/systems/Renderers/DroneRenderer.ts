@@ -33,7 +33,6 @@ export interface PlayerRenderState {
   guns: number;
   rateT: number;
   rateBoost: number;
-  dashT: number;
   thrusting: boolean;
   pvx: number;
   pvy: number;

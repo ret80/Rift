@@ -10,7 +10,6 @@
 
 import type { PickupKind } from "../../balance";
 import type { BonusId, BonusKind, BonusMeta } from "./Bonus";
-import { DashBonus } from "./DashBonus";
 import { GunsBonus } from "./GunsBonus";
 import { RateBonus } from "./RateBonus";
 
@@ -21,7 +20,6 @@ export const INSTANT_BONUS_FLASH = 1.8;
 export const INSTANT_BONUS_META: Record<BonusKind, BonusMeta | undefined> = {
   rate: undefined,
   guns: undefined,
-  dash: undefined,
   heal: {
     kind: "heal",
     icon: "pickup-heal",
@@ -38,18 +36,25 @@ export const INSTANT_BONUS_META: Record<BonusKind, BonusMeta | undefined> = {
     order: 7,
     duration: 0,
   },
+  shield: {
+    kind: "shield",
+    icon: "pickup-shield",
+    color: "#66e0ff",
+    labelKey: "hud.loadout.shield",
+    order: 8,
+    duration: 0,
+  },
 };
 
 /**
  * Экземпляры всех временных бонусов.
  * Типизированы конкретными классами, чтобы менеджер мог вызывать
- * узкие методы (getRateMult, getExtraBarrels, getDashRemaining)
+ * узкие методы (getRateMult, getExtraBarrels)
  * без приведения типов.
  */
 export interface BonusRegistryData {
   rate: RateBonus;
   guns: GunsBonus;
-  dash: DashBonus;
 }
 
 /**
@@ -60,7 +65,6 @@ export function createBonusRegistry(): BonusRegistryData {
   return {
     rate: new RateBonus(),
     guns: new GunsBonus(),
-    dash: new DashBonus(),
   };
 }
 
@@ -80,8 +84,8 @@ const PICKUP_BONUS_MAP: Record<PickupKind, PickupBonusMapping> = {
   rate40: { bonusId: "rate", bonusKind: "rate" },
   rate60: { bonusId: "rate", bonusKind: "rate" },
   gun: { bonusId: "guns", bonusKind: "guns" },
-  dash: { bonusId: "dash", bonusKind: "dash" },
   // Мгновенные бонусы
+  shield: { bonusId: null, bonusKind: "shield" },
   hp: { bonusId: null, bonusKind: "heal" },
   heal25: { bonusId: null, bonusKind: "heal" },
   heal50: { bonusId: null, bonusKind: "heal" },

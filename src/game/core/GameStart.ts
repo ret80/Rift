@@ -34,6 +34,7 @@ export class GameStart {
     ctx.loadoutSystem.reset();
     ctx.weaponManager.reset();
     ctx.bonusManager.reset();
+    ctx.shieldSystem.reset();
     ctx.grazeSystem.reset();
     ctx.abilitySystem.reset();
     ctx.entityPool.beamList.length = 0;

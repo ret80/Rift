@@ -157,6 +157,8 @@ export default function App() {
     status: useRef<HTMLDivElement | null>(null),
     hullPanel: useRef<HTMLDivElement | null>(null),
     hpFill: useRef<HTMLDivElement | null>(null),
+    shieldFill: useRef<HTMLDivElement | null>(null),
+    shieldLabel: useRef<HTMLDivElement | null>(null),
     time: useRef<HTMLDivElement | null>(null),
     score: useRef<HTMLDivElement | null>(null),
     best: useRef<HTMLDivElement | null>(null),

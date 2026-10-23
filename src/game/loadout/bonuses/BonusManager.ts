@@ -42,11 +42,6 @@ export class BonusManager {
     }
   }
 
-  /** Множитель длительности рывка из перманентного апгрейда. */
-  setDashDurationMult(mult: number): void {
-    this.bonuses.dash.setDurationMult(mult);
-  }
-
   /**
    * Применить временный бонус по поднятому пикапу.
    * Пикапы оружия и мгновенные бонусы игнорируются (не наша зона).
@@ -63,7 +58,6 @@ export class BonusManager {
       rateMult: this.getRateMult(),
       rateT: this.getRateT(),
       extraBarrels: this.getExtraBarrels(),
-      dashT: this.getDashT(),
     };
   }
 
@@ -82,17 +76,11 @@ export class BonusManager {
     return this.bonuses.guns.getExtraBarrels();
   }
 
-  /** Остаток бонуса «рывок», секунды. */
-  getDashT(): number {
-    return this.bonuses.dash.getDashRemaining();
-  }
-
-  /** Снимок бонусов для рендера игрока (кольцо темпа, рывок). */
-  getRenderSnapshot(): { rateT: number; rateBoost: number; dashT: number } {
+  /** Снимок бонусов для рендера игрока (кольцо темпа). */
+  getRenderSnapshot(): { rateT: number; rateBoost: number } {
     return {
       rateT: this.getRateT(),
       rateBoost: this.getRateMult() - 1,
-      dashT: this.getDashT(),
     };
   }
 

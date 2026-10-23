@@ -196,13 +196,9 @@ export class SfxSynth {
     this.tone("sine", 700, 1150, 0.09, 0.07);
     this.tone("sine", 1150, 850, 0.12, 0.06, 0.09);
   }
-  pickupDash() {
-    this.noise(0.16, 0.1, 3000, 500, 0, 1.2);
-    this.tone("sawtooth", 300, 1700, 0.18, 0.1);
-    this.tone("sine", 1400, 2100, 0.1, 0.05, 0.08);
-  }
-  dashRam() {
-    this.tone("square", 220, 90, 0.07, 0.06);
+  pickupShield() {
+    this.tone("sine", 420, 880, 0.14, 0.07);
+    this.tone("sine", 880, 1320, 0.12, 0.05, 0.07);
   }
   droneShot() {
     if (Math.random() < 0.5) this.tone("square", 1500, 900, 0.04, 0.018);

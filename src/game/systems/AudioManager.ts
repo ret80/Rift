@@ -63,9 +63,9 @@ export class AudioManager {
         this.engine.pickupDrone();
         break;
 
-      // Dash pickup → dash sound
-      case "dash":
-        this.engine.pickupDash();
+      // Shield pickup → shield sound
+      case "shield":
+        this.engine.pickupShield();
         break;
 
       // Mineral → no special sound (silence)
@@ -130,10 +130,6 @@ export class AudioManager {
 
   playDroneHit(): void {
     this.engine.droneHit();
-  }
-
-  playDashRam(): void {
-    this.engine.dashRam();
   }
 
   // ==================== Music ====================

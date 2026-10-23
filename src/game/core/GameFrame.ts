@@ -36,10 +36,11 @@ export class GameFrame {
     ctx.countdownSystem.update(dt);
     ctx.scoringSystem.updateCombo(dt);
     ctx.bonusManager.update(dt);
+    ctx.shieldSystem.update(dt);
     if (fsm.is("playing", "active")) {
       ctx.abilitySystem.update(dt);
     }
-    ctx.playerSystem.update(dt, fsm.not("menu", "over", "dying"), ctx.bonusManager.getDashT());
+    ctx.playerSystem.update(dt, fsm.not("menu", "over", "dying"));
 
     // Handle dying → over transition
     if (fsm.is("dying")) {

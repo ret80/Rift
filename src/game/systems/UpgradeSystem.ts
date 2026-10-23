@@ -76,8 +76,10 @@ export class UpgradeSystem {
     setWeaponUpgrades: (upgrades: WeaponUpgrades) => void;
     /** Задать постоянный множитель скорости игрока. */
     setSpeedMult: (v: number) => void;
-    /** Задать множитель длительности рывка. */
-    setDashDurationMult: (v: number) => void;
+    /** Задать уровень линии «процент щита». */
+    setShieldBlockLevel: (v: number) => void;
+    /** Задать уровень линии «скорость восстановления щита». */
+    setShieldRegenLevel: (v: number) => void;
     /** Восстановить корпус игрока до максимума. */
     resetHp?: () => void;
   }): void {
@@ -86,7 +88,8 @@ export class UpgradeSystem {
     targets.setMaxHp(up.baseHp);
     targets.setWeaponUpgrades(up);
     targets.setSpeedMult(up.speedMult);
-    targets.setDashDurationMult(up.dashDurationMult);
+    targets.setShieldBlockLevel(up.shieldBlockLevel);
+    targets.setShieldRegenLevel(up.shieldRegenLevel);
     if (targets.resetHp) {
       targets.resetHp();
     }

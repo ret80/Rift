@@ -12,7 +12,7 @@ export type PickupDisplay =
   | "heal"
   | "rate"
   | "gun"
-  | "dash"
+  | "shield"
   | "mineral"
   | "drone"
   | "missile"
@@ -23,6 +23,7 @@ export type PickupDisplay =
 export type PickupEffect =
   | { type: "heal"; amount: number }
   | { type: "bonus" }
+  | { type: "shield"; amount: number }
   | { type: "weapon"; id: "cannon" | "missile" | "drone" | "laser" }
   | { type: "ability"; id: "quantum_swap" }
   | { type: "mineral"; amount: number; score: number };
@@ -48,7 +49,7 @@ export const PICKUP_CATALOG: Record<PickupKind, PickupDefinition> = {
   rate60: { display: "rate", color: C.fighter, effect: { type: "bonus" } },
   rate: { display: "rate", color: C.fighter, effect: { type: "bonus" } },
   gun: { display: "gun", color: C.player, effect: { type: "bonus" } },
-  dash: { display: "dash", color: C.dash, effect: { type: "bonus" } },
+  shield: { display: "shield", color: C.shield, effect: { type: "shield", amount: 40 } },
   mineral: { display: "mineral", color: C.heal, effect: { type: "mineral", amount: 1, score: 50 } },
   drone: { display: "drone", color: C.mint, effect: { type: "weapon", id: "drone" } },
   missile: { display: "missile", color: C.bullet, effect: { type: "weapon", id: "missile" } },

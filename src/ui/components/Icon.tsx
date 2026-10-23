@@ -24,7 +24,8 @@ export type IconKind =
   | "upgrade-speed"
   | "upgrade-guns"
   | "upgrade-drones"
-  | "upgrade-dashDuration"
+  | "upgrade-shieldPercent"
+  | "upgrade-shieldRegen"
   /* drones */
   | "drone-scout"
   | "drone-striker"
@@ -48,6 +49,7 @@ const PICKUP_COLORS: Record<string, string> = {
   "pickup-gun": "#5ef2ff",
   "pickup-drone": "#9dffe8",
   "pickup-mineral": "#7dffb8",
+  "pickup-shield": "#66e0ff",
   "ability-quantum-swap": "#7cf3ff",
 };
 
@@ -56,7 +58,8 @@ const UPGRADE_COLORS: Record<string, string> = {
   "upgrade-speed": "#7dff9e",
   "upgrade-guns": "#5ef2ff",
   "upgrade-drones": "#c06bff",
-  "upgrade-dashDuration": "#ffd23e",
+  "upgrade-shieldPercent": "#66e0ff",
+  "upgrade-shieldRegen": "#7cf3ff",
 };
 
 const DRONE_COLORS: Record<string, string> = {
@@ -148,8 +151,20 @@ function getIconPaths(kind: IconKind): React.ReactNode {
           <circle cx="12" cy="12" r="9" strokeOpacity="0.4" />
         </>
       );
-    case "upgrade-dashDuration":
-      return <circle cx="12" cy="12" r="8" />;
+    case "upgrade-shieldPercent":
+      return (
+        <>
+          <path d="M12 3 L20 7 V13 C20 17 16 20 12 21 C8 20 4 17 4 13 V7 Z" />
+          <path d="M12 8 V16" strokeOpacity="0.5" />
+        </>
+      );
+    case "upgrade-shieldRegen":
+      return (
+        <>
+          <path d="M12 3 L20 7 V13 C20 17 16 20 12 21 C8 20 4 17 4 13 V7 Z" />
+          <polyline points="9,12 11,15 15,9" />
+        </>
+      );
 
     /* Drones */
     case "drone-scout":
@@ -205,11 +220,11 @@ function getIconPaths(kind: IconKind): React.ReactNode {
           <circle cx="3" cy="12" r="1.6" />
         </>
       );
-    case "bonus-dash":
+    case "pickup-shield":
       return (
         <>
-          <polyline points="6,5 12,12 6,19" />
-          <polyline points="13,5 19,12 13,19" />
+          <path d="M12 3 L20 7 V13 C20 17 16 20 12 21 C8 20 4 17 4 13 V7 Z" />
+          <path d="M12 7 V17" strokeOpacity="0.45" />
         </>
       );
     case "ability-quantum-swap":

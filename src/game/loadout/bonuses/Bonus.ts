@@ -17,10 +17,10 @@
 import type { LoadoutSlotMeta } from "../LoadoutTypes";
 
 /** Идентификаторы временных бонусов. */
-export type BonusId = "rate" | "guns" | "dash";
+export type BonusId = "rate" | "guns";
 
 /** Идентификаторы мгновенных бонусов (без состояния и таймера). */
-export type InstantBonusId = "heal" | "mineral";
+export type InstantBonusId = "heal" | "mineral" | "shield";
 
 /** Все виды бонусов, видимых в строке снаряжения. */
 export type BonusKind = BonusId | InstantBonusId;
@@ -35,8 +35,7 @@ export type BonusMeta = LoadoutSlotMeta & {
 
 /**
  * Снимок текущих временных бонусов для потребителей:
- * модуль оружия (rateMult, extraBarrels), физика движения (dashT)
- * и рендер игрока (rateT, dashT).
+ * модуль оружия (rateMult, extraBarrels) и рендер игрока (rateT).
  */
 export interface PlayerBonuses {
   /** Множитель темпа стрельбы от бонуса «темп огня» (1 + стек). */
@@ -45,8 +44,6 @@ export interface PlayerBonuses {
   rateT: number;
   /** Временно добавленные стволы пушки. */
   extraBarrels: number;
-  /** Остаток бонуса «рывок», секунды (движение и рендер). */
-  dashT: number;
 }
 
 /**

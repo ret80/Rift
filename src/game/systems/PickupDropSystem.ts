@@ -86,10 +86,10 @@ export class PickupDropSystem {
         kind = normalized < 0.5 ? "gun" : "heal50";
         break;
       case "cruiser":
-        kind = normalized < 0.5 ? "drone" : "dash";
+        kind = normalized < 0.5 ? "drone" : "shield";
         break;
       case "carrier": {
-        const types: PickupKind[] = ["drone", "gun", "dash", "missile", "laser", "quantum_swap"];
+        const types: PickupKind[] = ["drone", "gun", "shield", "missile", "laser", "quantum_swap"];
         kind = types[Math.floor(normalized * types.length)];
         break;
       }

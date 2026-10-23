@@ -13,6 +13,7 @@ import {
   type PlayerUpgrades,
   type WeaponStatKey,
 } from "../game/upgrades";
+import { shieldBlockPercent, shieldRegenPerSecond } from "../game/balance/player";
 import type { WeaponId, WeaponLoadout } from "../game/weapons/Weapon";
 import {
   DRONE_CATALOG,
@@ -120,7 +121,8 @@ function getUpgradeValue(key: keyof Omit<PlayerUpgrades, "parts">, level: number
     case "speed": return `${(100 + level * 5).toFixed(0)}%`;
     case "guns": return `${1 + level}`;
     case "drones": return `${1 + level}`;
-    case "dashDuration": return `${(100 + level * 20).toFixed(0)}%`;
+    case "shieldPercent": return `${Math.round(shieldBlockPercent(level) * 100)}%`;
+    case "shieldRegen": return `${shieldRegenPerSecond(level).toFixed(1)}/с`;
     default: return `${level}`;
   }
 }
@@ -221,7 +223,7 @@ export function UpgradeScreen(props: {
   const [tab, setTab] = useState<"ship" | "armory" | "drones">("ship");
   const [upgrades, setUpgrades] = useState<PlayerUpgrades>({
     parts: 0, hull: 0, speed: 0, guns: 0, drones: 0,
-    dashDuration: 0,
+    shieldPercent: 0, shieldRegen: 0,
   });
   const [loadout, setLoadout] = useState<WeaponLoadout | null>(null);
   const [droneLoadout, setDroneLoadout] = useState<DroneLoadout | null>(null);

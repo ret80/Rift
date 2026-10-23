@@ -10,7 +10,20 @@ import type { CameraWorld, PlayerWorld, ViewWorld, ZoneWorld } from "../core/Wor
 export interface BonusRenderState {
   rateT: number;
   rateBoost: number;
-  dashT: number;
+}
+
+/** Снимок щита для рендера. */
+export interface ShieldRenderState {
+  /** Запас энергии 0..1. */
+  energy: number;
+  /** Процент блокируемого урона 0..1. */
+  block: number;
+  /** Щит в перезагрузке. */
+  overloaded: boolean;
+  /** Остаток перезагрузки, секунды. */
+  overloadLeft: number;
+  /** Остаток вспышки после срабатывания 0..1. */
+  flash: number;
 }
 
 /** ДТО кадра отрисовки. */
@@ -24,6 +37,7 @@ export interface RenderScene {
   aim: number | null;
   guns: number;
   bonus: BonusRenderState;
+  shield: ShieldRenderState;
   enemies: Enemy[];
   bullets: Bullet[];
   enemyBullets: EBullet[];

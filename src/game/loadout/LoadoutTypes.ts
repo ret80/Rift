@@ -21,7 +21,7 @@ export type LoadoutIcon =
   /* бонусы */
   | "pickup-rate"
   | "pickup-gun"
-  | "bonus-dash"
+  | "pickup-shield"
   | "pickup-heal"
   | "pickup-mineral"
   /* способности */
@@ -37,10 +37,10 @@ export type LoadoutSlotKind =
   /* временные бонусы */
   | "rate"
   | "guns"
-  | "dash"
   /* мгновенные бонусы */
   | "heal"
   | "mineral"
+  | "shield"
   /* активные способности */
   | "quantum_swap";
 

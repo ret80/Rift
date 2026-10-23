@@ -4,6 +4,7 @@
  */
 
 import type { LoadoutSlotData } from "../loadout/LoadoutTypes";
+import type { ShieldRenderState } from "./render";
 
 /* ============================== HUD ============================== */
 
@@ -24,6 +25,8 @@ export interface HudData {
   drones: number;
   minerals: number;
   parts: number;
+  /** Снимок энергетического щита игрока. */
+  shield: ShieldRenderState;
   /** Weapon + bonus slots rendered in the HUD loadout row. */
   loadout: LoadoutSlotData[];
 }

@@ -14,6 +14,7 @@ import { PLAYER_HIT_INVULN } from '../balance/player';
 import type { EventBus } from '../core/EventBus';
 import type { Fx } from '../fx';
 import type { InputManager } from '../input';
+import type { ShieldSystem } from './ShieldSystem';
 import { updateMovement } from './PlayerMovement';
 import {
   createPlayerState,
@@ -27,6 +28,8 @@ export class PlayerSystem {
   private fx: Fx;
   /** Постоянный множитель скорости из апгрейдов. */
   private speedMult = 1;
+  /** Энергетический щит: блокирует часть урона. */
+  private shield: ShieldSystem | null = null;
 
   private pState: PlayerState;
 
@@ -76,6 +79,11 @@ export class PlayerSystem {
     this.speedMult = mult;
   }
 
+  /** Подключить энергетический щит (блокирует часть урона). */
+  setShield(shield: ShieldSystem): void {
+    this.shield = shield;
+  }
+
   // ---- Getters ----
 
   /** Живая ссылка на состояние игрока. */
@@ -110,7 +118,9 @@ export class PlayerSystem {
 
   hit(dmg: number): void {
     if (this.pState.invuln > 0) return;
-    this.pState.hp -= dmg;
+    // Щит гасит часть урона и тратит на это энергию.
+    const incoming = this.shield ? this.shield.absorb(dmg) : dmg;
+    this.pState.hp -= incoming;
     // Кадры неуязвимости после попадания: спасают от залпа в упор.
     this.pState.invuln = PLAYER_HIT_INVULN;
     if (this.pState.hp <= 0) {
@@ -131,7 +141,7 @@ export class PlayerSystem {
 
   // ---- Main update ----
 
-  update(dt: number, active: boolean, dashT: number): void {
+  update(dt: number, active: boolean): void {
     if (!active) return;
 
     const mv = this.input.axis;
@@ -146,7 +156,6 @@ export class PlayerSystem {
       ay,
       this.fx,
       ax * ax + ay * ay > 0,
-      dashT,
       this.speedMult,
     );
 

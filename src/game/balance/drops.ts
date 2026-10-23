@@ -15,7 +15,7 @@ export type PickupKind =
   | "rate60"
   | "gun"
   | "drone"
-  | "dash"
+  | "shield"
   | "mineral"
   | "hp"
   | "rate"
@@ -33,7 +33,7 @@ export const ALL_PICKUP_KINDS: PickupKind[] = [
   "rate60",
   "gun",
   "drone",
-  "dash",
+  "shield",
   "mineral",
   "hp",
   "rate",

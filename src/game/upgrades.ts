@@ -36,7 +36,8 @@ export type UpgradeKey =
   | "speed"
   | "guns"
   | "drones"
-  | "dashDuration";
+  | "shieldPercent"
+  | "shieldRegen";
 
 export interface PlayerUpgrades {
   parts: number;          // доступные детали (валюта)
@@ -44,7 +45,8 @@ export interface PlayerUpgrades {
   speed: number;          // уровень скорости (+5% за уровень)
   guns: number;           // уровень орудий (+1 слот оружия за уровень, макс 5)
   drones: number;         // уровень дронов (+1 дрон за уровень, макс 8)
-  dashDuration: number;   // уровень длительности рывка (+20% за уровень, макс 5)
+  shieldPercent: number;  // процент блокировки урона щитом (5% + 5% за уровень)
+  shieldRegen: number;    // скорость восстановления энергии щита (+30% за уровень)
 }
 
 /* ======================== Weapon loadout (armory) ======================== */
@@ -127,7 +129,8 @@ export function defaultUpgrades(): PlayerUpgrades {
     speed: 0,
     guns: 0,
     drones: 0,
-    dashDuration: 0,
+    shieldPercent: 0,
+    shieldRegen: 0,
   };
 }
 
@@ -142,26 +145,29 @@ export function defaultUpgrades(): PlayerUpgrades {
  *
  * Вес ценности (что дороже):
  *  - drones (×1.3) — авто-DPS, самый сильный боевой апгрейд;
- *  - dashDuration (×1.2) — супер-защита (дольше уклоняешься);
+ *  - shieldPercent (×1.25) — супер-защита: постоянный срез урона;
  *  - guns (×1.15) — мультипликативный рост урона;
+ *  - shieldRegen (×1.1) — защита: быстрее возвращается щит;
  *  - hull (×1.0) — защита;
  *  - speed (×0.45) — чистая мобильность, самый дешёвый.
  */
 export const UPGRADE_TIERS: Record<UpgradeKey, UpgradeTier> = {
-  hull:         { baseCost: 81,  costStep: 60,  maxLevel: 10 },
-  speed:        { baseCost: 16,  costStep: 12,  maxLevel: 8  },
-  guns:         { baseCost: 214, costStep: 160, maxLevel: 4  },
-  drones:       { baseCost: 341, costStep: 239, maxLevel: 7  },
-  dashDuration: { baseCost: 145, costStep: 116, maxLevel: 5  },
+  hull:          { baseCost: 81,  costStep: 60,  maxLevel: 10 },
+  speed:         { baseCost: 16,  costStep: 12,  maxLevel: 8  },
+  guns:          { baseCost: 214, costStep: 160, maxLevel: 4  },
+  drones:        { baseCost: 341, costStep: 239, maxLevel: 7  },
+  shieldPercent: { baseCost: 160, costStep: 120, maxLevel: 7  },
+  shieldRegen:   { baseCost: 110, costStep: 85,  maxLevel: 5  },
 };
 
 /** Ключи локализации для каждой ветки прокачки (статический маппинг). */
 export const UPGRADE_LABEL: Record<UpgradeKey, { label: TKey; desc: TKey }> = {
-  hull:         { label: "upgrade.hull",         desc: "upgrade.hullDesc" },
-  speed:        { label: "upgrade.speed",        desc: "upgrade.speedDesc" },
-  guns:         { label: "upgrade.guns",         desc: "upgrade.gunsDesc" },
-  drones:       { label: "upgrade.drones",       desc: "upgrade.dronesDesc" },
-  dashDuration: { label: "upgrade.dashDuration", desc: "upgrade.dashDurationDesc" },
+  hull:          { label: "upgrade.hull",          desc: "upgrade.hullDesc" },
+  speed:         { label: "upgrade.speed",         desc: "upgrade.speedDesc" },
+  guns:          { label: "upgrade.guns",          desc: "upgrade.gunsDesc" },
+  drones:        { label: "upgrade.drones",        desc: "upgrade.dronesDesc" },
+  shieldPercent: { label: "upgrade.shieldPercent", desc: "upgrade.shieldPercentDesc" },
+  shieldRegen:   { label: "upgrade.shieldRegen",   desc: "upgrade.shieldRegenDesc" },
 };
 
 /* ======================== Cost calculation ======================== */
@@ -185,7 +191,7 @@ export function isMaxed(upgrades: PlayerUpgrades, key: UpgradeKey): boolean {
 /* ======================== Persistence ======================== */
 
 /** Миграция сохранённых данных. */
-function migrate(parsed: Partial<PlayerUpgrades> & { dashCooldown?: number }): PlayerUpgrades {
+function migrate(parsed: Partial<PlayerUpgrades>): PlayerUpgrades {
   const fresh = defaultUpgrades();
   const migrated: PlayerUpgrades = { ...fresh };
   for (const key of Object.keys(fresh) as UpgradeKey[]) {
@@ -193,10 +199,6 @@ function migrate(parsed: Partial<PlayerUpgrades> & { dashCooldown?: number }): P
     if (typeof value === "number" && Number.isFinite(value)) {
       migrated[key] = Math.max(0, Math.floor(value));
     }
-  }
-  // Старые сохранения не знают про dashDuration — переносим dashCooldown.
-  if (migrated.dashDuration === 0 && typeof parsed.dashCooldown === "number") {
-    migrated.dashDuration = Math.max(0, Math.floor(parsed.dashCooldown));
   }
   // Части — валюта: дробные значения недопустимы.
   migrated.parts = Math.max(0, Math.floor(migrated.parts));
@@ -207,7 +209,7 @@ export function loadUpgrades(storage: PersistencePort): PlayerUpgrades {
   try {
     const raw = storage.get(LS_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as Partial<PlayerUpgrades> & { dashCooldown?: number };
+      const parsed = JSON.parse(raw) as Partial<PlayerUpgrades>;
       if (parsed && typeof parsed === "object" && parsed.parts != null) {
         return migrate(parsed);
       }
@@ -318,8 +320,10 @@ export interface AppliedUpgrades {
   weaponSlots: number;
   /** Число слотов под дроны корабля: 1 база + уровень, макс 8. */
   droneSlots: number;
-  /** Множитель длительности рывка: 1.0 база, +20% за уровень. */
-  dashDurationMult: number;
+  /** Уровень линии «процент щита» (5% + 5% за уровень). */
+  shieldBlockLevel: number;
+  /** Уровень линии «скорость восстановления щита». */
+  shieldRegenLevel: number;
 }
 
 export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
@@ -335,14 +339,12 @@ export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
   // drone slots: base 1 + level, capped at 8
   const droneSlots = Math.min(1 + upgrades.drones, 8);
 
-  // dash duration: base 1.0, +20% per level
-  const dashDurationMult = 1.0 + upgrades.dashDuration * 0.2;
-
   return {
     baseHp,
     speedMult,
     weaponSlots,
     droneSlots,
-    dashDurationMult,
+    shieldBlockLevel: Math.max(0, upgrades.shieldPercent),
+    shieldRegenLevel: Math.max(0, upgrades.shieldRegen),
   };
 }

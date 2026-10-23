@@ -13,8 +13,6 @@ import type { PlayerRenderState } from './Renderers/PlayerRenderer';
 
 export const PLAYER_ACCELERATION = 1500;
 export const FRICTION_EXP = 2.4;
-export const DASH_ACCEL_MULT = 1.8;
-export const DASH_SPEED_MULT = 2.2;
 
 /* ============================== interface ============================== */
 

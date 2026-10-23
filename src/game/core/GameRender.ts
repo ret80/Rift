@@ -29,6 +29,7 @@ export class GameRender {
       aim: ctx.weaponManager.getAimAngle(),
       guns: ctx.weaponManager.getInstanceCount("cannon"),
       bonus: ctx.bonusManager.getRenderSnapshot(),
+      shield: ctx.shieldSystem.getSnapshot(),
       enemies: ctx.entityPool.enemyList,
       bullets: ctx.entityPool.bulletList,
       enemyBullets: ctx.entityPool.enemyBulletList,
@@ -81,6 +82,7 @@ export class GameRender {
       drones: ctx.weaponManager.getInstanceCount("drone"),
       minerals: ctx.minerals,
       parts: ctx.upgradeSystem.getParts(),
+      shield: ctx.shieldSystem.getSnapshot(),
       loadout: ctx.loadoutSystem.getSlots(),
     });
   }

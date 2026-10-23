@@ -25,7 +25,8 @@ export const C = {
   heal: "#7dffb8",
   white: "#eaffff",
   enemyBullet: "#ff8080",
-  dash: "#ffd23e",
+  shield: "#66e0ff",
+  shieldStripe: "#ffd23e",
 };
 
 /* --------------------------- player & limits --------------------------- */
@@ -56,10 +57,49 @@ export const RATE_BOOST_TIME = 10;
 /** Seconds an extra-barrels bonus lasts. */
 export const GUN_BONUS_TIME = 15;
 
-/* ------------------------------ dash bonus ------------------------------ */
+/* ------------------------------ shield ------------------------------ */
 
-/** Seconds a dash bonus lasts. */
-export const DASH_BONUS_TIME = 5;
+/** Полный запас энергии щита. */
+export const SHIELD_ENERGY_MAX = 100;
+
+/** Минимальный процент блокируемого урона (уровень прокачки 0). */
+export const SHIELD_BLOCK_MIN = 0.05;
+/** Прибавка к проценту блокировки за уровень прокачки. */
+export const SHIELD_BLOCK_PER_LEVEL = 0.05;
+/** Максимальный уровень линии «процент щита» (5% + 7×5% = 40%). */
+export const SHIELD_BLOCK_MAX_LEVEL = 7;
+
+/** Базовая скорость восстановления энергии, единиц в секунду. */
+export const SHIELD_REGEN_BASE = 9;
+/** Прибавка к скорости восстановления за уровень (множитель +30%). */
+export const SHIELD_REGEN_PER_LEVEL = 0.3;
+/** Максимальный уровень линии «скорость восстановления». */
+export const SHIELD_REGEN_MAX_LEVEL = 5;
+
+/**
+ * Сколько энергии тратится на единицу поглощённого урона.
+ * При блокировке 20% удар в 10 единиц поглощает 2 и снимает 20 энергии,
+ * то есть запас тает заметно быстрее, чем успевает восстановиться.
+ */
+export const SHIELD_DRAIN_PER_DAMAGE = 10;
+
+/** Время блокировки щита после полного разряда, секунды. */
+export const SHIELD_OVERLOAD_TIME = 3;
+
+/** Сколько секунд полоски щита мигают после срабатывания. */
+export const SHIELD_FLASH_TIME = 0.35;
+
+/** Процент блокируемого урона по уровню линии «процент щита» (0..1). */
+export function shieldBlockPercent(level: number): number {
+  const lv = Math.max(0, Math.min(SHIELD_BLOCK_MAX_LEVEL, level));
+  return SHIELD_BLOCK_MIN + lv * SHIELD_BLOCK_PER_LEVEL;
+}
+
+/** Скорость восстановления энергии по уровню линии (единиц в секунду). */
+export function shieldRegenPerSecond(level: number): number {
+  const lv = Math.max(0, Math.min(SHIELD_REGEN_MAX_LEVEL, level));
+  return SHIELD_REGEN_BASE * (1 + lv * SHIELD_REGEN_PER_LEVEL);
+}
 
 /* --------------------------- hitbox & graze --------------------------- */
 

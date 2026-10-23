@@ -45,6 +45,7 @@ import { PickupDropSystem } from "../systems/PickupDropSystem";
 import { PickupSystem } from "../systems/PickupSystem";
 import { PlayerSystem } from "../systems/PlayerSystem";
 import { RendererSystem } from "../systems/RendererSystem";
+import { ShieldSystem } from "../systems/ShieldSystem";
 import { SpawnSystem } from "../systems/SpawnSystem";
 import { UpgradeSystem } from "../systems/UpgradeSystem";
 import { WaveFlowSystem } from "../systems/WaveFlowSystem";
@@ -83,6 +84,7 @@ export class GameContext {
   readonly menuScene: MenuScene;
 
   readonly bonusManager: BonusManager;
+  readonly shieldSystem: ShieldSystem;
   readonly grazeSystem: GrazeSystem;
   readonly playerSystem: PlayerSystem;
   readonly abilitySystem: AbilitySystem;
@@ -204,12 +206,14 @@ export class GameContext {
     );
 
     this.bonusManager = new BonusManager();
+    this.shieldSystem = new ShieldSystem();
     this.grazeSystem = new GrazeSystem(this.eventBus, this.fx, this.scoringSystem);
     this.playerSystem = new PlayerSystem(
       this.eventBus,
       this.input,
       this.fx,
     );
+    this.playerSystem.setShield(this.shieldSystem);
 
     this.abilitySystem = new AbilitySystem(
       this.input,
@@ -267,6 +271,7 @@ export class GameContext {
     this.applyPickupSystem = new ApplyPickupSystem({
       heal: (amount: number) => this.playerSystem.heal(amount),
       applyBonus: (pickup: PickupKind) => this.bonusManager.applyPickup(pickup),
+      rechargeShield: (amount: number) => this.shieldSystem.recharge(amount),
       equipWeapon: (id: WeaponId) => this.weaponManager.equipWeapon(id),
       grantAbility: (id) => this.abilitySystem.grant(id),
       addMinerals: (count: number) => this.addMinerals(count),
@@ -456,7 +461,8 @@ export class GameContext {
       setMaxHp: (v) => this.playerSystem.setMaxHp(v),
       setWeaponUpgrades: (upgrades) => this.weaponManager.applyUpgrades(upgrades),
       setSpeedMult: (v) => this.playerSystem.setSpeedMult(v),
-      setDashDurationMult: (v) => this.bonusManager.setDashDurationMult(v),
+      setShieldBlockLevel: (v) => this.shieldSystem.setBlockLevel(v),
+      setShieldRegenLevel: (v) => this.shieldSystem.setRegenLevel(v),
       ...(withResetHp ? { resetHp: () => this.playerSystem.resetHp() } : {}),
     });
   }
