@@ -8,6 +8,7 @@ import { playerHitChance } from "./balance/accuracy";
 import { PHANTOM_CORE_RADII, SOLID_BULLET_RADII } from "./balance/player";
 import { CANNON_MAX_BARRELS } from "./weapons/CannonWeapon";
 import { MAX_ALLY_DRONES } from "./weapons/DroneWeapon";
+import { resetDroneLoadout } from "./drones/DroneSystem";
 import {
   BASE_WEAPON_MODEL,
   type WeaponId,
@@ -322,6 +323,7 @@ export function resetUpgrades(storage: PersistencePort): PlayerUpgrades {
   storage.remove(LS_KEY);
   storage.remove(LS_BEST_WAVE);
   storage.remove(LS_WEAPON_LOADOUT);
+  resetDroneLoadout(storage);
   return fresh;
 }
 
@@ -364,8 +366,8 @@ export interface AppliedUpgrades {
   damageBonus: number;
   /** Число постоянных стволов пушки: 1 база + уровень. */
   guns: number;
-  /** Число постоянных дронов-компаньонов: уровень. */
-  drones: number;
+  /** Число слотов под дроны корабля: 1 база + уровень, макс 8. */
+  droneSlots: number;
   /** Множитель длительности рывка: 1.0 база, +20% за уровень. */
   dashDurationMult: number;
   /** Уровень апгрейда «поглощение импульса»: сколько импульса даёт скорость. */
@@ -400,8 +402,8 @@ export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
   // guns: base 1 + level, capped at CANNON_MAX_BARRELS
   const guns = Math.min(1 + upgrades.guns, CANNON_MAX_BARRELS);
 
-  // drones: level, capped at MAX_ALLY_DRONES
-  const drones = Math.min(upgrades.drones, MAX_ALLY_DRONES);
+  // drone slots: base 1 + level, capped at MAX_ALLY_DRONES
+  const droneSlots = Math.min(1 + upgrades.drones, MAX_ALLY_DRONES);
 
   // dash duration: base 1.0, +20% per level
   const dashDurationMult = 1.0 + upgrades.dashDuration * 0.2;
@@ -424,7 +426,7 @@ export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
     speedMult,
     damageBonus,
     guns,
-    drones,
+    droneSlots,
     dashDurationMult,
     momentumLevel,
     phantomCoreRadius,

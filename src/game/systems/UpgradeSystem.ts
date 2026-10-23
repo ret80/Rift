@@ -18,16 +18,19 @@ import {
   type AppliedUpgrades,
   type WeaponStatKey,
 } from "../upgrades";
+import type { PersistencePort } from "../core/PersistencePort";
 import type {
   WeaponId,
   WeaponLoadout,
   WeaponUpgrades,
 } from "../weapons/Weapon";
-import type { PersistencePort } from "../core/PersistencePort";
+import { DroneSystem } from "../drones/DroneSystem";
+import type { DroneId, DroneLoadout, DroneStatKey } from "../drones/Drone";
 
 export class UpgradeSystem {
   private _playerUpgrades: PlayerUpgrades = {} as PlayerUpgrades;
   private _loadout: WeaponLoadout = defaultWeaponLoadout();
+  private _droneSystem: DroneSystem | null = null;
   private _storage!: PersistencePort;
 
   get playerUpgrades(): PlayerUpgrades {
@@ -39,6 +42,11 @@ export class UpgradeSystem {
     return this._loadout;
   }
 
+  /** Персистентный ангар дронов: купленные дроны и их модели. */
+  get droneLoadout(): DroneLoadout {
+    return this.droneSys().loadout;
+  }
+
   private _appliedUpgrades: AppliedUpgrades | null = null!;
 
   /* ======================== Factory ======================== */
@@ -48,6 +56,7 @@ export class UpgradeSystem {
     sys._storage = storage;
     sys._playerUpgrades = loadUpgradesRaw(storage);
     sys._loadout = loadWeaponLoadout(storage);
+    sys._droneSystem = DroneSystem.create(storage);
     sys._appliedUpgrades = applyUpgradesRaw(sys._playerUpgrades);
     return sys;
   }
@@ -94,6 +103,7 @@ export class UpgradeSystem {
   refresh(): void {
     this._playerUpgrades = loadUpgradesRaw(this._storage);
     this._loadout = loadWeaponLoadout(this._storage);
+    this._droneSystem?.refresh();
     this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades);
   }
 
@@ -181,5 +191,41 @@ export class UpgradeSystem {
 
   getApplied<T extends keyof AppliedUpgrades>(key: T): AppliedUpgrades[T] {
     return this._appliedUpgrades?.[key] ?? (1 as AppliedUpgrades[T]);
+  }
+
+  /* ======================== Drone hangar ======================== */
+
+  private droneSys(): DroneSystem {
+    return this._droneSystem ?? (this._droneSystem = DroneSystem.create(this._storage));
+  }
+
+  /** Снимок флота купленных дронов для боя. */
+  getDroneFleetSpec() {
+    return this.droneSys().getFleetSpec();
+  }
+
+  /** Сколько единиц дрона куплено. */
+  getDroneCount(id: DroneId): number {
+    return this.droneSys().getCount(id);
+  }
+
+  /** Всего занятых слотов флотом. */
+  getDroneTotalCount(): number {
+    return this.droneSys().getTotalCount();
+  }
+
+  /** Уровень линии дрона (0 — дрон не куплен). */
+  getDroneStatLevel(id: DroneId, stat: DroneStatKey): number {
+    return this.droneSys().getStatLevel(id, stat);
+  }
+
+  /** Купить единицу дрона (детали уже списаны вызывающим). */
+  buyDrone(id: DroneId): boolean {
+    return this.droneSys().buy(id);
+  }
+
+  /** Прокачать линию дрона (детали уже списаны вызывающим). */
+  upgradeDroneStat(id: DroneId, stat: DroneStatKey): boolean {
+    return this.droneSys().upgradeStat(id, stat);
   }
 }

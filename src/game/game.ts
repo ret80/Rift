@@ -10,6 +10,7 @@
 import { EnemyKind, type PickupKind } from "./balance";
 import type { PlayerUpgrades, WeaponStatKey } from "./upgrades";
 import type { WeaponId } from "./weapons/Weapon";
+import type { DroneId, DroneStatKey } from "./drones/Drone";
 import type { PersistencePort } from "./core/PersistencePort";
 import { GameContext } from "./core/GameContext";
 import type { Hooks } from "./core/GameHooks";
@@ -102,6 +103,41 @@ export class Game {
   /** Персистентный арсенал игрока. */
   getWeaponLoadout() {
     return this.ctx.upgrades.getLoadout();
+  }
+
+  /** Персистентный ангар дронов игрока. */
+  getDroneLoadout() {
+    return this.ctx.upgrades.getDroneLoadout();
+  }
+
+  /** Число слотов под дроны у текущего корабля. */
+  getDroneSlots(): number {
+    return this.ctx.upgrades.getDroneSlots();
+  }
+
+  /** Число занятых слотов (купленные единицы дронов). */
+  getUsedDroneSlots(): number {
+    return this.ctx.upgrades.getUsedDroneSlots();
+  }
+
+  /** Купить единицу дрона в ангаре. */
+  purchaseDrone(id: DroneId): boolean {
+    return this.ctx.upgrades.purchaseDrone(id);
+  }
+
+  /** Debug-only: получить единицу дрона бесплатно. */
+  purchaseDroneNoCost(id: DroneId): boolean {
+    return this.ctx.upgrades.purchaseDroneNoCost(id);
+  }
+
+  /** Купить уровень линии дрона в ангаре. */
+  upgradeDroneStat(id: DroneId, stat: DroneStatKey): boolean {
+    return this.ctx.upgrades.upgradeDroneStat(id, stat);
+  }
+
+  /** Debug-only: прокачать линию дрона бесплатно. */
+  upgradeDroneStatNoCost(id: DroneId, stat: DroneStatKey): boolean {
+    return this.ctx.upgrades.upgradeDroneStatNoCost(id, stat);
   }
 
   public togglePause(): void {

@@ -2,6 +2,7 @@
    All subsystems import from here to avoid duplication. */
 
 import type { RGBA } from "./render";
+import type { DroneCombatSpec, DroneId } from "./drones/Drone";
 
 /* ---- Effect types (from fx.ts) ---- */
 
@@ -160,6 +161,10 @@ export interface AllyDrone {
   hp: number; maxHp: number;
   target: Enemy | null;
   retargetT: number; flash: number;
-  /** Постоянный дрон из апгрейда — восстанавливается после гибели. */
+  /** Постоянная единица флота — восстанавливается после гибели. */
   permanent: boolean;
+  /** Вид дрона (для отрисовки и служебной логики). */
+  kind: DroneId;
+  /** Боевые характеристики единицы дрона. */
+  combat: DroneCombatSpec | null;
 }

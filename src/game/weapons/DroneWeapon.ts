@@ -5,13 +5,20 @@
  * и стреляют по ней настоящими снарядами с упреждением — так же,
  * как пушка игрока.
  *
- * Состав роя складывается из двух источников:
- *   • постоянные дроны — апгрейд «дроны», восстанавливаются после гибели;
- *   • бонусные дроны — пикап «дрон», гибнут безвозвратно.
+ * Состав роя собирается из флота, купленного во вкладке «ДРОНЫ»:
+ * каждая единица дрона занимает один слот корабля и участвует в бою.
+ * Характеристики орудия (урон, перезарядка, скорость снаряда) берутся
+ * из вида дрона и его персональной прокачки. Бонусный пикап «дрон»
+ * добавляет временную единицу разведчика, которая гибнет безвозвратно.
  */
 
 import { aimAtTarget } from "../aiming/AimSolver";
 import type { AllyDrone, Enemy } from "../types";
+import type { DroneCombatSpec, DroneFleetSpec, DroneId } from "../drones/Drone";
+import {
+  DRONE_CATALOG,
+  buildDroneCombatSpec,
+} from "../drones/Drone";
 import type {
     Weapon,
     WeaponContext,
@@ -27,20 +34,8 @@ export const DRONE_ORBIT_RADIUS = 58;
 const DRONE_ORBIT_SPEED = 0.5;
 /** Дальность захвата цели дроном. */
 const DRONE_TARGET_RANGE = 430;
-/** Урон снаряда дрона. */
-const DRONE_BULLET_DMG = 8;
-/** Интервал между выстрелами дрона, секунды. */
-const DRONE_FIRE_CD = 0.5;
-/** Скорость снаряда дрона. */
-const DRONE_BULLET_SPEED = 500;
-/** Время жизни снаряда дрона. */
-const DRONE_BULLET_LIFE = 0.7;
-/** Максимальное число дронов в рое. */
+/** Максимальное число дронов в рое (и слотов корабля). */
 export const MAX_ALLY_DRONES = 8;
-/** Радиус дрона. */
-const DRONE_RADIUS = 10;
-/** Доля корпуса игрока, получаемая одним дроном. */
-const DRONE_HP_RATIO = 0.25;
 /** Период смены цели дроном, секунды. */
 const DRONE_RETARGET_INTERVAL = 1;
 /** Длительность вспышки ствола после выстрела, секунды. */
@@ -58,15 +53,15 @@ export class DroneWeapon implements Weapon {
   readonly usesDamageUpgrade = false;
   readonly usesSolidUpgrade = false;
   readonly usesPersonalAccuracy = false;
-  readonly baseDamage = DRONE_BULLET_DMG;
+  readonly baseDamage = 8;
 
-  /** Постоянные дроны из апгрейда — восстанавливаются после гибели. */
-  private permanentDrones = 0;
-  /** Бонусные дроны из пикапов — гибнут безвозвратно. */
+  /** Снимок флота купленных дронов. */
+  private fleet: DroneFleetSpec | null = null;
+
+  /** Временные дроны из пикапов — гибнут безвозвратно. */
   private bonusDrones = 0;
 
   reset(): void {
-    this.permanentDrones = 0;
     this.bonusDrones = 0;
   }
 
@@ -77,7 +72,8 @@ export class DroneWeapon implements Weapon {
   activate(ctx: WeaponContext): void {
     // Бонусный дрон появляется сразу и больше не восстанавливается.
     if (ctx.drones.length >= MAX_ALLY_DRONES) return;
-    ctx.drones.push(this.createDrone(ctx, false));
+    const scout = this.fleet?.specs.scout ?? null;
+    ctx.drones.push(this.createUnit(ctx, scout ?? this.defaultScoutSpec(), false));
     this.bonusDrones++;
   }
 
@@ -105,13 +101,14 @@ export class DroneWeapon implements Weapon {
   }
 
   applyModifiers(mods: WeaponModifiers): void {
-    if (mods.count == null) return;
-    this.permanentDrones = Math.min(MAX_ALLY_DRONES, Math.max(0, mods.count));
+    if (mods.droneFleet) {
+      this.fleet = mods.droneFleet;
+    }
   }
 
   /**
-   * Синхронизировать состав роя с источниками дронов.
-   * Постоянные дроны возвращаются на место, бонусные — нет.
+   * Синхронизировать состав роя с флотом и бонусной единицей:
+   * единицы флота возвращаются на место после гибели, бонусные — нет.
    */
   private syncDrones(ctx: WeaponContext): void {
     let alivePermanent = 0;
@@ -124,10 +121,25 @@ export class DroneWeapon implements Weapon {
     // Бонусный дрон погиб и не восстанавливается — уменьшаем запас.
     if (aliveBonus < this.bonusDrones) this.bonusDrones = aliveBonus;
 
-    const wantPermanent = Math.min(this.permanentDrones, MAX_ALLY_DRONES);
-    for (let i = alivePermanent; i < wantPermanent; i++) {
-      if (ctx.drones.length >= MAX_ALLY_DRONES) break;
-      ctx.drones.push(this.createDrone(ctx, true));
+    const fleet = this.fleet;
+    let wantPermanent = 0;
+    if (fleet) {
+      for (const spec of DRONE_CATALOG) {
+        wantPermanent += fleet.counts[spec.id] ?? 0;
+      }
+    }
+    wantPermanent = Math.min(wantPermanent, MAX_ALLY_DRONES);
+
+    // Недостающие единицы флота добавляются по порядку каталога.
+    let index = alivePermanent;
+    for (const spec of DRONE_CATALOG) {
+      const count = Math.min(fleet?.counts[spec.id] ?? 0, MAX_ALLY_DRONES);
+      const combat = fleet?.specs[spec.id] ?? this.defaultScoutSpec();
+      for (let i = 0; i < count && index < wantPermanent; i++) {
+        if (ctx.drones.length >= MAX_ALLY_DRONES) break;
+        ctx.drones.push(this.createUnit(ctx, combat, true, spec.id));
+        index++;
+      }
     }
   }
 
@@ -136,6 +148,9 @@ export class DroneWeapon implements Weapon {
    * Возвращает true, если дрон выстрелил.
    */
   private updateDrone(dt: number, drone: AllyDrone, ctx: WeaponContext): boolean {
+    const combat = drone.combat;
+    if (!combat) return false;
+
     // Орбита вокруг корабля.
     drone.phase += dt * DRONE_ORBIT_SPEED;
     drone.x = ctx.player.x + Math.cos(drone.phase) * DRONE_ORBIT_RADIUS;
@@ -166,23 +181,23 @@ export class DroneWeapon implements Weapon {
         sx: drone.x,
         sy: drone.y,
         target,
-        bulletSpeed: DRONE_BULLET_SPEED,
-        maxFlightTime: DRONE_BULLET_LIFE,
+        bulletSpeed: combat.bulletSpeed,
+        maxFlightTime: combat.bulletLife,
       },
       ctx.aim.hitChance,
       target.r
     );
 
-    drone.fireCd = DRONE_FIRE_CD;
+    drone.fireCd = combat.reloadTime;
     drone.flash = DRONE_FLASH_TIME;
     drone.angle = angle;
     ctx.bullets.push({
       x: drone.x,
       y: drone.y,
-      vx: Math.cos(angle) * DRONE_BULLET_SPEED,
-      vy: Math.sin(angle) * DRONE_BULLET_SPEED,
-      life: DRONE_BULLET_LIFE,
-      dmg: DRONE_BULLET_DMG,
+      vx: Math.cos(angle) * combat.bulletSpeed,
+      vy: Math.sin(angle) * combat.bulletSpeed,
+      life: combat.bulletLife,
+      dmg: combat.damage,
     });
 
     return true;
@@ -205,15 +220,20 @@ export class DroneWeapon implements Weapon {
     return nearest;
   }
 
-  /** Создать дрона и поместить его на орбиту. */
-  private createDrone(ctx: WeaponContext, permanent: boolean): AllyDrone {
+  /** Создать единицу дрона с указанным видом и поместить её на орбиту. */
+  private createUnit(
+    ctx: WeaponContext,
+    combat: DroneCombatSpec,
+    permanent: boolean,
+    kind: DroneId = "scout"
+  ): AllyDrone {
     const phase = (ctx.drones.length / MAX_ALLY_DRONES) * Math.PI * 2;
-    const hp = Math.max(1, Math.round(ctx.player.maxHp * DRONE_HP_RATIO));
+    const hp = Math.max(1, Math.round(ctx.player.maxHp * combat.hpRatio));
 
     return {
       x: ctx.player.x + Math.cos(phase) * DRONE_ORBIT_RADIUS,
       y: ctx.player.y + Math.sin(phase) * DRONE_ORBIT_RADIUS,
-      r: DRONE_RADIUS,
+      r: combat.radius,
       angle: phase,
       fireCd: 0,
       phase,
@@ -223,6 +243,13 @@ export class DroneWeapon implements Weapon {
       retargetT: 0,
       flash: 0,
       permanent,
+      kind,
+      combat,
     };
+  }
+
+  /** Характеристики разведчика по умолчанию (если флот не задан). */
+  private defaultScoutSpec(): DroneCombatSpec {
+    return buildDroneCombatSpec("scout", { reload: 0, damage: 0 });
   }
 }

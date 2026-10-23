@@ -6,6 +6,8 @@
 
 import { UPGRADE_TIERS, upgradeCost, type PlayerUpgrades, type WeaponStatKey } from "../upgrades";
 import type { WeaponId } from "../weapons/Weapon";
+import type { DroneId, DroneStatKey } from "../drones/Drone";
+import { DRONE_STAT_MAX_LEVEL, droneCost, droneUpgradeCost } from "../drones/Drone";
 import type { GameContext } from "./GameContext";
 
 export class GameUpgrades {
@@ -85,5 +87,96 @@ export class GameUpgrades {
   /** Персистентный арсенал игрока. */
   getLoadout() {
     return this.ctx.upgradeSystem.loadout;
+  }
+
+  /* ======================== Drone hangar ======================== */
+
+  /** Персистентный ангар дронов игрока. */
+  getDroneLoadout() {
+    return this.ctx.upgradeSystem.droneLoadout;
+  }
+
+  /** Число слотов под дроны у текущего корабля. */
+  getDroneSlots(): number {
+    return this.ctx.upgradeSystem.getApplied("droneSlots");
+  }
+
+  /** Число занятых слотов (купленные единицы дронов). */
+  getUsedDroneSlots(): number {
+    return this.ctx.upgradeSystem.getDroneTotalCount();
+  }
+
+  /** Купить единицу дрона в ангаре. */
+  purchaseDrone(id: DroneId): boolean {
+    const success = this.purchaseDroneImpl(id, false);
+    if (success) {
+      this.refresh();
+    }
+    return success;
+  }
+
+  /** Debug-only: получить единицу дрона бесплатно. */
+  purchaseDroneNoCost(id: DroneId): boolean {
+    const success = this.purchaseDroneImpl(id, true);
+    if (success) {
+      this.refresh();
+    }
+    return success;
+  }
+
+  private purchaseDroneImpl(id: DroneId, free: boolean): boolean {
+    const ups = this.ctx.upgradeSystem.playerUpgrades;
+    const slots = this.getDroneSlots();
+    const used = this.getUsedDroneSlots();
+    if (used >= slots) return false;
+    const cost = droneCost(id);
+    if (!free) {
+      if (ups.parts < cost) return false;
+      ups.parts -= cost;
+    }
+    this.ctx.upgradeSystem.save();
+    const bought = this.ctx.upgradeSystem.buyDrone(id);
+    if (!bought && !free) {
+      // Не должно случаться: откатываем списание для консистентности.
+      ups.parts += cost;
+      this.ctx.upgradeSystem.save();
+    }
+    return bought;
+  }
+
+  /** Купить уровень линии дрона в ангаре. */
+  upgradeDroneStat(id: DroneId, stat: DroneStatKey): boolean {
+    const success = this.upgradeDroneStatImpl(id, stat, false);
+    if (success) {
+      this.refresh();
+    }
+    return success;
+  }
+
+  /** Debug-only: прокачать линию дрона бесплатно. */
+  upgradeDroneStatNoCost(id: DroneId, stat: DroneStatKey): boolean {
+    const success = this.upgradeDroneStatImpl(id, stat, true);
+    if (success) {
+      this.refresh();
+    }
+    return success;
+  }
+
+  private upgradeDroneStatImpl(id: DroneId, stat: DroneStatKey, free: boolean): boolean {
+    const ups = this.ctx.upgradeSystem.playerUpgrades;
+    const level = this.ctx.upgradeSystem.getDroneStatLevel(id, stat);
+    if (level >= DRONE_STAT_MAX_LEVEL) return false;
+    const cost = droneUpgradeCost(level);
+    if (!free) {
+      if (ups.parts < cost) return false;
+      ups.parts -= cost;
+    }
+    this.ctx.upgradeSystem.save();
+    const upgraded = this.ctx.upgradeSystem.upgradeDroneStat(id, stat);
+    if (!upgraded && !free) {
+      ups.parts += cost;
+      this.ctx.upgradeSystem.save();
+    }
+    return upgraded;
   }
 }

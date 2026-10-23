@@ -13,6 +13,7 @@
 
 import type { LoadoutSlotMeta } from "../loadout/LoadoutTypes";
 import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
+import type { DroneFleetSpec } from "../drones/Drone";
 import type { AllyDrone, Bullet, Enemy, LaserBeam, WeaveThread } from "../types";
 
 /** Идентификаторы видов оружия. */
@@ -142,6 +143,8 @@ export interface WeaponModifiers {
   reloadMult?: number;
   /** Персональная модель оружия (уровни линий арсенала). */
   model?: WeaponModelUpgrades;
+  /** Снимок флота купленных дронов (для DroneWeapon). */
+  droneFleet?: DroneFleetSpec;
   /**
    * Персональная точность оружия: замещает общий шанс попадания,
    * если оружие поддерживает персональную точность (usesPersonalAccuracy).
@@ -160,8 +163,8 @@ export interface WeaponUpgrades {
   damageBonus: number;
   /** Число постоянных стволов пушки. */
   guns: number;
-  /** Число постоянных дронов-компаньонов. */
-  drones: number;
+  /** Число слотов под дроны корабля. */
+  droneSlots: number;
   /** Радиус твёрдого снаряда игрока (0 — снаряды бестелесные). */
   solidBulletRadius: number;
   /** Шанс попадания орудий игрока с учётом упреждения (0..1, всегда < 1). */

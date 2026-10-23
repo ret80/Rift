@@ -31,6 +31,10 @@ export type IconKind =
   | "upgrade-phantomHitbox"
   | "upgrade-solidBullets"
   | "upgrade-accuracy"
+  /* drones */
+  | "drone-scout"
+  | "drone-striker"
+  | "drone-sentry"
   /* HUD loadout row */
   | LoadoutIcon;
 
@@ -68,11 +72,18 @@ const UPGRADE_COLORS: Record<string, string> = {
   "upgrade-accuracy": "#ffb84d",
 };
 
+const DRONE_COLORS: Record<string, string> = {
+  "drone-scout": "#ff9de0",
+  "drone-striker": "#ff5c54",
+  "drone-sentry": "#7dff9e",
+};
+
 function getIconColor(kind: IconKind): string {
   return (
     ENEMY_COLORS[kind] ??
     PICKUP_COLORS[kind] ??
     UPGRADE_COLORS[kind] ??
+    DRONE_COLORS[kind] ??
     "#ffffff"
   );
 }
@@ -182,6 +193,33 @@ function getIconPaths(kind: IconKind): React.ReactNode {
           <line x1="12" y1="17" x2="12" y2="22" />
           <line x1="2" y1="12" x2="7" y2="12" />
           <line x1="17" y1="12" x2="22" y2="12" />
+        </>
+      );
+
+    /* Drones */
+    case "drone-scout":
+      return (
+        <>
+          <polygon points="12,4 20,16 12,13 4,16" />
+          <circle cx="12" cy="12" r="9" strokeOpacity="0.4" />
+        </>
+      );
+    case "drone-striker":
+      return (
+        <>
+          <polygon points="6,4 18,4 20,12 12,20 4,12" />
+          <line x1="12" y1="4" x2="12" y2="20" strokeOpacity="0.4" />
+        </>
+      );
+    case "drone-sentry":
+      return (
+        <>
+          <circle cx="12" cy="12" r="7" />
+          <circle cx="12" cy="12" r="2.4" />
+          <line x1="12" y1="3" x2="12" y2="7" />
+          <line x1="12" y1="17" x2="12" y2="21" />
+          <line x1="3" y1="12" x2="7" y2="12" />
+          <line x1="17" y1="12" x2="21" y2="12" />
         </>
       );
 

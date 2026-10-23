@@ -454,6 +454,7 @@ export class GameContext {
 
   applyUpgrades(withResetHp: boolean): void {
     this.weaponManager.setLoadout(this.upgradeSystem.loadout);
+    this.weaponManager.setDroneFleet(this.upgradeSystem.getDroneFleetSpec());
     this.upgradeSystem.applyToSystems({
       setMaxHp: (v) => this.playerSystem.setMaxHp(v),
       setWeaponUpgrades: (upgrades) => this.weaponManager.applyUpgrades(upgrades),

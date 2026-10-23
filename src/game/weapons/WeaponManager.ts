@@ -27,6 +27,7 @@ import type {
   WeaponUpgrades,
   ZoneSnapshot,
 } from "./Weapon";
+import type { DroneFleetSpec } from "../drones/Drone";
 import { createWeaponRegistry } from "./WeaponRegistry";
 
 /** Провайдеры живых данных игрового мира для оружия. */
@@ -62,6 +63,8 @@ export class WeaponManager {
   private hitChance = PLAYER_AIM_BASE_CHANCE;
   /** Арсенал: купленные виды оружия и их модели. */
   private loadout: WeaponLoadout | null = null;
+  /** Снимок флота купленных дронов (для DroneWeapon). */
+  private droneFleet: DroneFleetSpec | undefined = undefined;
 
   constructor(
     world: WeaponWorld,
@@ -107,7 +110,7 @@ export class WeaponManager {
       const mods: WeaponModifiers = {};
       if (weapon.usesDamageUpgrade) mods.damage = upgrades.damageBonus;
       if (weapon.countUpgrade === "guns") mods.count = upgrades.guns;
-      else if (weapon.countUpgrade === "drones") mods.count = upgrades.drones;
+      else if (weapon.countUpgrade === "drones") mods.count = upgrades.droneSlots;
       if (weapon.usesSolidUpgrade) mods.solidRadius = upgrades.solidBulletRadius;
       const entry = this.loadout?.[weapon.id];
       if (entry) {
@@ -119,6 +122,9 @@ export class WeaponManager {
           mods.accuracy = weaponHitChance(weapon.id, entry.model, upgrades.hitChance);
         }
       }
+      if (weapon.id === "drone") {
+        mods.droneFleet = this.droneFleet;
+      }
       weapon.applyModifiers(mods, ctx);
     }
   }
@@ -126,6 +132,11 @@ export class WeaponManager {
   /** Установить персистентный арсенал из хранилища. */
   setLoadout(loadout: WeaponLoadout): void {
     this.loadout = loadout;
+  }
+
+  /** Установить снимок флота купленных дронов. */
+  setDroneFleet(fleet: DroneFleetSpec): void {
+    this.droneFleet = fleet;
   }
 
   /** Оружие куплено игроком. */

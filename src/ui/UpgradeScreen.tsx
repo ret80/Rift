@@ -15,6 +15,17 @@ import {
   type WeaponStatKey,
 } from "../game/upgrades";
 import type { WeaponId, WeaponLoadout } from "../game/weapons/Weapon";
+import {
+  DRONE_CATALOG,
+  DRONE_STAT_MAX_LEVEL,
+  droneCost,
+  droneDamageMult,
+  droneReloadMult,
+  droneUpgradeCost,
+  type DroneId,
+  type DroneLoadout,
+  type DroneStatKey,
+} from "../game/drones/Drone";
 import { useT, type TKey } from "../i18n";
 import { Icon } from "./components/Icon";
 
@@ -111,7 +122,7 @@ function getUpgradeValue(key: keyof Omit<PlayerUpgrades, "parts">, level: number
     case "fireRate": return `${(100 + level * 8).toFixed(0)}%`;
     case "speed": return `${(100 + level * 5).toFixed(0)}%`;
     case "guns": return `${1 + level} / ${5}`;
-    case "drones": return `${level} / ${8}`;
+    case "drones": return `${1 + level} / ${8} СЛОТ`;
     case "dashDuration": return `${(100 + level * 20).toFixed(0)}%`;
     case "grazeMomentum": return `+${(level * 18).toFixed(0)}%`;
     case "phantomHitbox": return `r${level > 0 ? [0, 8, 12, 15][Math.min(level, 3)] : 0}`;
@@ -169,6 +180,14 @@ function statValue(stat: WeaponStatKey, model: WeaponLoadout[WeaponId]["model"])
   return `+${Math.round(level * WEAPON_ACCURACY_PER_LEVEL * 100)}%`;
 }
 
+/** Текущее значение линии дрона в процентах. */
+function droneStatValue(stat: DroneStatKey, model: DroneLoadout["entries"][DroneId]["model"]): string {
+  if (stat === "reload") {
+    return `${Math.round(droneReloadMult(model) * 100)}%`;
+  }
+  return `+${Math.round((droneDamageMult(model) - 1) * 100)}%`;
+}
+
 function copyLoadout(source: WeaponLoadout): WeaponLoadout {
   const out = {} as WeaponLoadout;
   for (const id of Object.keys(source) as WeaponId[]) {
@@ -176,6 +195,15 @@ function copyLoadout(source: WeaponLoadout): WeaponLoadout {
     out[id] = { owned: entry.owned, model: { ...entry.model } };
   }
   return out;
+}
+
+function copyDroneLoadout(source: DroneLoadout): DroneLoadout {
+  const entries = {} as DroneLoadout["entries"];
+  for (const id of Object.keys(source.entries) as DroneId[]) {
+    const entry = source.entries[id];
+    entries[id] = { count: entry.count, model: { ...entry.model } };
+  }
+  return { entries };
 }
 
 export function UpgradeScreen(props: {
@@ -186,19 +214,25 @@ export function UpgradeScreen(props: {
 }) {
   const t = useT();
   const free = props.detailsOn;
-  const [tab, setTab] = useState<"ship" | "armory">("ship");
+  const [tab, setTab] = useState<"ship" | "armory" | "drones">("ship");
   const [upgrades, setUpgrades] = useState<PlayerUpgrades>({
     parts: 0, hull: 0, damage: 0, fireRate: 0, speed: 0, guns: 0, drones: 0,
     dashDuration: 0, grazeMomentum: 0, phantomHitbox: 0, solidBullets: 0,
     accuracy: 0,
   });
   const [loadout, setLoadout] = useState<WeaponLoadout | null>(null);
+  const [droneLoadout, setDroneLoadout] = useState<DroneLoadout | null>(null);
+  const [droneSlots, setDroneSlots] = useState(1);
+  const [usedDroneSlots, setUsedDroneSlots] = useState(1);
 
   // store an immutable snapshot so React re-renders after purchases
   const refresh = () => {
     if (!props.game) return;
     setUpgrades({ ...props.game.getPlayerUpgrades() });
     setLoadout(copyLoadout(props.game.getWeaponLoadout()));
+    setDroneLoadout(copyDroneLoadout(props.game.getDroneLoadout()));
+    setDroneSlots(props.game.getDroneSlots());
+    setUsedDroneSlots(props.game.getUsedDroneSlots());
   };
 
   // Load fresh state on mount (snapshot)
@@ -233,6 +267,22 @@ export function UpgradeScreen(props: {
     const success = free
       ? props.game.upgradeWeaponStatNoCost(id, stat)
       : props.game.upgradeWeaponStat(id, stat);
+    if (success) refresh();
+  };
+
+  const handleBuyDrone = (id: DroneId) => {
+    if (!props.game) return;
+    const success = free
+      ? props.game.purchaseDroneNoCost(id)
+      : props.game.purchaseDrone(id);
+    if (success) refresh();
+  };
+
+  const handleBuyDroneStat = (id: DroneId, stat: DroneStatKey) => {
+    if (!props.game) return;
+    const success = free
+      ? props.game.upgradeDroneStatNoCost(id, stat)
+      : props.game.upgradeDroneStat(id, stat);
     if (success) refresh();
   };
 
@@ -284,6 +334,16 @@ export function UpgradeScreen(props: {
             >
               {t("upgrade.tabArmory")}
             </button>
+            <button
+              onClick={() => setTab("drones")}
+              className={`clip-btn px-5 py-2 text-xs font-mono tracking-[0.2em] transition-all ${
+                tab === "drones"
+                  ? "border border-[#ff9de0]/60 bg-[#ff9de0]/20 text-[#eaffff]"
+                  : "border border-[#3d4f6d]/30 bg-[#0a1020]/50 text-[#6f86a8] hover:text-[#eaffff]"
+              }`}
+            >
+              {t("upgrade.tabDrones")}
+            </button>
           </div>
 
           {tab === "ship" ? (
@@ -302,8 +362,7 @@ export function UpgradeScreen(props: {
                 />
               ))}
             </div>
-          ) : (
-            /* Armory list */
+          ) : tab === "armory" ? (
             <div
               className="flex flex-col gap-2 overflow-y-auto pr-1"
               style={{ maxHeight: "calc(90vh - 260px)" }}
@@ -418,6 +477,131 @@ export function UpgradeScreen(props: {
                   </div>
                 );
               })}
+            </div>
+          ) : (
+            /* Drone hangar list */
+            <div>
+              <div
+                className="mb-2 flex items-center justify-center gap-2 text-[11px] tracking-[0.2em] text-[#6f86a8]"
+                aria-label={`Drone slots: ${usedDroneSlots} of ${droneSlots}`}
+              >
+                <span className="font-mono font-bold text-[#ff9de0]">
+                  {usedDroneSlots}/{droneSlots}
+                </span>
+                <span>{t("upgrade.drone.slots")}</span>
+              </div>
+              <div
+                className="flex flex-col gap-2 overflow-y-auto pr-1"
+                style={{ maxHeight: "calc(90vh - 300px)" }}
+              >
+              {DRONE_CATALOG.map((drone) => {
+                const entry = droneLoadout?.entries[drone.id];
+                const count = entry?.count ?? 0;
+                const hasUnit = count > 0;
+                const noFreeSlots = usedDroneSlots >= droneSlots;
+                return (
+                  <div
+                    key={drone.id}
+                    className={`rounded border px-4 py-3 transition-colors ${
+                      hasUnit
+                        ? "border-[#ff9de0]/40 bg-[#ff9de0]/5"
+                        : "border-[#3d4f6d]/40 bg-[#0a1020]/60"
+                    }`}
+                  >
+                    {/* Drone header */}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Icon kind={drone.icon} color={drone.color} />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[13px] font-bold text-[#eaffff]">
+                              {t(drone.nameKey)}
+                            </span>
+                            {hasUnit ? (
+                              <span className="font-mono text-[9px] tracking-[0.15em] text-[#ff9de0]">
+                                ×{count}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="text-[10px] text-[#6f86a8]">{t(drone.descKey)}</div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleBuyDrone(drone.id)}
+                        disabled={!free && (noFreeSlots || upgrades.parts < droneCost(drone.id))}
+                        title={noFreeSlots ? t("upgrade.drone.noSlots") : undefined}
+                        className={`clip-btn px-4 py-2 text-xs font-mono tracking-[0.15em] transition-all ${
+                          free || (!noFreeSlots && upgrades.parts >= droneCost(drone.id))
+                            ? "cursor-pointer border border-[#ff9de0]/60 bg-[#ff9de0]/15 " +
+                              "text-[#eaffff] hover:bg-[#ff9de0]/25"
+                            : "cursor-not-allowed border border-[#3d4f6d]/30 " +
+                              "bg-[#0a1020]/50 text-[#3d4f6d]"
+                        }`}
+                      >
+                        ⚙ {droneCost(drone.id)}
+                      </button>
+                    </div>
+
+                    {/* Stat rows */}
+                    {hasUnit && (
+                      <div className="mt-3 flex flex-col gap-1.5">
+                        {([
+                          { stat: "reload" as const, valueKey: "upgrade.drone.reload" as TKey,
+                            descKey: "upgrade.drone.reloadDesc" as TKey },
+                          { stat: "damage" as const, valueKey: "upgrade.drone.damage" as TKey,
+                            descKey: "upgrade.drone.damageDesc" as TKey },
+                        ]).map((row) => {
+                          const level = entry!.model[row.stat];
+                          const maxed = level >= DRONE_STAT_MAX_LEVEL;
+                          const cost = droneUpgradeCost(level);
+                          const affordable = maxed ? false : upgrades.parts >= cost;
+                          return (
+                            <div key={row.stat} className={WEAPON_STAT_ROW_CLASS}>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[11px] font-bold text-[#eaffff]">
+                                    {t(row.valueKey)}
+                                  </span>
+                                  <span className="font-mono text-[9px] text-[#6f86a8]">
+                                    {maxed ? "/// MAX" : `lv.${level}`}
+                                  </span>
+                                </div>
+                                <div className="text-[9px] text-[#6f86a8]">
+                                  {t(row.descKey)} ·{" "}
+                                  <span className="text-[#5ef2ff]">
+                                    {droneStatValue(row.stat, entry!.model)}
+                                  </span>
+                                </div>
+                              </div>
+                              {maxed ? (
+                                <div className="font-mono text-[9px] tracking-[0.2em] text-[#5ef2ff]">
+                                  MAX
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => handleBuyDroneStat(drone.id, row.stat)}
+                                  disabled={!free && !affordable}
+                                  className={`clip-btn px-3 py-1.5 text-[10px] font-mono tracking-[0.15em] ` +
+                                    `transition-all ${
+                                    free || affordable
+                                      ? "cursor-pointer border border-[#5ef2ff]/50 " +
+                                        "bg-[#5ef2ff]/15 text-[#eaffff] hover:bg-[#5ef2ff]/25"
+                                      : "cursor-not-allowed border border-[#3d4f6d]/30 " +
+                                        "bg-[#0a1020]/50 text-[#3d4f6d]"
+                                  }`}
+                                >
+                                  ⚙ {cost}
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              </div>
             </div>
           )}
 
