@@ -18,8 +18,9 @@ export class GameListeners {
 
     this.unsubscribers.push(
       bus.subscribe("wave_started", (event) => {
-        // Запускаем волну при начале обратного отсчёта
-        if (!this.ctx.fsm.is("playing")) return;
+        // Запускаем волну при начале обратного отсчёта.
+        // После первой волны FSM находится в "active", а не "playing".
+        if (!this.ctx.fsm.is("playing", "active")) return;
         const waveData = event.payload as { wave: number };
         // Сброс счётчиков для новой волны
         this.ctx.scoringSystem.setKilledWave(0);
