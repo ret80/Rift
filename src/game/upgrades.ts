@@ -53,7 +53,7 @@ export interface PlayerUpgrades {
   damage: number;         // уровень урона (+2 HP за уровень)
   fireRate: number;       // уровень темпа стрельбы (+8% за уровень)
   speed: number;          // уровень скорости (+5% за уровень)
-  guns: number;           // уровень орудий (+1 ствол за уровень, макс 5)
+  guns: number;           // уровень орудий (+1 слот оружия за уровень, макс 5)
   drones: number;         // уровень дронов (+1 дрон за уровень, макс 8)
   dashDuration: number;   // уровень длительности рывка (+20% за уровень, макс 5)
   grazeMomentum: number;  // уровень поглощения импульса (макс 3)
@@ -364,8 +364,8 @@ export interface AppliedUpgrades {
   speedMult: number;
   /** Дополнительный урон снарядов: +2 за уровень. */
   damageBonus: number;
-  /** Число постоянных стволов пушки: 1 база + уровень. */
-  guns: number;
+  /** Число слотов оружия корабля: 1 база + уровень, макс 5. */
+  weaponSlots: number;
   /** Число слотов под дроны корабля: 1 база + уровень, макс 8. */
   droneSlots: number;
   /** Множитель длительности рывка: 1.0 база, +20% за уровень. */
@@ -399,8 +399,8 @@ export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
   // bullet damage: +2 per damage level
   const damageBonus = upgrades.damage * 2;
 
-  // guns: base 1 + level, capped at CANNON_MAX_BARRELS
-  const guns = Math.min(1 + upgrades.guns, CANNON_MAX_BARRELS);
+  // weapon slots: base 1 + level, capped at CANNON_MAX_BARRELS
+  const weaponSlots = Math.min(1 + upgrades.guns, CANNON_MAX_BARRELS);
 
   // drone slots: base 1 + level, capped at MAX_ALLY_DRONES
   const droneSlots = Math.min(1 + upgrades.drones, MAX_ALLY_DRONES);
@@ -425,7 +425,7 @@ export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
     fireRateMult,
     speedMult,
     damageBonus,
-    guns,
+    weaponSlots,
     droneSlots,
     dashDurationMult,
     momentumLevel,

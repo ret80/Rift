@@ -161,8 +161,8 @@ export interface WeaponUpgrades {
   fireRateMult: number;
   /** Дополнительный урон снарядов от апгрейда «урон». */
   damageBonus: number;
-  /** Число постоянных стволов пушки. */
-  guns: number;
+  /** Число слотов оружия корабля. */
+  weaponSlots: number;
   /** Число слотов под дроны корабля. */
   droneSlots: number;
   /** Радиус твёрдого снаряда игрока (0 — снаряды бестелесные). */
@@ -172,7 +172,7 @@ export interface WeaponUpgrades {
 }
 
 /** Апгрейд, задающий число экземпляров оружия. */
-export type WeaponCountUpgrade = "guns" | "drones";
+export type WeaponCountUpgrade = "drones";
 
 /** Единый контракт всех видов оружия. */
 export interface Weapon {

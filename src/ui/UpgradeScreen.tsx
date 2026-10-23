@@ -121,8 +121,8 @@ function getUpgradeValue(key: keyof Omit<PlayerUpgrades, "parts">, level: number
     case "damage": return `${14 + level * 2} DMG`;
     case "fireRate": return `${(100 + level * 8).toFixed(0)}%`;
     case "speed": return `${(100 + level * 5).toFixed(0)}%`;
-    case "guns": return `${1 + level} / ${5}`;
-    case "drones": return `${1 + level} / ${8} СЛОТ`;
+    case "guns": return `${1 + level}`;
+    case "drones": return `${1 + level}`;
     case "dashDuration": return `${(100 + level * 20).toFixed(0)}%`;
     case "grazeMomentum": return `+${(level * 18).toFixed(0)}%`;
     case "phantomHitbox": return `r${level > 0 ? [0, 8, 12, 15][Math.min(level, 3)] : 0}`;
@@ -222,6 +222,8 @@ export function UpgradeScreen(props: {
   });
   const [loadout, setLoadout] = useState<WeaponLoadout | null>(null);
   const [droneLoadout, setDroneLoadout] = useState<DroneLoadout | null>(null);
+  const [weaponSlots, setWeaponSlots] = useState(1);
+  const [usedWeaponSlots, setUsedWeaponSlots] = useState(1);
   const [droneSlots, setDroneSlots] = useState(1);
   const [usedDroneSlots, setUsedDroneSlots] = useState(1);
 
@@ -231,6 +233,8 @@ export function UpgradeScreen(props: {
     setUpgrades({ ...props.game.getPlayerUpgrades() });
     setLoadout(copyLoadout(props.game.getWeaponLoadout()));
     setDroneLoadout(copyDroneLoadout(props.game.getDroneLoadout()));
+    setWeaponSlots(props.game.getWeaponSlots());
+    setUsedWeaponSlots(props.game.getUsedWeaponSlots());
     setDroneSlots(props.game.getDroneSlots());
     setUsedDroneSlots(props.game.getUsedDroneSlots());
   };
@@ -363,13 +367,24 @@ export function UpgradeScreen(props: {
               ))}
             </div>
           ) : tab === "armory" ? (
-            <div
-              className="flex flex-col gap-2 overflow-y-auto pr-1"
-              style={{ maxHeight: "calc(90vh - 260px)" }}
-            >
+            <div>
+              <div
+                className="mb-2 flex items-center justify-center gap-2 text-[11px] tracking-[0.2em] text-[#6f86a8]"
+                aria-label={`Weapon slots: ${usedWeaponSlots} of ${weaponSlots}`}
+              >
+                <span className="font-mono font-bold text-[#5ef2ff]">
+                  {usedWeaponSlots}/{weaponSlots}
+                </span>
+                <span>{t("upgrade.weapon.slots")}</span>
+              </div>
+              <div
+                className="flex flex-col gap-2 overflow-y-auto pr-1"
+                style={{ maxHeight: "calc(90vh - 300px)" }}
+              >
               {ARMORY_WEAPONS.map((weapon) => {
                 const entry = loadout?.[weapon.id];
                 const owned = entry?.owned ?? false;
+                const noFreeSlots = usedWeaponSlots >= weaponSlots;
                 return (
                   <div
                     key={weapon.id}
@@ -406,9 +421,10 @@ export function UpgradeScreen(props: {
                       {!owned && (
                         <button
                           onClick={() => handleBuyWeapon(weapon.id)}
-                          disabled={!free && upgrades.parts < weaponCost(weapon.id)}
+                          disabled={!free && (noFreeSlots || upgrades.parts < weaponCost(weapon.id))}
+                          title={noFreeSlots ? t("upgrade.weapon.noSlots") : undefined}
                           className={`clip-btn px-4 py-2 text-xs font-mono tracking-[0.15em] transition-all ${
-                            free || upgrades.parts >= weaponCost(weapon.id)
+                            free || (!noFreeSlots && upgrades.parts >= weaponCost(weapon.id))
                               ? "cursor-pointer border border-[#ffb84d]/60 bg-[#ffb84d]/15 " +
                                 "text-[#eaffff] hover:bg-[#ffb84d]/25"
                               : "cursor-not-allowed border border-[#3d4f6d]/30 " +
@@ -477,6 +493,7 @@ export function UpgradeScreen(props: {
                   </div>
                 );
               })}
+              </div>
             </div>
           ) : (
             /* Drone hangar list */

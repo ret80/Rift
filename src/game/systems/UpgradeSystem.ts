@@ -156,6 +156,7 @@ export class UpgradeSystem {
   private purchaseWeaponImpl(id: WeaponId, free: boolean): boolean {
     const entry = this._loadout[id];
     if (!entry || entry.owned) return false;
+    if (this.getUsedWeaponSlots() >= this.getApplied("weaponSlots")) return false;
     if (!free) {
       const cost = weaponCost(id);
       if (this._playerUpgrades.parts < cost) return false;
@@ -191,6 +192,15 @@ export class UpgradeSystem {
 
   getApplied<T extends keyof AppliedUpgrades>(key: T): AppliedUpgrades[T] {
     return this._appliedUpgrades?.[key] ?? (1 as AppliedUpgrades[T]);
+  }
+
+  /** Всего занятых слотов оружия (купленные виды). */
+  getUsedWeaponSlots(): number {
+    let used = 0;
+    for (const entry of Object.values(this._loadout)) {
+      if (entry.owned) used++;
+    }
+    return used;
   }
 
   /* ======================== Drone hangar ======================== */

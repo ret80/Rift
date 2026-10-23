@@ -105,6 +105,16 @@ export class Game {
     return this.ctx.upgrades.getLoadout();
   }
 
+  /** Число слотов оружия у текущего корабля. */
+  getWeaponSlots(): number {
+    return this.ctx.upgrades.getWeaponSlots();
+  }
+
+  /** Число занятых слотов (купленные виды оружия). */
+  getUsedWeaponSlots(): number {
+    return this.ctx.upgrades.getUsedWeaponSlots();
+  }
+
   /** Персистентный ангар дронов игрока. */
   getDroneLoadout() {
     return this.ctx.upgrades.getDroneLoadout();

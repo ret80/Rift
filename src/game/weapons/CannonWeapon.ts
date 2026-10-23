@@ -45,7 +45,7 @@ export class CannonWeapon implements Weapon {
     labelKey: "hud.loadout.cannon",
     order: 0,
   };
-  readonly countUpgrade = "guns" as const;
+  readonly countUpgrade = null;
   readonly usesDamageUpgrade = true;
   readonly usesSolidUpgrade = true;
   readonly usesPersonalAccuracy = true;
@@ -53,8 +53,6 @@ export class CannonWeapon implements Weapon {
 
   /** Пушка куплена в арсенале (всегда true). */
   private owned = true;
-  /** Базовое число стволов (персистентный апгрейд). */
-  private baseBarrels = 1;
   /** Урон снаряда (персистентный апгрейд). */
   private damage = CANNON_BULLET_DMG;
   /** Радиус твёрдого снаряда (0 — снаряды бестелесные). */
@@ -70,7 +68,6 @@ export class CannonWeapon implements Weapon {
 
   reset(): void {
     this.owned = true;
-    this.baseBarrels = 1;
     this.damage = CANNON_BULLET_DMG;
     this.solidRadius = 0;
     this.fireCd = 0;
@@ -106,7 +103,7 @@ export class CannonWeapon implements Weapon {
   }
 
   getInstanceCount(ctx: WeaponContext): number {
-    return Math.min(CANNON_MAX_BARRELS, this.baseBarrels + ctx.bonuses.extraBarrels);
+    return Math.min(CANNON_MAX_BARRELS, 1 + ctx.bonuses.extraBarrels);
   }
 
   applyModifiers(mods: WeaponModifiers): void {
@@ -115,9 +112,6 @@ export class CannonWeapon implements Weapon {
     if (mods.damageMult != null) this.damageMult = mods.damageMult;
     if (mods.reloadMult != null) this.reloadMult = mods.reloadMult;
     if (mods.accuracy != null) this.personalAccuracy = mods.accuracy;
-    if (mods.count != null) {
-      this.baseBarrels = Math.min(CANNON_MAX_BARRELS, Math.max(1, mods.count));
-    }
     if (mods.solidRadius != null) this.solidRadius = mods.solidRadius;
   }
 

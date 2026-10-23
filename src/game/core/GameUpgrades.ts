@@ -89,6 +89,16 @@ export class GameUpgrades {
     return this.ctx.upgradeSystem.loadout;
   }
 
+  /** Число слотов оружия у текущего корабля. */
+  getWeaponSlots(): number {
+    return this.ctx.upgradeSystem.getApplied("weaponSlots");
+  }
+
+  /** Число занятых слотов (купленные виды оружия). */
+  getUsedWeaponSlots(): number {
+    return this.ctx.upgradeSystem.getUsedWeaponSlots();
+  }
+
   /* ======================== Drone hangar ======================== */
 
   /** Персистентный ангар дронов игрока. */

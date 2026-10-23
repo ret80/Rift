@@ -109,8 +109,7 @@ export class WeaponManager {
     for (const weapon of Object.values(this.weapons)) {
       const mods: WeaponModifiers = {};
       if (weapon.usesDamageUpgrade) mods.damage = upgrades.damageBonus;
-      if (weapon.countUpgrade === "guns") mods.count = upgrades.guns;
-      else if (weapon.countUpgrade === "drones") mods.count = upgrades.droneSlots;
+      if (weapon.countUpgrade === "drones") mods.count = upgrades.droneSlots;
       if (weapon.usesSolidUpgrade) mods.solidRadius = upgrades.solidBulletRadius;
       const entry = this.loadout?.[weapon.id];
       if (entry) {
