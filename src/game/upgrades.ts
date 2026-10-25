@@ -36,6 +36,7 @@ export type UpgradeKey =
   | "speed"
   | "guns"
   | "drones"
+  | "shield"
   | "shieldPercent"
   | "shieldRegen";
 
@@ -45,6 +46,7 @@ export interface PlayerUpgrades {
   speed: number;          // уровень скорости (+5% за уровень)
   guns: number;           // уровень орудий (+1 слот оружия за уровень, макс 5)
   drones: number;         // уровень дронов (+1 дрон за уровень, макс 8)
+  shield: number;         // щит куплен (1) или ещё нет (0) — базовые 5% и 9 ед/с
   shieldPercent: number;  // процент блокировки урона щитом (5% + 5% за уровень)
   shieldRegen: number;    // скорость восстановления энергии щита (+30% за уровень)
 }
@@ -129,6 +131,7 @@ export function defaultUpgrades(): PlayerUpgrades {
     speed: 0,
     guns: 0,
     drones: 0,
+    shield: 0,
     shieldPercent: 0,
     shieldRegen: 0,
   };
@@ -150,12 +153,16 @@ export function defaultUpgrades(): PlayerUpgrades {
  *  - shieldRegen (×1.1) — защита: быстрее возвращается щит;
  *  - hull (×1.0) — защита;
  *  - speed (×0.45) — чистая мобильность, самый дешёвый.
+ *
+ * Щит покупается один раз (линия shield, maxLevel 1) и открывает две
+ * под-линии: процент блокировки и скорость восстановления.
  */
 export const UPGRADE_TIERS: Record<UpgradeKey, UpgradeTier> = {
   hull:          { baseCost: 81,  costStep: 60,  maxLevel: 10 },
   speed:         { baseCost: 16,  costStep: 12,  maxLevel: 8  },
   guns:          { baseCost: 214, costStep: 160, maxLevel: 4  },
   drones:        { baseCost: 341, costStep: 239, maxLevel: 7  },
+  shield:        { baseCost: 420, costStep: 0,   maxLevel: 1  },
   shieldPercent: { baseCost: 160, costStep: 120, maxLevel: 7  },
   shieldRegen:   { baseCost: 110, costStep: 85,  maxLevel: 5  },
 };
@@ -166,6 +173,7 @@ export const UPGRADE_LABEL: Record<UpgradeKey, { label: TKey; desc: TKey }> = {
   speed:         { label: "upgrade.speed",         desc: "upgrade.speedDesc" },
   guns:          { label: "upgrade.guns",          desc: "upgrade.gunsDesc" },
   drones:        { label: "upgrade.drones",        desc: "upgrade.dronesDesc" },
+  shield:        { label: "upgrade.shield",        desc: "upgrade.shieldDesc" },
   shieldPercent: { label: "upgrade.shieldPercent", desc: "upgrade.shieldPercentDesc" },
   shieldRegen:   { label: "upgrade.shieldRegen",   desc: "upgrade.shieldRegenDesc" },
 };
@@ -202,6 +210,11 @@ function migrate(parsed: Partial<PlayerUpgrades>): PlayerUpgrades {
   }
   // Части — валюта: дробные значения недопустимы.
   migrated.parts = Math.max(0, Math.floor(migrated.parts));
+  // Старые сейвы качали линии щита без отдельной покупки — считаем щит купленным.
+  if (parsed.shield == null && (migrated.shieldPercent > 0 || migrated.shieldRegen > 0)) {
+    migrated.shield = 1;
+  }
+  migrated.shield = Math.min(UPGRADE_TIERS.shield.maxLevel, migrated.shield);
   return migrated;
 }
 
@@ -320,6 +333,8 @@ export interface AppliedUpgrades {
   weaponSlots: number;
   /** Число слотов под дроны корабля: 1 база + уровень, макс 8. */
   droneSlots: number;
+  /** Щит куплен — без него блокировка урона и HUD-полоса не работают. */
+  shieldOwned: boolean;
   /** Уровень линии «процент щита» (5% + 5% за уровень). */
   shieldBlockLevel: number;
   /** Уровень линии «скорость восстановления щита». */
@@ -339,12 +354,16 @@ export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
   // drone slots: base 1 + level, capped at 8
   const droneSlots = Math.min(1 + upgrades.drones, 8);
 
+  // Щит: покупается один раз, после покупки работают под-линии.
+  const shieldOwned = Math.max(0, upgrades.shield) > 0;
+
   return {
     baseHp,
     speedMult,
     weaponSlots,
     droneSlots,
-    shieldBlockLevel: Math.max(0, upgrades.shieldPercent),
-    shieldRegenLevel: Math.max(0, upgrades.shieldRegen),
+    shieldOwned,
+    shieldBlockLevel: shieldOwned ? Math.max(0, upgrades.shieldPercent) : 0,
+    shieldRegenLevel: shieldOwned ? Math.max(0, upgrades.shieldRegen) : 0,
   };
 }

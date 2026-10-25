@@ -159,6 +159,7 @@ export default function App() {
     hpFill: useRef<HTMLDivElement | null>(null),
     shieldFill: useRef<HTMLDivElement | null>(null),
     shieldLabel: useRef<HTMLDivElement | null>(null),
+    shieldRow: useRef<HTMLDivElement | null>(null),
     time: useRef<HTMLDivElement | null>(null),
     score: useRef<HTMLDivElement | null>(null),
     best: useRef<HTMLDivElement | null>(null),

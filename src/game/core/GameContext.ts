@@ -463,6 +463,7 @@ export class GameContext {
       setSpeedMult: (v) => this.playerSystem.setSpeedMult(v),
       setShieldBlockLevel: (v) => this.shieldSystem.setBlockLevel(v),
       setShieldRegenLevel: (v) => this.shieldSystem.setRegenLevel(v),
+      setShieldOwned: (v) => this.shieldSystem.setOwned(v),
       ...(withResetHp ? { resetHp: () => this.playerSystem.resetHp() } : {}),
     });
   }

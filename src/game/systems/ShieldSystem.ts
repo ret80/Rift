@@ -8,6 +8,8 @@
  * после чего сразу возвращается на максимум и снова работает.
  *
  * Процент блокировки и скорость восстановления приходят из прокачки.
+ * Сам щит тоже покупается: пока он не куплен, урон идёт в корпус целиком,
+ * а полоски щита не рисуются.
  */
 
 import {
@@ -21,6 +23,8 @@ import {
 
 /** Снимок состояния щита для рендера и HUD. */
 export interface ShieldSnapshot {
+  /** Щит куплен и работает. */
+  owned: boolean;
   /** Запас энергии 0..1. */
   energy: number;
   /** Процент блокируемого урона 0..1. */
@@ -34,6 +38,8 @@ export interface ShieldSnapshot {
 }
 
 export class ShieldSystem {
+  /** Щит куплен в меню прокачки. Пока не куплен — система полностью бездействует. */
+  private owned = false;
   /** Уровень линии «процент щита». */
   private blockLevel = 0;
   /** Прибавка к скорости восстановления из линии прокачки (0..1+, доля). */
@@ -48,6 +54,21 @@ export class ShieldSystem {
 
   /* ======================== Upgrade hooks ======================== */
 
+  /** Куплен ли щит. Пока false — урон не блокируется и полосок нет. */
+  setOwned(owned: boolean): void {
+    this.owned = owned;
+    if (!owned) {
+      this.energy = SHIELD_ENERGY_MAX;
+      this.overloadT = 0;
+      this.flashT = 0;
+    }
+  }
+
+  /** Щит куплен. */
+  isOwned(): boolean {
+    return this.owned;
+  }
+
   /** Задать процент блокировки урона по уровню прокачки. */
   setBlockLevel(level: number): void {
     this.blockLevel = Math.max(0, level);
@@ -58,9 +79,9 @@ export class ShieldSystem {
     this.regenBonus = Math.max(0, level);
   }
 
-  /** Процент блокируемого урона (0..1). */
+  /** Процент блокируемого урона (0..1). Без купленного щита — 0. */
   getBlockPercent(): number {
-    return shieldBlockPercent(this.blockLevel);
+    return this.owned ? shieldBlockPercent(this.blockLevel) : 0;
   }
 
   /** Текущая скорость восстановления энергии, единиц в секунду. */
@@ -93,6 +114,7 @@ export class ShieldSystem {
   /** Снимок для рендера и HUD. */
   getSnapshot(): ShieldSnapshot {
     return {
+      owned: this.owned,
       energy: this.getEnergyRatio(),
       block: this.getBlockPercent(),
       overloaded: this.isOverloaded(),
@@ -108,7 +130,7 @@ export class ShieldSystem {
    * Возвращает урон, который должен дойти до корпуса.
    */
   absorb(dmg: number): number {
-    if (dmg <= 0 || this.overloadT > 0 || this.energy <= 0) return dmg;
+    if (dmg <= 0 || !this.owned || this.overloadT > 0 || this.energy <= 0) return dmg;
 
     const block = this.getBlockPercent();
     const absorbed = dmg * block;
@@ -127,13 +149,14 @@ export class ShieldSystem {
 
   /** Восстановить энергию (пикап щита). */
   recharge(amount: number): void {
-    if (this.overloadT > 0) return;
+    if (!this.owned || this.overloadT > 0) return;
     this.energy = Math.min(SHIELD_ENERGY_MAX, this.energy + amount);
   }
 
   /* ======================== Tick ======================== */
 
   update(dt: number): void {
+    if (!this.owned) return;
     if (this.flashT > 0) this.flashT = Math.max(0, this.flashT - dt);
     if (this.overloadT > 0) {
       this.overloadT = Math.max(0, this.overloadT - dt);
@@ -151,5 +174,4 @@ export class ShieldSystem {
     this.energy = SHIELD_ENERGY_MAX;
     this.overloadT = 0;
     this.flashT = 0;
-  }
-}
+  }}

@@ -46,7 +46,7 @@ export function HudLayer(props: { r: HudRefs; godOn: boolean }) {
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div ref={r.shieldRow} className="flex items-center gap-2">
               <span
                 ref={r.shieldLabel}
                 className="hud-label shrink-0 !text-[7px] sm:!text-[9px] text-[#66e0ff]"

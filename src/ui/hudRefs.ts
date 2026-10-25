@@ -15,6 +15,8 @@ export interface HudRefs {
   shieldFill: MutableRefObject<HTMLDivElement | null>;
   /** Текст процента блокировки щита. */
   shieldLabel: MutableRefObject<HTMLDivElement | null>;
+  /** Контейнер строки щита — скрывается, пока щит не куплен. */
+  shieldRow: MutableRefObject<HTMLDivElement | null>;
   time: MutableRefObject<HTMLDivElement | null>;
   score: MutableRefObject<HTMLDivElement | null>;
   best: MutableRefObject<HTMLDivElement | null>;

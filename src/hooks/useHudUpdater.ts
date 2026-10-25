@@ -51,6 +51,10 @@ export function useHudUpdater(
         r.hpFill.current.style.background = color;
         r.hpFill.current.style.boxShadow = `0 0 7px ${color}`;
       }
+      if (r.shieldRow.current && data.shield) {
+        const s = data.shield;
+        r.shieldRow.current.style.display = s.owned ? "" : "none";
+      }
       if (r.shieldFill.current && data.shield) {
         const s = data.shield;
         const energyPct = Math.max(0, Math.min(1, s.energy)) * 100;

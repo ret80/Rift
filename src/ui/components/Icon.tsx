@@ -24,6 +24,7 @@ export type IconKind =
   | "upgrade-speed"
   | "upgrade-guns"
   | "upgrade-drones"
+  | "upgrade-shield"
   | "upgrade-shieldPercent"
   | "upgrade-shieldRegen"
   /* drones */
@@ -58,6 +59,7 @@ const UPGRADE_COLORS: Record<string, string> = {
   "upgrade-speed": "#7dff9e",
   "upgrade-guns": "#5ef2ff",
   "upgrade-drones": "#c06bff",
+  "upgrade-shield": "#66e0ff",
   "upgrade-shieldPercent": "#66e0ff",
   "upgrade-shieldRegen": "#7cf3ff",
 };
@@ -149,6 +151,13 @@ function getIconPaths(kind: IconKind): React.ReactNode {
         <>
           <polygon points="12,4 20,16 12,13 4,16" />
           <circle cx="12" cy="12" r="9" strokeOpacity="0.4" />
+        </>
+      );
+    case "upgrade-shield":
+      return (
+        <>
+          <path d="M12 3 L20 7 V13 C20 17 16 20 12 21 C8 20 4 17 4 13 V7 Z" />
+          <circle cx="12" cy="12" r="3" />
         </>
       );
     case "upgrade-shieldPercent":

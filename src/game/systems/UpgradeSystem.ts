@@ -80,6 +80,8 @@ export class UpgradeSystem {
     setShieldBlockLevel: (v: number) => void;
     /** Задать уровень линии «скорость восстановления щита». */
     setShieldRegenLevel: (v: number) => void;
+    /** Задать факт покупки щита. */
+    setShieldOwned: (v: boolean) => void;
     /** Восстановить корпус игрока до максимума. */
     resetHp?: () => void;
   }): void {
@@ -88,6 +90,7 @@ export class UpgradeSystem {
     targets.setMaxHp(up.baseHp);
     targets.setWeaponUpgrades(up);
     targets.setSpeedMult(up.speedMult);
+    targets.setShieldOwned(up.shieldOwned);
     targets.setShieldBlockLevel(up.shieldBlockLevel);
     targets.setShieldRegenLevel(up.shieldRegenLevel);
     if (targets.resetHp) {

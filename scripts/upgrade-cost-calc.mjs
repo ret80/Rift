@@ -44,6 +44,7 @@ const CURRENT_TIERS = {
   speed:         { baseCost: 16,  costStep: 12,  maxLevel: 8  },
   guns:          { baseCost: 214, costStep: 160, maxLevel: 4  },
   drones:        { baseCost: 341, costStep: 239, maxLevel: 7  },
+  shield:        { baseCost: 420, costStep: 0,   maxLevel: 1  },
   shieldPercent: { baseCost: 160, costStep: 120, maxLevel: 7  },
   shieldRegen:   { baseCost: 110, costStep: 85,  maxLevel: 5  },
 };
@@ -111,6 +112,7 @@ const POWER_WEIGHT = {
   speed:         0.45, // мобильность (не боевая)
   guns:          1.15, // огневая мощь (мультипликативная)
   drones:        1.3,  // огневая мощь (авто-DPS, самый сильный)
+  shield:        1.2,  // защита: покупка открывает линии щита
   shieldPercent: 1.25, // защита: постоянный срез урона
   shieldRegen:   1.1,  // защита: быстрее возвращается щит
 };
@@ -122,8 +124,16 @@ const POWER_WEIGHT = {
  * даёт те же числа: base восстанавливается из округлённого шага.
  */
 function fitTier(currentTier, targetTotal) {
-  const k = currentTier.baseCost / currentTier.costStep; // 1.25..1.67
   const n = currentTier.maxLevel;
+  // Разовые покупки (maxLevel 1, step 0) не пересчитываются.
+  if (n <= 1) {
+    return {
+      baseCost: currentTier.baseCost,
+      costStep: 0,
+      maxLevel: n,
+    };
+  }
+  const k = currentTier.baseCost / currentTier.costStep; // 1.25..1.67
   // target = n * base + step * n(n-1)/2, base = k * step
   const step = Math.max(1, Math.round(targetTotal / (k * n + (n * (n - 1)) / 2)));
   const base = Math.max(1, Math.round(k * step));

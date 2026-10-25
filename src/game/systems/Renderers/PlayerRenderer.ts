@@ -25,6 +25,8 @@ export interface PlayerRenderState {
   pvy: number;
   /** Запас энергии щита 0..1. */
   shieldEnergy: number;
+  /** Щит куплен и работает. */
+  shieldOwned: boolean;
   /** Щит в перезагрузке. */
   shieldOverloaded: boolean;
   /** Остаток вспышки щита 0..1. */
@@ -39,6 +41,8 @@ export interface PlayerBonusSnapshot {
 
 /** Снимок щита для buildState. */
 export interface PlayerShieldSnapshot {
+  /** Щит куплен и работает. */
+  owned: boolean;
   /** Запас энергии 0..1. */
   energy: number;
   /** Щит в перезагрузке. */
@@ -75,6 +79,7 @@ export function buildPlayerState(
     thrusting,
     pvx, pvy,
     shieldEnergy: shield.energy,
+    shieldOwned: shield.owned,
     shieldOverloaded: shield.overloaded,
     shieldFlash: shield.flash,
   };
@@ -128,7 +133,7 @@ export function renderPlayer(
  * энергии; при поглощении урона контур мигает, при перезагрузке щита его нет.
  */
 function renderShieldStripes(R: Renderer, player: PlayerRenderState, time: number): void {
-  if (player.shieldOverloaded) return;
+  if (!player.shieldOwned || player.shieldOverloaded) return;
   const energy = clamp(player.shieldEnergy, 0, 1);
   if (energy <= 0.001) return;
 

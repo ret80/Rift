@@ -121,10 +121,137 @@ function getUpgradeValue(key: keyof Omit<PlayerUpgrades, "parts">, level: number
     case "speed": return `${(100 + level * 5).toFixed(0)}%`;
     case "guns": return `${1 + level}`;
     case "drones": return `${1 + level}`;
+    case "shield": return level > 0 ? "ON" : "OFF";
     case "shieldPercent": return `${Math.round(shieldBlockPercent(level) * 100)}%`;
     case "shieldRegen": return `${shieldRegenPerSecond(level).toFixed(1)}/с`;
     default: return `${level}`;
   }
+}
+
+/* ======================== Shield group ======================== */
+
+/** Оформление строки линии прокачки (общий стиль для оружия, дронов и щита). */
+const STAT_ROW_CLASS =
+  "flex items-center justify-between gap-3 rounded border " +
+  "border-[#3d4f6d]/25 bg-[#04070d]/40 px-3 py-2";
+
+/**
+ * Группа «Щит»: сперва покупка самого щита с базовыми параметрами,
+ * затем — его линии «процент» и «восстановление».
+ */
+function ShieldGroup(props: {
+  upgrades: PlayerUpgrades;
+  free: boolean;
+  onPurchase: (key: keyof Omit<PlayerUpgrades, "parts">) => void;
+}) {
+  const t = useT();
+  const { upgrades, free, onPurchase } = props;
+  const owned = upgrades.shield > 0;
+  const buyCost = upgradeCost("shield", upgrades.shield);
+  const canBuy = !owned && (free || upgrades.parts >= buyCost);
+
+  return (
+    <div
+      className={`rounded border px-4 py-3 ${
+        owned
+          ? "border-[#66e0ff]/40 bg-[#66e0ff]/5"
+          : "border-[#3d4f6d]/40 bg-[#0a1020]/60"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <Icon kind="upgrade-shield" />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-bold text-[#eaffff]">
+                {t("upgrade.shield")}
+              </span>
+              {owned ? (
+                <span className="font-mono text-[9px] tracking-[0.15em] text-[#66e0ff]">
+                  {t("upgrade.shieldOwned")}
+                </span>
+              ) : null}
+            </div>
+            <div className="text-[10px] text-[#6f86a8]">
+              {owned
+                ? t("upgrade.shieldDesc")
+                : t("upgrade.shieldBuyDesc", {
+                    p: Math.round(shieldBlockPercent(0) * 100),
+                    r: shieldRegenPerSecond(0).toFixed(1),
+                  })}
+            </div>
+          </div>
+        </div>
+        {!owned && (
+          <button
+            onClick={() => onPurchase("shield")}
+            disabled={!canBuy}
+            className={`clip-btn px-4 py-2 text-xs font-mono tracking-[0.15em] transition-all ${
+              canBuy
+                ? "cursor-pointer border border-[#66e0ff]/60 bg-[#66e0ff]/15 " +
+                  "text-[#eaffff] hover:bg-[#66e0ff]/25"
+                : "cursor-not-allowed border border-[#3d4f6d]/30 " +
+                  "bg-[#0a1020]/50 text-[#3d4f6d]"
+            }`}
+          >
+            ⚙ {buyCost}
+          </button>
+        )}
+      </div>
+
+      {owned && (
+        <div className="mt-3 flex flex-col gap-1.5">
+          {(["shieldPercent", "shieldRegen"] as const).map((key) => {
+            const level = upgrades[key];
+            const tier = UPGRADE_TIERS[key];
+            const maxed = level >= tier.maxLevel;
+            const cost = upgradeCost(key, level);
+            const affordable = maxed ? false : free || upgrades.parts >= cost;
+            return (
+              <div key={key} className={STAT_ROW_CLASS}>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-[#eaffff]">
+                      {t(UPGRADE_LABEL[key].label)}
+                    </span>
+                    <span className="font-mono text-[9px] text-[#6f86a8]">
+                      {maxed ? "/// MAX" : `lv.${level}`}
+                    </span>
+                  </div>
+                  <div className="text-[9px] text-[#6f86a8]">
+                    {t(UPGRADE_LABEL[key].desc)} ·{" "}
+                    <span className="text-[#5ef2ff]">
+                      {getUpgradeValue(key, level)}
+                    </span>
+                  </div>
+                </div>
+                {maxed ? (
+                  <div className="font-mono text-[9px] tracking-[0.2em] text-[#5ef2ff]">
+                    MAX
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => onPurchase(key)}
+                    disabled={!affordable}
+                    className={`clip-btn px-3 py-1.5 text-[10px] font-mono tracking-[0.15em] ` +
+                      `transition-all ${
+                      affordable
+                        ? "cursor-pointer border border-[#5ef2ff]/50 " +
+                          "bg-[#5ef2ff]/15 text-[#eaffff] hover:bg-[#5ef2ff]/25"
+                        : "cursor-not-allowed border border-[#3d4f6d]/30 " +
+                          "bg-[#0a1020]/50 text-[#3d4f6d]"
+                    }`}
+                  >
+                    ⚙ {cost}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ======================== Armory (weapons) ======================== */
@@ -223,7 +350,7 @@ export function UpgradeScreen(props: {
   const [tab, setTab] = useState<"ship" | "armory" | "drones">("ship");
   const [upgrades, setUpgrades] = useState<PlayerUpgrades>({
     parts: 0, hull: 0, speed: 0, guns: 0, drones: 0,
-    shieldPercent: 0, shieldRegen: 0,
+    shield: 0, shieldPercent: 0, shieldRegen: 0,
   });
   const [loadout, setLoadout] = useState<WeaponLoadout | null>(null);
   const [droneLoadout, setDroneLoadout] = useState<DroneLoadout | null>(null);
@@ -295,7 +422,12 @@ export function UpgradeScreen(props: {
     if (success) refresh();
   };
 
-  const upgradeKeys = Object.keys(UPGRADE_TIERS) as Array<keyof Omit<PlayerUpgrades, "parts">>;
+  /** Линии, которые рисуются отдельно внутри группы «Щит». */
+  const SHIELD_KEYS: Array<keyof Omit<PlayerUpgrades, "parts">> = [
+    "shield", "shieldPercent", "shieldRegen",
+  ];
+  const upgradeKeys = (Object.keys(UPGRADE_TIERS) as Array<keyof Omit<PlayerUpgrades, "parts">>)
+    .filter((key) => !SHIELD_KEYS.includes(key));
 
   return (
     <div
@@ -370,6 +502,11 @@ export function UpgradeScreen(props: {
                   onPurchase={handlePurchase}
                 />
               ))}
+              <ShieldGroup
+                upgrades={upgrades}
+                free={free}
+                onPurchase={handlePurchase}
+              />
             </div>
           ) : tab === "armory" ? (
             <div>

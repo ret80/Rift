@@ -14,6 +14,8 @@ export interface BonusRenderState {
 
 /** Снимок щита для рендера. */
 export interface ShieldRenderState {
+  /** Щит куплен и работает. */
+  owned: boolean;
   /** Запас энергии 0..1. */
   energy: number;
   /** Процент блокируемого урона 0..1. */
