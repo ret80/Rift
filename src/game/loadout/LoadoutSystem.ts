@@ -29,6 +29,8 @@ export interface LoadoutSources {
   getBonusSlots: () => LoadoutSlotData[];
   /** Слоты выданных активных способностей. */
   getAbilitySlots: () => LoadoutSlotData[];
+  /** Слот постоянной системы (щит), пока она куплена. */
+  getSystemSlots: () => LoadoutSlotData[];
 }
 
 export class LoadoutSystem {
@@ -72,6 +74,7 @@ export class LoadoutSystem {
   private build(): LoadoutSlotData[] {
     const out: LoadoutSlotData[] = [
       ...this.sources.getWeaponSlots(),
+      ...this.sources.getSystemSlots(),
       ...this.sources.getBonusSlots(),
       ...this.sources.getAbilitySlots(),
     ];

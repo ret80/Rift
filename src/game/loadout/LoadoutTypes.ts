@@ -34,13 +34,14 @@ export type LoadoutSlotKind =
   | "missile"
   | "drone"
   | "laser"
+  /* постоянная система */
+  | "shield_energy"
   /* временные бонусы */
   | "rate"
   | "guns"
   /* мгновенные бонусы */
   | "heal"
   | "mineral"
-  | "shield"
   /* активные способности */
   | "quantum_swap";
 

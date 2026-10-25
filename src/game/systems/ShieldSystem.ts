@@ -20,6 +20,15 @@ import {
   shieldBlockPercent,
   shieldRegenPerSecond,
 } from "../balance/player";
+import type { LoadoutSlotData, LoadoutSlotMeta } from "../loadout/LoadoutTypes";
+
+/** Оформление слота щита в строке снаряжения. */
+const SHIELD_SLOT_META: LoadoutSlotMeta = {
+  icon: "pickup-shield",
+  color: "#66e0ff",
+  labelKey: "hud.loadout.shield",
+  order: 5,
+};
 
 /** Снимок состояния щита для рендера и HUD. */
 export interface ShieldSnapshot {
@@ -121,6 +130,20 @@ export class ShieldSystem {
       overloadLeft: this.overloadT,
       flash: this.flashT > 0 ? this.flashT / SHIELD_FLASH_TIME : 0,
     };
+  }
+
+  /**
+   * Слот щита для строки снаряжения.
+   * Кольцо заполняется остатком энергии; пока щит не куплен, слота нет.
+   */
+  getSlots(): LoadoutSlotData[] {
+    if (!this.owned) return [];
+    return [{
+      kind: "shield_energy",
+      meta: SHIELD_SLOT_META,
+      progress: this.getEnergyRatio(),
+      remaining: this.overloadT,
+    }];
   }
 
   /* ======================== Combat ======================== */

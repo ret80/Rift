@@ -286,6 +286,7 @@ export class GameContext {
         getWeaponSlots: () => this.weaponManager.getSlots(),
         getBonusSlots: () => this.bonusManager.getSlots(),
         getAbilitySlots: () => this.abilitySystem.getSlots(),
+        getSystemSlots: () => this.shieldSystem.getSlots(),
       },
       this.eventBus,
     );

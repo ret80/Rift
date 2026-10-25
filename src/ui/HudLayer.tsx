@@ -46,20 +46,6 @@ export function HudLayer(props: { r: HudRefs; godOn: boolean }) {
                 />
               </div>
             </div>
-            <div ref={r.shieldRow} className="flex items-center gap-2">
-              <span
-                ref={r.shieldLabel}
-                className="hud-label shrink-0 !text-[7px] sm:!text-[9px] text-[#66e0ff]"
-              >
-                {t("hud.shield")}
-              </span>
-              <div className="h-[4px] min-w-0 flex-1 bg-[#66e0ff]/12">
-                <div
-                  ref={r.shieldFill}
-                  className="h-full w-full bg-[#66e0ff] shadow-[0_0_6px_#66e0ff] transition-[width] duration-150"
-                />
-              </div>
-            </div>
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <div ref={r.minerals} className="flex items-center gap-1 text-[9px] font-bold tracking-[0.08em] text-[#7dffb8] sm:text-[10px]">

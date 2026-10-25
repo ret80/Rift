@@ -36,14 +36,6 @@ export const INSTANT_BONUS_META: Record<BonusKind, BonusMeta | undefined> = {
     order: 7,
     duration: 0,
   },
-  shield: {
-    kind: "shield",
-    icon: "pickup-shield",
-    color: "#66e0ff",
-    labelKey: "hud.loadout.shield",
-    order: 8,
-    duration: 0,
-  },
 };
 
 /**
@@ -85,12 +77,13 @@ const PICKUP_BONUS_MAP: Record<PickupKind, PickupBonusMapping> = {
   rate60: { bonusId: "rate", bonusKind: "rate" },
   gun: { bonusId: "guns", bonusKind: "guns" },
   // Мгновенные бонусы
-  shield: { bonusId: null, bonusKind: "shield" },
   hp: { bonusId: null, bonusKind: "heal" },
   heal25: { bonusId: null, bonusKind: "heal" },
   heal50: { bonusId: null, bonusKind: "heal" },
   heal100: { bonusId: null, bonusKind: "heal" },
   mineral: { bonusId: null, bonusKind: "mineral" },
+  // Пикапы щита заряжают энергию щита — в строке живёт постоянный слот щита.
+  shield: { bonusId: null, bonusKind: null },
   // Пикапы оружия — не являются бонусами
   drone: { bonusId: null, bonusKind: null },
   missile: { bonusId: null, bonusKind: null },

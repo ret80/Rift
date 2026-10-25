@@ -20,7 +20,7 @@ import type { LoadoutSlotMeta } from "../LoadoutTypes";
 export type BonusId = "rate" | "guns";
 
 /** Идентификаторы мгновенных бонусов (без состояния и таймера). */
-export type InstantBonusId = "heal" | "mineral" | "shield";
+export type InstantBonusId = "heal" | "mineral";
 
 /** Все виды бонусов, видимых в строке снаряжения. */
 export type BonusKind = BonusId | InstantBonusId;
