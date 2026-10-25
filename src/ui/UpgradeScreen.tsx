@@ -339,6 +339,39 @@ function copyDroneLoadout(source: DroneLoadout): DroneLoadout {
   return { entries };
 }
 
+/* ======================== Tabs ======================== */
+
+/** Кнопка вкладки: активная отличается рамкой, заливкой и линией-индикатором снизу. */
+function TabButton(props: {
+  label: string;
+  active: boolean;
+  activeClass: string;
+  lineClass: string;
+  onClick: () => void;
+}) {
+  const { label, active, activeClass, lineClass, onClick } = props;
+  return (
+    <div className="relative">
+      <button
+        onClick={onClick}
+        className={`clip-btn px-5 py-2 text-xs font-mono tracking-[0.2em] transition-all ${
+          active
+            ? `border ${activeClass} text-[#eaffff]`
+            : "border border-[#3d4f6d]/30 bg-[#0a1020]/50 text-[#6f86a8] hover:text-[#eaffff]"
+        }`}
+      >
+        {label}
+      </button>
+      {active && (
+        <span
+          className={`absolute inset-x-2 -bottom-1 h-[2px] ${lineClass}`}
+          aria-hidden="true"
+        />
+      )}
+    </div>
+  );
+}
+
 export function UpgradeScreen(props: {
   game: Game | null;
   detailsOn: boolean;
@@ -347,7 +380,7 @@ export function UpgradeScreen(props: {
 }) {
   const t = useT();
   const free = props.detailsOn;
-  const [tab, setTab] = useState<"ship" | "armory" | "drones">("ship");
+  const [tab, setTab] = useState<"ship" | "armory" | "drones" | "bonuses">("ship");
   const [upgrades, setUpgrades] = useState<PlayerUpgrades>({
     parts: 0, hull: 0, speed: 0, guns: 0, drones: 0,
     shield: 0, shieldPercent: 0, shieldRegen: 0,
@@ -436,8 +469,8 @@ export function UpgradeScreen(props: {
       aria-modal="true"
       aria-label={t("upgrade.title")}
     >
-      <div className="anim-fade-up w-[min(620px,96vw)] max-h-[90vh]">
-        <div className="hud-panel p-5 sm:p-7">
+      <div className="anim-fade-up flex h-[min(640px,90vh)] w-[min(620px,96vw)] flex-col">
+        <div className="hud-panel flex min-h-0 flex-1 flex-col p-5 sm:p-7">
           {/* Header */}
           <div className="mb-5 text-center">
             <div className="hud-label mb-2">{t("upgrade.title")}</div>
@@ -455,44 +488,39 @@ export function UpgradeScreen(props: {
 
           {/* Tabs */}
           <div className="mb-4 flex justify-center gap-2">
-            <button
+            <TabButton
+              label={t("upgrade.tabShip")}
+              active={tab === "ship"}
+              activeClass="border-[#5ef2ff]/80 bg-[#5ef2ff]/25"
+              lineClass="bg-[#5ef2ff] shadow-[0_0_8px_#5ef2ff]"
               onClick={() => setTab("ship")}
-              className={`clip-btn px-5 py-2 text-xs font-mono tracking-[0.2em] transition-all ${
-                tab === "ship"
-                  ? "border border-[#5ef2ff]/60 bg-[#5ef2ff]/20 text-[#eaffff]"
-                  : "border border-[#3d4f6d]/30 bg-[#0a1020]/50 text-[#6f86a8] hover:text-[#eaffff]"
-              }`}
-            >
-              {t("upgrade.tabShip")}
-            </button>
-            <button
+            />
+            <TabButton
+              label={t("upgrade.tabArmory")}
+              active={tab === "armory"}
+              activeClass="border-[#5ef2ff]/80 bg-[#5ef2ff]/25"
+              lineClass="bg-[#5ef2ff] shadow-[0_0_8px_#5ef2ff]"
               onClick={() => setTab("armory")}
-              className={`clip-btn px-5 py-2 text-xs font-mono tracking-[0.2em] transition-all ${
-                tab === "armory"
-                  ? "border border-[#5ef2ff]/60 bg-[#5ef2ff]/20 text-[#eaffff]"
-                  : "border border-[#3d4f6d]/30 bg-[#0a1020]/50 text-[#6f86a8] hover:text-[#eaffff]"
-              }`}
-            >
-              {t("upgrade.tabArmory")}
-            </button>
-            <button
+            />
+            <TabButton
+              label={t("upgrade.tabDrones")}
+              active={tab === "drones"}
+              activeClass="border-[#ff9de0]/80 bg-[#ff9de0]/25"
+              lineClass="bg-[#ff9de0] shadow-[0_0_8px_#ff9de0]"
               onClick={() => setTab("drones")}
-              className={`clip-btn px-5 py-2 text-xs font-mono tracking-[0.2em] transition-all ${
-                tab === "drones"
-                  ? "border border-[#ff9de0]/60 bg-[#ff9de0]/20 text-[#eaffff]"
-                  : "border border-[#3d4f6d]/30 bg-[#0a1020]/50 text-[#6f86a8] hover:text-[#eaffff]"
-              }`}
-            >
-              {t("upgrade.tabDrones")}
-            </button>
+            />
+            <TabButton
+              label={t("upgrade.tabBonuses")}
+              active={tab === "bonuses"}
+              activeClass="border-[#7dff9e]/80 bg-[#7dff9e]/25"
+              lineClass="bg-[#7dff9e] shadow-[0_0_8px_#7dff9e]"
+              onClick={() => setTab("bonuses")}
+            />
           </div>
 
           {tab === "ship" ? (
             /* Upgrade list */
-            <div
-              className="flex flex-col gap-2 overflow-y-auto pr-1"
-              style={{ maxHeight: "calc(90vh - 260px)" }}
-            >
+            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
               {upgradeKeys.map((upgradeKey) => (
                 <UpgradeRow
                   key={upgradeKey}
@@ -509,9 +537,10 @@ export function UpgradeScreen(props: {
               />
             </div>
           ) : tab === "armory" ? (
-            <div>
+            <div className="flex min-h-0 flex-1 flex-col">
               <div
-                className="mb-2 flex items-center justify-center gap-2 text-[11px] tracking-[0.2em] text-[#6f86a8]"
+                className="mb-2 flex shrink-0 items-center justify-center gap-2
+                  text-[11px] tracking-[0.2em] text-[#6f86a8]"
                 aria-label={`Weapon slots: ${usedWeaponSlots} of ${weaponSlots}`}
               >
                 <span className="font-mono font-bold text-[#5ef2ff]">
@@ -519,10 +548,7 @@ export function UpgradeScreen(props: {
                 </span>
                 <span>{t("upgrade.weapon.slots")}</span>
               </div>
-              <div
-                className="flex flex-col gap-2 overflow-y-auto pr-1"
-                style={{ maxHeight: "calc(90vh - 300px)" }}
-              >
+              <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
               {ARMORY_WEAPONS.map((weapon) => {
                 const entry = loadout?.[weapon.id];
                 const owned = entry?.owned ?? false;
@@ -637,11 +663,15 @@ export function UpgradeScreen(props: {
               })}
               </div>
             </div>
+          ) : tab === "bonuses" ? (
+            /* Вкладка «Бонусы»: бонусов из «Корабля» нет, список пуст */
+            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1" />
           ) : (
             /* Drone hangar list */
-            <div>
+            <div className="flex min-h-0 flex-1 flex-col">
               <div
-                className="mb-2 flex items-center justify-center gap-2 text-[11px] tracking-[0.2em] text-[#6f86a8]"
+                className="mb-2 flex shrink-0 items-center justify-center gap-2
+                  text-[11px] tracking-[0.2em] text-[#6f86a8]"
                 aria-label={`Drone slots: ${usedDroneSlots} of ${droneSlots}`}
               >
                 <span className="font-mono font-bold text-[#ff9de0]">
@@ -649,10 +679,7 @@ export function UpgradeScreen(props: {
                 </span>
                 <span>{t("upgrade.drone.slots")}</span>
               </div>
-              <div
-                className="flex flex-col gap-2 overflow-y-auto pr-1"
-                style={{ maxHeight: "calc(90vh - 300px)" }}
-              >
+              <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
               {DRONE_CATALOG.map((drone) => {
                 const entry = droneLoadout?.entries[drone.id];
                 const count = entry?.count ?? 0;
@@ -765,7 +792,7 @@ export function UpgradeScreen(props: {
           )}
 
           {/* Footer */}
-          <div className="mt-5 border-t border-[#5ef2ff]/15 pt-4 text-center">
+          <div className="mt-5 shrink-0 border-t border-[#5ef2ff]/15 pt-4 text-center">
             <button
               onClick={props.onBack}
               className="clip-btn px-8 py-3 text-sm transition-colors hover:bg-[#5ef2ff]/10"
