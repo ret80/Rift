@@ -79,7 +79,7 @@ export const LoadoutBar = forwardRef<LoadoutBarHandle>(function LoadoutBar(_prop
               r={RING_R}
               transform="rotate(-90 15 15)"
               strokeDasharray={RING_C}
-              strokeDashoffset={RING_C}
+              strokeDashoffset={RING_C * (1 - slot.progress)}
             />
           </svg>
           <Icon
