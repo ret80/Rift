@@ -47,6 +47,10 @@ const CURRENT_TIERS = {
   shield:        { baseCost: 420, costStep: 0,   maxLevel: 1  },
   shieldPercent: { baseCost: 160, costStep: 120, maxLevel: 7  },
   shieldRegen:   { baseCost: 110, costStep: 85,  maxLevel: 5  },
+  fireRate:      { baseCost: 121, costStep: 81,  maxLevel: 10 },
+  rateDuration:  { baseCost: 145, costStep: 116, maxLevel: 5  },
+  healDuration:  { baseCost: 145, costStep: 116, maxLevel: 5  },
+  healRate:      { baseCost: 121, costStep: 81,  maxLevel: 10 },
 };
 
 // upgrades.ts: cost(l) = baseCost + costStep * l
@@ -115,6 +119,10 @@ const POWER_WEIGHT = {
   shield:        1.2,  // защита: покупка открывает линии щита
   shieldPercent: 1.25, // защита: постоянный срез урона
   shieldRegen:   1.1,  // защита: быстрее возвращается щит
+  fireRate:      1.0,  // огневая мощь: темп стрельбы
+  rateDuration:  1.2,  // огневая мощь: дольше действует бонус темпа
+  healDuration:  1.2,  // защита: дольше действует лечение
+  healRate:      1.0,  // защита: сильнее лечение в секунду
 };
 
 /**

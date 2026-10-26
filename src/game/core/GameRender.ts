@@ -80,7 +80,6 @@ export class GameRender {
       rateMult: ctx.bonusManager.getRateMult(),
       rateT: ctx.bonusManager.getRateT(),
       drones: ctx.weaponManager.getInstanceCount("drone"),
-      minerals: ctx.minerals,
       parts: ctx.upgradeSystem.getParts(),
       shield: ctx.shieldSystem.getSnapshot(),
       loadout: ctx.loadoutSystem.getSlots(),

@@ -76,6 +76,12 @@ export class UpgradeSystem {
     setWeaponUpgrades: (upgrades: WeaponUpgrades) => void;
     /** Задать постоянный множитель скорости игрока. */
     setSpeedMult: (v: number) => void;
+    /** Задать множитель длительности бонуса «темп огня». */
+    setRateDurationMult: (v: number) => void;
+    /** Задать множитель длительности бонуса «здоровье». */
+    setHealDurationMult: (v: number) => void;
+    /** Задать множитель скорости восстановления бонуса «здоровье». */
+    setHealRateMult: (v: number) => void;
     /** Задать уровень линии «процент щита». */
     setShieldBlockLevel: (v: number) => void;
     /** Задать уровень линии «скорость восстановления щита». */
@@ -90,6 +96,9 @@ export class UpgradeSystem {
     targets.setMaxHp(up.baseHp);
     targets.setWeaponUpgrades(up);
     targets.setSpeedMult(up.speedMult);
+    targets.setRateDurationMult(up.rateDurationMult);
+    targets.setHealDurationMult(up.healDurationMult);
+    targets.setHealRateMult(up.healRateMult);
     targets.setShieldOwned(up.shieldOwned);
     targets.setShieldBlockLevel(up.shieldBlockLevel);
     targets.setShieldRegenLevel(up.shieldRegenLevel);

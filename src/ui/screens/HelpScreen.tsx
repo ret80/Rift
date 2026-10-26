@@ -92,10 +92,6 @@ export default function HelpScreen(props: { onBack: () => void }) {
               <Icon kind="pickup-drone" />
               <span>{t("help.allyDrone")}</span>
             </div>
-            <div className="flex items-center gap-3 text-[13px] text-[#9db4d6]">
-              <Icon kind="pickup-mineral" />
-              <span>{t("help.asteroid")}</span>
-            </div>
           </div>
           </div>
 

@@ -13,7 +13,6 @@ export type PickupDisplay =
   | "rate"
   | "gun"
   | "shield"
-  | "mineral"
   | "drone"
   | "missile"
   | "laser"
@@ -21,12 +20,11 @@ export type PickupDisplay =
 
 /** Вид эффекта подбора пикапа. */
 export type PickupEffect =
-  | { type: "heal"; amount: number }
+  | { type: "heal" }
   | { type: "bonus" }
   | { type: "shield"; amount: number }
   | { type: "weapon"; id: "cannon" | "missile" | "drone" | "laser" }
-  | { type: "ability"; id: "quantum_swap" }
-  | { type: "mineral"; amount: number; score: number };
+  | { type: "ability"; id: "quantum_swap" };
 
 /** Описание пикапа: эффект и канонический ключ отображения. */
 export interface PickupDefinition {
@@ -40,17 +38,13 @@ export interface PickupDefinition {
 
 /** Каталог всех пикапов. */
 export const PICKUP_CATALOG: Record<PickupKind, PickupDefinition> = {
-  heal25: { display: "heal", color: C.heal, effect: { type: "heal", amount: 25 } },
-  heal50: { display: "heal", color: C.heal, effect: { type: "heal", amount: 50 } },
-  heal100: { display: "heal", color: C.heal, effect: { type: "heal", amount: 100 } },
-  hp: { display: "heal", color: C.heal, effect: { type: "heal", amount: 25 } },
+  heal: { display: "heal", color: C.heal, effect: { type: "heal" } },
   rate20: { display: "rate", color: C.fighter, effect: { type: "bonus" } },
   rate40: { display: "rate", color: C.fighter, effect: { type: "bonus" } },
   rate60: { display: "rate", color: C.fighter, effect: { type: "bonus" } },
   rate: { display: "rate", color: C.fighter, effect: { type: "bonus" } },
   gun: { display: "gun", color: C.player, effect: { type: "bonus" } },
   shield: { display: "shield", color: C.shield, effect: { type: "shield", amount: 40 } },
-  mineral: { display: "mineral", color: C.heal, effect: { type: "mineral", amount: 1, score: 50 } },
   drone: { display: "drone", color: C.mint, effect: { type: "weapon", id: "drone" } },
   missile: { display: "missile", color: C.bullet, effect: { type: "weapon", id: "missile" } },
   laser: { display: "laser", color: "#ff4d6d", effect: { type: "weapon", id: "laser" } },

@@ -116,7 +116,6 @@ export class GameContext {
   /** Стартовая волна (для отладки/URL-параметра). */
   startWave = 1;
 
-  private _minerals = 0;
   private countId = 0;
   private _paused = false;
 
@@ -206,6 +205,7 @@ export class GameContext {
     );
 
     this.bonusManager = new BonusManager();
+    this.bonusManager.setHealHook((amount) => this.playerSystem.heal(amount));
     this.shieldSystem = new ShieldSystem();
     this.grazeSystem = new GrazeSystem(this.eventBus, this.fx, this.scoringSystem);
     this.playerSystem = new PlayerSystem(
@@ -269,13 +269,10 @@ export class GameContext {
     });
 
     this.applyPickupSystem = new ApplyPickupSystem({
-      heal: (amount: number) => this.playerSystem.heal(amount),
       applyBonus: (pickup: PickupKind) => this.bonusManager.applyPickup(pickup),
       rechargeShield: (amount: number) => this.shieldSystem.recharge(amount),
       equipWeapon: (id: WeaponId) => this.weaponManager.equipWeapon(id),
       grantAbility: (id) => this.abilitySystem.grant(id),
-      addMinerals: (count: number) => this.addMinerals(count),
-      addScore: (amount: number) => this.scoringSystem.add(amount),
       playPickupSound: (kind: string) => this.audio.playPickupSound(kind as PickupKind),
     });
 
@@ -439,20 +436,6 @@ export class GameContext {
     };
   }
 
-  // ===== Minerals =====
-
-  get minerals(): number {
-    return this._minerals;
-  }
-
-  addMinerals(count: number): void {
-    this._minerals += count;
-  }
-
-  resetMinerals(): void {
-    this._minerals = 0;
-  }
-
   // ===== Upgrades application (dedup between start/refresh) =====
 
   applyUpgrades(withResetHp: boolean): void {
@@ -465,6 +448,9 @@ export class GameContext {
       setShieldBlockLevel: (v) => this.shieldSystem.setBlockLevel(v),
       setShieldRegenLevel: (v) => this.shieldSystem.setRegenLevel(v),
       setShieldOwned: (v) => this.shieldSystem.setOwned(v),
+      setRateDurationMult: (v) => this.bonusManager.setRateDurationMult(v),
+      setHealDurationMult: (v) => this.bonusManager.setHealDurationMult(v),
+      setHealRateMult: (v) => this.bonusManager.setHealRateMult(v),
       ...(withResetHp ? { resetHp: () => this.playerSystem.resetHp() } : {}),
     });
   }

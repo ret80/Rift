@@ -7,17 +7,13 @@ import type { EnemyKind } from "./enemies";
 /* ------------------------------- pickup kinds ------------------------------- */
 
 export type PickupKind =
-  | "heal25"
-  | "heal50"
-  | "heal100"
+  | "heal"
   | "rate20"
   | "rate40"
   | "rate60"
   | "gun"
   | "drone"
   | "shield"
-  | "mineral"
-  | "hp"
   | "rate"
   | "missile"
   | "laser"
@@ -25,17 +21,13 @@ export type PickupKind =
 
 /** All possible pickup kinds in display order */
 export const ALL_PICKUP_KINDS: PickupKind[] = [
-  "heal25",
-  "heal50",
-  "heal100",
+  "heal",
   "rate20",
   "rate40",
   "rate60",
   "gun",
   "drone",
   "shield",
-  "mineral",
-  "hp",
   "rate",
   "missile",
   "laser",

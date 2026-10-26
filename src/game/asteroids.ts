@@ -1,13 +1,13 @@
 /* Infinite asteroid belt, chunk-generated like the starfield.
    Big rocks always split, mediums sometimes do, smalls never.
-   Every rock can drop a mineral. The wave zone repels rocks. */
+   The wave zone repels rocks. */
 
 import type { Renderer } from "./render";
 import type { AudioManager } from "./systems/AudioManager";
 import type { Fx } from "./fx";
 import type { EventBus } from "./core/EventBus";
 import { softResolveCollision } from "./systems/EntityCollision";
-import { TAU, rand, clamp, mulberry32, rgba } from "./math";
+import { TAU, clamp, mulberry32, rgba } from "./math";
 import type { AsteroidKind, PickupKind } from "./balance";
 import { massForRadius } from "./balance";
 
@@ -274,12 +274,6 @@ export class AsteroidField {
     } else if (a.kind === "medium" && Math.random() < 0.7) {
       spawnFrag("small");
       spawnFrag("small");
-    }
-
-    // minerals tumble out of every rock type
-    const dropChance = a.kind === "large" ? 0.7 : a.kind === "medium" ? 0.4 : 0.25;
-    if (Math.random() < dropChance) {
-      this.h.spawnPickup("mineral", a.x + rand(-10, 10), a.y + rand(-10, 10), rand(-40, 40), rand(-40, 40));
     }
   }
 

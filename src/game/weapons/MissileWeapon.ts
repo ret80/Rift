@@ -109,13 +109,13 @@ export class MissileWeapon implements Weapon {
 
     this.fire(ctx, target);
     this.port = this.port === 0 ? 1 : 0;
-    this.cooldown = MISSILE_LAUNCH_INTERVAL * this.reloadMult;
+    this.cooldown = (MISSILE_LAUNCH_INTERVAL * this.reloadMult) / ctx.bonuses.rateMult;
   }
 
-  getSlot(): WeaponSlotState {
+  getSlot(ctx: WeaponContext): WeaponSlotState {
     // Купленная ракетница бессрочная: кольцо показывает перезарядку.
     if (this.owned) {
-      const max = MISSILE_LAUNCH_INTERVAL * this.reloadMult;
+      const max = (MISSILE_LAUNCH_INTERVAL * this.reloadMult) / ctx.bonuses.rateMult;
       return {
         id: this.id,
         meta: this.meta,

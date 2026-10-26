@@ -147,13 +147,13 @@ export class LaserWeapon implements Weapon {
     if (!target) return;
 
     this.fire(ctx, target);
-    this.fireCd = LASER_FIRE_CD * this.reloadMult;
+    this.fireCd = (LASER_FIRE_CD * this.reloadMult) / ctx.bonuses.rateMult;
   }
 
-  getSlot(): WeaponSlotState {
+  getSlot(ctx: WeaponContext): WeaponSlotState {
     // Купленный лазер бессрочный: кольцо показывает перезарядку, как у пушки.
     if (this.owned) {
-      const max = LASER_FIRE_CD * this.reloadMult;
+      const max = (LASER_FIRE_CD * this.reloadMult) / ctx.bonuses.rateMult;
       return {
         id: this.id,
         meta: this.meta,

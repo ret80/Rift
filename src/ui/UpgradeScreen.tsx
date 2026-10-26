@@ -13,7 +13,13 @@ import {
   type PlayerUpgrades,
   type WeaponStatKey,
 } from "../game/upgrades";
-import { shieldBlockPercent, shieldRegenPerSecond } from "../game/balance/player";
+import {
+  shieldBlockPercent,
+  shieldRegenPerSecond,
+  RATE_BOOST_TIME,
+  HEAL_BONUS_TIME,
+  HEAL_BASE
+} from "../game/balance/player";
 import type { WeaponId, WeaponLoadout } from "../game/weapons/Weapon";
 import {
   DRONE_CATALOG,
@@ -32,7 +38,7 @@ import { Icon } from "./components/Icon";
 /* ======================== Ship upgrades ======================== */
 
 interface UpgradeRowProps {
-  upgradeKey: keyof Omit<PlayerUpgrades, "parts">;
+  upgradeKey: "hull" | "speed" | "guns" | "drones";
   upgrades: PlayerUpgrades;
   onPurchase: (key: keyof Omit<PlayerUpgrades, "parts">) => void;
   free: boolean;
@@ -124,6 +130,10 @@ function getUpgradeValue(key: keyof Omit<PlayerUpgrades, "parts">, level: number
     case "shield": return level > 0 ? "ON" : "OFF";
     case "shieldPercent": return `${Math.round(shieldBlockPercent(level) * 100)}%`;
     case "shieldRegen": return `${shieldRegenPerSecond(level).toFixed(1)}/с`;
+    case "fireRate": return `${(100 + level * 8).toFixed(0)}%`;
+    case "rateDuration": return `${Math.round(RATE_BOOST_TIME * (1 + level * 0.2))}с`;
+    case "healDuration": return `${Math.round(HEAL_BONUS_TIME * (1 + level * 0.2))}с`;
+    case "healRate": return `${Math.round(HEAL_BASE * (1 + level * 0.2))}/с`;
     default: return `${level}`;
   }
 }
@@ -339,6 +349,123 @@ function copyDroneLoadout(source: DroneLoadout): DroneLoadout {
   return { entries };
 }
 
+/* ======================== Bonus groups ======================== */
+
+/** Группа бонуса во вкладке «Бонусы»: несколько прокачиваемых параметров. */
+function BonusGroup(props: {
+  keys: readonly (keyof Omit<PlayerUpgrades, "parts">)[];
+  icon: "upgrade-fireRate" | "upgrade-heal";
+  titleKey: TKey;
+  descKey: TKey;
+  accentClass: string;
+  upgrades: PlayerUpgrades;
+  free: boolean;
+  onPurchase: (key: keyof Omit<PlayerUpgrades, "parts">) => void;
+}) {
+  const t = useT();
+  const { keys, upgrades, free, onPurchase } = props;
+
+  return (
+    <div className={`rounded border px-4 py-3 ${props.accentClass}`}>
+      <div className="flex items-center gap-3">
+        <Icon kind={props.icon} />
+        <div className="min-w-0">
+          <div className="text-[13px] font-bold text-[#eaffff]">{t(props.titleKey)}</div>
+          <div className="text-[10px] text-[#6f86a8]">{t(props.descKey)}</div>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-col gap-1.5">
+        {keys.map((key) => {
+          const level = upgrades[key];
+          const tier = UPGRADE_TIERS[key];
+          const maxed = level >= tier.maxLevel;
+          const cost = upgradeCost(key, level);
+          const affordable = maxed ? false : free || upgrades.parts >= cost;
+          return (
+            <div key={key} className={STAT_ROW_CLASS}>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold text-[#eaffff]">
+                    {t(UPGRADE_LABEL[key].label)}
+                  </span>
+                  <span className="font-mono text-[9px] text-[#6f86a8]">
+                    {maxed ? "/// MAX" : `lv.${level}`}
+                  </span>
+                </div>
+                <div className="text-[9px] text-[#6f86a8]">
+                  {t(UPGRADE_LABEL[key].desc)} ·{" "}
+                  <span className="text-[#5ef2ff]">
+                    {getUpgradeValue(key, level)}
+                  </span>
+                </div>
+              </div>
+              {maxed ? (
+                <div className="font-mono text-[9px] tracking-[0.2em] text-[#5ef2ff]">
+                  MAX
+                </div>
+              ) : (
+                <button
+                  onClick={() => onPurchase(key)}
+                  disabled={!affordable}
+                  className={`clip-btn px-3 py-1.5 text-[10px] font-mono tracking-[0.15em] transition-all ${
+                    affordable
+                      ? "cursor-pointer border border-[#5ef2ff]/50 bg-[#5ef2ff]/15 " +
+                        "text-[#eaffff] hover:bg-[#5ef2ff]/25"
+                      : "cursor-not-allowed border border-[#3d4f6d]/30 " +
+                        "bg-[#0a1020]/50 text-[#3d4f6d]"
+                  }`}
+                >
+                  ⚙ {cost}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** Группа «Темп огня»: ускорение стрельбы + время действия бонуса. */
+function RateBonusGroup(props: {
+  upgrades: PlayerUpgrades;
+  free: boolean;
+  onPurchase: (key: keyof Omit<PlayerUpgrades, "parts">) => void;
+}) {
+  return (
+    <BonusGroup
+      keys={["fireRate", "rateDuration"]}
+      icon="upgrade-fireRate"
+      titleKey="upgrade.rateGroup"
+      descKey="upgrade.rateGroupDesc"
+      accentClass="border-[#ff8c42]/40 bg-[#ff8c42]/5"
+      upgrades={props.upgrades}
+      free={props.free}
+      onPurchase={props.onPurchase}
+    />
+  );
+}
+
+/** Группа «Здоровье»: время действия + скорость восстановления. */
+function HealBonusGroup(props: {
+  upgrades: PlayerUpgrades;
+  free: boolean;
+  onPurchase: (key: keyof Omit<PlayerUpgrades, "parts">) => void;
+}) {
+  return (
+    <BonusGroup
+      keys={["healDuration", "healRate"]}
+      icon="upgrade-heal"
+      titleKey="upgrade.healGroup"
+      descKey="upgrade.healGroupDesc"
+      accentClass="border-[#7dffb8]/40 bg-[#7dffb8]/5"
+      upgrades={props.upgrades}
+      free={props.free}
+      onPurchase={props.onPurchase}
+    />
+  );
+}
+
 /* ======================== Tabs ======================== */
 
 /** Кнопка вкладки: активная отличается рамкой, заливкой и линией-индикатором снизу. */
@@ -383,7 +510,8 @@ export function UpgradeScreen(props: {
   const [tab, setTab] = useState<"ship" | "armory" | "drones" | "bonuses">("ship");
   const [upgrades, setUpgrades] = useState<PlayerUpgrades>({
     parts: 0, hull: 0, speed: 0, guns: 0, drones: 0,
-    shield: 0, shieldPercent: 0, shieldRegen: 0,
+    shield: 0, shieldPercent: 0, shieldRegen: 0, fireRate: 0, rateDuration: 0,
+    healDuration: 0, healRate: 0,
   });
   const [loadout, setLoadout] = useState<WeaponLoadout | null>(null);
   const [droneLoadout, setDroneLoadout] = useState<DroneLoadout | null>(null);
@@ -455,12 +583,11 @@ export function UpgradeScreen(props: {
     if (success) refresh();
   };
 
-  /** Линии, которые рисуются отдельно внутри группы «Щит». */
-  const SHIELD_KEYS: Array<keyof Omit<PlayerUpgrades, "parts">> = [
-    "shield", "shieldPercent", "shieldRegen",
+  /** Линии корабля (рисуются во вкладке «Корабль»). */
+  const SHIP_KEYS: Array<"hull" | "speed" | "guns" | "drones"> = [
+    "hull", "speed", "guns", "drones",
   ];
-  const upgradeKeys = (Object.keys(UPGRADE_TIERS) as Array<keyof Omit<PlayerUpgrades, "parts">>)
-    .filter((key) => !SHIELD_KEYS.includes(key));
+  const upgradeKeys = SHIP_KEYS;
 
   return (
     <div
@@ -664,8 +791,19 @@ export function UpgradeScreen(props: {
               </div>
             </div>
           ) : tab === "bonuses" ? (
-            /* Вкладка «Бонусы»: бонусов из «Корабля» нет, список пуст */
-            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1" />
+            /* Вкладка «Бонусы»: группа «Темп огня» с двумя параметрами */
+            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
+              <RateBonusGroup
+                upgrades={upgrades}
+                free={free}
+                onPurchase={handlePurchase}
+              />
+              <HealBonusGroup
+                upgrades={upgrades}
+                free={free}
+                onPurchase={handlePurchase}
+              />
+            </div>
           ) : (
             /* Drone hangar list */
             <div className="flex min-h-0 flex-1 flex-col">

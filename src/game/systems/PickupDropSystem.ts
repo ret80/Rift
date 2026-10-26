@@ -77,13 +77,13 @@ export class PickupDropSystem {
     let kind: PickupKind;
     switch (enemyKind) {
       case "drone":
-        kind = normalized < 0.5 ? "rate20" : "heal25";
+        kind = normalized < 0.5 ? "rate20" : "heal";
         break;
       case "hunter":
-        kind = normalized < 0.5 ? "rate20" : "heal25";
+        kind = normalized < 0.5 ? "rate20" : "heal";
         break;
       case "fighter":
-        kind = normalized < 0.5 ? "gun" : "heal50";
+        kind = normalized < 0.5 ? "gun" : "heal";
         break;
       case "cruiser":
         kind = normalized < 0.5 ? "drone" : "shield";
@@ -94,7 +94,7 @@ export class PickupDropSystem {
         break;
       }
       default:
-        kind = "heal25";
+        kind = "heal";
     }
 
     // Check if this pickup type is enabled

@@ -3,7 +3,6 @@
  * Извлечён из RendererSystem (drawPickups).
  */
 
-import { C } from "../../balance";
 import { PICKUP_CATALOG } from "../../balance/pickupCatalog";
 import type { PickupKind } from "../../balance";
 import { rgba } from "../../math";
@@ -45,11 +44,8 @@ export function renderPickups(
     const c1 = Math.cos(rot);
     const s1 = Math.sin(rot);
     switch (p.kind) {
-      case "heal25":
-      case "heal50":
-      case "heal100":
-      case "hp": {
-        const s = p.kind === "heal100" ? 7.5 : p.kind === "heal50" ? 6.5 : 5.5;
+      case "heal": {
+        const s = 6.5;
         R.pushLine(p.x - s * c1, p.y - s * s1, p.x + s * c1, p.y + s * s1, rgba(col, blinkA));
         R.pushLine(p.x + s * s1, p.y - s * c1, p.x - s * s1, p.y + s * c1, rgba(col, blinkA));
         break;
@@ -135,22 +131,6 @@ export function renderPickups(
         R.pushLine(p.x + 4, p.y - 1, p.x + 7, p.y - 4, rgba(col, blinkA));
         R.pushLine(p.x - 4, p.y + 7, p.x - 7, p.y + 4, rgba(col, blinkA));
         R.pushLine(p.x - 4, p.y + 1, p.x - 7, p.y + 4, rgba(col, blinkA));
-        break;
-      }
-      case "mineral": {
-        const s = 6.5;
-        R.polyline(
-          [
-            [p.x, p.y - s],
-            [p.x + s, p.y - s * 0.3],
-            [p.x + s * 0.6, p.y + s],
-            [p.x - s * 0.6, p.y + s],
-            [p.x - s, p.y - s * 0.3],
-          ],
-          true,
-          rgba(col, blinkA)
-        );
-        R.pushLine(p.x, p.y - s, p.x, p.y + s, rgba(col, 0.4 * blinkA));
         break;
       }
     }

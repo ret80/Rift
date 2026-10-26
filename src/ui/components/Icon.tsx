@@ -18,7 +18,6 @@ export type IconKind =
   | "pickup-rate"
   | "pickup-gun"
   | "pickup-drone"
-  | "pickup-mineral"
   /* upgrade screen */
   | "upgrade-hull"
   | "upgrade-speed"
@@ -27,6 +26,9 @@ export type IconKind =
   | "upgrade-shield"
   | "upgrade-shieldPercent"
   | "upgrade-shieldRegen"
+  | "upgrade-fireRate"
+  | "upgrade-rateDuration"
+  | "upgrade-heal"
   /* drones */
   | "drone-scout"
   | "drone-striker"
@@ -49,7 +51,6 @@ const PICKUP_COLORS: Record<string, string> = {
   "pickup-rate": "#ff8c42",
   "pickup-gun": "#5ef2ff",
   "pickup-drone": "#9dffe8",
-  "pickup-mineral": "#7dffb8",
   "pickup-shield": "#66e0ff",
   "ability-quantum-swap": "#7cf3ff",
 };
@@ -62,6 +63,9 @@ const UPGRADE_COLORS: Record<string, string> = {
   "upgrade-shield": "#66e0ff",
   "upgrade-shieldPercent": "#66e0ff",
   "upgrade-shieldRegen": "#7cf3ff",
+  "upgrade-fireRate": "#ff8c42",
+  "upgrade-rateDuration": "#ff8c42",
+  "upgrade-heal": "#7dffb8",
 };
 
 const DRONE_COLORS: Record<string, string> = {
@@ -119,13 +123,6 @@ function getIconPaths(kind: IconKind): React.ReactNode {
           <circle cx="12" cy="12" r="9" strokeOpacity="0.4" />
         </>
       );
-    case "pickup-mineral":
-      return (
-        <>
-          <polygon points="12,3 19,8 16,20 8,20 5,8" />
-          <line x1="12" y1="3" x2="12" y2="20" strokeOpacity="0.4" />
-        </>
-      );
 
     /* Upgrades */
     case "upgrade-hull":
@@ -172,6 +169,22 @@ function getIconPaths(kind: IconKind): React.ReactNode {
         <>
           <path d="M12 3 L20 7 V13 C20 17 16 20 12 21 C8 20 4 17 4 13 V7 Z" />
           <polyline points="9,12 11,15 15,9" />
+        </>
+      );
+    case "upgrade-fireRate":
+      return <polyline points="13,3 7,13 12,13 11,21 17,11 12,11" />;
+    case "upgrade-rateDuration":
+      return (
+        <>
+          <circle cx="12" cy="12" r="8" />
+          <polyline points="12,8 12,12 15,14" />
+        </>
+      );
+    case "upgrade-heal":
+      return (
+        <>
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
         </>
       );
 

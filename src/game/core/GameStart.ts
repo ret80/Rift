@@ -30,7 +30,6 @@ export class GameStart {
     ctx.entityPool.enemyBulletList.length = 0;
     ctx.entityPool.pickupList.length = 0;
     ctx.entityPool.allyDroneList.length = 0;
-    ctx.resetMinerals();
     ctx.loadoutSystem.reset();
     ctx.weaponManager.reset();
     ctx.bonusManager.reset();

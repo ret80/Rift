@@ -5,15 +5,6 @@ import type { HudRefs } from "./hudRefs";
 
 export type { HudRefs } from "./hudRefs";
 
-function MineralGlyph() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="#7dffb8" strokeWidth="1.2">
-      <polygon points="6,1 10,4.5 8.5,10.5 3.5,10.5 2,4.5" />
-      <line x1="6" y1="1" x2="6" y2="10.5" strokeOpacity="0.5" />
-    </svg>
-  );
-}
-
 function PartsGlyph() {
   return (
     <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="#ffb84d" strokeWidth="1.2">
@@ -35,7 +26,7 @@ export function HudLayer(props: { r: HudRefs; godOn: boolean }) {
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 10px)" }}
       >
         <div ref={r.hullPanel} className="hud-panel flex h-[46px] items-center gap-3 px-3 sm:h-[52px] sm:gap-4 sm:px-4">
-          {/* LEFT — hull + minerals */}
+          {/* LEFT — hull + parts */}
           <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
             <div className="flex items-center gap-2">
               <span className="hud-label shrink-0 !text-[7px] sm:!text-[9px]">{t("hud.hull")}</span>
@@ -48,9 +39,6 @@ export function HudLayer(props: { r: HudRefs; godOn: boolean }) {
             </div>
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <div ref={r.minerals} className="flex items-center gap-1 text-[9px] font-bold tracking-[0.08em] text-[#7dffb8] sm:text-[10px]">
-                  <MineralGlyph /> 0
-                </div>
                 <div className="parts-display flex items-center gap-1 text-[9px] font-bold tracking-[0.08em] text-[#ffb84d] sm:text-[10px]" aria-label={t("upgrade.partsLabel")}>
                   <PartsGlyph /> <span ref={r.parts}>0</span>
                 </div>

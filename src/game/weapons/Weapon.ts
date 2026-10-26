@@ -153,6 +153,8 @@ export interface WeaponModifiers {
 export interface WeaponUpgrades {
   /** Число слотов под дроны корабля. */
   droneSlots: number;
+  /** Множитель темпа стрельбы от постоянного бонуса «Темп огня». */
+  fireRateMult: number;
 }
 
 /** Апгрейд, задающий число экземпляров оружия. */

@@ -161,7 +161,6 @@ export default function App() {
     score: useRef<HTMLDivElement | null>(null),
     best: useRef<HTMLDivElement | null>(null),
     combo: useRef<HTMLDivElement | null>(null),
-    minerals: useRef<HTMLDivElement | null>(null),
     parts: useRef<HTMLDivElement | null>(null),
     loadoutBar: useRef<LoadoutBarHandle | null>(null),
   };

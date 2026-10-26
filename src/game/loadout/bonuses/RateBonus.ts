@@ -30,6 +30,18 @@ export class RateBonus implements Bonus {
   private stack = 0;
   /** Остаток времени действия, секунды. */
   private timeLeft = 0;
+  /** Множитель длительности от прокачки «Время действия». */
+  private durationMult = 1;
+
+  /** Длительность бонуса с учётом прокачки, секунды. */
+  private getDuration(): number {
+    return this.meta.duration * this.durationMult;
+  }
+
+  /** Задать множитель длительности из прокачки. */
+  setDurationMult(mult: number): void {
+    this.durationMult = Math.max(1, mult);
+  }
 
   /** Итоговый множитель темпа стрельбы от бонуса. */
   getRateMult(): number {
@@ -45,12 +57,13 @@ export class RateBonus implements Bonus {
   }
 
   getProgress(): number {
-    return Math.min(1, this.timeLeft / this.meta.duration);
+    const duration = this.getDuration();
+    return duration > 0 ? Math.min(1, this.timeLeft / duration) : 0;
   }
 
   activate(): void {
     this.stack = Math.min(RATE_MAX, this.stack + RATE_STEP);
-    this.timeLeft = this.meta.duration;
+    this.timeLeft = this.getDuration();
   }
 
   update(dt: number): void {
@@ -65,5 +78,6 @@ export class RateBonus implements Bonus {
   reset(): void {
     this.stack = 0;
     this.timeLeft = 0;
+    this.durationMult = 1;
   }
 }

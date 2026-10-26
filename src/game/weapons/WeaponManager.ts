@@ -57,6 +57,8 @@ export class WeaponManager {
   private onWeaponFired: (id: WeaponId) => void;
   /** Шанс попадания орудий игрока (0..1, всегда < 1). */
   private hitChance = PLAYER_AIM_BASE_CHANCE;
+  /** Множитель темпа стрельбы из постоянного бонуса «Темп огня». */
+  private fireRateMult = 1;
   /** Арсенал: купленные виды оружия и их модели. */
   private loadout: WeaponLoadout | null = null;
   /** Снимок флота купленных дронов (для DroneWeapon). */
@@ -89,6 +91,7 @@ export class WeaponManager {
 
   /** Сбросить оружие — начало забега. */
   reset(): void {
+    this.fireRateMult = 1;
     this.hitChance = PLAYER_AIM_BASE_CHANCE;
     const ctx = this.buildContext();
     for (const weapon of Object.values(this.weapons)) {
@@ -98,6 +101,7 @@ export class WeaponManager {
 
   /** Применить персистентные апгрейды к подходящим видам оружия. */
   applyUpgrades(upgrades: WeaponUpgrades): void {
+    this.fireRateMult = upgrades.fireRateMult;
     const ctx = this.buildContext();
     for (const weapon of Object.values(this.weapons)) {
       const mods: WeaponModifiers = {};
@@ -184,7 +188,10 @@ export class WeaponManager {
 
     return {
       player: this.world.getPlayer(),
-      bonuses: { ...bonuses },
+      bonuses: {
+        ...bonuses,
+        rateMult: bonuses.rateMult * this.fireRateMult,
+      },
       aim,
       enemies: this.world.getEnemies(),
       bullets: this.world.getBullets(),

@@ -4,9 +4,7 @@ import type { AbilityId } from "../abilities/Ability";
 import type { WeaponId } from "../weapons/Weapon";
 
 interface PickupDependencies {
-  /** Лечение корпуса (мгновенный бонус). */
-  heal(amount: number): void;
-  /** Применить временный бонус по пикапу (темп огня, стволы). */
+  /** Применить временный бонус по пикапу (темп огня, стволы, здоровье). */
   applyBonus(pickup: PickupKind): void;
   /** Восстановить энергию щита (мгновенный бонус). */
   rechargeShield(amount: number): void;
@@ -14,10 +12,6 @@ interface PickupDependencies {
   equipWeapon(id: WeaponId): void;
   /** Выдать активную способность по пикапу. */
   grantAbility(id: AbilityId): void;
-  /** Добавить минералы (мгновенный бонус). */
-  addMinerals(count: number): void;
-  /** Добавить очки за минерал. */
-  addScore(amount: number): void;
   /** Проиграть звук подбора. */
   playPickupSound(kind: string): void;
 }
@@ -36,7 +30,8 @@ export class ApplyPickupSystem {
     const effect = PICKUP_CATALOG[kind].effect;
     switch (effect.type) {
       case "heal":
-        this.deps.heal(effect.amount);
+        // Временный бонус «здоровье»: лечение идёт в BonusManager.
+        this.deps.applyBonus(kind);
         break;
       case "bonus":
         // Временные бонусы (темп огня, стволы) — BonusManager сам
@@ -51,10 +46,6 @@ export class ApplyPickupSystem {
         break;
       case "ability":
         this.deps.grantAbility(effect.id);
-        break;
-      case "mineral":
-        this.deps.addMinerals(effect.amount);
-        this.deps.addScore(effect.score);
         break;
     }
 

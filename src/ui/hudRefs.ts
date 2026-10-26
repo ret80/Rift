@@ -15,7 +15,6 @@ export interface HudRefs {
   score: MutableRefObject<HTMLDivElement | null>;
   best: MutableRefObject<HTMLDivElement | null>;
   combo: MutableRefObject<HTMLDivElement | null>;
-  minerals: MutableRefObject<HTMLDivElement | null>;
   parts: MutableRefObject<HTMLDivElement | null>;
   /** Weapon + bonus icon row under the top bar. */
   loadoutBar: MutableRefObject<LoadoutBarHandle | null>;

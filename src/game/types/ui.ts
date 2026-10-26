@@ -23,7 +23,6 @@ export interface HudData {
   rateMult: number;
   rateT: number;
   drones: number;
-  minerals: number;
   parts: number;
   /** Снимок энергетического щита игрока. */
   shield: ShieldRenderState;

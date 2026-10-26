@@ -25,11 +25,6 @@ export function useHudUpdater(
       if (r.wave.current) {
         r.wave.current.textContent = String(data.wave ?? 0).padStart(2, "0");
       }
-      if (r.minerals.current) {
-        const glyph = r.minerals.current.querySelector("svg");
-        r.minerals.current.textContent = ` ${(data.minerals ?? 0).toString()}`;
-        if (glyph) r.minerals.current.prepend(glyph);
-      }
       if (r.parts.current) {
         r.parts.current.textContent = String(data.parts ?? 0);
       }

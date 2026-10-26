@@ -57,6 +57,12 @@ export const RATE_BOOST_TIME = 10;
 /** Seconds an extra-barrels bonus lasts. */
 export const GUN_BONUS_TIME = 15;
 
+/** Seconds a health bonus lasts (base). */
+export const HEAL_BONUS_TIME = RATE_BOOST_TIME;
+
+/** Base health regeneration per second from the health bonus. */
+export const HEAL_BASE = 10;
+
 /* ------------------------------ shield ------------------------------ */
 
 /** Полный запас энергии щита. */

@@ -20,7 +20,6 @@ const PICKUP_LABEL: Record<PickupDisplay, TKey> = {
   rate: "debug.rate",
   gun: "debug.gun",
   shield: "debug.shield",
-  mineral: "debug.mineral",
   drone: "debug.drone",
   missile: "debug.missile",
   laser: "debug.laser",

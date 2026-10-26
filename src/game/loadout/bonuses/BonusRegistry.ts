@@ -12,6 +12,7 @@ import type { PickupKind } from "../../balance";
 import type { BonusId, BonusKind, BonusMeta } from "./Bonus";
 import { GunsBonus } from "./GunsBonus";
 import { RateBonus } from "./RateBonus";
+import { HealBonus } from "./HealBonus";
 
 /** Как долго мгновенный бонус мигает в строке снаряжения, секунды. */
 export const INSTANT_BONUS_FLASH = 1.8;
@@ -20,22 +21,7 @@ export const INSTANT_BONUS_FLASH = 1.8;
 export const INSTANT_BONUS_META: Record<BonusKind, BonusMeta | undefined> = {
   rate: undefined,
   guns: undefined,
-  heal: {
-    kind: "heal",
-    icon: "pickup-heal",
-    color: "#7dffb8",
-    labelKey: "hud.loadout.heal",
-    order: 6,
-    duration: 0,
-  },
-  mineral: {
-    kind: "mineral",
-    icon: "pickup-mineral",
-    color: "#7dffb8",
-    labelKey: "hud.loadout.mineral",
-    order: 7,
-    duration: 0,
-  },
+  heal: undefined,
 };
 
 /**
@@ -47,6 +33,7 @@ export const INSTANT_BONUS_META: Record<BonusKind, BonusMeta | undefined> = {
 export interface BonusRegistryData {
   rate: RateBonus;
   guns: GunsBonus;
+  heal: HealBonus;
 }
 
 /**
@@ -57,6 +44,7 @@ export function createBonusRegistry(): BonusRegistryData {
   return {
     rate: new RateBonus(),
     guns: new GunsBonus(),
+    heal: new HealBonus(),
   };
 }
 
@@ -76,12 +64,7 @@ const PICKUP_BONUS_MAP: Record<PickupKind, PickupBonusMapping> = {
   rate40: { bonusId: "rate", bonusKind: "rate" },
   rate60: { bonusId: "rate", bonusKind: "rate" },
   gun: { bonusId: "guns", bonusKind: "guns" },
-  // Мгновенные бонусы
-  hp: { bonusId: null, bonusKind: "heal" },
-  heal25: { bonusId: null, bonusKind: "heal" },
-  heal50: { bonusId: null, bonusKind: "heal" },
-  heal100: { bonusId: null, bonusKind: "heal" },
-  mineral: { bonusId: null, bonusKind: "mineral" },
+  heal: { bonusId: "heal", bonusKind: "heal" },
   // Пикапы щита заряжают энергию щита — в строке живёт постоянный слот щита.
   shield: { bonusId: null, bonusKind: null },
   // Пикапы оружия — не являются бонусами

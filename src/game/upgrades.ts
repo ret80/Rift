@@ -38,7 +38,11 @@ export type UpgradeKey =
   | "drones"
   | "shield"
   | "shieldPercent"
-  | "shieldRegen";
+  | "shieldRegen"
+  | "fireRate"
+  | "rateDuration"
+  | "healDuration"
+  | "healRate";
 
 export interface PlayerUpgrades {
   parts: number;          // доступные детали (валюта)
@@ -49,6 +53,10 @@ export interface PlayerUpgrades {
   shield: number;         // щит куплен (1) или ещё нет (0) — базовые 5% и 9 ед/с
   shieldPercent: number;  // процент блокировки урона щитом (5% + 5% за уровень)
   shieldRegen: number;    // скорость восстановления энергии щита (+30% за уровень)
+  fireRate: number;       // уровень «Темп огня» — ускорение стрельбы всех орудий
+  rateDuration: number;   // уровень «Время действия» бонуса «Темп огня»
+  healDuration: number;   // уровень «Время действия» бонуса «Здоровье»
+  healRate: number;       // уровень «Восстановление/с» бонуса «Здоровье»
 }
 
 /* ======================== Weapon loadout (armory) ======================== */
@@ -134,6 +142,10 @@ export function defaultUpgrades(): PlayerUpgrades {
     shield: 0,
     shieldPercent: 0,
     shieldRegen: 0,
+    fireRate: 0,
+    rateDuration: 0,
+    healDuration: 0,
+    healRate: 0,
   };
 }
 
@@ -165,6 +177,10 @@ export const UPGRADE_TIERS: Record<UpgradeKey, UpgradeTier> = {
   shield:        { baseCost: 420, costStep: 0,   maxLevel: 1  },
   shieldPercent: { baseCost: 160, costStep: 120, maxLevel: 7  },
   shieldRegen:   { baseCost: 110, costStep: 85,  maxLevel: 5  },
+  fireRate:      { baseCost: 121, costStep: 81,  maxLevel: 10 },
+  rateDuration:  { baseCost: 145, costStep: 116, maxLevel: 5  },
+  healDuration:  { baseCost: 145, costStep: 116, maxLevel: 5  },
+  healRate:      { baseCost: 121, costStep: 81,  maxLevel: 10 },
 };
 
 /** Ключи локализации для каждой ветки прокачки (статический маппинг). */
@@ -176,6 +192,10 @@ export const UPGRADE_LABEL: Record<UpgradeKey, { label: TKey; desc: TKey }> = {
   shield:        { label: "upgrade.shield",        desc: "upgrade.shieldDesc" },
   shieldPercent: { label: "upgrade.shieldPercent", desc: "upgrade.shieldPercentDesc" },
   shieldRegen:   { label: "upgrade.shieldRegen",   desc: "upgrade.shieldRegenDesc" },
+  fireRate:      { label: "upgrade.fireRate",      desc: "upgrade.fireRateDesc" },
+  rateDuration:  { label: "upgrade.rateDuration",  desc: "upgrade.rateDurationDesc" },
+  healDuration:  { label: "upgrade.healDuration",  desc: "upgrade.healDurationDesc" },
+  healRate:      { label: "upgrade.healRate",      desc: "upgrade.healRateDesc" },
 };
 
 /* ======================== Cost calculation ======================== */
@@ -327,6 +347,14 @@ export function saveBestWave(wave: number, storage: PersistencePort): void {
 export interface AppliedUpgrades {
   /** Максимальный корпус: 100 базис + 20 за уровень. */
   baseHp: number;
+  /** Множитель темпа стрельбы: 1.0 база + 0.08 за уровень. */
+  fireRateMult: number;
+  /** Множитель длительности бонуса «темп огня»: 1.0 + 0.2 за уровень. */
+  rateDurationMult: number;
+  /** Множитель длительности бонуса «здоровье»: 1.0 + 0.2 за уровень. */
+  healDurationMult: number;
+  /** Множитель скорости восстановления бонуса «здоровье»: 1.0 + 0.2 за уровень. */
+  healRateMult: number;
   /** Множитель скорости: 1.0 база + 0.05 за уровень. */
   speedMult: number;
   /** Число слотов оружия корабля: 1 база + уровень, макс 5. */
@@ -345,6 +373,18 @@ export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
   // hp: 100 base + 20 per hull level
   const baseHp = 100 + upgrades.hull * 20;
 
+  // fire rate: 1.0 base + 0.08 per level
+  const fireRateMult = 1.0 + upgrades.fireRate * 0.08;
+
+  // rate bonus duration: 1.0 base + 0.2 per level
+  const rateDurationMult = 1.0 + upgrades.rateDuration * 0.2;
+
+  // heal bonus duration: 1.0 base + 0.2 per level
+  const healDurationMult = 1.0 + upgrades.healDuration * 0.2;
+
+  // heal bonus rate: 1.0 base + 0.2 per level
+  const healRateMult = 1.0 + upgrades.healRate * 0.2;
+
   // speed: 1.0 base + 0.05 per level
   const speedMult = 1.0 + upgrades.speed * 0.05;
 
@@ -359,6 +399,10 @@ export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
 
   return {
     baseHp,
+    fireRateMult,
+    rateDurationMult,
+    healDurationMult,
+    healRateMult,
     speedMult,
     weaponSlots,
     droneSlots,

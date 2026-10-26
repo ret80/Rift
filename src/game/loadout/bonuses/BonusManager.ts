@@ -66,6 +66,26 @@ export class BonusManager {
     return this.bonuses.rate.getRateMult();
   }
 
+  /** Задать множитель длительности бонуса «темп огня» из прокачки. */
+  setRateDurationMult(mult: number): void {
+    this.bonuses.rate.setDurationMult(mult);
+  }
+
+  /** Задать множитель длительности бонуса «здоровье» из прокачки. */
+  setHealDurationMult(mult: number): void {
+    this.bonuses.heal.setDurationMult(mult);
+  }
+
+  /** Задать множитель скорости восстановления бонуса «здоровье». */
+  setHealRateMult(mult: number): void {
+    this.bonuses.heal.setHealRateMult(mult);
+  }
+
+  /** Подключить восстановление корпуса бонусом «здоровье». */
+  setHealHook(hook: (amount: number) => void): void {
+    this.bonuses.heal.setHealHook(hook);
+  }
+
   /** Остаток бонуса «темп огня», секунды. */
   getRateT(): number {
     return this.bonuses.rate.getRemaining();

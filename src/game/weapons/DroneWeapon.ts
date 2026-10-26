@@ -186,7 +186,7 @@ export class DroneWeapon implements Weapon {
       target.r
     );
 
-    drone.fireCd = combat.reloadTime;
+    drone.fireCd = combat.reloadTime / ctx.bonuses.rateMult;
     drone.flash = DRONE_FLASH_TIME;
     drone.angle = angle;
     ctx.bullets.push({

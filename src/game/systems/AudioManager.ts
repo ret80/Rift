@@ -68,9 +68,6 @@ export class AudioManager {
         this.engine.pickupShield();
         break;
 
-      // Mineral → no special sound (silence)
-      case "mineral":
-      // quantum_swap — без отдельного звука
       case "quantum_swap":
         break;
     }

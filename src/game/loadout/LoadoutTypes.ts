@@ -23,7 +23,6 @@ export type LoadoutIcon =
   | "pickup-gun"
   | "pickup-shield"
   | "pickup-heal"
-  | "pickup-mineral"
   /* способности */
   | "ability-quantum-swap";
 
@@ -39,9 +38,7 @@ export type LoadoutSlotKind =
   /* временные бонусы */
   | "rate"
   | "guns"
-  /* мгновенные бонусы */
   | "heal"
-  | "mineral"
   /* активные способности */
   | "quantum_swap";
 
