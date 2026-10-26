@@ -478,7 +478,7 @@ function TabButton(props: {
 }) {
   const { label, active, activeClass, lineClass, onClick } = props;
   return (
-    <div className="relative">
+    <div className="relative shrink-0">
       <button
         onClick={onClick}
         className={`clip-btn px-5 py-2 text-xs font-mono tracking-[0.2em] transition-all ${
@@ -614,35 +614,37 @@ export function UpgradeScreen(props: {
           </div>
 
           {/* Tabs */}
-          <div className="mb-4 flex justify-center gap-2">
-            <TabButton
-              label={t("upgrade.tabShip")}
-              active={tab === "ship"}
-              activeClass="border-[#5ef2ff]/80 bg-[#5ef2ff]/25"
-              lineClass="bg-[#5ef2ff] shadow-[0_0_8px_#5ef2ff]"
-              onClick={() => setTab("ship")}
-            />
-            <TabButton
-              label={t("upgrade.tabArmory")}
-              active={tab === "armory"}
-              activeClass="border-[#5ef2ff]/80 bg-[#5ef2ff]/25"
-              lineClass="bg-[#5ef2ff] shadow-[0_0_8px_#5ef2ff]"
-              onClick={() => setTab("armory")}
-            />
-            <TabButton
-              label={t("upgrade.tabDrones")}
-              active={tab === "drones"}
-              activeClass="border-[#ff9de0]/80 bg-[#ff9de0]/25"
-              lineClass="bg-[#ff9de0] shadow-[0_0_8px_#ff9de0]"
-              onClick={() => setTab("drones")}
-            />
-            <TabButton
-              label={t("upgrade.tabBonuses")}
-              active={tab === "bonuses"}
-              activeClass="border-[#7dff9e]/80 bg-[#7dff9e]/25"
-              lineClass="bg-[#7dff9e] shadow-[0_0_8px_#7dff9e]"
-              onClick={() => setTab("bonuses")}
-            />
+          <div className="mb-4 shrink-0 overflow-x-auto pb-1">
+            <div className="mx-auto flex w-fit gap-2">
+              <TabButton
+                label={t("upgrade.tabShip")}
+                active={tab === "ship"}
+                activeClass="border-[#5ef2ff]/80 bg-[#5ef2ff]/25"
+                lineClass="bg-[#5ef2ff] shadow-[0_0_8px_#5ef2ff]"
+                onClick={() => setTab("ship")}
+              />
+              <TabButton
+                label={t("upgrade.tabArmory")}
+                active={tab === "armory"}
+                activeClass="border-[#5ef2ff]/80 bg-[#5ef2ff]/25"
+                lineClass="bg-[#5ef2ff] shadow-[0_0_8px_#5ef2ff]"
+                onClick={() => setTab("armory")}
+              />
+              <TabButton
+                label={t("upgrade.tabDrones")}
+                active={tab === "drones"}
+                activeClass="border-[#ff9de0]/80 bg-[#ff9de0]/25"
+                lineClass="bg-[#ff9de0] shadow-[0_0_8px_#ff9de0]"
+                onClick={() => setTab("drones")}
+              />
+              <TabButton
+                label={t("upgrade.tabBonuses")}
+                active={tab === "bonuses"}
+                activeClass="border-[#7dff9e]/80 bg-[#7dff9e]/25"
+                lineClass="bg-[#7dff9e] shadow-[0_0_8px_#7dff9e]"
+                onClick={() => setTab("bonuses")}
+              />
+            </div>
           </div>
 
           {tab === "ship" ? (
