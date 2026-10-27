@@ -129,18 +129,22 @@ export class GameContext {
     this.hooks = hooks;
     this.storage = storage;
 
-    // Рендер-бэкенд: raw WebGL по умолчанию; PicoGL включается флагом
-    // URL (например ?renderer=picogl) или константой ниже.
-    const usePicoGL =
-      typeof window !== "undefined" &&
-      new URLSearchParams(window.location.search).get("renderer") === "picogl";
+    // Рендер-бэкенд: PicoGL по умолчанию; raw WebGL включается флагом
+    // URL (?renderer=webgl).
+    const rendererParam =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("renderer")
+        : null;
+    const usePicoGL = rendererParam === null || rendererParam === "picogl";
     this.renderer = usePicoGL ? new PicoGLRenderer(canvas) : new BaseRenderer(canvas);
 
-    // Физический бэкенд: текущая самописная физика по умолчанию;
-    // Planck.js включается флагом URL (?physics=planck).
-    const usePlanck =
-      typeof window !== "undefined" &&
-      new URLSearchParams(window.location.search).get("physics") === "planck";
+    // Физический бэкенд: Planck.js по умолчанию; самописная физика
+    // включается флагом URL (?physics=custom).
+    const physicsParam =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("physics")
+        : null;
+    const usePlanck = physicsParam === null || physicsParam === "planck";
     const physicsEngine = usePlanck ? new PlanckPhysics() : new CustomCurrentPhysics();
     this.physics = new PhysicsSystem(physicsEngine);
 
