@@ -19,12 +19,12 @@ export type PhysicsBodyKind = "player" | "enemy" | "asteroid";
  *
  * Аналог Box2D/Planck `Settings.maxTranslation`: скорость за шаг
  * ограничивается так, чтобы |v·dt| не превышало этого значения.
- * При dt = 1/60 предел скорости = MAX * 60. Значение 10 даёт
- * предел 600 px/s — покрывает PLAYER_MAX_SPEED (400) с запасом,
+ * При dt = 1/60 предел скорости = MAX * 60. Значение 8 даёт
+ * предел 480 px/s — покрывает PLAYER_MAX_SPEED (400) с запасом,
  * поэтому скорость движения соответствует прежней самописной физике.
  * Единый источник для обоих бэкендов, чтобы скорость совпадала.
  */
-export const PHYSICS_MAX_TRANSLATION_PER_STEP = 10;
+export const PHYSICS_MAX_TRANSLATION_PER_STEP = 8;
 
 /** Параметры создания тела. Радиус задаёт форму (окружность). */
 export interface PhysicsBodyDef {
