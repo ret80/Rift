@@ -32,13 +32,11 @@ function emptyEntry(): DroneLoadoutEntry {
   return { count: 0, model: { ...BASE_DRONE_MODEL } };
 }
 
-/** Ангар по умолчанию: один разведчик, остальное не куплено. */
+/** Ангар по умолчанию: всё пусто, дроны покупаются за детали. */
 export function defaultDroneLoadout(): DroneLoadout {
   const entries = {} as Record<DroneId, DroneLoadoutEntry>;
   for (const spec of DRONE_CATALOG) {
-    entries[spec.id] = spec.id === "scout"
-      ? { count: 1, model: { ...BASE_DRONE_MODEL } }
-      : emptyEntry();
+    entries[spec.id] = emptyEntry();
   }
   return { entries };
 }
@@ -71,7 +69,7 @@ export function loadDroneLoadout(storage: PersistencePort): DroneLoadout {
   try {
     const raw = storage.get(LS_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as Partial<DroneLoadout> & { selected?: unknown };
+      const parsed = JSON.parse(raw) as Partial<DroneLoadout> & { selected?: unknown; v?: unknown };
       if (parsed && typeof parsed === "object") {
         if (parsed.entries && typeof parsed.entries === "object") {
           for (const id of Object.keys(parsed.entries) as DroneId[]) {
@@ -80,24 +78,26 @@ export function loadDroneLoadout(storage: PersistencePort): DroneLoadout {
             }
           }
         }
+        // Старые версии выдавали одного разведчика бесплатно. Если
+        // сохранение записано старым форматом и у игрока ровно одна
+        // единица — это стартовая выдача, убираем её.
+        if (parsed.v !== 2 && loadout.entries.scout.count === 1) {
+          loadout.entries.scout.count = 0;
+        }
       }
     }
   } catch { /* ignore */ }
-  // Разведчик всегда доступен хотя бы в одной единице.
-  if (loadout.entries.scout.count <= 0) {
-    loadout.entries.scout.count = 1;
-  }
   return loadout;
 }
 
 /** Сохранить ангар в хранилище. */
 export function saveDroneLoadout(loadout: DroneLoadout, storage: PersistencePort): void {
   try {
-    storage.set(LS_KEY, JSON.stringify(loadout));
+    storage.set(LS_KEY, JSON.stringify({ v: 2, ...loadout }));
   } catch { /* ignore */ }
 }
 
-/** Сбросить ангар: снова доступен только один разведчик. */
+/** Сбросить ангар: все дроны не куплены. */
 export function resetDroneLoadout(storage: PersistencePort): DroneLoadout {
   const fresh = defaultDroneLoadout();
   storage.remove(LS_KEY);

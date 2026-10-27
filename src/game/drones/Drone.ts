@@ -31,7 +31,7 @@ export interface DroneModelUpgrades {
 export interface DroneLoadoutEntry {
   /**
    * Количество купленных единиц дрона. Каждая единица занимает один
-   * слот корабля и участвует в бою (разведчик — 1 единица по умолчанию).
+   * слот корабля и участвует в бою.
    */
   count: number;
   /** Уровни линий прокачки дрона. */
@@ -146,9 +146,9 @@ export function droneDamageMult(model: DroneModelUpgrades): number {
   return 1 + level * DRONE_DAMAGE_PER_LEVEL;
 }
 
-/** Стоимость покупки дрона. Разведчик — стартовый, его купить нельзя. */
+/** Стоимость покупки дрона. Все дроны покупаются за детали. */
 export function droneCost(id: DroneId): number {
-  if (id === "scout") return 0;
+  if (id === "scout") return 600;
   return id === "striker" ? 1200 : 2400;
 }
 
