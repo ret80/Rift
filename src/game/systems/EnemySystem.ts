@@ -92,7 +92,8 @@ export class EnemySystem {
     dt: number,
     enemyList: Enemy[],
     playerPos: { x: number; y: number; vx?: number; vy?: number },
-    zoneBounds?: { x: number; y: number; radius: number }
+    zoneBounds?: { x: number; y: number; radius: number },
+    integratePosition: boolean = true
   ): void {
     const playerX = playerPos.x;
     const playerY = playerPos.y;
@@ -125,8 +126,11 @@ export class EnemySystem {
       if (e.droneState === 'orbiting') continue;
       
       // apply velocity
-      e.x += e.vx * dt;
-      e.y += e.vy * dt;
+      // В режиме Planck позицию интегрирует физический движок.
+      if (integratePosition) {
+        e.x += e.vx * dt;
+        e.y += e.vy * dt;
+      }
     }
     
     // processing carrier drone spawns

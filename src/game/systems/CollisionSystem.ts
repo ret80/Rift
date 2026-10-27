@@ -1,6 +1,11 @@
 /**
  * CollisionSystem - collision handling with mass awareness.
  * Composes BulletCollision, EntityCollision, and PickupCollection modules.
+ *
+ * Физические контакты тел (игрок/враги/астероиды) поступают из
+ * PhysicsSystem: бэкенд CustomCurrentPhysics сохраняет прежние мягкие
+ * импульсы, PlanckPhysics решает скорости сам, поэтому здесь остаются
+ * только игровые последствия контакта (урон, гибель врага).
  */
 
 import { massForRadius } from '../balance';
@@ -10,6 +15,7 @@ import {
 } from '../balance/player';
 import type { EventBus } from '../core/EventBus';
 import type { WorldFrame } from '../core/WorldFrame';
+import type { PhysicsSystem } from '../physics/index';
 
 import { PLAYER_ASTEROID_DAMAGE, DRONE_PROXIMITY } from './CollisionConstants';
 import { softResolveCollision } from './EntityCollision';
@@ -23,9 +29,11 @@ import { checkPickupCollection } from './PickupCollection';
 
 export class CollisionSystem {
   private eventBus: EventBus;
+  private physics: PhysicsSystem;
 
-  constructor(eventBus: EventBus) {
+  constructor(eventBus: EventBus, physics: PhysicsSystem) {
     this.eventBus = eventBus;
+    this.physics = physics;
   }
 
   /**
@@ -70,7 +78,7 @@ export class CollisionSystem {
       });
     }
 
-    // === Entity-entity collisions ===
+    // === Entity-entity collisions (из физического слоя) ===
     this.entityCollisions(world);
     // === Drone-player avoidance ===
     this.checkDroneAvoidance(world);
@@ -101,8 +109,10 @@ export class CollisionSystem {
   }
 
   /**
-   * Handle entity-entity collisions: player-enemy, player-asteroid,
-   * enemy-asteroid, asteroid-asteroid.
+   * Игровые последствия контактов тел из физического слоя:
+   * player-enemy, player-asteroid, enemy-asteroid.
+   * Астероид-астероид обрабатывает AsteroidField (custom) или Planck
+   * (velocities are resolved inside the backend).
    */
   private entityCollisions(
     world: WorldFrame
@@ -110,16 +120,25 @@ export class CollisionSystem {
     const playerState = world.player;
     const enemies = world.enemies;
     const asteroids = world.asteroids;
-    // Player-enemy collision
-    if (playerState.invuln <= 0 && playerState.hp > 0) {
-      for (const e of enemies) {
-        if (e.dead) continue;
-        const dx = playerState.x - e.x;
-        const dy = playerState.y - e.y;
-        const dist = Math.hypot(dx, dy);
-        const minDist = playerState.r + e.r;
+    const softImpulse = !this.physics.resolvesVelocity;
+    let playerHit = false;
 
-        if (dist < minDist) {
+    for (const contact of this.physics.contacts) {
+      const a = contact.a;
+      const b = contact.b;
+      const kindA = contact.kindA;
+      const kindB = contact.kindB;
+
+      // === player-enemy: урон и гибель врага (как раньше) ===
+      if (
+        !playerHit &&
+        playerState.invuln <= 0 &&
+        playerState.hp > 0 &&
+        ((kindA === 'player' && kindB === 'enemy') || (kindA === 'enemy' && kindB === 'player'))
+      ) {
+        const enemy = kindA === 'enemy' ? a : b;
+        const e = enemy as (typeof enemies)[number];
+        if (!e.dead && enemies.includes(e)) {
           this.eventBus.publish('player_damaged', {
             dmg: e.contact,
           });
@@ -131,103 +150,75 @@ export class CollisionSystem {
             y: e.y,
             seed: e.seed,
           });
-          break;
+          playerHit = true;
         }
       }
-    }
 
-    // Player-asteroid collision
-    if (playerState.invuln <= 0 && playerState.hp > 0) {
-      for (const a of asteroids) {
-        if (a.dead) continue;
-        const dx = playerState.x - a.x;
-        const dy = playerState.y - a.y;
-        const dist = Math.hypot(dx, dy);
-        const minDist = playerState.r + a.r;
-
-        if (dist < minDist) {
+      // === player-asteroid: урон + мягкий импульс только в custom-физике ===
+      if (
+        !playerHit &&
+        playerState.invuln <= 0 &&
+        playerState.hp > 0 &&
+        ((kindA === 'player' && kindB === 'asteroid') || (kindA === 'asteroid' && kindB === 'player'))
+      ) {
+        const ast = kindA === 'asteroid' ? a : b;
+        const rock = ast as (typeof asteroids)[number];
+        if (!rock.dead && asteroids.includes(rock)) {
           this.eventBus.publish('player_damaged', {
             dmg: PLAYER_ASTEROID_DAMAGE,
           });
-
-          const playerMass = playerState.mass || massForRadius(playerState.r);
-          const impulse = 80;
-          const result = softResolveCollision(
-            playerState.x, playerState.y, playerMass,
-            playerState.vx, playerState.vy,
-            a.x, a.y, a.mass, a.vx, a.vy,
-            impulse
-          );
-          a.vx = result.nb.vx;
-          a.vy = result.nb.vy;
-          break;
+          playerHit = true;
+          if (softImpulse) {
+            const playerMass = playerState.mass || massForRadius(playerState.r);
+            const impulse = 80;
+            const result = softResolveCollision(
+              playerState.x, playerState.y, playerMass,
+              playerState.vx, playerState.vy,
+              rock.x, rock.y, rock.mass, rock.vx, rock.vy,
+              impulse
+            );
+            rock.vx = result.nb.vx;
+            rock.vy = result.nb.vy;
+          }
         }
       }
-    }
 
-    // Enemy-asteroid collision
-    for (const e of enemies) {
-      if (e.dead) continue;
-      for (const a of asteroids) {
-        if (a.dead) continue;
-        const dx = e.x - a.x;
-        const dy = e.y - a.y;
-        const dist = Math.hypot(dx, dy);
-        const minDist = e.r + a.r;
+      // === enemy-asteroid: импульс + небольшой урон врагу ===
+      if (
+        (kindA === 'enemy' && kindB === 'asteroid') ||
+        (kindA === 'asteroid' && kindB === 'enemy')
+      ) {
+        const enemy = kindA === 'enemy' ? a : b;
+        const ast = kindA === 'asteroid' ? a : b;
+        const e = enemy as (typeof enemies)[number];
+        const rock = ast as (typeof asteroids)[number];
+        if (e.dead || !enemies.includes(e)) continue;
+        if (rock.dead || !asteroids.includes(rock)) continue;
 
-        if (dist < minDist) {
+        if (softImpulse) {
           const enemyMass = e.mass || massForRadius(e.r);
           const impulse = 60;
           const result = softResolveCollision(
             e.x, e.y, enemyMass,
             e.vx, e.vy,
-            a.x, a.y, a.mass, a.vx, a.vy,
+            rock.x, rock.y, rock.mass, rock.vx, rock.vy,
             impulse
           );
           e.vx = result.na.vx;
           e.vy = result.na.vy;
-          a.vx = result.nb.vx;
-          a.vy = result.nb.vy;
-          e.hp -= 1;
-          if (e.hp <= 0) {
-            e.dead = true;
-            this.eventBus.publish('enemy_killed', {
-              score: e.score,
-              kind: e.kind,
-              x: e.x,
-              y: e.y,
-              seed: e.seed,
-            });
-          }
+          rock.vx = result.nb.vx;
+          rock.vy = result.nb.vy;
         }
-      }
-    }
-
-    // Asteroid-asteroid collision
-    for (let i = 0; i < asteroids.length; i++) {
-      const a1 = asteroids[i];
-      if (a1.dead) continue;
-      for (let j = i + 1; j < asteroids.length; j++) {
-        const a2 = asteroids[j];
-        if (a2.dead) continue;
-        const dx = a2.x - a1.x;
-        const dy = a2.y - a1.y;
-        const dist = Math.hypot(dx, dy);
-        const minDist = a1.r + a2.r;
-
-        if (dist < minDist && dist > 0.01) {
-          const impulse = 30;
-          const result = softResolveCollision(
-            a1.x, a1.y, a1.mass,
-            a1.vx, a1.vy,
-            a2.x, a2.y, a2.mass,
-            a2.vx, a2.vy,
-            impulse
-          );
-          a1.vx = result.na.vx;
-          a1.vy = result.na.vy;
-          a2.vx = result.nb.vx;
-          a2.vy = result.nb.vy;
+        e.hp -= 1;
+        if (e.hp <= 0) {
+          e.dead = true;
+          this.eventBus.publish('enemy_killed', {
+            score: e.score,
+            kind: e.kind,
+            x: e.x,
+            y: e.y,
+            seed: e.seed,
+          });
         }
       }
     }

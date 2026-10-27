@@ -32,6 +32,7 @@ export function updateMovement(
   _fx: Fx,
   isThrusting: boolean,
   speedMult: number = 1,
+  integratePosition: boolean = true,
 ): { thrusting: boolean; speed: number } {
   state.thrusting = isThrusting;
 
@@ -61,8 +62,12 @@ export function updateMovement(
   }
 
   // Position update
-  state.x += state.vx * dt;
-  state.y += state.vy * dt;
+  // В режиме Planck позицию двигает физический движок, поэтому
+  // интегрирование здесь отключается (скорость остаётся источником).
+  if (integratePosition) {
+    state.x += state.vx * dt;
+    state.y += state.vy * dt;
+  }
 
   // Angle follows velocity
   const oldAngle = state.angle;

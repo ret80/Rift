@@ -8,6 +8,12 @@
 import type { AsteroidWorld, WorldFrame } from "./WorldFrame";
 import type { GameContext } from "./GameContext";
 import type { GameRender } from "./GameRender";
+import type { PhysicsEntity } from "../physics/index";
+import {
+  asteroidEntity,
+  enemyEntity,
+  playerEntity,
+} from "../physics/index";
 
 export class GameFrame {
   constructor(
@@ -40,7 +46,7 @@ export class GameFrame {
     if (fsm.is("playing", "active")) {
       ctx.abilitySystem.update(dt);
     }
-    ctx.playerSystem.update(dt, fsm.not("menu", "over", "dying"));
+    ctx.playerSystem.update(dt, fsm.not("menu", "over", "dying"), ctx.physics.integratesPositions);
 
     // Handle dying → over transition
     if (fsm.is("dying")) {
@@ -57,6 +63,7 @@ export class GameFrame {
         ctx.entityPool.enemyList,
         ctx.getPlayerPosition(),
         ctx.getZoneBounds(),
+        ctx.physics.integratesPositions,
       );
       // Enemy shooting: separate from movement/AI
       if (fsm.is("playing", "active")) {
@@ -67,6 +74,14 @@ export class GameFrame {
         ctx.weaponManager.update(dt);
       }
       ctx.bulletSystem.update(dt, ctx.entityPool.bulletList, ctx.entityPool.enemyBulletList, ctx.entityPool.enemyList);
+    }
+
+    // Физика: регистрация тел, синхронизация, шаг, контакты.
+    // В custom-режиме позиции уже проинтегрированы системами выше;
+    // в Planck-режиме движок сам двигает тела и возвращает состояние,
+    // поэтому единое мировое сечение строится после шага физики.
+    if (!isDead) {
+      ctx.physics.update(dt, this.buildPhysicsEntities());
     }
 
     const world = this.buildWorld();
@@ -111,6 +126,8 @@ export class GameFrame {
             r: ctx.waveOrchestrator.zoneState.radius,
           }
         : null,
+      physicsIntegrates: ctx.physics.integratesPositions,
+      physicsResolves: ctx.physics.resolvesVelocity,
     } as import("../asteroids").AsteroidEnv);
 
     this.render.renderScene(dt);
@@ -134,5 +151,20 @@ export class GameFrame {
       asteroids: ctx.asteroidField.asteroidList as AsteroidWorld[],
       zone: zoneState && zoneState.active ? zoneState : null,
     };
+  }
+
+  /** Живые сущности физики текущего кадра (live-мосты над игровыми объектами). */
+  private buildPhysicsEntities(): PhysicsEntity[] {
+    const ctx = this.ctx;
+    const entities: PhysicsEntity[] = [
+      playerEntity(ctx.playerSystem.getPlayerRef()),
+    ];
+    for (const e of ctx.entityPool.enemyList) {
+      if (!e.dead) entities.push(enemyEntity(e));
+    }
+    for (const a of ctx.asteroidField.asteroidList) {
+      entities.push(asteroidEntity(a));
+    }
+    return entities;
   }
 }

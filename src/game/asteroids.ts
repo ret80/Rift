@@ -34,6 +34,10 @@ export interface AsteroidEnv {
   viewH: number;
   /** active wave zone, or null when there is none */
   zone: { x: number; y: number; r: number } | null;
+  /** Позиции интегрирует физический движок (Planck) — игровой код не двигает. */
+  physicsIntegrates?: boolean;
+  /** Физический бэкенд сам решает контакты астероид-астероид (Planck). */
+  physicsResolves?: boolean;
 }
 
 export interface AsteroidHooks {
@@ -163,8 +167,11 @@ export class AsteroidField {
 
     for (let i = this.asteroidList.length - 1; i >= 0; i--) {
       const a = this.asteroidList[i];
-      a.x += a.vx * dt;
-      a.y += a.vy * dt;
+      // В режиме Planck позицию астероида интегрирует физический движок.
+      if (env.physicsIntegrates !== false) {
+        a.x += a.vx * dt;
+        a.y += a.vy * dt;
+      }
       a.angle += a.spin * dt;
 
       // the wave zone is sacred ground — shove rocks out and keep them out
@@ -189,26 +196,31 @@ export class AsteroidField {
     }
 
     // Asteroid-asteroid collisions (soft body physics with mass)
-    const astCount = this.asteroidList.length;
-    for (let i = 0; i < astCount; i++) {
-      const a1 = this.asteroidList[i];
-      for (let j = i + 1; j < astCount; j++) {
-        const a2 = this.asteroidList[j];
-        const dx = a2.x - a1.x;
-        const dy = a2.y - a1.y;
-        const dist = Math.hypot(dx, dy);
-        const minDist = a1.r + a2.r;
+    // В режиме Planck контакты астероидов решает физический движок
+    // (тела зарегистрированы в PhysicsSystem), поэтому дублирование
+    // убираем, чтобы не накладывать два импульса.
+    if (!env.physicsResolves) {
+      const astCount = this.asteroidList.length;
+      for (let i = 0; i < astCount; i++) {
+        const a1 = this.asteroidList[i];
+        for (let j = i + 1; j < astCount; j++) {
+          const a2 = this.asteroidList[j];
+          const dx = a2.x - a1.x;
+          const dy = a2.y - a1.y;
+          const dist = Math.hypot(dx, dy);
+          const minDist = a1.r + a2.r;
 
-        if (dist < minDist && dist > 0.01) {
-          const result = softResolveCollision(
-            a1.x, a1.y, a1.mass, a1.vx, a1.vy,
-            a2.x, a2.y, a2.mass, a2.vx, a2.vy,
-            1.2
-          );
-          a1.vx = result.na.vx;
-          a1.vy = result.na.vy;
-          a2.vx = result.nb.vx;
-          a2.vy = result.nb.vy;
+          if (dist < minDist && dist > 0.01) {
+            const result = softResolveCollision(
+              a1.x, a1.y, a1.mass, a1.vx, a1.vy,
+              a2.x, a2.y, a2.mass, a2.vx, a2.vy,
+              1.2
+            );
+            a1.vx = result.na.vx;
+            a1.vy = result.na.vy;
+            a2.vx = result.nb.vx;
+            a2.vy = result.nb.vy;
+          }
         }
       }
     }

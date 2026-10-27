@@ -54,6 +54,7 @@ export class GameStart {
 
     ctx.riftField.reset();
     ctx.asteroidField.hardReset();
+    ctx.physics.reset();
     ctx.fx.reset();
     ctx.deathSystem = new DeathSystem(
       () => ctx.getPlayerPosition(),
@@ -91,5 +92,6 @@ export class GameStart {
     // Reset menu state
     ctx.menuScene.reset();
     ctx.asteroidField.reset();
+    ctx.physics.reset();
   }
 }

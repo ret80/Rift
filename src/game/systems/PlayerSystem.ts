@@ -141,7 +141,7 @@ export class PlayerSystem {
 
   // ---- Main update ----
 
-  update(dt: number, active: boolean): void {
+  update(dt: number, active: boolean, integratePosition: boolean = true): void {
     if (!active) return;
 
     const mv = this.input.axis;
@@ -157,6 +157,7 @@ export class PlayerSystem {
       this.fx,
       ax * ax + ay * ay > 0,
       this.speedMult,
+      integratePosition,
     );
 
     // Invulnerability timer

@@ -13,6 +13,9 @@ import type { PersistencePort } from "./PersistencePort";
 import { BaseRenderer } from "../render/index";
 import { PicoGLRenderer } from "../render/index";
 import type { IRenderer } from "../render/index";
+import { PhysicsSystem } from "../physics/index";
+import { CustomCurrentPhysics } from "../physics/index";
+import { PlanckPhysics } from "../physics/index";
 import { DebugSystem } from "../systems/DebugSystem";
 import { MenuScene } from "../systems/MenuScene";
 import { ScoringSystem } from "../systems/ScoringSystem";
@@ -68,6 +71,7 @@ export class GameContext {
 
   readonly audio = new AudioManager();
   readonly renderer: IRenderer;
+  readonly physics: PhysicsSystem;
   readonly eventBus = new EventBus();
 
   readonly cameraSystem: CameraSystem;
@@ -131,6 +135,15 @@ export class GameContext {
       typeof window !== "undefined" &&
       new URLSearchParams(window.location.search).get("renderer") === "picogl";
     this.renderer = usePicoGL ? new PicoGLRenderer(canvas) : new BaseRenderer(canvas);
+
+    // Физический бэкенд: текущая самописная физика по умолчанию;
+    // Planck.js включается флагом URL (?physics=planck).
+    const usePlanck =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("physics") === "planck";
+    const physicsEngine = usePlanck ? new PlanckPhysics() : new CustomCurrentPhysics();
+    this.physics = new PhysicsSystem(physicsEngine);
+
     this.scoringSystem = new ScoringSystem({}, storage);
     this.upgradeSystem = UpgradeSystem.create(storage);
 
@@ -300,7 +313,7 @@ export class GameContext {
       addParts: (n) => this.upgradeSystem.addParts(n),
     });
 
-    this.collisionSystem = new CollisionSystem(this.eventBus);
+    this.collisionSystem = new CollisionSystem(this.eventBus, this.physics);
 
     this.waveFlowSystem = new WaveFlowSystem({
       eventBus: this.eventBus,
@@ -505,5 +518,6 @@ export class GameContext {
     this.inputSystem.destroy();
     this.input.destroy();
     this.audio.destroy();
+    this.physics.clear();
   }
 }
