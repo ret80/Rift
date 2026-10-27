@@ -88,6 +88,7 @@ export class GameStart {
     if (ctx.fsm.is("menu")) return;
     ctx.fsm.fire("to_menu");
     ctx.setPaused(false);
+    ctx.audio.setCombat(false);
     ctx.hooks.onPause(false);
     // Reset menu state
     ctx.menuScene.reset();

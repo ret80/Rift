@@ -5,6 +5,7 @@
  */
 
 import { AudioEngine, type Volumes } from "../audio";
+import type { MenuTrackId, CombatTrackId } from "../audio/tracks";
 import { PickupKind, PICKUP_CATALOG } from "../balance";
 
 export class AudioManager {
@@ -145,6 +146,26 @@ export class AudioManager {
 
   setCombat(on: boolean): void {
     this.engine.setCombat(on);
+  }
+
+  setMenuTrack(id: MenuTrackId): void {
+    this.engine.setMenuTrack(id);
+  }
+
+  setCombatTrack(id: CombatTrackId): void {
+    this.engine.setCombatTrack(id);
+  }
+
+  getMenuTrack(): MenuTrackId {
+    return this.engine.getMenuTrack();
+  }
+
+  getCombatTrack(): CombatTrackId {
+    return this.engine.getCombatTrack();
+  }
+
+  previewTrack(id: MenuTrackId | CombatTrackId): void {
+    this.engine.previewTrack(id);
   }
 
   // ==================== UI / Events ====================

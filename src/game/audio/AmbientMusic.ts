@@ -1,21 +1,19 @@
 /**
- * Ambient music system — procedural generative audio.
+ * AmbientMusic — процедурная генеративная музыка меню.
  *
- * Architecture:
- * - SCENES: predefined ambient layers (bass, filter, LFO, gain)
- * - BASS_SEMI: semitone offsets for bass line sequencing
- * - ARP_SCALE: pentatonic scale for arpeggiated melodies
+ * Архитектура:
+ * - MENU_TRACKS: карта меню-треков; каждый трек — набор сцен
+ *   (аккордовые пэды, фильтр, LFO, громкость) плюс параметры мелодии.
+ * - BASS_SEMI: полутоновые смещения для басовой линии
+ * - ARP_SCALE: пентатоника для арпеджио
  *
- * Each scene defines a continuous pad sound using:
- * - freqs: oscillator frequencies for rich chord texture
- * - filter: low-pass filter cutoff for warmth control
- * - lfoRate/lfoAmt: LFO modulation for movement
- * - gain: master volume for the layer
- * - scale: frequencies for arpeggiated melody notes
- *
- * Music evolves by crossfading between scenes and sequencing
- * bass notes from the semitone table.
+ * Музыка эволюционирует за счёт плавного морфинга между сценами,
+ * секвенсора пингов и пэда-аккомпанемента.
  */
+
+import type { MenuTrackId } from "./tracks";
+import { DEFAULT_MENU_TRACK } from "./tracks";
+
 export interface AmbientScene {
   freqs: [number, number, number];
   filter: number;
@@ -28,7 +26,8 @@ export interface AmbientScene {
 export const BASS_SEMI = [0, 0, 3, 0, 5, 0, 3, 2];
 export const ARP_SCALE = [220, 261.63, 329.63, 392, 440, 523.25];
 
-export const SCENES: AmbientScene[] = [
+/** Базовая эмбиент-сцена ("Туманность") — фоновая заливка. */
+const SCENE_PAD: AmbientScene[] = [
   {
     freqs: [55, 82.5, 110],
     filter: 420,
@@ -53,15 +52,98 @@ export const SCENES: AmbientScene[] = [
     gain: 0.078,
     scale: [164.81, 196, 246.94, 329.63, 392],
   },
+];
+
+/** Тёплая, умеренная сцена ("Солнце"). */
+const SCENE_SOLAR: AmbientScene[] = [
   {
-    freqs: [36.71, 55, 73.42],
-    filter: 380,
+    freqs: [61.74, 92.5, 123.47],
+    filter: 560,
+    lfoRate: 0.08,
+    lfoAmt: 140,
+    gain: 0.075,
+    scale: [246.94, 293.66, 369.99, 493.88, 587.33],
+  },
+  {
+    freqs: [55, 82.5, 110],
+    filter: 500,
+    lfoRate: 0.06,
+    lfoAmt: 120,
+    gain: 0.08,
+    scale: [220, 277.18, 329.63, 440, 554.37],
+  },
+  {
+    freqs: [65.41, 98, 130.81],
+    filter: 620,
     lfoRate: 0.09,
-    lfoAmt: 170,
-    gain: 0.082,
-    scale: [146.83, 174.61, 220, 293.66, 349.23],
+    lfoAmt: 160,
+    gain: 0.072,
+    scale: [261.63, 329.63, 392, 523.25, 659.25],
   },
 ];
+
+/** Яркая, "полярная" сцена ("Аврора"). */
+const SCENE_AURORA: AmbientScene[] = [
+  {
+    freqs: [46.25, 69.3, 92.5],
+    filter: 720,
+    lfoRate: 0.11,
+    lfoAmt: 200,
+    gain: 0.07,
+    scale: [185, 233.08, 277.18, 369.99, 466.16],
+  },
+  {
+    freqs: [55, 82.5, 110],
+    filter: 660,
+    lfoRate: 0.1,
+    lfoAmt: 180,
+    gain: 0.075,
+    scale: [220, 261.63, 329.63, 415.3, 523.25],
+  },
+  {
+    freqs: [41.2, 61.74, 82.41],
+    filter: 580,
+    lfoRate: 0.08,
+    lfoAmt: 150,
+    gain: 0.068,
+    scale: [164.81, 207.65, 246.94, 329.63, 415.3],
+  },
+];
+
+/** Карта меню-треков: набор сцен + параметры мелодии. */
+export interface MenuTrackDef {
+  scenes: AmbientScene[];
+  /** Громкость мелодических пингов. */
+  pingVol: number;
+  /** Шанс мелодического пинга на 2-м шаге. */
+  pingChance: number;
+  /** Максимальная громкость басового пинга. */
+  bassVol: number;
+}
+
+export const MENU_TRACKS: Record<MenuTrackId, MenuTrackDef> = {
+  nebula: {
+    scenes: SCENE_PAD,
+    pingVol: 0.055,
+    pingChance: 0.5,
+    bassVol: 0.06,
+  },
+  solar: {
+    scenes: SCENE_SOLAR,
+    pingVol: 0.05,
+    pingChance: 0.65,
+    bassVol: 0.055,
+  },
+  aurora: {
+    scenes: SCENE_AURORA,
+    pingVol: 0.06,
+    pingChance: 0.45,
+    bassVol: 0.06,
+  },
+};
+
+/** Сцены — обратная совместимость (базовый набор, nebula). */
+export const SCENES: AmbientScene[] = SCENE_PAD;
 
 /**
  * Ambient/generative music engine.
@@ -79,6 +161,8 @@ export class AmbientMusic {
   private step = 0;
   private ambientTick = 0;
   private sceneIdx = 0;
+  /** Активный меню-трек (выбор пользователя). */
+  private trackId: MenuTrackId = DEFAULT_MENU_TRACK;
 
   constructor(
     private ctx: AudioContext,
@@ -88,6 +172,30 @@ export class AmbientMusic {
     private isCombat: () => boolean,
     private onSuspended: () => boolean,
   ) {}
+
+  /** Активный трек меню. */
+  getTrack(): MenuTrackId {
+    return this.trackId;
+  }
+
+  /** Играет ли сейчас музыка меню (пэд живой). */
+  isPlaying(): boolean {
+    return this.musicTimer !== null;
+  }
+
+  /** Переключить меню-трек (мгновенно кроссфейдит пэд, если музыка уже играет). */
+  setMenuTrack(id: MenuTrackId) {
+    if (id === this.trackId) return;
+    this.trackId = id;
+    this.sceneIdx = 0;
+    if (this.musicTimer !== null && this.padGain) {
+      this.applyScene(0, 2.5);
+    }
+  }
+
+  private get track(): MenuTrackDef {
+    return MENU_TRACKS[this.trackId];
+  }
 
   startMusic() {
     if (!this.ctx || !this.musicBus || this.musicTimer !== null) return;
@@ -108,20 +216,21 @@ export class AmbientMusic {
       this.step++;
       this.ambientTick++;
 
+      const scenes = this.track.scenes;
       // rotate to the next ambient scene every ~40s, morphing smoothly
       if (this.ambientTick % 80 === 0) {
-        this.sceneIdx = (this.sceneIdx + 1) % SCENES.length;
+        this.sceneIdx = (this.sceneIdx + 1) % scenes.length;
         this.applyScene(this.sceneIdx, 4.5);
       }
 
-      const sc = SCENES[this.sceneIdx];
-      if (this.step % 2 === 0 && Math.random() < 0.5) {
+      const sc = scenes[this.sceneIdx];
+      if (this.step % 2 === 0 && Math.random() < this.track.pingChance) {
         const f = sc.scale[Math.floor(Math.random() * sc.scale.length)];
-        this.ping(f * (Math.random() < 0.3 ? 0.5 : 1), 0.05, 0.055);
+        this.ping(f * (Math.random() < 0.3 ? 0.5 : 1), 0.05, this.track.pingVol);
       }
       if (this.step % 16 === 0) {
         const root = sc.freqs[0];
-        this.ping(root * 2 * (Math.random() < 0.5 ? 1 : 1.5), 0.4, 0.06);
+        this.ping(root * 2 * (Math.random() < 0.5 ? 1 : 1.5), 0.4, this.track.bassVol);
       }
     }, 430);
   }
@@ -130,7 +239,7 @@ export class AmbientMusic {
   private applyScene(idx: number, secs: number) {
     const ctx = this.ctx;
     if (!ctx || !this.padGain || !this.padFilter) return;
-    const scene = SCENES[idx];
+    const scene = this.track.scenes[idx];
     const t = ctx.currentTime;
 
     this.padGain.gain.setTargetAtTime(scene.gain, t, secs / 3);
@@ -233,5 +342,5 @@ export class AmbientMusic {
   // Getters for CombatMusic crossfade access
   getPadGain(): GainNode | null { return this.padGain; }
   getPadFilter(): BiquadFilterNode | null { return this.padFilter; }
-  getScene(): AmbientScene { return SCENES[this.sceneIdx]; }
+  getScene(): AmbientScene { return this.track.scenes[this.sceneIdx]; }
 }

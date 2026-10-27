@@ -1,5 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import type { Volumes } from "../../game/audio";
+import type { MenuTrackId, CombatTrackId, TrackId } from "../../game/audio/tracks";
+import { ALL_TRACK_IDS, TRACK_NAMES, isMenuTrackId } from "../../game/audio/tracks";
 import GameButton from "../components/GameButton";
 import SliderRow from "../components/SliderRow";
 import LangButton from "../components/LangButton";
@@ -8,12 +10,29 @@ import { useT, useLang } from "../../i18n";
 export default function SettingsScreen(props: {
   vols: Volumes;
   onChange: (v: Volumes) => void;
+  menuTrack: MenuTrackId;
+  combatTrack: CombatTrackId;
+  onMenuTrackChange: (v: MenuTrackId) => void;
+  onCombatTrackChange: (v: CombatTrackId) => void;
+  onPreviewTrack: (id: MenuTrackId | CombatTrackId) => void;
   onTest: () => void;
   onReset: () => void;
   onBack: () => void;
 }) {
   const t = useT();
   const lang = useLang();
+  // Общий список всех треков: выбранный пункт запоминается локально,
+  // а при выборе сразу назначается как трек меню или боевой трек.
+  const [selectedTrack, setSelectedTrack] = useState<TrackId>(props.menuTrack);
+  const trackLabel = (id: TrackId) => t(TRACK_NAMES[id]);
+  const selectTrack = (id: TrackId) => {
+    setSelectedTrack(id);
+    if (isMenuTrackId(id)) {
+      props.onMenuTrackChange(id);
+    } else {
+      props.onCombatTrackChange(id);
+    }
+  };
   return (
     <div
       className="anim-overlay absolute inset-0 z-20 flex items-center justify-center p-4"
@@ -46,6 +65,30 @@ export default function SettingsScreen(props: {
                 value={props.vols.music}
                 onChange={(v) => props.onChange({ ...props.vols, music: v })}
               />
+
+              <div>
+                <div className="hud-label mb-2">{t("settings.musicTrack")}</div>
+                <div className="flex gap-2">
+                  <select
+                    className="music-select w-full"
+                    value={selectedTrack}
+                    onChange={(e) => selectTrack(e.target.value as TrackId)}
+                    aria-label={t("settings.musicTrack")}
+                  >
+                    {ALL_TRACK_IDS.map((id) => (
+                      <option key={id} value={id}>{trackLabel(id)}</option>
+                    ))}
+                  </select>
+                  <GameButton
+                    onClick={() => props.onPreviewTrack(selectedTrack)}
+                    variant="cyan"
+                    small
+                    className="shrink-0 px-4"
+                  >
+                    {t("settings.listen")}
+                  </GameButton>
+                </div>
+              </div>
 
               <div>
                 <GameButton onClick={props.onTest} variant="amber" small className="w-full">

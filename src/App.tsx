@@ -14,6 +14,7 @@ import { resetGameState } from "./game/resetGameState";
 import { resetUpgrades } from "./game/upgrades";
 import { createLocalStoragePort } from "./game/core/PersistencePort";
 import type { PersistencePort } from "./game/core/PersistencePort";
+import type { MenuTrackId, CombatTrackId } from "./game/audio/tracks";
 import { useHudUpdater } from "./hooks/useHudUpdater";
 import { usePersistentSettings } from "./hooks/usePersistentSettings";
 import { t } from "./i18n";
@@ -107,6 +108,8 @@ export default function App() {
   /* Persisted state — настройки вынесены в отдельный хук */
   const {
     vols, setVols,
+    menuTrack, setMenuTrack,
+    combatTrack, setCombatTrack,
     debugFps, setDebugFps,
     debugGod, setDebugGod,
     debugWave, setDebugWave,
@@ -196,6 +199,8 @@ export default function App() {
     }, storage);
     game.setVolumes(vols);
     game.setEnabledEnemies(enabledEnemies.length === ENEMY_KIND_COUNT ? null : enabledEnemies);
+    game.audio.setMenuTrack(menuTrack);
+    game.audio.setCombatTrack(combatTrack);
     gameRef.current = game;
     setBest(Number(localStorage.getItem("rift9_best")) || 0);
 
@@ -346,6 +351,24 @@ export default function App() {
     gameRef.current?.setVolumes(v);
   };
 
+  const changeMenuTrack = (id: MenuTrackId) => {
+    setMenuTrack(id);
+    gameRef.current?.audio.setMenuTrack(id);
+  };
+
+  const changeCombatTrack = (id: CombatTrackId) => {
+    setCombatTrack(id);
+    gameRef.current?.audio.setCombatTrack(id);
+  };
+
+  // listen preview: трек меняется мгновенно, превью проигрывается отдельно
+  const previewTrack = (id: MenuTrackId | CombatTrackId) => {
+    const g = gameRef.current;
+    if (!g) return;
+    g.audio.init();
+    g.audio.previewTrack(id);
+  };
+
   // remember which menu opened Settings so "Back" returns there
   const settingsFromRef = useRef<"menu" | "pause">("menu");
   const openSettings = (from: "menu" | "pause") => {
@@ -380,6 +403,11 @@ export default function App() {
         <SettingsScreen
           vols={vols}
           onChange={changeVols}
+          menuTrack={menuTrack}
+          combatTrack={combatTrack}
+          onMenuTrackChange={changeMenuTrack}
+          onCombatTrackChange={changeCombatTrack}
+          onPreviewTrack={previewTrack}
           onTest={() => {
             const g = gameRef.current;
             if (g) {
@@ -428,7 +456,12 @@ export default function App() {
           game={gameRef.current}
           detailsOn={debugDetails}
           from={upgradeFromRef.current}
-          onBack={() => dispatch({ type: "SET_SCREEN", screen: upgradeFromRef.current === "gameover" ? "game" : "menu" })}
+          onBack={() =>
+            dispatch({
+              type: "SET_SCREEN",
+              screen: upgradeFromRef.current === "gameover" ? "game" : "menu",
+            })
+          }
         />
       )}
 
@@ -471,7 +504,10 @@ export default function App() {
         <div key={toast.id} className="pointer-events-none absolute inset-0 z-30">
           <div className="anim-toast absolute bottom-[16%] left-1/2 -translate-x-1/2">
             <div
-              className="max-w-[92vw] border px-3 py-1.5 text-center text-[10px] tracking-[0.16em] sm:px-5 sm:py-2 sm:text-[12px] sm:tracking-[0.3em]"
+              className={
+                "max-w-[92vw] border px-3 py-1.5 text-center text-[10px] " +
+                "tracking-[0.16em] sm:px-5 sm:py-2 sm:text-[12px] sm:tracking-[0.3em]"
+              }
               style={{
                 color: toast.color ?? "#5ef2ff",
                 borderColor: `${toast.color ?? "#5ef2ff"}55`,
@@ -515,7 +551,10 @@ export default function App() {
       {/* FPS dev overlay */}
       {debugFps && (
         <div
-          className="pointer-events-none absolute z-30 border border-[#7dff9e]/40 bg-[#07130c]/80 px-2 py-0.5 font-mono text-[10px] tracking-[0.15em] text-[#7dff9e]"
+          className={
+            "pointer-events-none absolute z-30 border border-[#7dff9e]/40 " +
+            "bg-[#07130c]/80 px-2 py-0.5 font-mono text-[10px] tracking-[0.15em] text-[#7dff9e]"
+          }
           style={{
             left: "12px",
             bottom: "calc(env(safe-area-inset-bottom) + 12px)",

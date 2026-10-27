@@ -22,6 +22,9 @@ export class GameListeners {
         // После первой волны FSM находится в "active", а не "playing".
         if (!this.ctx.fsm.is("playing", "active")) return;
         const waveData = event.payload as { wave: number };
+        // Агрессивная боевая музыка на волну (с интенсивностью по номеру волны).
+        this.ctx.audio.setCombatWave(waveData.wave);
+        this.ctx.audio.setCombat(true);
         // Сброс счётчиков для новой волны
         this.ctx.scoringSystem.setKilledWave(0);
         this.ctx.spawnSystem.reset();
@@ -34,6 +37,8 @@ export class GameListeners {
 
     this.unsubscribers.push(
       bus.subscribe("game_over", (_event) => {
+        // Волна окончена — возвращаемся к спокойной музыке.
+        this.ctx.audio.setCombat(false);
         this.ctx.fsm.fire("player_died");
       }),
     );
@@ -42,6 +47,10 @@ export class GameListeners {
     this.unsubscribers.push(
       bus.subscribe("enemy_killed", () => {
         this.ctx.waveFlowSystem.checkWaveClear();
+        // Волна зачищена — выходим из агрессивного трека в фоновый эмбиент.
+        if (this.ctx.waveOrchestrator.waveState === "cleared") {
+          this.ctx.audio.setCombat(false);
+        }
       }),
     );
 

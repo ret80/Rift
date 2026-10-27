@@ -239,6 +239,41 @@ canvas.game-canvas {
   font-family: "JetBrains Mono", monospace;
 }
 
+/* ---------- music track select ---------- */
+.music-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 8px 34px 8px 12px;
+  background:
+    linear-gradient(45deg, transparent 50%, rgba(94, 242, 255, 0.8) 50%) calc(100% - 18px) 50% / 8px 8px no-repeat,
+    linear-gradient(135deg, rgba(94, 242, 255, 0.8) 50%, transparent 50%) calc(100% - 12px) 50% / 8px 8px no-repeat,
+    rgba(8, 17, 31, 0.88);
+  border: 1px solid rgba(94, 242, 255, 0.45);
+  color: #cfeeff;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.music-select:hover {
+  border-color: rgba(94, 242, 255, 0.85);
+  box-shadow: 0 0 12px rgba(94, 242, 255, 0.25);
+}
+
+.music-select:focus-visible {
+  border-color: #5ef2ff;
+  box-shadow: 0 0 14px rgba(94, 242, 255, 0.35);
+}
+
+.music-select option {
+  background: #060d1a;
+  color: #cfeeff;
+}
+
 /* ---------- range sliders ---------- */
 input[type="range"].vol {
   -webkit-appearance: none;

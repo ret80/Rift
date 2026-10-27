@@ -1,11 +1,13 @@
 /* Procedural WebAudio engine: SFX synth + generative soundtrack.
-   Menu/pause = a rotating set of calm ambient "scenes" (chord pads +
-   pings through a delay). Combat = a driving 128 BPM groove whose
+   Menu/pause = selectable calm ambient tracks (chord pads + pings
+   through a delay). Combat = selectable driving grooves whose
    intensity scales with the wave number. */
 
 import { SfxSynth } from "./SfxSynth";
 import { AmbientMusic } from "./AmbientMusic";
 import { CombatMusic } from "./CombatMusic";
+import type { MenuTrackId, CombatTrackId } from "./tracks";
+import { MENU_TRACK_IDS, DEFAULT_MENU_TRACK, DEFAULT_COMBAT_TRACK } from "./tracks";
 
 /** Уровни громкости (0..1) — источник правды в React-настройках (App). */
 export interface Volumes {
@@ -26,6 +28,10 @@ export class AudioEngine {
   private sfxSynth!: SfxSynth;
   private ambientMusic!: AmbientMusic;
   private combatMusic!: CombatMusic;
+
+  /** Выбор треков до первого init() — применяется при создании модулей. */
+  private pendingMenuTrack: MenuTrackId = DEFAULT_MENU_TRACK;
+  private pendingCombatTrack: CombatTrackId = DEFAULT_COMBAT_TRACK;
 
   private ctxSuspended = false;
 
@@ -67,6 +73,7 @@ export class AudioEngine {
 
     // Wire up composited modules (combat needs ambient, ambient needs combat callbacks)
     this.combatMusic = new CombatMusic(ctx, this.musicBus);
+    this.combatMusic.setCombatTrack(this.pendingCombatTrack);
     this.ambientMusic = new AmbientMusic(
       ctx,
       this.musicBus,
@@ -75,6 +82,7 @@ export class AudioEngine {
       () => this.combatMusic.combat,
       () => this.ctxSuspended,
     );
+    this.ambientMusic.setMenuTrack(this.pendingMenuTrack);
     this.combatMusic.setAmbientMusic(this.ambientMusic);
     this.sfxSynth = new SfxSynth(ctx, this.sfxBus, this.musicBus!, this.delaySend!);
 
@@ -129,6 +137,95 @@ export class AudioEngine {
     this.combatMusic.setCombat(on);
   }
 
+  /** Выбрать трек меню (эмбиент). Применяется сразу, если музыка играет. */
+  setMenuTrack(id: MenuTrackId) {
+    this.pendingMenuTrack = id;
+    if (!this.ambientMusic) return;
+    this.ambientMusic.setMenuTrack(id);
+  }
+
+  /** Выбрать боевой трек. Применяется сразу, если бой уже идёт. */
+  setCombatTrack(id: CombatTrackId) {
+    this.pendingCombatTrack = id;
+    if (!this.combatMusic) return;
+    this.combatMusic.setCombatTrack(id);
+  }
+
+  /** Выбранный трек меню (для UI). */
+  getMenuTrack(): MenuTrackId {
+    return this.ambientMusic ? this.ambientMusic.getTrack() : this.pendingMenuTrack;
+  }
+
+  /** Выбранный боевой трек (для UI). */
+  getCombatTrack(): CombatTrackId {
+    return this.combatMusic ? this.combatMusic.getTrack() : this.pendingCombatTrack;
+  }
+
+  /** Таймер восстановления после превью. */
+  private previewTimer: number | null = null;
+  /** Восстановление состояния после превью (вызывается по таймеру или при отмене). */
+  private previewRestore: (() => void) | null = null;
+
+  /** Проиграть короткое превью трека (настройки звука). */
+  previewTrack(id: MenuTrackId | CombatTrackId) {
+    if (!this.ctx) return;
+    // Сначала отменяем прошлое превью (и восстанавливаем состояние до него).
+    this.stopPreview();
+    this.combatMusic.stopPreviewPublic();
+
+    const isMenu = (MENU_TRACK_IDS as string[]).includes(id);
+    const prevMenuTrack = this.ambientMusic.getTrack();
+    const wasPlaying = this.ambientMusic.isPlaying();
+    const wasCombat = this.combatMusic.combat;
+    // На время превью трек меню (и боевой гроув, если он играет) замолкает.
+    if (wasPlaying) this.ambientMusic.stopMusic();
+    if (wasCombat) this.combatMusic.setCombat(false);
+
+    const restore = () => {
+      this.ambientMusic.stopMusic();
+      this.combatMusic.stopPreviewPublic();
+      // Если пользователь за время превью сменил трек — сохраняем его выбор,
+      // иначе возвращаем трек, который играл до превью.
+      const current = this.ambientMusic.getTrack();
+      const target = current === id ? prevMenuTrack : current;
+      this.ambientMusic.setMenuTrack(target);
+      if (wasPlaying) this.ambientMusic.startMusic();
+      if (wasCombat) this.combatMusic.setCombat(true);
+    };
+
+    if (isMenu) {
+      // Превью играет ВМЕСТО текущего трека меню (его пэд останавливается).
+      this.ambientMusic.setMenuTrack(id as MenuTrackId);
+      this.ambientMusic.startMusic();
+      this.previewRestore = restore;
+      this.previewTimer = window.setTimeout(() => {
+        this.previewTimer = null;
+        this.previewRestore = null;
+        restore();
+      }, 2600);
+    } else {
+      // Короткий боевой бит без включения полноценного combat-состояния.
+      this.combatMusic.preview();
+      this.previewRestore = restore;
+      this.previewTimer = window.setTimeout(() => {
+        this.previewTimer = null;
+        this.previewRestore = null;
+        restore();
+      }, 2800);
+    }
+  }
+
+  /** Отменить текущее превью и восстановить прежнее состояние. */
+  private stopPreview() {
+    if (this.previewTimer !== null) {
+      window.clearTimeout(this.previewTimer);
+      this.previewTimer = null;
+    }
+    const restore = this.previewRestore;
+    this.previewRestore = null;
+    if (restore) restore();
+  }
+
   /* ---------------- SFX delegation ---------------- */
 
   uiMove() { this.sfxSynth.uiMove(); }
@@ -160,8 +257,10 @@ export class AudioEngine {
   /* ---------------- lifecycle ---------------- */
 
   dispose() {
+    this.stopPreview();
     this.stopMusic();
     this.combatMusic.setCombat(false);
+    this.combatMusic.stopPreviewPublic();
     if (this.ctx) void this.ctx.close();
     this.ctx = null;
   }
