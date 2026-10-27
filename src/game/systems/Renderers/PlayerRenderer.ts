@@ -5,7 +5,7 @@
 
 import { C } from "../../balance";
 import { clamp, rgba } from "../../math";
-import type { Renderer, RGBA } from "../../render";
+import type { IRenderer, RGBA } from "../../render/index";
 import { CANNON_BARREL_OFFSETS } from "../../weapons/CannonWeapon";
 import { drawShipPoly } from "./ShipRenderer";
 
@@ -78,7 +78,7 @@ export function buildPlayerState(
  * Нарисовать корабль игрока со всеми эффектами.
  */
 export function renderPlayer(
-  R: Renderer,
+  R: IRenderer,
   player: PlayerRenderState,
   time: number
 ): void {
@@ -116,7 +116,7 @@ export function renderPlayer(
  * читается как треугольник возле рёбер корабля. Яркость зависит от остатка
  * энергии; при поглощении урона контур мигает, при перезагрузке щита его нет.
  */
-function renderShieldStripes(R: Renderer, player: PlayerRenderState, time: number): void {
+function renderShieldStripes(R: IRenderer, player: PlayerRenderState, time: number): void {
   if (!player.shieldOwned || player.shieldOverloaded) return;
   const energy = clamp(player.shieldEnergy, 0, 1);
   if (energy <= 0.001) return;
@@ -156,7 +156,7 @@ function renderShieldStripes(R: Renderer, player: PlayerRenderState, time: numbe
 }
 
 /** Отрисовка турели игрока. */
-function renderTurret(R: Renderer, player: PlayerRenderState, blink: number): void {
+function renderTurret(R: IRenderer, player: PlayerRenderState, blink: number): void {
   const ba = player.aimA !== null ? player.aimA : player.angle;
   const gcos = Math.cos(ba);
   const gsin = Math.sin(ba);

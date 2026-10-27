@@ -17,7 +17,7 @@
 import type { AsteroidField } from "../asteroids";
 import { EnemyKind } from "../balance";
 import type { Fx } from "../fx";
-import type { RenderScene } from "../types/render";import type { Renderer } from "../render";
+import type { RenderScene } from "../types/render";import type { IRenderer } from "../render/index";
 import { RiftField } from "../rifts";
 import type { Starfield } from "../starfield";
 import { renderPickups, buildPickupState, type PickupRenderState as PRS } from "./Renderers/PickupRenderer";
@@ -57,7 +57,7 @@ export class RendererSystem {
    * Каждый рендерер сам строит свой state через buildState.
    */
   render(
-    R: Renderer,
+    R: IRenderer,
     scene: RenderScene
   ) {
     const {
@@ -108,7 +108,7 @@ export class RendererSystem {
   }
 
   renderMenu(
-    R: Renderer,
+    R: IRenderer,
     starfield: Starfield,
     asteroidField: AsteroidField,
     riftField: RiftField,
@@ -137,7 +137,7 @@ export class RendererSystem {
   }
 
   draw(
-    R: Renderer,
+    R: IRenderer,
     time: number,
     camX: number,
     camY: number,
@@ -184,7 +184,7 @@ export class RendererSystem {
   /* ============================== beams ============================== */
 
   private drawBeams(
-    R: Renderer,
+    R: IRenderer,
     beams: Array<{ x1: number; y1: number; x2: number; y2: number; life: number; maxLife: number; seed: number }>,
     _time: number
   ): void {
@@ -200,13 +200,13 @@ export class RendererSystem {
 
   /* ============================== rifts ============================== */
 
-  private drawRifts(R: Renderer, time: number): void {
+  private drawRifts(R: IRenderer, time: number): void {
     this.config.riftField.draw(R, time);
   }
 
   /* ============================== menu scene ============================== */
 
-  private drawMenuScene(R: Renderer, time: number): void {
+  private drawMenuScene(R: IRenderer, time: number): void {
     const cyclePos = time % 4.0;
     const { lenP, widP, alpha, snake } = calcMenuRiftAnim(cyclePos, time);
     drawRift(R, { x: 0, y: -30, size: 130, seed: 7, rot: time * 0.05, time }, lenP, widP, alpha, snake);
@@ -224,7 +224,7 @@ export class RendererSystem {
   }
 
   private drawMenuRifts(
-    R: Renderer,
+    R: IRenderer,
     rifts: Array<{
       x: number; y: number; t: number; state: "opening" | "spawning" | "closing";
       seed: number; rot: number; size: number;
@@ -238,7 +238,7 @@ export class RendererSystem {
   }
 
   private drawMenuEnemies(
-    R: Renderer,
+    R: IRenderer,
     enemies: Array<{
       x: number; y: number; vx: number; vy: number;
       kind: EnemyKind; angle: number; seed: number;
@@ -251,7 +251,7 @@ export class RendererSystem {
   }
 
   private drawMenuEnemy(
-    R: Renderer,
+    R: IRenderer,
     e: { x: number; y: number; vx: number; vy: number; kind: EnemyKind; angle: number; seed: number },
     time: number
   ) {

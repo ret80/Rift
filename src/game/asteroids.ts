@@ -2,7 +2,7 @@
    Big rocks always split, mediums sometimes do, smalls never.
    The wave zone repels rocks. */
 
-import type { Renderer } from "./render";
+import type { IRenderer } from "./render/index";
 import type { AudioManager } from "./systems/AudioManager";
 import type { Fx } from "./fx";
 import type { EventBus } from "./core/EventBus";
@@ -277,7 +277,7 @@ export class AsteroidField {
     }
   }
 
-  draw(R: Renderer, time: number) {
+  draw(R: IRenderer, time: number) {
     for (const a of this.asteroidList) {
       const n = a.verts.length;
       const pts: Array<[number, number]> = [];

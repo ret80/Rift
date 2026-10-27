@@ -22,7 +22,7 @@
  * - applyTo(renderer): applies camera transform to Renderer
  */
 
-import type { Renderer } from "../render";
+import type { IRenderer } from "../render/index";
 
 export class Camera {
   private _width = 800;
@@ -66,7 +66,7 @@ export class Camera {
   }
 
   /** Применяет камеру к Renderer для рендеринга в мировых координатах */
-  applyTo(renderer: Renderer, shakeX: number = 0, shakeY: number = 0): void {
+  applyTo(renderer: IRenderer, shakeX: number = 0, shakeY: number = 0): void {
     renderer.setCamera(0, 0, 1, shakeX, shakeY);
   }
 

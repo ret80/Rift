@@ -21,7 +21,7 @@ import { type Starfield } from "../starfield";
 import { type AsteroidField } from "../asteroids";
 import { type RiftField } from "../rifts";
 import { type RendererSystem } from "./RendererSystem";
-import type { Renderer } from "../render";
+import type { IRenderer } from "../render/index";
 import type { Enemy } from "../types";
 
 /* ===== Menu types ===== */
@@ -62,7 +62,7 @@ export class MenuScene {
     private asteroidField: AsteroidField,
     private riftField: RiftField,
     private rendererSystem: RendererSystem,
-    private renderer: Renderer,
+    private renderer: IRenderer,
     camera: { dpr: number; webGLWidth: number; webGLHeight: number },
   ) {
     this.camera = camera;
@@ -91,7 +91,7 @@ export class MenuScene {
   }
 
   /** Render the menu scene */
-  render(renderer: Renderer) {
+  render(renderer: IRenderer) {
     this.rendererSystem.renderMenu(
       renderer,
       this.starfield,

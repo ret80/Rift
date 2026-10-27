@@ -1,4 +1,6 @@
-/* WebGL wireframe renderer: dynamic line batching + bloom post-process. */
+/* BaseRenderer — реализация IRenderer на raw WebGL.
+   Динамический батчинг линий + постобработка bloom. */
+import type { IRenderer, RenderMode, RGBA } from "./IRenderer";
 
 const LINE_VERT = `
 attribute vec2 aPos;
@@ -146,8 +148,6 @@ void main() {
 }
 `;
 
-export type RGBA = [number, number, number, number];
-
 const MAX_VERTS = 60000;
 const FLOATS_PER_VERT = 6;
 const MAX_BEAM_VERTS = 6000;
@@ -160,7 +160,7 @@ interface FBO {
   h: number;
 }
 
-export class Renderer {
+export class BaseRenderer implements IRenderer {
   readonly canvas: HTMLCanvasElement;
   private gl: WebGLRenderingContext;
 
@@ -188,7 +188,7 @@ export class Renderer {
   private zoom = 1;
   private offX = 0;
   private offY = 0;
-  private mode: "screen" | "world" = "world";
+  private mode: RenderMode = "world";
 
   private u: Array<Record<string, WebGLUniformLocation | null>> = [];
 
@@ -333,7 +333,7 @@ export class Renderer {
     gl.clear(gl.COLOR_BUFFER_BIT);
   }
 
-  setMode(m: "screen" | "world") {
+  setMode(m: RenderMode) {
     if (m !== this.mode) {
       this.flush();
       this.flushBeams();

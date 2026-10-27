@@ -2,7 +2,7 @@
    Game code talks to it through a tiny facade (burst / ring / addShake);
    all state and simulation lives here. */
 
-import type { Renderer } from "./render";
+import type { IRenderer } from "./render/index";
 import { TAU, rand, clamp, rgba } from "./math";
 import type { Ring, Particle } from "./types";
 export type { Ring, Particle } from "./types";
@@ -82,7 +82,7 @@ export class Fx {
     }
   }
 
-  draw(R: Renderer) {
+  draw(R: IRenderer) {
     for (const p of this.particles) {
       const f = clamp(p.life / p.maxLife, 0, 1);
       const l = p.size * f;

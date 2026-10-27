@@ -4,7 +4,7 @@
    crack; closing plays the exact reverse. Each rift keeps a random
    orientation and a size matched to its biggest passenger. */
 
-import type { Renderer } from "./render";
+import type { IRenderer } from "./render/index";
 import type { AudioManager } from "./systems/AudioManager";
 import type { Fx } from "./fx";
 import { TAU, rand, clamp, easeOutCubic, rgba } from "./math";
@@ -26,7 +26,7 @@ export class RiftField {
 
   /** Utility: draw a rift shape at the given position (used by menu scene). */
   static drawShape(
-    R: Renderer,
+    R: IRenderer,
     x: number,
     y: number,
     len: number,
@@ -41,7 +41,7 @@ export class RiftField {
   }
 
   private static drawShapeImpl(
-    R: Renderer,
+    R: IRenderer,
     x: number,
     y: number,
     len: number,
@@ -147,12 +147,12 @@ export class RiftField {
     this.riftList.length = 0;
   }
 
-  draw(R: Renderer, time: number) {
+  draw(R: IRenderer, time: number) {
     for (const rf of this.riftList) this.drawRift(R, rf, time);
   }
 
   /** Two-stage lifecycle: point → line → writhing rift, and the reverse. */
-  private drawRift(R: Renderer, rf: Rift, time: number) {
+  private drawRift(R: IRenderer, rf: Rift, time: number) {
     let lenP = 1;
     let widP = 1;
     let alpha = 1;

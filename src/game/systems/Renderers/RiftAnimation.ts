@@ -4,7 +4,7 @@
  */
 
 import { C } from "../../balance";
-import type { Renderer } from "../../render";
+import type { IRenderer } from "../../render/index";
 import { clamp, easeOutCubic } from "../../math";
 import { RiftField } from "../../rifts";
 
@@ -155,7 +155,7 @@ export function calcMenuRiftAnim(cyclePos: number, time: number): {
  * Рисует rift с вычисленными параметрами анимации.
  */
 export function drawRift(
-  R: Renderer,
+  R: IRenderer,
   params: RiftDrawParams,
   lenP: number,
   widP: number,

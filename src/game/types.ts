@@ -1,7 +1,7 @@
 /* Shared type definitions extracted from fx.ts, rifts.ts, and game.ts.
    All subsystems import from here to avoid duplication. */
 
-import type { RGBA } from "./render";
+import type { RGBA } from "./render/index";
 import type { DroneCombatSpec, DroneId } from "./drones/Drone";
 
 /* ---- Effect types (from fx.ts) ---- */

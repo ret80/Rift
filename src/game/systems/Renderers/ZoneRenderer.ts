@@ -5,7 +5,7 @@
 
 import { C } from "../../balance";
 import { rgba } from "../../math";
-import type { Renderer } from "../../render";
+import type { IRenderer } from "../../render/index";
 
 export interface ZoneRenderState {
   active: boolean;
@@ -36,7 +36,7 @@ export function buildZoneState(
  * Нарисовать зону (круг с волнами).
  */
 export function renderZone(
-  R: Renderer,
+  R: IRenderer,
   zone: ZoneRenderState,
   time: number
 ): void {

@@ -1,6 +1,6 @@
 /* Pure math & color helpers shared across the engine. */
 
-import type { RGBA } from "./render";
+import type { RGBA } from "./render/index";
 
 export const TAU = Math.PI * 2;
 

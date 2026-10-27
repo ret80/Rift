@@ -5,7 +5,7 @@
 
 import { C, EnemyKind } from "../../balance";
 import { clamp, rgba } from "../../math";
-import type { Renderer, RGBA } from "../../render";
+import type { IRenderer, RGBA } from "../../render/index";
 import { drawShipPoly } from "./ShipRenderer";
 
 export interface EnemyRenderState {
@@ -45,7 +45,7 @@ export function buildEnemyState(enemies: unknown[]): EnemyRenderState[] {
 }
 
 export function renderEnemies(
-  R: Renderer,
+  R: IRenderer,
   enemies: EnemyRenderState[],
   _time: number
 ) {

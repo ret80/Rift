@@ -10,7 +10,9 @@
 
 import { EnemyKind, PickupKind, PLAYER_HITBOX_RADIUS, PLAYER_MAX_SPEED } from "../balance";
 import type { PersistencePort } from "./PersistencePort";
-import { Renderer } from "../render";
+import { BaseRenderer } from "../render/index";
+import { PicoGLRenderer } from "../render/index";
+import type { IRenderer } from "../render/index";
 import { DebugSystem } from "../systems/DebugSystem";
 import { MenuScene } from "../systems/MenuScene";
 import { ScoringSystem } from "../systems/ScoringSystem";
@@ -65,7 +67,7 @@ export class GameContext {
   readonly storage: PersistencePort;
 
   readonly audio = new AudioManager();
-  readonly renderer: Renderer;
+  readonly renderer: IRenderer;
   readonly eventBus = new EventBus();
 
   readonly cameraSystem: CameraSystem;
@@ -123,7 +125,12 @@ export class GameContext {
     this.hooks = hooks;
     this.storage = storage;
 
-    this.renderer = new Renderer(canvas);
+    // Рендер-бэкенд: raw WebGL по умолчанию; PicoGL включается флагом
+    // URL (например ?renderer=picogl) или константой ниже.
+    const usePicoGL =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("renderer") === "picogl";
+    this.renderer = usePicoGL ? new PicoGLRenderer(canvas) : new BaseRenderer(canvas);
     this.scoringSystem = new ScoringSystem({}, storage);
     this.upgradeSystem = UpgradeSystem.create(storage);
 

@@ -2,7 +2,7 @@
    layer; chunks materialize one chunk beyond the viewport edge (stars
    always slide in from off-screen) and are evicted behind the camera. */
 
-import type { Renderer } from "./render";
+import type { IRenderer } from "./render/index";
 import { TAU, mulberry32 } from "./math";
 import { STAR_LAYERS } from "./balance";
 
@@ -87,7 +87,7 @@ export class Starfield {
   }
 
   draw(
-    R: Renderer,
+    R: IRenderer,
     camX: number,
     camY: number,
     zoom: number,

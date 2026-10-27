@@ -5,7 +5,7 @@
 
 import { C } from "../../balance";
 import { rgba } from "../../math";
-import type { Renderer, RGBA } from "../../render";
+import type { IRenderer, RGBA } from "../../render/index";
 
 export interface BulletRenderState {
   x: number;
@@ -49,7 +49,7 @@ export function buildEBulletState(bullets: unknown[]): EBulletRenderState[] {
  * Нарисовать все пули (игрока и врагов).
  */
 export function renderBullets(
-  R: Renderer,
+  R: IRenderer,
   bullets: BulletRenderState[],
   ebullets: EBulletRenderState[]
 ): void {
@@ -62,7 +62,7 @@ export function renderBullets(
 }
 
 /** Отрисовка пули игрока. */
-function renderPlayerBullet(R: Renderer, b: BulletRenderState): void {
+function renderPlayerBullet(R: IRenderer, b: BulletRenderState): void {
   if (b.homing) {
     renderMissile(R, b);
     return;
@@ -87,7 +87,7 @@ function renderPlayerBullet(R: Renderer, b: BulletRenderState): void {
  * хвостовыми стабилизаторами и продольной осью. Размер — примерно
  * с дрона-компаньона, чтобы не превышать корабль. Ориентация — по скорости.
  */
-function renderMissile(R: Renderer, b: BulletRenderState): void {
+function renderMissile(R: IRenderer, b: BulletRenderState): void {
   const angle = Math.atan2(b.vy, b.vx);
   const col = rgba("#9dffe8", 0.95);
   const core = rgba("#eaffff", 0.5);
@@ -104,7 +104,7 @@ function renderMissile(R: Renderer, b: BulletRenderState): void {
 }
 
 /** Отрисовка пули врага с учётом типа. */
-function renderEnemyBullet(R: Renderer, b: EBulletRenderState): void {
+function renderEnemyBullet(R: IRenderer, b: EBulletRenderState): void {
   if (b.cruiser) {
     // Cruiser bullets: large and ominous
     R.circle(b.x, b.y, 5.5, rgba(C.enemyBullet, 1), 12);

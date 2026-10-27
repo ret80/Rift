@@ -6,7 +6,7 @@
 import { PICKUP_CATALOG } from "../../balance/pickupCatalog";
 import type { PickupKind } from "../../balance";
 import { rgba } from "../../math";
-import type { Renderer } from "../../render";
+import type { IRenderer } from "../../render/index";
 
 export interface PickupRenderState {
   kind: PickupKind;
@@ -31,7 +31,7 @@ function colorFor(kind: PickupKind): string {
 }
 
 export function renderPickups(
-  R: Renderer,
+  R: IRenderer,
   pickups: PickupRenderState[],
   time: number
 ) {

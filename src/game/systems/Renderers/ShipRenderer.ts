@@ -3,11 +3,11 @@
  * Убирает дублирование vertex data из RendererSystem.
  */
 
-import type { Renderer } from "../../render";
-import type { RGBA } from "../../render";
+import type { IRenderer } from "../../render/index";
+import type { RGBA } from "../../render/index";
 
 export function drawShipPoly(
-  R: Renderer,
+  R: IRenderer,
   x: number,
   y: number,
   angle: number,

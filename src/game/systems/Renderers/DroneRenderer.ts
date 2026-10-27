@@ -5,7 +5,7 @@
 
 import { C } from "../../balance";
 import { clamp, rgba } from "../../math";
-import type { Renderer, RGBA } from "../../render";
+import type { IRenderer, RGBA } from "../../render/index";
 import { DRONE_ORBIT_RADIUS } from "../../weapons/DroneWeapon";
 import { drawShipPoly } from "./ShipRenderer";
 import type { PlayerRenderState } from "./PlayerRenderer";
@@ -34,7 +34,7 @@ export function buildDroneState(drones: unknown[]): AllyDroneRenderState[] {
  * Нарисовать союзных дронов и орбитальное кольцо игрока.
  */
 export function renderAllyDrones(
-  R: Renderer,
+  R: IRenderer,
   drones: AllyDroneRenderState[],
   time: number,
   player: PlayerRenderState | null
@@ -50,7 +50,7 @@ export function renderAllyDrones(
 }
 
 /** Отрисовка одного дрона. */
-function renderDrone(R: Renderer, d: AllyDroneRenderState, time: number): void {
+function renderDrone(R: IRenderer, d: AllyDroneRenderState, time: number): void {
   const hpF = clamp(d.hp / d.maxHp, 0, 1);
   const cr = 0.62 + (1 - hpF) * 0.38;
   const cg = 1 - (1 - hpF) * 0.5;

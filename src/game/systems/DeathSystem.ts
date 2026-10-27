@@ -15,7 +15,7 @@ import {
   DEATH_EXPLOSION_MIN_LIFE,
   DEATH_EXPLOSION_MAX_LIFE,
 } from "../balance";
-import type { RGBA } from "../render";
+import type { RGBA } from "../render/index";
 
 export interface DeathSystemHooks {
   onGameOver: () => void;
