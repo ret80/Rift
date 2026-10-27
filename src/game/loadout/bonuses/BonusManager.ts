@@ -96,14 +96,6 @@ export class BonusManager {
     return this.bonuses.guns.getExtraBarrels();
   }
 
-  /** Снимок бонусов для рендера игрока (кольцо темпа). */
-  getRenderSnapshot(): { rateT: number; rateBoost: number } {
-    return {
-      rateT: this.getRateT(),
-      rateBoost: this.getRateMult() - 1,
-    };
-  }
-
   /** Слоты активных временных бонусов для строки снаряжения. */
   getSlots(): LoadoutSlotData[] {
     const slots: LoadoutSlotData[] = [];

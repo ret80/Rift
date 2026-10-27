@@ -35,12 +35,12 @@ export type BonusMeta = LoadoutSlotMeta & {
 
 /**
  * PlayerBonuses — снимок текущих временных бонусов для потребителей:
- * модуль оружия (rateMult, extraBarrels) и рендер игрока (rateT).
+ * модуль оружия (rateMult, rateT, extraBarrels).
  */
 export interface PlayerBonuses {
   /** Множитель темпа стрельбы от бонуса «темп огня» (1 + стек). */
   rateMult: number;
-  /** Остаток бонуса «темп огня», секунды (кольцо в рендере). */
+  /** Остаток бонуса «темп огня», секунды. */
   rateT: number;
   /** Временно добавленные стволы пушки. */
   extraBarrels: number;

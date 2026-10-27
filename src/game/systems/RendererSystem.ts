@@ -62,7 +62,7 @@ export class RendererSystem {
   ) {
     const {
       state, time,
-      player, aim, guns, bonus, shield,
+      player, aim, guns, shield,
       enemies, bullets, enemyBullets: ebullets, pickups, allyDrones: drones, beams,
       zone: zoneState, camera, view,
     } = scene;
@@ -73,7 +73,7 @@ export class RendererSystem {
           player.x, player.y, player.angle,
           player.hp, player.maxHp, player.invuln,
           player.thrusting, player.vx, player.vy,
-          aim, guns, bonus, shield
+          aim, guns, shield
         )
       : null;
 

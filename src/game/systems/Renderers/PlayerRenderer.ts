@@ -3,7 +3,7 @@
  * Извлечён из RendererSystem для разделения ответственности.
  */
 
-import { C, RATE_BOOST_TIME } from "../../balance";
+import { C } from "../../balance";
 import { clamp, rgba } from "../../math";
 import type { Renderer, RGBA } from "../../render";
 import { CANNON_BARREL_OFFSETS } from "../../weapons/CannonWeapon";
@@ -18,8 +18,6 @@ export interface PlayerRenderState {
   maxHp: number;
   invuln: number;
   guns: number;
-  rateT: number;
-  rateBoost: number;
   thrusting: boolean;
   pvx: number;
   pvy: number;
@@ -31,12 +29,6 @@ export interface PlayerRenderState {
   shieldOverloaded: boolean;
   /** Остаток вспышки щита 0..1. */
   shieldFlash: number;
-}
-
-/** Снимок бонусов для buildState */
-export interface PlayerBonusSnapshot {
-  rateT: number;
-  rateBoost: number;
 }
 
 /** Снимок щита для buildState. */
@@ -67,15 +59,12 @@ export function buildPlayerState(
   pvy: number,
   aimA: number | null,
   guns: number,
-  bonus: PlayerBonusSnapshot,
   shield: PlayerShieldSnapshot
 ): PlayerRenderState {
   return {
     x, y, angle, aimA,
     hp, maxHp, invuln,
     guns,
-    rateT: bonus.rateT,
-    rateBoost: bonus.rateBoost,
     thrusting,
     pvx, pvy,
     shieldEnergy: shield.energy,
@@ -119,11 +108,6 @@ export function renderPlayer(
 
   // turret
   renderTurret(R, player, blink);
-
-  // fire-rate boost ring
-  if (player.rateT > 0) {
-    renderRateRing(R, player, time);
-  }
 }
 
 /**
@@ -188,24 +172,5 @@ function renderTurret(R: Renderer, player: PlayerRenderState, blink: number): vo
       player.x + Math.cos(player.aimA) * 30, player.y + Math.sin(player.aimA) * 30,
       rgba(C.mint, 0.3 * blink)
     );
-  }
-}
-
-/** Отрисовка кольца бонуса темпа огня. */
-function renderRateRing(R: Renderer, player: PlayerRenderState, time: number): void {
-  const f = clamp(player.rateT / RATE_BOOST_TIME, 0, 1);
-  const rr = 26;
-  const segs = Math.max(6, Math.round(30 * f));
-  const a0 = -Math.PI / 2;
-  let pxp = player.x + Math.cos(a0) * rr;
-  let pyp = player.y + Math.sin(a0) * rr;
-  const blink = f < 0.2 ? (Math.sin(time * 14) > 0 ? 1 : 0.45) : 1;
-  for (let i = 1; i <= segs; i++) {
-    const a = a0 + (i / segs) * f * Math.PI * 2;
-    const nx = player.x + Math.cos(a) * rr;
-    const ny = player.y + Math.sin(a) * rr;
-    R.pushLine(pxp, pyp, nx, ny, rgba(C.fighter, 0.75 * blink));
-    pxp = nx;
-    pyp = ny;
   }
 }

@@ -6,12 +6,6 @@
 import type { AllyDrone, Bullet, EBullet, Enemy, Pickup, LaserBeam } from "../types";
 import type { CameraWorld, PlayerWorld, ViewWorld, ZoneWorld } from "../core/WorldFrame";
 
-/** Снимок временных бонусов для HUD/рендера. */
-export interface BonusRenderState {
-  rateT: number;
-  rateBoost: number;
-}
-
 /** Снимок щита для рендера. */
 export interface ShieldRenderState {
   /** Щит куплен и работает. */
@@ -38,7 +32,6 @@ export interface RenderScene {
   player: PlayerWorld | null;
   aim: number | null;
   guns: number;
-  bonus: BonusRenderState;
   shield: ShieldRenderState;
   enemies: Enemy[];
   bullets: Bullet[];

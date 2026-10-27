@@ -8,6 +8,7 @@ import { clamp, rgba } from "../../math";
 import type { Renderer, RGBA } from "../../render";
 import { DRONE_ORBIT_RADIUS } from "../../weapons/DroneWeapon";
 import { drawShipPoly } from "./ShipRenderer";
+import type { PlayerRenderState } from "./PlayerRenderer";
 
 export interface AllyDroneRenderState {
   x: number;
@@ -20,22 +21,6 @@ export interface AllyDroneRenderState {
   target: unknown | null;
   retargetT: number;
   flash: number;
-}
-
-export interface PlayerRenderState {
-  x: number;
-  y: number;
-  angle: number;
-  aimA: number | null;
-  hp: number;
-  maxHp: number;
-  invuln: number;
-  guns: number;
-  rateT: number;
-  rateBoost: number;
-  thrusting: boolean;
-  pvx: number;
-  pvy: number;
 }
 
 /**

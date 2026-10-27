@@ -28,7 +28,6 @@ export class GameRender {
       player: ctx.getPlayerWorld(),
       aim: ctx.weaponManager.getAimAngle(),
       guns: ctx.weaponManager.getInstanceCount("cannon"),
-      bonus: ctx.bonusManager.getRenderSnapshot(),
       shield: ctx.shieldSystem.getSnapshot(),
       enemies: ctx.entityPool.enemyList,
       bullets: ctx.entityPool.bulletList,
