@@ -128,7 +128,7 @@ export class RendererSystem {
     R.beginFrame();
     R.setMode("world");
     R.setCamera(0, 0, 1, 0, 0);
-    starfield.draw(R, 0, 0, 1, 0, cssWidth, cssHeight);
+    starfield.draw(R, 0, 0, 1, 0);
     asteroidField.draw(R, 0);
     this.drawMenuScene(R, 0);
     this.drawMenuRifts(R, menuRifts, 0);
@@ -159,7 +159,7 @@ export class RendererSystem {
     R.setMode("world");
     R.setCamera(camX, camY, zoom, this.config.fx.shakeX, this.config.fx.shakeY);
 
-    this.config.starfield.draw(R, camX, camY, zoom, time, viewW, viewH);
+    this.config.starfield.draw(R, camX, camY, zoom, time);
     this.config.asteroidField.draw(R, time);
 
     if (state === "menu") {

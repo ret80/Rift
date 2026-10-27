@@ -91,26 +91,32 @@ export class Starfield {
     camX: number,
     camY: number,
     zoom: number,
-    time: number,
-    viewW: number,
-    viewH: number
+    time: number
   ) {
-    this.ensure(camX, camY, viewW, viewH);
+    // Вьюпорт берём у рендерера (device-пиксели, включая dpr): именно его
+    // координаты рисуют шейдеры, поэтому покрытие и отсечение звёзд должно
+    // считаться в тех же единицах. Иначе на плотных экранах (dpr>1) звезда
+    // обрезается и пропадает у левого/правого края экрана.
+    const vw = Math.max(1, R.width);
+    const vh = Math.max(1, R.height);
+    this.ensure(camX, camY, vw, vh);
     R.setMode("world");
     for (let li = 0; li < STAR_LAYERS.length; li++) {
       const L = STAR_LAYERS[li];
       const ox = camX * L.f;
       const oy = camY * L.f;
-      const x0 = Math.floor((ox - viewW / 2) / L.chunk);
-      const x1 = Math.floor((ox + viewW / 2) / L.chunk);
-      const y0 = Math.floor((oy - viewH / 2) / L.chunk);
-      const y1 = Math.floor((oy + viewH / 2) / L.chunk);
+      const x0 = Math.floor((ox - vw / 2) / L.chunk);
+      const x1 = Math.floor((ox + vw / 2) / L.chunk);
+      const y0 = Math.floor((oy - vh / 2) / L.chunk);
+      const y1 = Math.floor((oy + vh / 2) / L.chunk);
       const shiftX = camX * (1 - L.f);
       const shiftY = camY * (1 - L.f);
-      const minX = camX - viewW / 2 / zoom - 8;
-      const maxX = camX + viewW / 2 / zoom + 8;
-      const minY = camY - viewH / 2 / zoom - 8;
-      const maxY = camY + viewH / 2 / zoom + 8;
+      const halfW = vw / 2 / zoom;
+      const halfH = vh / 2 / zoom;
+      const minX = camX - halfW - 8;
+      const maxX = camX + halfW + 8;
+      const minY = camY - halfH - 8;
+      const maxY = camY + halfH + 8;
       for (let cx = x0; cx <= x1; cx++) {
         for (let cy = y0; cy <= y1; cy++) {
           const stars = this.chunks.get(`${li}:${cx}:${cy}`);

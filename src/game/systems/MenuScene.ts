@@ -72,7 +72,7 @@ export class MenuScene {
 
   /** Update menu scene for one frame */
   update(dt: number) {
-    this.starfield.update(dt, 0, 0, 1, 0, this.camera.webGLWidth / this.camera.dpr, this.camera.webGLHeight / this.camera.dpr);
+    this.starfield.update(dt, 0, 0, 1, 0, this.renderer.width, this.renderer.height);
     this.asteroidField.update(dt, {
       camX: 0,
       camY: 0,
