@@ -12,7 +12,8 @@ export type {
   PhysicsBodyState,
   PhysicsContact,
   PhysicsEntity,
-} from "./IPhysics";
+} from "./IPhysics.ts";
+export { PHYSICS_MAX_TRANSLATION_PER_STEP } from "./IPhysics.ts";
 export { PhysicsSystem } from "./PhysicsSystem";
 export { CustomCurrentPhysics } from "./CustomCurrentPhysics";
 export { PlanckPhysics } from "./PlanckPhysics";

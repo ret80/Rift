@@ -7,20 +7,24 @@
  * URL-параметром ?physics=planck или принудительно в композиционном корне.
  */
 
-import { Body, Circle, Vec2, World } from "planck";
+import { Body, Circle, Settings, Vec2, World } from "planck";
 import type { BodyDef, FixtureDef, Shape } from "planck";
+import {
+  PHYSICS_MAX_TRANSLATION_PER_STEP,
+} from "./IPhysics.ts";
 import type {
   IPhysics,
   PhysicsBodyDef,
   PhysicsBodyState,
   PhysicsContact,
-} from "./IPhysics";
+} from "./IPhysics.ts";
 
 export const PHYSICS_VELOCITY_ITERATIONS = 8;
 export const PHYSICS_POSITION_ITERATIONS = 3;
 
 export class PlanckPhysics implements IPhysics {
   readonly resolvesVelocity = true;
+  readonly integratesPosition = true;
 
   private world: World;
   private bodies = new Map<unknown, Body>();
@@ -28,6 +32,9 @@ export class PlanckPhysics implements IPhysics {
   private deferred: Array<() => void> = [];
 
   constructor() {
+    // Игровые единицы — пиксели, а не метры Planck: поднимаем лимит
+    // перемещения за шаг, чтобы скорость (до 400 px/s) не зажималась.
+    Settings.maxTranslation = PHYSICS_MAX_TRANSLATION_PER_STEP;
     this.world = new World({
       gravity: new Vec2(0, 0),
       allowSleep: false,

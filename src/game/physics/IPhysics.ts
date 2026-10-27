@@ -14,6 +14,18 @@
 /** Тип игровой сущности, которой принадлежит тело (для правил геймплея). */
 export type PhysicsBodyKind = "player" | "enemy" | "asteroid";
 
+/**
+ * Максимальное перемещение тела за один шаг (world-units).
+ *
+ * Аналог Box2D/Planck `Settings.maxTranslation`: скорость за шаг
+ * ограничивается так, чтобы |v·dt| не превышало этого значения.
+ * При dt = 1/60 предел скорости = MAX * 60. Значение 10 даёт
+ * предел 600 px/s — покрывает PLAYER_MAX_SPEED (400) с запасом,
+ * поэтому скорость движения соответствует прежней самописной физике.
+ * Единый источник для обоих бэкендов, чтобы скорость совпадала.
+ */
+export const PHYSICS_MAX_TRANSLATION_PER_STEP = 10;
+
 /** Параметры создания тела. Радиус задаёт форму (окружность). */
 export interface PhysicsBodyDef {
   x: number;
@@ -83,8 +95,16 @@ export interface IPhysics {
   /**
    * Бэкенд сам решает импульсы контактов (Planck) — в этом случае игровые
    * «мягкие» толчки не применяются, чтобы не дублировать реакцию.
+   * CustomCurrentPhysics: false — контактные импульсы даёт CollisionSystem.
    */
   readonly resolvesVelocity: boolean;
+
+  /**
+   * Бэкенд сам интегрирует позицию тела из скорости (Planck и новый
+   * CustomCurrentPhysics). При true внешние системы позицию НЕ двигают,
+   * а PhysicsSystem возвращает результат шага в игровые сущности.
+   */
+  readonly integratesPosition: boolean;
 
   /** Зарегистрировать тело игровой сущности в мире физики. */
   addBody(userData: unknown, def: PhysicsBodyDef): void;

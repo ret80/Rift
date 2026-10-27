@@ -19,7 +19,7 @@ import type {
   PhysicsBodyState,
   PhysicsContact,
   PhysicsEntity,
-} from "./IPhysics";
+} from "./IPhysics.ts";
 
 export class PhysicsSystem implements IPhysics {
   /** Реестр зарегистрированных сущностей (userData -> адаптер и ключ дефа). */
@@ -44,9 +44,14 @@ export class PhysicsSystem implements IPhysics {
     return this.engine.resolvesVelocity;
   }
 
-  /** Позиции интегрируют игровые системы (custom-бэкенд), а не физика. */
+  /** Позиции интегрирует сам бэкенд — внешние системы её не двигают. */
+  get integratesPosition(): boolean {
+    return this.engine.integratesPosition;
+  }
+
+  /** Псевдоним integratesPosition (используется игровым кадром). */
   get integratesPositions(): boolean {
-    return !this.engine.resolvesVelocity;
+    return this.engine.integratesPosition;
   }
 
   // ===== Делегирование бэкенду =====
@@ -145,7 +150,7 @@ export class PhysicsSystem implements IPhysics {
     this.engine.step(dt);
 
     // 5. Если бэкенд авторитетен — записать результат в игровые сущности.
-    if (this.engine.resolvesVelocity) {
+    if (this.engine.integratesPosition) {
       for (const { entity } of this.registered.values()) {
         entity.applyResult(this.engine.getState(entity.userData));
       }
