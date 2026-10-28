@@ -59,22 +59,12 @@ export class GameFrame {
     // Stop enemies and bullets during dying/over (prevent orphan bullets)
     const isDead = fsm.is("dying", "over");
     if (!isDead) {
-      ctx.enemySystem.update(
-        dt,
-        ctx.entityPool.enemyList,
-        ctx.getPlayerPosition(),
-        ctx.getZoneBounds(),
-        !ctx.physics.integratesPositions,
-      );
-      // Enemy shooting: separate from movement/AI
-      if (fsm.is("playing", "active")) {
-        ctx.enemyShootingSystem.update(dt, ctx.entityPool.enemyList, ctx.getPlayerPosition());
-      }
+      // ECS: AI/движение врагов, вражеская стрельба и пикапы.
+      ctx.ecs.update(dt);
       // Weapons: targeting, cannon fire, missiles, drones
       if (fsm.is("playing", "active")) {
         ctx.weaponManager.update(dt);
       }
-      ctx.bulletSystem.update(dt, ctx.entityPool.bulletList, ctx.entityPool.enemyBulletList, ctx.entityPool.enemyList);
     }
 
     // Физика: регистрация тел, синхронизация, шаг, контакты.
@@ -88,7 +78,6 @@ export class GameFrame {
     const world = this.buildWorld();
     if (!isDead) {
       ctx.collisionSystem.update(dt, world, ctx.waveOrchestrator.wave);
-      ctx.pickupSystem.update(dt, world.pickups, world.player.x, world.player.y);
       ctx.spawnSystem.update(dt, {
         countdownSystem: ctx.countdownSystem,
         zoneState: world.zone ?? null,

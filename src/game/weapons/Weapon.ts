@@ -67,10 +67,18 @@ export interface WeaponContext {
   readonly enemies: readonly Enemy[];
   /** Пул снарядов игрока. */
   readonly bullets: Bullet[];
+  /** Зарегистрировать новый снаряд игрока в ECS-мире. */
+  addBullet(bullet: Bullet): void;
   /** Пул дронов-компаньонов. */
   readonly drones: AllyDrone[];
+  /** Зарегистрировать новый дрон-компаньон в ECS-мире. */
+  addAllyDrone(drone: AllyDrone): void;
   /** Пул лучей лазера — визуальная трасса выстрела. */
   readonly beams: LaserBeam[];
+  /** Зарегистрировать новый визуальный луч лазера в ECS-мире. */
+  addBeam(beam: LaserBeam): void;
+  /** Удалить истёкший визуальный луч лазера из ECS-мира. */
+  removeBeam(beam: LaserBeam): void;
   /** Граница игровой зоны (null — зона не задана). */
   readonly zone: ZoneSnapshot | null;
   /** Колбэк выстрела — проигрывание звука. */

@@ -25,29 +25,27 @@ export class GameStart {
 
     // Clear entity pools before applying upgrades:
     // the weapon manager rebuilds the drone swarm from the applied upgrades.
-    ctx.entityPool.enemyList.length = 0;
-    ctx.entityPool.bulletList.length = 0;
-    ctx.entityPool.enemyBulletList.length = 0;
-    ctx.entityPool.pickupList.length = 0;
-    ctx.entityPool.allyDroneList.length = 0;
+    ctx.entityPool.clearEnemies();
+    ctx.entityPool.clearBullets();
+    ctx.entityPool.clearEnemyBullets();
+    ctx.entityPool.clearPickups();
+    ctx.entityPool.clearAllyDrones();
     ctx.loadoutSystem.reset();
     ctx.weaponManager.reset();
     ctx.bonusManager.reset();
     ctx.shieldSystem.reset();
     ctx.grazeSystem.reset();
     ctx.abilitySystem.reset();
-    ctx.entityPool.beamList.length = 0;
+    ctx.entityPool.clearBeams();
 
     // Apply persistent upgrades to the player and the weapons
     ctx.applyUpgrades(true);
 
     // Reset spawn and enemy system state for new game
     ctx.spawnSystem.clearAnnounced();
-    ctx.enemySystem.reset();
-    ctx.enemyShootingSystem.reset();
+    ctx.ecs.resetEnemyWave();
     const resetWaveStart = Math.max(ctx.startWave, loadBestWave(ctx.storage));
-    ctx.enemySystem.setWave(resetWaveStart);
-    ctx.enemyShootingSystem.setWave(resetWaveStart);
+    ctx.ecs.setEnemyWave(resetWaveStart);
 
     // Reset zone state via orchestrator
     ctx.waveOrchestrator.reset(resetWaveStart);

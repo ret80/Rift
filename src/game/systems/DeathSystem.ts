@@ -38,8 +38,8 @@ export class DeathSystem {
   startDeath(): void {
     this.deathTimer = DEATH_ANIMATION_DURATION;
     // Clear all enemy bullets to prevent "orphan bullets" on restart
-    this.entityPool.enemyBulletList.length = 0;
-    this.entityPool.bulletList.length = 0;
+    this.entityPool.clearEnemyBullets();
+    this.entityPool.clearBullets();
     // Spawn death explosion particles
     const pos = this.getPlayerPosition();
     for (let i = 0; i < DEATH_EXPLOSION_PARTICLES; i++) {

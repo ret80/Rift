@@ -71,7 +71,7 @@ export class DroneWeapon implements Weapon {
     // Бонусный дрон появляется сразу и больше не восстанавливается.
     if (ctx.drones.length >= MAX_ALLY_DRONES) return;
     const scout = this.fleet?.specs.scout ?? null;
-    ctx.drones.push(this.createUnit(ctx, scout ?? this.defaultScoutSpec(), false));
+    ctx.addAllyDrone(this.createUnit(ctx, scout ?? this.defaultScoutSpec(), false));
     this.bonusDrones++;
   }
 
@@ -135,7 +135,7 @@ export class DroneWeapon implements Weapon {
       const combat = fleet?.specs[spec.id] ?? this.defaultScoutSpec();
       for (let i = 0; i < count && index < wantPermanent; i++) {
         if (ctx.drones.length >= MAX_ALLY_DRONES) break;
-        ctx.drones.push(this.createUnit(ctx, combat, true, spec.id));
+        ctx.addAllyDrone(this.createUnit(ctx, combat, true, spec.id));
         index++;
       }
     }
@@ -189,7 +189,7 @@ export class DroneWeapon implements Weapon {
     drone.fireCd = combat.reloadTime / ctx.bonuses.rateMult;
     drone.flash = DRONE_FLASH_TIME;
     drone.angle = angle;
-    ctx.bullets.push({
+    ctx.addBullet({
       x: drone.x,
       y: drone.y,
       vx: Math.cos(angle) * combat.bulletSpeed,

@@ -1,11 +1,12 @@
 /**
  * CollisionSystem - collision handling with mass awareness.
- * Composes BulletCollision, EntityCollision, and PickupCollection modules.
+ * Composes BulletCollision, EntityCollision, and drone avoidance.
  *
  * Физические контакты тел (игрок/враги/астероиды) поступают из
  * PhysicsSystem: бэкенд CustomCurrentPhysics сохраняет прежние мягкие
  * импульсы, PlanckPhysics решает скорости сам, поэтому здесь остаются
  * только игровые последствия контакта (урон, гибель врага).
+ * Сбор пикапов вынесен в ECS (PickupCollectionSystem).
  */
 
 import { massForRadius, dmgScale } from '../balance';
@@ -25,15 +26,17 @@ import {
   checkEnemyBulletVsDrones,
 } from './BulletCollision';
 import type { PlayerHitbox } from './GrazeCollision';
-import { checkPickupCollection } from './PickupCollection';
+import type { EcsWorld } from '../ecs';
 
 export class CollisionSystem {
   private eventBus: EventBus;
   private physics: PhysicsSystem;
+  private ecs: EcsWorld;
 
-  constructor(eventBus: EventBus, physics: PhysicsSystem) {
+  constructor(eventBus: EventBus, physics: PhysicsSystem, ecs: EcsWorld) {
     this.eventBus = eventBus;
     this.physics = physics;
+    this.ecs = ecs;
   }
 
   /**
@@ -45,7 +48,6 @@ export class CollisionSystem {
     const enemies = world.enemies;
     const bullets = world.bullets;
     const enemyBullets = world.enemyBullets;
-    const pickups = world.pickups;
     const drones = world.allyDrones;
     const asteroids = world.asteroids;
 
@@ -54,8 +56,9 @@ export class CollisionSystem {
       this.eventBus, bullets, enemies, asteroids,
       this.damageAsteroid.bind(this)
     );
-    for (const i of [...bulletToRemove].sort((a, b) => b - a)) {
-      bullets.splice(i, 1);
+    // Удаляем снаряды по объектной идентичности через ECS-мир.
+    for (const i of bulletToRemove) {
+      this.ecs.removeBullet(bullets[i]);
     }
 
     // Enemy bullet → player (попадание и касание считаются одним проходом)
@@ -69,7 +72,7 @@ export class CollisionSystem {
       playerState.invuln, playerState.hp, GRAZE_BAND
     );
     if (bulletCheck.hitIndex >= 0) {
-      enemyBullets.splice(bulletCheck.hitIndex, 1);
+      this.ecs.removeEnemyBullet(enemyBullets[bulletCheck.hitIndex]);
     }
     if (bulletCheck.grazeIndices.length > 0) {
       this.eventBus.publish('bullet_grazed', {
@@ -84,28 +87,16 @@ export class CollisionSystem {
     // === Drone-player avoidance ===
     this.checkDroneAvoidance(world);
 
-    // === Pickup collection ===
-    const pickupToRemove = checkPickupCollection(
-      this.eventBus, pickups,
-      playerState.x, playerState.y, playerState.r
-    );
-    for (const i of [...pickupToRemove].sort((a, b) => b - a)) {
-      pickups.splice(i, 1);
-    }
-
     // === Enemy bullet → drones ===
     const droneHits = checkEnemyBulletVsDrones(this.eventBus, enemyBullets, drones);
-    const bulletsToRemove = new Set<number>();
     const dronesToRemove = new Set<number>();
     for (const hit of droneHits) {
-      bulletsToRemove.add(hit.bulletIndex);
+      this.ecs.removeEnemyBullet(enemyBullets[hit.bulletIndex]);
       if (hit.killed) dronesToRemove.add(hit.droneIndex);
     }
-    for (const i of [...bulletsToRemove].sort((a, b) => b - a)) {
-      enemyBullets.splice(i, 1);
-    }
-    for (const i of [...dronesToRemove].sort((a, b) => b - a)) {
-      drones.splice(i, 1);
+    // Дроны хранятся в ECS-мире — удаляем по объектной идентичности.
+    for (const i of dronesToRemove) {
+      this.ecs.removeAllyDrone(drones[i]);
     }
   }
 

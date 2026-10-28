@@ -146,7 +146,7 @@ export class CannonWeapon implements Weapon {
     for (let i = 0; i < barrels; i++) {
       const barrelAngle = turret + (Math.random() - 0.5) * 2 * spread;
       const offset = CANNON_BARREL_OFFSETS[i] ?? 0;
-      ctx.bullets.push({
+      ctx.addBullet({
         x: ctx.player.x + Math.cos(turret) * 14 - Math.sin(turret) * offset,
         y: ctx.player.y + Math.sin(turret) * 14 + Math.cos(turret) * offset,
         vx: Math.cos(barrelAngle) * CANNON_BULLET_SPEED,

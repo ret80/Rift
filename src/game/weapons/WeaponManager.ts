@@ -38,12 +38,20 @@ export interface WeaponWorld {
   getEnemies(): readonly Enemy[];
   /** Пул снарядов игрока. */
   getBullets(): Bullet[];
+  /** Зарегистрировать новый снаряд игрока в ECS-мире. */
+  addBullet(bullet: Bullet): void;
   /** Пул дронов-компаньонов. */
   getDrones(): AllyDrone[];
+  /** Зарегистрировать новый дрон-компаньон в ECS-мире. */
+  addAllyDrone(drone: AllyDrone): void;
   /** Текущие временные бонусы игрока. */
   getBonuses(): PlayerBonuses;
   /** Пул лучей лазера — визуальная трасса выстрела. */
   getBeams?(): LaserBeam[];
+  /** Зарегистрировать новый визуальный луч лазера в ECS-мире. */
+  addBeam?(beam: LaserBeam): void;
+  /** Удалить истёкший визуальный луч лазера из ECS-мира. */
+  removeBeam?(beam: LaserBeam): void;
   /** Граница игровой зоны (null — зона не задана). */
   getZone?(): ZoneSnapshot | null;
   /** Убить врага через единый путь (дроп, счёт, волна). */
@@ -195,8 +203,12 @@ export class WeaponManager {
       aim,
       enemies: this.world.getEnemies(),
       bullets: this.world.getBullets(),
+      addBullet: (bullet) => this.world.addBullet(bullet),
       drones: this.world.getDrones(),
+      addAllyDrone: (drone) => this.world.addAllyDrone(drone),
       beams: this.world.getBeams?.() ?? [],
+      addBeam: (beam) => this.world.addBeam?.(beam),
+      removeBeam: (beam) => this.world.removeBeam?.(beam),
       zone: this.world.getZone?.() ?? null,
       onFired: (id) => this.onWeaponFired(id),
       killEnemy: (enemy) => this.world.killEnemy?.(enemy),

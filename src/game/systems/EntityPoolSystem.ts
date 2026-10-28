@@ -1,29 +1,111 @@
 /**
- * EntityPoolSystem — entity pools with same-type operations.
- * Manages arrays: enemyList, bulletList, enemyBulletList, pickupList,
- * allyDroneList, beamList.
+ * EntityPoolSystem — пулы сущностей с однотипными операциями.
+ * Управляет массивом beamList. Враги, пикапы, снаряды и дроны
+ * перенесены в ECS-мир (EcsWorld), поэтому здесь они — производные
+ * getter'ы поверх ECS и точки регистрации/очистки.
  */
 
 import type { Enemy, Bullet, EBullet, Pickup, AllyDrone, LaserBeam } from "../types";
 import type { PickupKind } from "../balance";
+import type { EcsWorld } from "../ecs";
 
 export class EntityPoolSystem {
+  private readonly ecs: EcsWorld;
+
+  constructor(ecs: EcsWorld) {
+    this.ecs = ecs;
+  }
+
   /* Entity pools (private backing fields) */
-  private _enemyList: Enemy[] = [];
-  private _bulletList: Bullet[] = [];
-  private _enemyBulletList: EBullet[] = [];
-  private _pickupList: Pickup[] = [];
-  private _allyDroneList: AllyDrone[] = [];
-  private _beamList: LaserBeam[] = [];
+  // Все сущности (враги, дроны, пикапы, снаряды, лучи) перенесены в ECS-мир,
+  // поэтому ниже только производные getter'ы и регистрация/очистка.
 
-  get enemyList(): Enemy[] { return this._enemyList; }
-  get bulletList(): Bullet[] { return this._bulletList; }
-  get enemyBulletList(): EBullet[] { return this._enemyBulletList; }
-  get pickupList(): Pickup[] { return this._pickupList; }
-  get allyDroneList(): AllyDrone[] { return this._allyDroneList; }
-  get beamList(): LaserBeam[] { return this._beamList; }
+  /* Лучи лазера хранятся в ECS-мире; отсюда — производное чтиво. */
+  get beamList(): LaserBeam[] {
+    return this.ecs.beams();
+  }
 
-  /* Spawn enemy bullet */
+  /* Враги хранятся в ECS-мире; отсюда — производное чтиво. */
+  get enemyList(): Enemy[] {
+    return this.ecs.enemies();
+  }
+
+  /* Дроны-компаньоны хранятся в ECS-мире; отсюда — производное чтиво. */
+  get allyDroneList(): AllyDrone[] {
+    return this.ecs.allyDrones();
+  }
+
+  /* Снаряды игрока хранятся в ECS-мире; отсюда — производное чтиво. */
+  get bulletList(): Bullet[] {
+    return this.ecs.bullets();
+  }
+
+  /* Вражеские снаряды хранятся в ECS-мире; отсюда — производное чтиво. */
+  get enemyBulletList(): EBullet[] {
+    return this.ecs.enemyBullets();
+  }
+
+  /* Pickups хранятся в ECS-мире; отсюда — производное чтиво. */
+  get pickupList(): Pickup[] {
+    return this.ecs.pickups();
+  }
+
+  /* Зарегистрировать врага в ECS-мире. */
+  addEnemy(enemy: Enemy): void {
+    this.ecs.addEnemy(enemy);
+  }
+
+  /* Зарегистрировать снаряд игрока в ECS-мире. */
+  addBullet(bullet: Bullet): void {
+    this.ecs.addBullet(bullet);
+  }
+
+  /* Зарегистрировать вражеский снаряд в ECS-мире. */
+  addEnemyBullet(bullet: EBullet): void {
+    this.ecs.addEnemyBullet(bullet);
+  }
+
+  /* Зарегистрировать дрон-компаньон в ECS-мире. */
+  addAllyDrone(drone: AllyDrone): void {
+    this.ecs.addAllyDrone(drone);
+  }
+
+  /* Зарегистрировать визуальный луч лазера в ECS-мире. */
+  addBeam(beam: LaserBeam): void {
+    this.ecs.addBeam(beam);
+  }
+
+  /* Удалить истёкший визуальный луч лазера из ECS-мира. */
+  removeBeam(beam: LaserBeam): void {
+    this.ecs.removeBeam(beam);
+  }
+
+  /* Очистить визуальные лучи лазера (перед перезапуском забега). */
+  clearBeams(): void {
+    this.ecs.clearBeams();
+  }
+
+  /* Очистить врагов (перед перезапуском забега). */
+  clearEnemies(): void {
+    this.ecs.clearEnemies();
+  }
+
+  /* Очистить снаряды игрока (перед перезапуском забега). */
+  clearBullets(): void {
+    this.ecs.clearBullets();
+  }
+
+  /* Очистить вражеские снаряды (перед перезапуском забега). */
+  clearEnemyBullets(): void {
+    this.ecs.clearEnemyBullets();
+  }
+
+  /* Очистить дроны-компаньоны (перед перезапуском забега). */
+  clearAllyDrones(): void {
+    this.ecs.clearAllyDrones();
+  }
+
+  /* Spawn enemy bullet — в ECS-мир */
   spawnEnemyBullet(
     x: number,
     y: number,
@@ -34,7 +116,7 @@ export class EntityPoolSystem {
     heavy: boolean,
     cruiser: boolean
   ): void {
-    this._enemyBulletList.push({
+    this.ecs.addEnemyBullet({
       x, y, vx, vy, life, dmg, heavy, cruiser,
       r: cruiser ? 5.5 : heavy ? 3.4 : 2.5,
       px: x, py: y,
@@ -42,7 +124,7 @@ export class EntityPoolSystem {
     });
   }
 
-  /* Spawn pickup */
+  /* Spawn pickup — в ECS-мир */
   spawnPickup(
     kind: PickupKind,
     x: number,
@@ -50,6 +132,11 @@ export class EntityPoolSystem {
     vx: number,
     vy: number
   ): void {
-    this._pickupList.push({ kind, x, y, vx, vy, life: 20, seed: Math.random(), r: 14 });
+    this.ecs.spawnPickup(kind, x, y, vx, vy);
+  }
+
+  /* Очистить пикапы (перед перезапуском забега) */
+  clearPickups(): void {
+    this.ecs.clearPickups();
   }
 }

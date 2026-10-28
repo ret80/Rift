@@ -10,6 +10,7 @@
 
 import { EnemyKind, PickupKind, PLAYER_HITBOX_RADIUS, PLAYER_MAX_SPEED } from "../balance";
 import type { PersistencePort } from "./PersistencePort";
+import { EcsWorld } from "../ecs";
 import { BaseRenderer } from "../render/index";
 import { PicoGLRenderer } from "../render/index";
 import type { IRenderer } from "../render/index";
@@ -36,18 +37,14 @@ import type { WeaponId } from "../weapons/Weapon";
 import { WeaponManager } from "../weapons/WeaponManager";
 import { AbilitySystem } from "../abilities/AbilitySystem";
 import { ApplyPickupSystem } from "../systems/ApplyPickupSystem";
-import { BulletSystem } from "../systems/BulletSystem";
 import { CameraSystem } from "../systems/CameraSystem";
 import { CollisionSystem } from "../systems/CollisionSystem";
 import { CountdownSystem } from "../systems/CountdownSystem";
 import type { DeathSystem } from "../systems/DeathSystem";
-import { EnemyShootingSystem } from "../systems/EnemyShootingSystem";
-import { EnemySystem } from "../systems/EnemySystem";
 import { EntityPoolSystem } from "../systems/EntityPoolSystem";
 import { GrazeSystem } from "../systems/GrazeSystem";
 import { InputSystem } from "../systems/InputSystem";
 import { PickupDropSystem } from "../systems/PickupDropSystem";
-import { PickupSystem } from "../systems/PickupSystem";
 import { PlayerSystem } from "../systems/PlayerSystem";
 import { RendererSystem } from "../systems/RendererSystem";
 import { ShieldSystem } from "../systems/ShieldSystem";
@@ -79,6 +76,7 @@ export class GameContext {
   readonly entityPool: EntityPoolSystem;
   readonly scoringSystem: ScoringSystem;
   readonly upgradeSystem: UpgradeSystem;
+  readonly ecs: EcsWorld;
 
   readonly inputSystem: InputSystem;
   readonly input: InputManager;
@@ -94,14 +92,10 @@ export class GameContext {
   readonly grazeSystem: GrazeSystem;
   readonly playerSystem: PlayerSystem;
   readonly abilitySystem: AbilitySystem;
-  readonly enemySystem: EnemySystem;
-  readonly enemyShootingSystem: EnemyShootingSystem;
-  readonly bulletSystem: BulletSystem;
   readonly spawnSystem: SpawnSystem;
   readonly weaponManager: WeaponManager;
   readonly countdownSystem: CountdownSystem;
   readonly applyPickupSystem: ApplyPickupSystem;
-  readonly pickupSystem: PickupSystem;
   readonly loadoutSystem: LoadoutSystem;
   readonly dropSystem: PickupDropSystem;
   readonly collisionSystem: CollisionSystem;
@@ -166,7 +160,15 @@ export class GameContext {
 
     this.cameraSystem = new CameraSystem();
     this.debugSystem = new DebugSystem();
-    this.entityPool = new EntityPoolSystem();
+    this.ecs = new EcsWorld(this.eventBus, () => this.getPlayerHitbox(), {
+      getPlayer: () => this.getPlayerPosition(),
+      getZoneBounds: () => this.getZoneBounds(),
+      getIntegrate: () => !this.physics.integratesPositions,
+      getPlayerMotion: () => this.getPlayerPosition(),
+      isCombatActive: () => this.fsm.is("playing", "active"),
+      audio: this.audio,
+    });
+    this.entityPool = new EntityPoolSystem(this.ecs);
 
     this.resize();
 
@@ -183,8 +185,7 @@ export class GameContext {
         shakeScreen: (strength) => this.fx.addShake(strength),
         onWaveAdvanced: () => {
           const nextWave = this.waveOrchestrator.wave;
-          this.enemySystem.setWave(nextWave);
-          this.enemyShootingSystem.setWave(nextWave);
+          this.ecs.setEnemyWave(nextWave);
           this.countdownSystem.startWave(nextWave);
         },
       },
@@ -251,6 +252,8 @@ export class GameContext {
       this.fx,
     );
     this.playerSystem.setShield(this.shieldSystem);
+    // Игрок — Singleton-сущность ECS-мира: регистрируем его ссылку на состояние.
+    this.ecs.registerPlayer(this.playerSystem.getPlayerRef());
 
     this.abilitySystem = new AbilitySystem(
       this.input,
@@ -263,10 +266,6 @@ export class GameContext {
       },
       this.fx,
     );
-
-    this.enemySystem = new EnemySystem();
-    this.enemyShootingSystem = new EnemyShootingSystem(this.eventBus, this.audio);
-    this.bulletSystem = new BulletSystem();
     this.spawnSystem = new SpawnSystem({
       eventBus: this.eventBus,
       riftField: this.riftField,
@@ -277,9 +276,13 @@ export class GameContext {
         getPlayer: () => this.playerSystem.getPlayerRef(),
         getEnemies: () => this.entityPool.enemyList,
         getBullets: () => this.entityPool.bulletList,
+        addBullet: (b) => this.entityPool.addBullet(b),
         getDrones: () => this.entityPool.allyDroneList,
+        addAllyDrone: (d) => this.entityPool.addAllyDrone(d),
         getBonuses: () => this.bonusManager.getBonuses(),
         getBeams: () => this.entityPool.beamList,
+        addBeam: (b) => this.entityPool.addBeam(b),
+        removeBeam: (b) => this.entityPool.removeBeam(b),
         getZone: () => this.getZoneSnapshot(),
         killEnemy: (enemy) => this.killEnemy(enemy),
       },
@@ -313,8 +316,6 @@ export class GameContext {
       playPickupSound: (kind: string) => this.audio.playPickupSound(kind as PickupKind),
     });
 
-    this.pickupSystem = new PickupSystem();
-
     this.loadoutSystem = new LoadoutSystem(
       {
         getWeaponSlots: () => this.weaponManager.getSlots(),
@@ -330,7 +331,7 @@ export class GameContext {
       addParts: (n) => this.upgradeSystem.addParts(n),
     });
 
-    this.collisionSystem = new CollisionSystem(this.eventBus, this.physics);
+    this.collisionSystem = new CollisionSystem(this.eventBus, this.physics, this.ecs);
 
     this.waveFlowSystem = new WaveFlowSystem({
       eventBus: this.eventBus,
@@ -442,6 +443,12 @@ export class GameContext {
     return { x: state.x, y: state.y, vx: state.vx, vy: state.vy };
   }
 
+  /** Хитбокс игрока в игровых координатах (для систем пикапов). */
+  private getPlayerHitbox(): { x: number; y: number; r: number } {
+    const state = this.playerSystem.getPlayerRef();
+    return { x: state.x, y: state.y, r: PLAYER_HITBOX_RADIUS };
+  }
+
   /** Границы зоны для врагов/констрейнтов. */
   getZoneBounds(): { x: number; y: number; radius: number; active: boolean } {
     const z = this.waveOrchestrator.zoneState;
@@ -496,7 +503,7 @@ export class GameContext {
 
   spawnEnemy(kind: EnemyKind, x: number, y: number, parent: Enemy | null): void {
     const playerPos = this.getPlayerPosition();
-    this.enemySystem.spawn(kind, x, y, parent, this.entityPool.enemyList, playerPos);
+    this.ecs.spawnEnemy(kind, x, y, parent, playerPos);
   }
 
   /** Единый путь гибели: публикует enemy_killed (дроп, счёт, волна). */

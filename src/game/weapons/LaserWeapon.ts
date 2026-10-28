@@ -187,7 +187,7 @@ export class LaserWeapon implements Weapon {
   private ageBeams(dt: number, ctx: WeaponContext): void {
     for (let i = ctx.beams.length - 1; i >= 0; i--) {
       ctx.beams[i].life -= dt;
-      if (ctx.beams[i].life <= 0) ctx.beams.splice(i, 1);
+      if (ctx.beams[i].life <= 0) ctx.removeBeam(ctx.beams[i]);
     }
   }
 
@@ -257,7 +257,7 @@ export class LaserWeapon implements Weapon {
 
     if (hitEnemy) this.damageEnemy(ctx, hitEnemy, LASER_DMG * this.damageMult);
 
-    ctx.beams.push({
+    ctx.addBeam({
       x1: muzzleX,
       y1: muzzleY,
       x2: muzzleX + dx * hitDist,

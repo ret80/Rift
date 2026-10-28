@@ -179,7 +179,7 @@ export class MissileWeapon implements Weapon {
     const my = ctx.player.y + (dx / dist) * side * MISSILE_PORT_OFFSET;
 
     // Стартовое направление — на цель, плюс инерция корабля.
-    ctx.bullets.push({
+    ctx.addBullet({
       x: mx,
       y: my,
       vx: (dx / dist) * MISSILE_SPEED + ctx.player.vx * 0.25,

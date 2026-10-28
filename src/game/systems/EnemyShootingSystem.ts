@@ -1,30 +1,35 @@
 /**
- * EnemyShootingSystem — стрельба врагов.
+ * EnemyShootingSystem — ECS-система стрельбы врагов.
  *
  * Орудия врагов берут упреждение: снаряд летит в точку, куда игрок прибудет
  * к моменту подлёта, а не в его текущую позицию. Меткость растёт с волной,
  * но никогда не достигает 100% — см. balance/accuracy.ts.
  *
- * Движение и AI остаются в EnemySystem.
+ * Система фильтрует ECS-сущности с EnemyComponent (обёртка над объектом
+ * Enemy), публикует событие 'enemy_fired' и обновляет таймеры орудий.
+ * Движение и AI остаются в EnemySystem (приоритет выше).
  */
 
+import { System, Aspect, type Engine } from "@trixt0r/ecs";
 import { aimAtTarget } from "../aiming/AimSolver";
 import {
-    CRUISER_BOLT_LIFE,
-    CRUISER_BULLET_SPEED,
-    CRUISER_FIRE_RANGE,
-    ENEMY_BOLT_LIFE,
-    ENEMY_BOLT_SPEED,
-    ENEMY_SHOOT_RANGE,
-    enemyHitChance,
-    EnemyKind,
-    PLAYER_BULLET_HIT_OFFSET,
-    PLAYER_HITBOX_RADIUS
+  CRUISER_BOLT_LIFE,
+  CRUISER_BULLET_SPEED,
+  CRUISER_FIRE_RANGE,
+  ENEMY_BOLT_LIFE,
+  ENEMY_BOLT_SPEED,
+  ENEMY_SHOOT_RANGE,
+  enemyHitChance,
+  EnemyKind,
+  PLAYER_BULLET_HIT_OFFSET,
+  PLAYER_HITBOX_RADIUS,
 } from "../balance";
 import type { EventBus } from "../core/EventBus";
 import { rand } from "../math";
 import type { Enemy } from "../types";
 import type { AudioManager } from "./AudioManager";
+import { EnemyComponent } from "../ecs/components/EnemyComponent";
+import { GameEntity } from "../ecs/GameEntity";
 
 /** Внешний радиус хитбокса игрока — угловой размер цели для вражеских орудий. */
 const PLAYER_HIT_RADIUS = PLAYER_HITBOX_RADIUS + PLAYER_BULLET_HIT_OFFSET;
@@ -51,12 +56,24 @@ const TURRETS: Partial<Record<EnemyKind, EnemyWeapon>> = {
   [EnemyKind.Carrier]: { boltSpeed: ENEMY_BOLT_SPEED, boltLife: ENEMY_BOLT_LIFE, heavy: true },
 };
 
-export class EnemyShootingSystem {
+/** Источник состояния игрока для прицеливания. */
+export type PlayerMotionSource = () => PlayerMotion;
+/** Флаг: активен ли игровой режим (playing/active) для стрельбы. */
+export type CombatActiveSource = () => boolean;
+
+export class EnemyShootingSystem extends System {
+  private aspect: Aspect | null = null;
   private eventBus: EventBus;
   private audio: AudioManager;
   private wave = 1;
 
-  constructor(eventBus: EventBus, audio: AudioManager) {
+  constructor(
+    eventBus: EventBus,
+    audio: AudioManager,
+    private readonly getPlayer: PlayerMotionSource,
+    private readonly isCombatActive: CombatActiveSource,
+  ) {
+    super(1); // после движения врагов (priority 0)
     this.eventBus = eventBus;
     this.audio = audio;
   }
@@ -69,11 +86,20 @@ export class EnemyShootingSystem {
     this.wave = wave;
   }
 
+  onAddedToEngine(engine: Engine): void {
+    this.aspect = Aspect.for(engine).all(EnemyComponent);
+  }
+
   /**
    * Обновить стрельбу всех врагов.
    * Отвечает только за публикацию события 'enemy_fired'.
    */
-  update(dt: number, enemyList: Enemy[], player: PlayerMotion): void {
+  process(dt: number): void {
+    if (!this.isCombatActive()) return;
+    const enemyList = this.collectEnemies();
+    if (!enemyList.length) return;
+
+    const player = this.getPlayer();
     for (const e of enemyList) {
       if (e.dead) continue;
 
@@ -92,6 +118,17 @@ export class EnemyShootingSystem {
         this.fireSingleTurret(e, dt, player, weapon, hitChance);
       }
     }
+  }
+
+  /** Собрать врагов (объекты Enemy) из ECS-сущностей с EnemyComponent. */
+  private collectEnemies(): Enemy[] {
+    if (!this.aspect) return [];
+    const result: Enemy[] = [];
+    for (const entity of [...this.aspect.entities] as GameEntity[]) {
+      const component = entity.components.get(EnemyComponent);
+      if (component) result.push(component.enemy);
+    }
+    return result;
   }
 
   /** Двуствольный Cruiser: две независимые турели с таймерами tCd1/tCd2 */
