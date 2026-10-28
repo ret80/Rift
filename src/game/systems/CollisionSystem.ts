@@ -8,7 +8,7 @@
  * только игровые последствия контакта (урон, гибель врага).
  */
 
-import { massForRadius } from '../balance';
+import { massForRadius, dmgScale } from '../balance';
 import {
   GRAZE_BAND,
   PLAYER_BULLET_HIT_OFFSET,
@@ -17,7 +17,7 @@ import type { EventBus } from '../core/EventBus';
 import type { WorldFrame } from '../core/WorldFrame';
 import type { PhysicsSystem } from '../physics/index';
 
-import { PLAYER_ASTEROID_DAMAGE, DRONE_PROXIMITY } from './CollisionConstants';
+import { DRONE_PROXIMITY } from './CollisionConstants';
 import { softResolveCollision } from './EntityCollision';
 import {
   checkBulletCollisions,
@@ -38,8 +38,9 @@ export class CollisionSystem {
 
   /**
    * Update all collisions between objects.
+   * @param wave — номер текущей волны (для масштабирования урона dmgScale).
    */
-  update(dt: number, world: WorldFrame): void {
+  update(dt: number, world: WorldFrame, wave: number): void {
     const playerState = world.player;
     const enemies = world.enemies;
     const bullets = world.bullets;
@@ -79,7 +80,7 @@ export class CollisionSystem {
     }
 
     // === Entity-entity collisions (из физического слоя) ===
-    this.entityCollisions(world);
+    this.entityCollisions(world, wave);
     // === Drone-player avoidance ===
     this.checkDroneAvoidance(world);
 
@@ -115,7 +116,8 @@ export class CollisionSystem {
    * (velocities are resolved inside the backend).
    */
   private entityCollisions(
-    world: WorldFrame
+    world: WorldFrame,
+    wave: number
   ): void {
     const playerState = world.player;
     const enemies = world.enemies;
@@ -142,9 +144,11 @@ export class CollisionSystem {
         const e = enemy as (typeof enemies)[number];
 
         // Урон игроку — не более одного раза за кадр и только не в неуязвимости.
+        // По формуле урон = масса врага × dmgScale(wave).
         if (!playerHit && playerState.invuln <= 0 && playerState.hp > 0) {
+          const dmg = (e.mass || massForRadius(e.r)) * dmgScale(wave);
           this.eventBus.publish('player_damaged', {
-            dmg: e.contact,
+            dmg,
           });
           playerHit = true;
         }
@@ -162,7 +166,10 @@ export class CollisionSystem {
         }
       }
 
-      // === player-asteroid: урон + мягкий импульс только в custom-физике ===
+      // === player-asteroid: взаимный урон + мягкий импульс в custom-физике ===
+      // Игрок получает урон = масса астероида × dmgScale(wave);
+      // астероид получает урон = масса игрока × dmgScale(wave) и при
+      // hp <= 0 уничтожается через канонический путь asteroid_hit.
       if (
         !playerHit &&
         playerState.invuln <= 0 &&
@@ -171,13 +178,30 @@ export class CollisionSystem {
       ) {
         const ast = kindA === 'asteroid' ? a : b;
         const rock = ast as (typeof asteroids)[number];
-        if (!rock.dead && asteroids.includes(rock)) {
+        const rockIndex = asteroids.indexOf(rock);
+        if (rockIndex >= 0 && !rock.dead) {
+          const playerMass = playerState.mass || massForRadius(playerState.r);
+          const dgS = dmgScale(wave);
+
+          // Урон игроку = масса астероида × dmgScale.
           this.eventBus.publish('player_damaged', {
-            dmg: PLAYER_ASTEROID_DAMAGE,
+            dmg: rock.mass * dgS,
           });
           playerHit = true;
+
+          // Урон астероиду = масса игрока × dmgScale.
+          // Идём через asteroid_hit, чтобы осколки/score/гибель обработались
+          // в AsteroidField.damageAt (единый путь для пуль и столкновений).
+          this.eventBus.publish('asteroid_hit', {
+            index: rockIndex,
+            dmg: playerMass * dgS,
+            x: rock.x,
+            y: rock.y,
+            vx: rock.vx,
+            vy: rock.vy,
+          });
+
           if (softImpulse) {
-            const playerMass = playerState.mass || massForRadius(playerState.r);
             const impulse = 80;
             const result = softResolveCollision(
               playerState.x, playerState.y, playerMass,

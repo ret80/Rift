@@ -87,7 +87,7 @@ export class GameFrame {
 
     const world = this.buildWorld();
     if (!isDead) {
-      ctx.collisionSystem.update(dt, world);
+      ctx.collisionSystem.update(dt, world, ctx.waveOrchestrator.wave);
       ctx.pickupSystem.update(dt, world.pickups, world.player.x, world.player.y);
       ctx.spawnSystem.update(dt, {
         countdownSystem: ctx.countdownSystem,
