@@ -129,19 +129,28 @@ export class CollisionSystem {
       const kindA = contact.kindA;
       const kindB = contact.kindB;
 
-      // === player-enemy: урон и гибель врага (как раньше) ===
+      // === player-enemy: урон игроку и гибель ВСЕХ врезавшихся врагов ===
+      // Гибель врага НЕ зависит от playerHit/invuln — это гейты урона игроку.
+      // Иначе при нескольких одновременных столкновениях обрабатывался бы
+      // только первый контакт, а остальные враги «висели» бы на корабле до
+      // конца неуязвимости и умирали бы по одному с задержкой ~0.6с.
       if (
-        !playerHit &&
-        playerState.invuln <= 0 &&
-        playerState.hp > 0 &&
-        ((kindA === 'player' && kindB === 'enemy') || (kindA === 'enemy' && kindB === 'player'))
+        (kindA === 'player' && kindB === 'enemy') ||
+        (kindA === 'enemy' && kindB === 'player')
       ) {
         const enemy = kindA === 'enemy' ? a : b;
         const e = enemy as (typeof enemies)[number];
-        if (!e.dead && enemies.includes(e)) {
+
+        // Урон игроку — не более одного раза за кадр и только не в неуязвимости.
+        if (!playerHit && playerState.invuln <= 0 && playerState.hp > 0) {
           this.eventBus.publish('player_damaged', {
             dmg: e.contact,
           });
+          playerHit = true;
+        }
+
+        // Каждый врезавшийся враг гибнет сразу, даже если их несколько.
+        if (!e.dead && enemies.includes(e)) {
           e.dead = true;
           this.eventBus.publish('enemy_killed', {
             score: e.score,
@@ -150,7 +159,6 @@ export class CollisionSystem {
             y: e.y,
             seed: e.seed,
           });
-          playerHit = true;
         }
       }
 
