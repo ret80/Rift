@@ -14,6 +14,7 @@ import type { DroneId, DroneStatKey } from "./drones/Drone";
 import type { PersistencePort } from "./core/PersistencePort";
 import { GameContext } from "./core/GameContext";
 import type { Hooks } from "./core/GameHooks";
+import type { PhysicsEngineId } from "./physics";
 
 /* UI types — единый источник правды */
 export type { BannerData, CountData, HudData, StatsData, ToastData } from "./types/ui";
@@ -54,6 +55,11 @@ export class Game {
 
   setEnabledPickups(pickups: PickupKind[] | null): void {
     this.ctx.dropSystem.setEnabledPickups(pickups);
+  }
+
+  /** Сменить физический движок (меню настроек). */
+  setPhysicsEngine(id: PhysicsEngineId): void {
+    this.ctx.setPhysicsEngine(id);
   }
 
   fps(): number {

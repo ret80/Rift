@@ -13,6 +13,7 @@ import {
   asteroidEntity,
   enemyEntity,
   playerEntity,
+  pickupEntity,
 } from "../physics/index";
 
 export class GameFrame {
@@ -46,7 +47,7 @@ export class GameFrame {
     if (fsm.is("playing", "active")) {
       ctx.abilitySystem.update(dt);
     }
-    ctx.playerSystem.update(dt, fsm.not("menu", "over", "dying"), ctx.physics.integratesPositions);
+    ctx.playerSystem.update(dt, fsm.not("menu", "over", "dying"), !ctx.physics.integratesPositions);
 
     // Handle dying → over transition
     if (fsm.is("dying")) {
@@ -63,7 +64,7 @@ export class GameFrame {
         ctx.entityPool.enemyList,
         ctx.getPlayerPosition(),
         ctx.getZoneBounds(),
-        ctx.physics.integratesPositions,
+        !ctx.physics.integratesPositions,
       );
       // Enemy shooting: separate from movement/AI
       if (fsm.is("playing", "active")) {
@@ -126,7 +127,7 @@ export class GameFrame {
             r: ctx.waveOrchestrator.zoneState.radius,
           }
         : null,
-      physicsIntegrates: ctx.physics.integratesPositions,
+      physicsIntegrates: !ctx.physics.integratesPositions,
       physicsResolves: ctx.physics.resolvesVelocity,
     } as import("../asteroids").AsteroidEnv);
 
@@ -164,6 +165,11 @@ export class GameFrame {
     }
     for (const a of ctx.asteroidField.asteroidList) {
       entities.push(asteroidEntity(a));
+    }
+    // Бонусы — сенсорные тела: регистрируются в физике, чтобы их можно было
+    // подбирать через контакт, но они не толкают/не отталкивают игрока.
+    for (const p of ctx.entityPool.pickupList) {
+      entities.push(pickupEntity(p));
     }
     return entities;
   }

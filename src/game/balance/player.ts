@@ -33,7 +33,7 @@ export const C = {
 
 export const PLAYER_RADIUS = 13;
 /** Reduced by 15% (310→248→211) then -20% more (211*0.8=169). */
-export const PLAYER_MAX_SPEED = 380;
+export const PLAYER_MAX_SPEED = 600;
 /** Drone base speed = 1.9 × player max speed. */
 export const DRONE_BASE_SPEED = PLAYER_MAX_SPEED * 0.85;
 /** Hunter speed = 1.1 × player max speed. */

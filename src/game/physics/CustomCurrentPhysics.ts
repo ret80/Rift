@@ -1,17 +1,11 @@
 /**
  * CustomCurrentPhysics — текущая (самописная) физика игры.
  *
- * Повторяет механику скорости Planck.js: перед каждым шагом скорость
- * ограничивается так, чтобы перемещение за шаг |v·dt| не превышало
- * PHYSICS_MAX_TRANSLATION_PER_STEP (аналог Settings.maxTranslation),
- * затем позиция интегрируется самим бэкендом. Контакты считаются по
- * пересечению окружностей; мягкие импульсы при контактах по-прежнему
- * выполняет CollisionSystem.
+ * Повторяет механику скорости Planck.js: позиция интегрируется самим
+ * бэкендом. Контакты считаются по пересечению окружностей; мягкие
+ * импульсы при контактах по-прежнему выполняет CollisionSystem.
  */
 
-import {
-  PHYSICS_MAX_TRANSLATION_PER_STEP,
-} from "./IPhysics.ts";
 import type {
   IPhysics,
   PhysicsBodyDef,
@@ -80,16 +74,6 @@ export class CustomCurrentPhysics implements IPhysics {
     if (dt <= 0) return;
     for (const e of this.entries.values()) {
       const s = e.lastState;
-      // Кламп скорости как в Planck integratePositions:
-      // translation = v * dt; при |translation| > MAX — v *= MAX/|translation|.
-      const tx = s.vx * dt;
-      const ty = s.vy * dt;
-      const tl = Math.hypot(tx, ty);
-      if (tl > PHYSICS_MAX_TRANSLATION_PER_STEP) {
-        const ratio = PHYSICS_MAX_TRANSLATION_PER_STEP / tl;
-        s.vx *= ratio;
-        s.vy *= ratio;
-      }
       // Интеграция позиции самим бэкендом (как Planck делает в step).
       // Внешние системы в режиме integratesPosition=true позицию не двигают.
       s.x += s.vx * dt;

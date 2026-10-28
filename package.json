@@ -11,6 +11,7 @@
     "check:i18n": "node scripts/check-i18n-consistency.ts"
   },
   "dependencies": {
+    "p2-es": "^1.2.3",
     "picogl": "^0.17.9",
     "planck": "^1.5.1",
     "react": "^18.2.0",

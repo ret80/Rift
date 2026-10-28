@@ -9,7 +9,7 @@
 
 import type { Asteroid } from "../asteroids";
 import { PLAYER_HITBOX_RADIUS } from "../balance/player";
-import type { Enemy } from "../types";
+import type { Enemy, Pickup } from "../types";
 import type { PlayerState } from "../systems/PlayerState";
 
 /** Плотность тела: согласована с массой massForRadius (π·r²·0.02). */
@@ -105,6 +105,44 @@ export function asteroidEntity(a: Asteroid) {
       a.angle = s.angle;
       a.vx = s.vx;
       a.vy = s.vy;
+    },
+  };
+}
+
+/**
+ * Адаптер бонуса (pickup): сенсорное кинематическое тело.
+ * Бонус двигается сам (PickupSystem — магнит/инерция), позицию задаёт
+ * внешний код, поэтому body — кинематическое. Флаг sensor гарантирует,
+ * что в движках с откликом (Planck/p2) контакт с игроком не порождает
+ * и толчка, и отталкивания — игрок просто подбирает бонус.
+ */
+export function pickupEntity(p: Pickup) {
+  return {
+    userData: p,
+    kind: "pickup" as const,
+    radius: p.r,
+    density: ENTITY_DENSITY,
+    restitution: 0,
+    friction: 0,
+    fixedRotation: true,
+    kinematic: true,
+    sensor: true,
+    getState: () => ({
+      x: p.x,
+      y: p.y,
+      angle: 0,
+      // Движение дрифтом/магнитом выполняет PickupSystem на самом объекте.
+      // Телу скорость не передаём: кинематический бэкенд интегрировал бы её
+      // сам и позиция двигалась бы дважды за кадр.
+      vx: 0,
+      vy: 0,
+      spin: 0,
+    }),
+    applyResult: (s: { x: number; y: number; angle: number; vx: number; vy: number }) => {
+      // Кинематический сенсор двигается PickupSystem — результат бэкенда
+      // не пишем обратно, чтобы не затереть магнит/инерцию.
+      p.x = s.x;
+      p.y = s.y;
     },
   };
 }

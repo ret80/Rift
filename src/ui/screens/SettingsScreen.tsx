@@ -2,10 +2,20 @@ import React, { useState } from "react";
 import type { Volumes } from "../../game/audio";
 import type { MenuTrackId, CombatTrackId, TrackId } from "../../game/audio/tracks";
 import { ALL_TRACK_IDS, TRACK_NAMES, isMenuTrackId } from "../../game/audio/tracks";
+import type {
+  PhysicsEngineId,
+} from "../../game/physics";
+import { PHYSICS_ENGINE_IDS } from "../../game/physics";
 import GameButton from "../components/GameButton";
 import SliderRow from "../components/SliderRow";
 import LangButton from "../components/LangButton";
 import { useT, useLang } from "../../i18n";
+
+const PHYSICS_ENGINE_LABELS: Record<PhysicsEngineId, string> = {
+  planck: "Planck.js",
+  custom: "Custom",
+  p2: "p2-es",
+};
 
 export default function SettingsScreen(props: {
   vols: Volumes;
@@ -15,6 +25,8 @@ export default function SettingsScreen(props: {
   onMenuTrackChange: (v: MenuTrackId) => void;
   onCombatTrackChange: (v: CombatTrackId) => void;
   onPreviewTrack: (id: MenuTrackId | CombatTrackId) => void;
+  physicsEngine: PhysicsEngineId;
+  onPhysicsEngineChange: (v: PhysicsEngineId) => void;
   onTest: () => void;
   onReset: () => void;
   onBack: () => void;
@@ -94,6 +106,20 @@ export default function SettingsScreen(props: {
                 <GameButton onClick={props.onTest} variant="amber" small className="w-full">
                   {t("settings.test")}
                 </GameButton>
+              </div>
+
+              <div>
+                <div className="hud-label mb-2">{t("settings.physicsEngine")}</div>
+                <select
+                  className="music-select w-full"
+                  value={props.physicsEngine}
+                  onChange={(e) => props.onPhysicsEngineChange(e.target.value as PhysicsEngineId)}
+                  aria-label={t("settings.physicsEngine")}
+                >
+                  {PHYSICS_ENGINE_IDS.map((id) => (
+                    <option key={id} value={id}>{PHYSICS_ENGINE_LABELS[id]}</option>
+                  ))}
+                </select>
               </div>
 
               <div>

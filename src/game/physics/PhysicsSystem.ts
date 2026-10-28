@@ -25,7 +25,19 @@ export class PhysicsSystem implements IPhysics {
   /** Реестр зарегистрированных сущностей (userData -> адаптер и ключ дефа). */
   private registered = new Map<unknown, { entity: PhysicsEntity; defKey: string }>();
 
-  constructor(private readonly engine: IPhysics) {}
+  constructor(private engine: IPhysics) {}
+
+  /**
+   * Заменить бэкенд физики (выбор движка в настройках). Сущности текущего
+   * кадра будут пересозданы в следующем update() — регистрации сбрасываются,
+   * старый мир очищается.
+   */
+  setEngine(engine: IPhysics): void {
+    if (engine === this.engine) return;
+    this.registered.clear();
+    this.engine.clear();
+    this.engine = engine;
+  }
 
   get contacts(): PhysicsContact[] {
     return this.engine.contacts.map((c) => ({
@@ -98,7 +110,10 @@ export class PhysicsSystem implements IPhysics {
 
   /** Ключ определения тела: при изменении тело пересоздаётся. */
   private defKey(e: PhysicsEntity): string {
-    return [e.kind, e.radius, e.density, e.fixedRotation ?? false, e.kinematic ?? false].join("|");
+    return [
+      e.kind, e.radius, e.density,
+      e.fixedRotation ?? false, e.kinematic ?? false, e.sensor ?? false,
+    ].join("|");
   }
 
   /**
@@ -128,6 +143,7 @@ export class PhysicsSystem implements IPhysics {
         kind: entity.kind,
         fixedRotation: entity.fixedRotation ?? false,
         kinematic: entity.kinematic ?? false,
+        sensor: entity.sensor ?? false,
       });
       this.registered.set(entity.userData, { entity, defKey: key });
     }

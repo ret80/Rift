@@ -15,6 +15,7 @@ import { resetUpgrades } from "./game/upgrades";
 import { createLocalStoragePort } from "./game/core/PersistencePort";
 import type { PersistencePort } from "./game/core/PersistencePort";
 import type { MenuTrackId, CombatTrackId } from "./game/audio/tracks";
+import type { PhysicsEngineId } from "./game/physics";
 import { useHudUpdater } from "./hooks/useHudUpdater";
 import { usePersistentSettings } from "./hooks/usePersistentSettings";
 import { t } from "./i18n";
@@ -110,6 +111,7 @@ export default function App() {
     vols, setVols,
     menuTrack, setMenuTrack,
     combatTrack, setCombatTrack,
+    physicsEngine, setPhysicsEngine,
     debugFps, setDebugFps,
     debugGod, setDebugGod,
     debugWave, setDebugWave,
@@ -201,6 +203,13 @@ export default function App() {
     game.setEnabledEnemies(enabledEnemies.length === ENEMY_KIND_COUNT ? null : enabledEnemies);
     game.audio.setMenuTrack(menuTrack);
     game.audio.setCombatTrack(combatTrack);
+    // Применить выбранный физический движок (persisted в настройках).
+    // Конструктор GameContext стартует с Planck, поэтому без этого вызова
+    // сохранённый движок после перезагрузки терялся бы. URL-параметр
+    // ?physics=<id> имеет приоритет (отладка) — при нём не переопределяем.
+    if (!new URLSearchParams(window.location.search).get("physics")) {
+      game.setPhysicsEngine(physicsEngine);
+    }
     gameRef.current = game;
     setBest(Number(localStorage.getItem("rift9_best")) || 0);
 
@@ -361,6 +370,11 @@ export default function App() {
     gameRef.current?.audio.setCombatTrack(id);
   };
 
+  const changePhysicsEngine = (id: PhysicsEngineId) => {
+    setPhysicsEngine(id);
+    gameRef.current?.setPhysicsEngine(id);
+  };
+
   // listen preview: трек меняется мгновенно, превью проигрывается отдельно
   const previewTrack = (id: MenuTrackId | CombatTrackId) => {
     const g = gameRef.current;
@@ -408,6 +422,8 @@ export default function App() {
           onMenuTrackChange={changeMenuTrack}
           onCombatTrackChange={changeCombatTrack}
           onPreviewTrack={previewTrack}
+          physicsEngine={physicsEngine}
+          onPhysicsEngineChange={changePhysicsEngine}
           onTest={() => {
             const g = gameRef.current;
             if (g) {

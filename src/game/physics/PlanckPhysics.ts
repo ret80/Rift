@@ -65,11 +65,15 @@ export class PlanckPhysics implements IPhysics {
       userData,
     } as BodyDef);
     const shape: Shape = new Circle(def.radius);
+    // Сенсорное тело (бонус): реагирует на контакты, но не создаёт
+    // физического отклика (isSensor на фикстуре), поэтому не толкает и
+    // не отталкивает игрока.
     const fixture: FixtureDef = {
       shape,
       density: def.density,
       restitution: def.restitution ?? 0.15,
       friction: def.friction ?? 0.05,
+      isSensor: def.sensor ?? false,
     };
     body.createFixture(fixture);
     this.bodies.set(userData, body);

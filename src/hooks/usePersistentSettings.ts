@@ -8,6 +8,8 @@ import {
   normalizeMenuTrack,
   normalizeCombatTrack,
 } from "../game/audio/tracks";
+import type { PhysicsEngineId } from "../game/physics";
+import { normalizePhysicsEngine } from "../game/physics";
 import { usePersistedState } from "./usePersistedState";
 
 /** Персистентные настройки отладки/звука/врагов-пикапов. */
@@ -18,6 +20,8 @@ export interface PersistentSettings {
   setMenuTrack: (v: MenuTrackId) => void;
   combatTrack: CombatTrackId;
   setCombatTrack: (v: CombatTrackId) => void;
+  physicsEngine: PhysicsEngineId;
+  setPhysicsEngine: (v: PhysicsEngineId) => void;
   debugFps: boolean;
   setDebugFps: (v: boolean) => void;
   debugGod: boolean;
@@ -53,6 +57,15 @@ export function usePersistentSettings(): PersistentSettings {
   const setMenuTrack = (v: MenuTrackId) => setMenuTrackRaw(v);
   const setCombatTrack = (v: CombatTrackId) => setCombatTrackRaw(v);
 
+  // Выбранный физический движок (значение из localStorage может быть битым —
+  // нормализуем через реестр).
+  const [physicsEngineRaw, setPhysicsEngineRaw] = usePersistedState<string>(
+    "rift9_physics_engine",
+    "planck"
+  );
+  const physicsEngine = normalizePhysicsEngine(physicsEngineRaw);
+  const setPhysicsEngine = (v: PhysicsEngineId) => setPhysicsEngineRaw(v);
+
   const [debugFps, setDebugFps] = usePersistedState("rift9_debug_fps", false);
   const [debugGod, setDebugGod] = usePersistedState("rift9_debug_god", false);
   const [debugWave, setDebugWave] = usePersistedState("rift9_debug_wave", 1);
@@ -70,6 +83,7 @@ export function usePersistentSettings(): PersistentSettings {
     vols, setVols,
     menuTrack, setMenuTrack,
     combatTrack, setCombatTrack,
+    physicsEngine, setPhysicsEngine,
     debugFps, setDebugFps,
     debugGod, setDebugGod,
     debugWave, setDebugWave,

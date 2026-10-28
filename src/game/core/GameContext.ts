@@ -14,8 +14,8 @@ import { BaseRenderer } from "../render/index";
 import { PicoGLRenderer } from "../render/index";
 import type { IRenderer } from "../render/index";
 import { PhysicsSystem } from "../physics/index";
-import { CustomCurrentPhysics } from "../physics/index";
-import { PlanckPhysics } from "../physics/index";
+import type { PhysicsEngineId } from "../physics/index";
+import { createPhysicsEngine, normalizePhysicsEngine } from "../physics/index";
 import { DebugSystem } from "../systems/DebugSystem";
 import { MenuScene } from "../systems/MenuScene";
 import { ScoringSystem } from "../systems/ScoringSystem";
@@ -122,8 +122,21 @@ export class GameContext {
   /** Стартовая волна (для отладки/URL-параметра). */
   startWave = 1;
 
+  /** Физический движок, выбранный в настройках (persisted). */
+  private _physicsEngineId: PhysicsEngineId = "planck";
+  get physicsEngineId(): PhysicsEngineId {
+    return this._physicsEngineId;
+  }
+
   private countId = 0;
   private _paused = false;
+
+  /** Сменить физический движок (выбор в меню настроек). */
+  setPhysicsEngine(id: PhysicsEngineId): void {
+    if (id === this._physicsEngineId) return;
+    this._physicsEngineId = id;
+    this.physics.setEngine(createPhysicsEngine(id));
+  }
 
   constructor(canvas: HTMLCanvasElement, hooks: Hooks, storage: PersistencePort) {
     this.hooks = hooks;
@@ -138,15 +151,15 @@ export class GameContext {
     const usePicoGL = rendererParam === null || rendererParam === "picogl";
     this.renderer = usePicoGL ? new PicoGLRenderer(canvas) : new BaseRenderer(canvas);
 
-    // Физический бэкенд: Planck.js по умолчанию; самописная физика
-    // включается флагом URL (?physics=custom).
+    // Физический бэкенд: выбирается через меню настроек (persisted) или
+    // URL-параметр ?physics=<id>. По умолчанию — Planck.js.
     const physicsParam =
       typeof window !== "undefined"
         ? new URLSearchParams(window.location.search).get("physics")
         : null;
-    const usePlanck = physicsParam === null || physicsParam === "planck";
-    const physicsEngine = usePlanck ? new PlanckPhysics() : new CustomCurrentPhysics();
-    this.physics = new PhysicsSystem(physicsEngine);
+    this.physics = new PhysicsSystem(
+      createPhysicsEngine(normalizePhysicsEngine(physicsParam ?? this.physicsEngineId))
+    );
 
     this.scoringSystem = new ScoringSystem({}, storage);
     this.upgradeSystem = UpgradeSystem.create(storage);

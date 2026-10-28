@@ -5,7 +5,7 @@
 
 /* ------------------------- zone constants ------------------------- */
 
-export const ZONE_INITIAL_RADIUS = 17.25;
+export const ZONE_INITIAL_RADIUS = 26; // 2 × PLAYER_RADIUS (13)
 export const ZONE_EDGE_MARGIN = 40;
 export const ZONE_EDGE_WARNING_DELAY = 0.3; // seconds before warning
 export const ZONE_EDGE_DAMAGE_INTERVAL = 0.5; // seconds between damage ticks
@@ -32,12 +32,13 @@ export const ZONE_ENEMY_PUSH_FORCE_MAX = 200; // max push force for enemies
 /**
  * Calculate zone expansion speed based on player upgrades and temporary bonuses.
  * @param speedMult — multiplier from player speed upgrade (1.0 + level × 0.05)
- * @param currentMaxSpeed — base PLAYER_MAX_SPEED (169)
+ * @param currentMaxSpeed — base PLAYER_MAX_SPEED (300)
  * @param accelBonus — temporary acceleration bonus (0.0 by default, e.g. from pickup/buff)
  * @returns zone expansion speed in units/s
  */
 export function zoneExpandSpeed(speedMult: number, currentMaxSpeed: number, accelBonus: number = 0): number {
-  return currentMaxSpeed * speedMult * (1 + accelBonus);
+  // Зона должна расширяться быстрее игрока: player_speed * 1.2
+  return currentMaxSpeed * speedMult * 1.2 * (1 + accelBonus);
 }
 
 /* ------------------------------ menu animation ------------------------------ */
