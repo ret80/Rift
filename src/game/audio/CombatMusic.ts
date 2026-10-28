@@ -1,7 +1,7 @@
 import type { AmbientMusic } from "./AmbientMusic";
 import { BASS_SEMI, ARP_SCALE } from "./AmbientMusic";
 import type { CombatTrackId } from "./tracks";
-import { DEFAULT_COMBAT_TRACK } from "./tracks";
+import { COMBAT_TRACK_IDS, DEFAULT_COMBAT_TRACK } from "./tracks";
 
 /**
  * Combat music engine.
@@ -36,43 +36,43 @@ export interface CombatTrackDef {
 
 export const COMBAT_TRACKS: Record<CombatTrackId, CombatTrackDef> = {
   rift: {
-    bpm: 128,
+    bpm: 132,
     useKick: true,
     useSnare: true,
     useHats: true,
     useLead: true,
-    fill: 0.18,
-    vol: { bass: 0.12, kick: 0.62, snare: 0.16, hat: 0.055, lead: 0.05 },
+    fill: 0.16,
+    vol: { bass: 0.14, kick: 0.68, snare: 0.19, hat: 0.062, lead: 0.058 },
     bassOctave: false,
   },
   vanguard: {
-    bpm: 140,
+    bpm: 146,
     useKick: true,
     useSnare: true,
     useHats: true,
     useLead: false,
-    fill: 0.22,
-    vol: { bass: 0.13, kick: 0.66, snare: 0.15, hat: 0.05, lead: 0 },
+    fill: 0.2,
+    vol: { bass: 0.16, kick: 0.74, snare: 0.17, hat: 0.058, lead: 0 },
     bassOctave: true,
   },
   onslaught: {
-    bpm: 120,
+    bpm: 124,
     useKick: true,
     useSnare: true,
     useHats: false,
     useLead: true,
-    fill: 0.28,
-    vol: { bass: 0.14, kick: 0.7, snare: 0.18, hat: 0, lead: 0.055 },
+    fill: 0.32,
+    vol: { bass: 0.18, kick: 0.8, snare: 0.22, hat: 0, lead: 0.064 },
     bassOctave: true,
   },
   overdrive: {
-    bpm: 150,
+    bpm: 158,
     useKick: true,
     useSnare: false,
     useHats: true,
-    useLead: false,
-    fill: 0.14,
-    vol: { bass: 0.12, kick: 0.72, snare: 0, hat: 0.065, lead: 0 },
+    useLead: true,
+    fill: 0.12,
+    vol: { bass: 0.15, kick: 0.82, snare: 0, hat: 0.078, lead: 0.052 },
     bassOctave: false,
   },
 };
@@ -89,6 +89,7 @@ export class CombatMusic {
   private previewTimer: number | null = null;
   /** Активный боевой трек (выбор пользователя). */
   private trackId: CombatTrackId = DEFAULT_COMBAT_TRACK;
+  private waveChangeCount = 0;
 
   constructor(
     private ctx: AudioContext,
@@ -128,6 +129,14 @@ export class CombatMusic {
   /** Scale combat groove intensity with the wave (0 at wave 1 → 1 at 13+). */
   setCombatWave(wave: number) {
     this.combatLvl = Math.max(0, Math.min(1, (wave - 1) / 12));
+    if (this.combat) {
+      const others = (COMBAT_TRACK_IDS as CombatTrackId[]).filter((id) => id !== this.trackId);
+      if (others.length > 0) {
+        // Меняем трек с каждой новой волной для разнообразия
+        const pick = others[Math.floor(Math.random() * others.length)];
+        this.setCombatTrack(pick);
+      }
+    }
   }
 
   /** Короткое превью трека: несколько шагов гроува без смены состояния боя. */

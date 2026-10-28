@@ -12,7 +12,7 @@
  */
 
 import type { MenuTrackId } from "./tracks";
-import { DEFAULT_MENU_TRACK } from "./tracks";
+import { DEFAULT_MENU_TRACK, MENU_TRACK_IDS } from "./tracks";
 
 export interface AmbientScene {
   freqs: [number, number, number];
@@ -26,87 +26,87 @@ export interface AmbientScene {
 export const BASS_SEMI = [0, 0, 3, 0, 5, 0, 3, 2];
 export const ARP_SCALE = [220, 261.63, 329.63, 392, 440, 523.25];
 
-/** Базовая эмбиент-сцена ("Туманность") — фоновая заливка. */
+/** Очень спокойная эмбиент-сцена ("Туманность") — медленная, воздушная заливка. */
 const SCENE_PAD: AmbientScene[] = [
   {
-    freqs: [55, 82.5, 110],
-    filter: 420,
-    lfoRate: 0.07,
-    lfoAmt: 150,
-    gain: 0.08,
-    scale: [220, 261.63, 329.63, 440, 523.25],
+    freqs: [32.7, 49, 65.41],
+    filter: 260,
+    lfoRate: 0.025,
+    lfoAmt: 90,
+    gain: 0.065,
+    scale: [130.81, 164.81, 196, 261.63, 329.63],
+  },
+  {
+    freqs: [27.5, 41.2, 55],
+    filter: 220,
+    lfoRate: 0.02,
+    lfoAmt: 70,
+    gain: 0.07,
+    scale: [110, 138.59, 164.81, 220, 277.18],
+  },
+  {
+    freqs: [36.71, 55, 73.42],
+    filter: 290,
+    lfoRate: 0.028,
+    lfoAmt: 95,
+    gain: 0.062,
+    scale: [146.83, 185, 220, 293.66, 369.99],
+  },
+];
+
+/** Тёплая, мягкая сцена ("Солнце"). */
+const SCENE_SOLAR: AmbientScene[] = [
+  {
+    freqs: [49, 73.42, 98],
+    filter: 380,
+    lfoRate: 0.038,
+    lfoAmt: 110,
+    gain: 0.058,
+    scale: [196, 246.94, 293.66, 392, 493.88],
   },
   {
     freqs: [43.65, 65.41, 87.31],
     filter: 340,
-    lfoRate: 0.05,
-    lfoAmt: 120,
-    gain: 0.085,
+    lfoRate: 0.032,
+    lfoAmt: 95,
+    gain: 0.062,
     scale: [174.61, 220, 261.63, 349.23, 440],
   },
   {
-    freqs: [41.2, 61.74, 82.41],
-    filter: 300,
-    lfoRate: 0.045,
-    lfoAmt: 100,
-    gain: 0.078,
-    scale: [164.81, 196, 246.94, 329.63, 392],
-  },
-];
-
-/** Тёплая, умеренная сцена ("Солнце"). */
-const SCENE_SOLAR: AmbientScene[] = [
-  {
-    freqs: [61.74, 92.5, 123.47],
-    filter: 560,
-    lfoRate: 0.08,
-    lfoAmt: 140,
-    gain: 0.075,
-    scale: [246.94, 293.66, 369.99, 493.88, 587.33],
-  },
-  {
-    freqs: [55, 82.5, 110],
-    filter: 500,
-    lfoRate: 0.06,
+    freqs: [51.91, 77.78, 103.83],
+    filter: 420,
+    lfoRate: 0.042,
     lfoAmt: 120,
-    gain: 0.08,
-    scale: [220, 277.18, 329.63, 440, 554.37],
-  },
-  {
-    freqs: [65.41, 98, 130.81],
-    filter: 620,
-    lfoRate: 0.09,
-    lfoAmt: 160,
-    gain: 0.072,
-    scale: [261.63, 329.63, 392, 523.25, 659.25],
+    gain: 0.056,
+    scale: [207.65, 261.63, 311.13, 415.3, 523.25],
   },
 ];
 
-/** Яркая, "полярная" сцена ("Аврора"). */
+/** Хрустально-просторная сцена ("Аврора"). */
 const SCENE_AURORA: AmbientScene[] = [
   {
-    freqs: [46.25, 69.3, 92.5],
-    filter: 720,
-    lfoRate: 0.11,
-    lfoAmt: 200,
-    gain: 0.07,
-    scale: [185, 233.08, 277.18, 369.99, 466.16],
-  },
-  {
-    freqs: [55, 82.5, 110],
-    filter: 660,
-    lfoRate: 0.1,
-    lfoAmt: 180,
-    gain: 0.075,
-    scale: [220, 261.63, 329.63, 415.3, 523.25],
+    freqs: [36.71, 55, 73.42],
+    filter: 520,
+    lfoRate: 0.055,
+    lfoAmt: 150,
+    gain: 0.052,
+    scale: [146.83, 185, 220, 293.66, 369.99],
   },
   {
     freqs: [41.2, 61.74, 82.41],
-    filter: 580,
-    lfoRate: 0.08,
-    lfoAmt: 150,
-    gain: 0.068,
+    filter: 480,
+    lfoRate: 0.048,
+    lfoAmt: 135,
+    gain: 0.056,
     scale: [164.81, 207.65, 246.94, 329.63, 415.3],
+  },
+  {
+    freqs: [32.7, 49, 65.41],
+    filter: 440,
+    lfoRate: 0.044,
+    lfoAmt: 120,
+    gain: 0.054,
+    scale: [130.81, 164.81, 196, 261.63, 329.63],
   },
 ];
 
@@ -124,21 +124,21 @@ export interface MenuTrackDef {
 export const MENU_TRACKS: Record<MenuTrackId, MenuTrackDef> = {
   nebula: {
     scenes: SCENE_PAD,
-    pingVol: 0.055,
-    pingChance: 0.5,
-    bassVol: 0.06,
+    pingVol: 0.038,
+    pingChance: 0.32,
+    bassVol: 0.042,
   },
   solar: {
     scenes: SCENE_SOLAR,
-    pingVol: 0.05,
-    pingChance: 0.65,
-    bassVol: 0.055,
+    pingVol: 0.035,
+    pingChance: 0.38,
+    bassVol: 0.038,
   },
   aurora: {
     scenes: SCENE_AURORA,
-    pingVol: 0.06,
-    pingChance: 0.45,
-    bassVol: 0.06,
+    pingVol: 0.042,
+    pingChance: 0.28,
+    bassVol: 0.04,
   },
 };
 
@@ -163,6 +163,7 @@ export class AmbientMusic {
   private sceneIdx = 0;
   /** Активный меню-трек (выбор пользователя). */
   private trackId: MenuTrackId = DEFAULT_MENU_TRACK;
+  private menuTrackTimer: number | null = null;
 
   constructor(
     private ctx: AudioContext,
@@ -197,6 +198,24 @@ export class AmbientMusic {
     return MENU_TRACKS[this.trackId];
   }
 
+  private startMenuTrackRotation() {
+    if (this.menuTrackTimer !== null) return;
+    this.menuTrackTimer = window.setInterval(() => {
+      if (!this.ctx || this.isCombat() || this.onSuspended() || this.ctx.state !== "running") return;
+      const others = (MENU_TRACK_IDS as MenuTrackId[]).filter((id) => id !== this.trackId);
+      if (others.length === 0) return;
+      const pick = others[Math.floor(Math.random() * others.length)];
+      this.setMenuTrack(pick);
+    }, 30000 + Math.random() * 30000);
+  }
+
+  private stopMenuTrackRotation() {
+    if (this.menuTrackTimer !== null) {
+      clearInterval(this.menuTrackTimer);
+      this.menuTrackTimer = null;
+    }
+  }
+
   startMusic() {
     if (!this.ctx || !this.musicBus || this.musicTimer !== null) return;
     const ctx = this.ctx;
@@ -211,6 +230,7 @@ export class AmbientMusic {
 
     this.step = 0;
     this.ambientTick = 0;
+    this.startMenuTrackRotation();
     this.musicTimer = window.setInterval(() => {
       if (!this.ctx || this.isCombat() || this.onSuspended() || this.ctx.state !== "running") return;
       this.step++;
@@ -293,6 +313,7 @@ export class AmbientMusic {
 
   stopMusic() {
     this.onCombatOff();
+    this.stopMenuTrackRotation();
     if (this.musicTimer !== null) {
       clearInterval(this.musicTimer);
       this.musicTimer = null;
