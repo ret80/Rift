@@ -17,5 +17,8 @@ export { EnemyBulletComponent } from "./components/EnemyBulletComponent";
 export { AllyDroneComponent } from "./components/AllyDroneComponent";
 export { LaserBeamComponent } from "./components/LaserBeamComponent";
 export { PlayerComponent } from "./components/PlayerComponent";
+export { ParticleComponent } from "./components/ParticleComponent";
+export { RingComponent } from "./components/RingComponent";
+export { RiftComponent } from "./components/RiftComponent";
 export { PickupMovementSystem } from "./systems/PickupMovementSystem";
 export { PickupCollectionSystem } from "./systems/PickupCollectionSystem";

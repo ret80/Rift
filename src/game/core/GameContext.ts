@@ -210,7 +210,7 @@ export class GameContext {
       },
     });
 
-    this.fx = new Fx();
+    this.fx = new Fx(this.ecs);
     this.starfield = new Starfield();
 
     this.asteroidField = new AsteroidField({
@@ -224,7 +224,7 @@ export class GameContext {
       spawnEnemy: (kind, x, y) => this.spawnEnemy(kind, x, y, null),
       fx: this.fx,
       audio: this.audio,
-    });
+    }, this.ecs);
 
     this.rendererSystem = new RendererSystem({
       fx: this.fx,

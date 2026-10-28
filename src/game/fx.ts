@@ -1,19 +1,35 @@
 /* Particle / ring / screen-shake subsystem.
    Game code talks to it through a tiny facade (burst / ring / addShake);
-   all state and simulation lives here. */
+   the particle/ring storage and lifecycle are backed by the ECS world
+   (EcsWorld), while the simulation loop and shake stay here. The facade
+   keeps the same public API so callers are unchanged. */
 
 import type { IRenderer } from "./render/index";
 import { TAU, rand, clamp, rgba } from "./math";
 import type { Ring, Particle } from "./types";
+import type { EcsWorld } from "./ecs";
 export type { Ring, Particle } from "./types";
 
 export class Fx {
-  readonly particles: Particle[] = [];
-  readonly rings: Ring[] = [];
+  private readonly ecs: EcsWorld;
 
   private mag = 0;
   shakeX = 0;
   shakeY = 0;
+
+  /** Производное чтиво частиц из ECS-мира. */
+  get particles(): Particle[] {
+    return this.ecs.particles();
+  }
+
+  /** Производное чтиво колец из ECS-мира. */
+  get rings(): Ring[] {
+    return this.ecs.rings();
+  }
+
+  constructor(ecs: EcsWorld) {
+    this.ecs = ecs;
+  }
 
   addShake(v: number) {
     this.mag = Math.min(26, this.mag + v);
@@ -31,7 +47,7 @@ export class Fx {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * TAU;
       const sp = rand(speed * 0.3, speed);
-      this.particles.push({
+      this.ecs.addParticle({
         x,
         y,
         vx: Math.cos(a) * sp,
@@ -46,26 +62,27 @@ export class Fx {
 
   /** Directional / custom particle (dash trail, engine exhaust…). */
   emit(p: Particle) {
-    this.particles.push(p);
+    this.ecs.addParticle(p);
   }
 
   ring(x: number, y: number, r0: number, vr: number, life: number, hex: string) {
-    this.rings.push({ x, y, r: r0, vr, life, maxLife: life, c: rgba(hex, 1) });
+    this.ecs.addRing({ x, y, r: r0, vr, life, maxLife: life, c: rgba(hex, 1) });
   }
 
   /** `dt` drives particles (game time, freezes on pause),
-      `shakeDt` drives the shake decay (real time, always runs). */
+      `shakeDt` drives the shake decay (real time, always runs).
+      Частицы/кольца симулируются здесь (движение + затухание), но хранятся
+      и удаляются через ECS-мир. */
   update(dt: number, shakeDt: number) {
     this.mag = Math.max(0, this.mag - shakeDt * 40);
     this.shakeX = (Math.random() - 0.5) * 2 * this.mag;
     this.shakeY = (Math.random() - 0.5) * 2 * this.mag;
 
     if (dt > 0) {
-      for (let i = this.particles.length - 1; i >= 0; i--) {
-        const p = this.particles[i];
+      for (const p of this.ecs.particles()) {
         p.life -= dt;
         if (p.life <= 0) {
-          this.particles.splice(i, 1);
+          this.ecs.removeParticle(p);
           continue;
         }
         p.x += p.vx * dt;
@@ -73,17 +90,16 @@ export class Fx {
         p.vx *= Math.exp(-2.5 * dt);
         p.vy *= Math.exp(-2.5 * dt);
       }
-      for (let i = this.rings.length - 1; i >= 0; i--) {
-        const r = this.rings[i];
+      for (const r of this.ecs.rings()) {
         r.life -= dt;
         r.r += r.vr * dt;
-        if (r.life <= 0) this.rings.splice(i, 1);
+        if (r.life <= 0) this.ecs.removeRing(r);
       }
     }
   }
 
   draw(R: IRenderer) {
-    for (const p of this.particles) {
+    for (const p of this.ecs.particles()) {
       const f = clamp(p.life / p.maxLife, 0, 1);
       const l = p.size * f;
       const d = Math.hypot(p.vx, p.vy) || 1;
@@ -95,15 +111,15 @@ export class Fx {
         [p.c[0], p.c[1], p.c[2], p.c[3] * f]
       );
     }
-    for (const r of this.rings) {
+    for (const r of this.ecs.rings()) {
       const f = clamp(r.life / r.maxLife, 0, 1);
       R.circle(r.x, r.y, r.r, [r.c[0], r.c[1], r.c[2], r.c[3] * f], 40);
     }
   }
 
   clear() {
-    this.particles.length = 0;
-    this.rings.length = 0;
+    this.ecs.clearParticles();
+    this.ecs.clearRings();
     this.mag = 0;
     this.shakeX = 0;
     this.shakeY = 0;

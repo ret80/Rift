@@ -7,6 +7,7 @@
 import type { IRenderer } from "./render/index";
 import type { AudioManager } from "./systems/AudioManager";
 import type { Fx } from "./fx";
+import type { EcsWorld } from "./ecs";
 import { TAU, rand, clamp, easeOutCubic, rgba } from "./math";
 import { C, type EnemyKind } from "./balance";
 import type { Rift } from "./types";
@@ -20,9 +21,16 @@ export interface RiftHooks {
 }
 
 export class RiftField {
-  readonly riftList: Rift[] = [];
+  private readonly ecs: EcsWorld;
 
-  constructor(private h: RiftHooks) {}
+  /** Производное чтиво разломов из ECS-мира. */
+  get riftList(): Rift[] {
+    return this.ecs.rifts();
+  }
+
+  constructor(private h: RiftHooks, ecs: EcsWorld) {
+    this.ecs = ecs;
+  }
 
   /** Utility: draw a rift shape at the given position (used by menu scene). */
   static drawShape(
@@ -99,7 +107,7 @@ export class RiftField {
   }
 
   spawn(x: number, y: number, queue: EnemyKind[], delay: number, size: number) {
-    this.riftList.push({
+    this.ecs.addRift({
       x,
       y,
       t: -delay,
@@ -114,8 +122,7 @@ export class RiftField {
   }
 
   update(dt: number) {
-    for (let i = this.riftList.length - 1; i >= 0; i--) {
-      const rf = this.riftList[i];
+    for (const rf of this.ecs.rifts()) {
       rf.t += dt;
       if (rf.state === "opening") {
         if (rf.t >= 0.6) {
@@ -138,17 +145,17 @@ export class RiftField {
           this.h.audio.playRiftClose();
         }
       } else if (rf.state === "closing") {
-        if (rf.t >= 0.5) this.riftList.splice(i, 1);
+        if (rf.t >= 0.5) this.ecs.removeRift(rf);
       }
     }
   }
 
   reset() {
-    this.riftList.length = 0;
+    this.ecs.clearRifts();
   }
 
   draw(R: IRenderer, time: number) {
-    for (const rf of this.riftList) this.drawRift(R, rf, time);
+    for (const rf of this.ecs.rifts()) this.drawRift(R, rf, time);
   }
 
   /** Two-stage lifecycle: point → line → writhing rift, and the reverse. */

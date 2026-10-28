@@ -10,7 +10,7 @@
 import { Engine } from "@trixt0r/ecs";
 import { PickupKind, EnemyKind } from "../balance";
 import type { EventBus } from "../core/EventBus";
-import type { Enemy, Bullet, EBullet, AllyDrone, LaserBeam } from "../types";
+import type { Enemy, Bullet, EBullet, AllyDrone, LaserBeam, Particle, Ring, Rift } from "../types";
 import type { AudioManager } from "../systems/AudioManager";
 import type { PlayerState } from "../systems/PlayerState";
 import { PickupComponent } from "./components/PickupComponent";
@@ -20,6 +20,9 @@ import { EnemyBulletComponent } from "./components/EnemyBulletComponent";
 import { AllyDroneComponent } from "./components/AllyDroneComponent";
 import { LaserBeamComponent } from "./components/LaserBeamComponent";
 import { PlayerComponent } from "./components/PlayerComponent";
+import { ParticleComponent } from "./components/ParticleComponent";
+import { RingComponent } from "./components/RingComponent";
+import { RiftComponent } from "./components/RiftComponent";
 import { GameEntity } from "./GameEntity";
 import { PickupMovementSystem } from "./systems/PickupMovementSystem";
 import { PickupCollectionSystem } from "./systems/PickupCollectionSystem";
@@ -334,6 +337,121 @@ export class EcsWorld {
     const toRemove: GameEntity[] = [];
     for (const entity of this.engine.entities.elements as GameEntity[]) {
       if (entity.components.get(LaserBeamComponent)) toRemove.push(entity);
+    }
+    for (const entity of toRemove) this.engine.entities.remove(entity);
+  }
+
+  // ===== Fx API (particles / rings) =====
+
+  /** Зарегистрировать частицу как ECS-сущность. */
+  addParticle(particle: Particle): void {
+    const entity = new GameEntity();
+    entity.components.add(new ParticleComponent(particle));
+    this.engine.entities.add(entity);
+  }
+
+  /** Производное чтиво: список частиц. */
+  particles(): Particle[] {
+    const result: Particle[] = [];
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      const component = entity.components.get(ParticleComponent);
+      if (component) result.push(component.particle);
+    }
+    return result;
+  }
+
+  /** Удалить конкретную частицу из ECS. */
+  removeParticle(particle: Particle): void {
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      const component = entity.components.get(ParticleComponent);
+      if (component && component.particle === particle) {
+        this.engine.entities.remove(entity);
+        return;
+      }
+    }
+  }
+
+  /** Удалить все частицы. */
+  clearParticles(): void {
+    const toRemove: GameEntity[] = [];
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      if (entity.components.get(ParticleComponent)) toRemove.push(entity);
+    }
+    for (const entity of toRemove) this.engine.entities.remove(entity);
+  }
+
+  /** Зарегистрировать кольцо как ECS-сущность. */
+  addRing(ring: Ring): void {
+    const entity = new GameEntity();
+    entity.components.add(new RingComponent(ring));
+    this.engine.entities.add(entity);
+  }
+
+  /** Производное чтиво: список колец. */
+  rings(): Ring[] {
+    const result: Ring[] = [];
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      const component = entity.components.get(RingComponent);
+      if (component) result.push(component.ring);
+    }
+    return result;
+  }
+
+  /** Удалить конкретное кольцо из ECS. */
+  removeRing(ring: Ring): void {
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      const component = entity.components.get(RingComponent);
+      if (component && component.ring === ring) {
+        this.engine.entities.remove(entity);
+        return;
+      }
+    }
+  }
+
+  /** Удалить все кольца. */
+  clearRings(): void {
+    const toRemove: GameEntity[] = [];
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      if (entity.components.get(RingComponent)) toRemove.push(entity);
+    }
+    for (const entity of toRemove) this.engine.entities.remove(entity);
+  }
+
+  // ===== Rift API =====
+
+  /** Зарегистрировать разлом как ECS-сущность. */
+  addRift(rift: Rift): void {
+    const entity = new GameEntity();
+    entity.components.add(new RiftComponent(rift));
+    this.engine.entities.add(entity);
+  }
+
+  /** Производное чтиво: список разломов. */
+  rifts(): Rift[] {
+    const result: Rift[] = [];
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      const component = entity.components.get(RiftComponent);
+      if (component) result.push(component.rift);
+    }
+    return result;
+  }
+
+  /** Удалить конкретный разлом из ECS. */
+  removeRift(rift: Rift): void {
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      const component = entity.components.get(RiftComponent);
+      if (component && component.rift === rift) {
+        this.engine.entities.remove(entity);
+        return;
+      }
+    }
+  }
+
+  /** Удалить все разломы. */
+  clearRifts(): void {
+    const toRemove: GameEntity[] = [];
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      if (entity.components.get(RiftComponent)) toRemove.push(entity);
     }
     for (const entity of toRemove) this.engine.entities.remove(entity);
   }
