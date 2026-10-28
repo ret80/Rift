@@ -536,5 +536,6 @@ export class GameContext {
     this.input.destroy();
     this.audio.destroy();
     this.physics.clear();
+    this.renderer.destroy?.();
   }
 }

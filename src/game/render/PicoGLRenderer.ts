@@ -159,28 +159,35 @@ interface RenderTarget {
 
 export class PicoGLRenderer implements IRenderer {
   readonly canvas: HTMLCanvasElement;
-  private app: App;
+  private app!: App;
 
-  private lineProg: Program;
-  private beamProg: Program;
-  private blurProg: Program;
-  private compProg: Program;
+  private lineProg!: Program;
+  private beamProg!: Program;
+  private blurProg!: Program;
+  private compProg!: Program;
 
-  private lineBuf: VertexBuffer;
-  private beamBuf: VertexBuffer;
-  private triBuf: VertexBuffer;
-  private lineVA: VertexArray;
-  private beamVA: VertexArray;
-  private triVA: VertexArray;
+  private lineBuf!: VertexBuffer;
+  private beamBuf!: VertexBuffer;
+  private triBuf!: VertexBuffer;
+  private lineVA!: VertexArray;
+  private beamVA!: VertexArray;
+  private triVA!: VertexArray;
 
-  private lineCall: DrawCall;
-  private beamCall: DrawCall;
-  private blurCall: DrawCall;
-  private compCall: DrawCall;
+  private lineCall!: DrawCall;
+  private beamCall!: DrawCall;
+  private blurCall!: DrawCall;
+  private compCall!: DrawCall;
 
   private scene: RenderTarget | null = null;
   private bloomA: RenderTarget | null = null;
   private bloomB: RenderTarget | null = null;
+
+  /** Признак потери WebGL-контекста (contextlost) — кадры пропускаются до восстановления. */
+  private contextLost = false;
+  /** Исходный canvas-обработчик webglcontextlost (чтобы снять при уничтожении). */
+  private onContextLost: ((e: Event) => void) | null = null;
+  /** Исходный canvas-обработчик webglcontextrestored (чтобы снять при уничтожении). */
+  private onContextRestored: (() => void) | null = null;
 
   private verts = new Float32Array(MAX_VERTS * FLOATS_PER_VERT);
   private count = 0;
@@ -198,8 +205,34 @@ export class PicoGLRenderer implements IRenderer {
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
+    // Готовимся к потере/восстановлению контекста: на macOS (и других
+    // платформах) при потере фокуса браузер может уронить WebGL-контекст.
+    // Мы пересоздаём все GPU-ресурсы по событию webglcontextrestored.
+    this.installContextListeners();
+    this.initGL();
+  }
+
+  private installContextListeners(): void {
+    this.onContextLost = (e: Event) => {
+      e.preventDefault();
+      this.contextLost = true;
+    };
+    this.onContextRestored = () => {
+      this.contextLost = false;
+      // Контекст восстановлен — все прежние GPU-объекты (программы, буферы,
+      // текстуры, VAO) аннулированы, их нужно создать заново. Следующий
+      // кадр вызовет resize(), который из-за сброшенных размеров заново
+      // создаст offscreen-таргеты.
+      this.initGL();
+    };
+    this.canvas.addEventListener("webglcontextlost", this.onContextLost, false);
+    this.canvas.addEventListener("webglcontextrestored", this.onContextRestored, false);
+  }
+
+  private initGL(): void {
     // Проверяем поддержку WebGL2 до создания App — понятная ошибка.
-    const gl = canvas.getContext("webgl2", {
+    // После восстановления getContext вернёт тот же (уже живой) контекст.
+    const gl = this.canvas.getContext("webgl2", {
       antialias: true,
       alpha: false,
       depth: false,
@@ -208,14 +241,20 @@ export class PicoGLRenderer implements IRenderer {
     });
     if (!gl) throw new Error("WebGL2 не поддерживается этим браузером");
     // Повторный запрос вернёт тот же контекст; createApp берёт webgl2 у canvas.
-    this.app = PicoGL.createApp(canvas, {
-      antialias: true,
-      alpha: false,
-      depth: false,
-      stencil: false,
-      powerPreference: "high-performance",
-    });
+    if (!this.app) {
+      this.app = PicoGL.createApp(this.canvas, {
+        antialias: true,
+        alpha: false,
+        depth: false,
+        stencil: false,
+        powerPreference: "high-performance",
+      });
+    }
 
+    this.createResources();
+  }
+
+  private createResources(): void {
     // Явно фиксируем атрибутные слоты, чтобы не зависеть от порядка линковки.
     this.lineProg = this.app.createProgram(LINE_VERT, LINE_FRAG, {
       attributeLocations: { aPos: 0, aColor: 1 },
@@ -250,6 +289,15 @@ export class PicoGLRenderer implements IRenderer {
       .primitive(PicoGL.TRIANGLES);
     this.blurCall = this.app.createDrawCall(this.blurProg, this.triVA);
     this.compCall = this.app.createDrawCall(this.compProg, this.triVA);
+
+    // Пересоздаём offscreen-таргеты после потери контекста.
+    this.scene = null;
+    this.bloomA = null;
+    this.bloomB = null;
+    // Сброс размеров заставляет следующий resize() пересоздать таргеты
+    // (их GPU-объекты аннулированы при потере контекста).
+    this.width = 0;
+    this.height = 0;
 
     this.app.disable(PicoGL.DEPTH_TEST);
     this.app.clearColor(0, 0, 0, 1);
@@ -297,6 +345,7 @@ export class PicoGLRenderer implements IRenderer {
   }
 
   resize(cssW: number, cssH: number) {
+    if (this.contextLost) return;
     this.dpr = Math.min(window.devicePixelRatio || 1, 1.75);
     const w = Math.max(2, Math.floor(cssW * this.dpr));
     const h = Math.max(2, Math.floor(cssH * this.dpr));
@@ -316,7 +365,7 @@ export class PicoGLRenderer implements IRenderer {
   }
 
   beginFrame() {
-    if (!this.scene) return;
+    if (this.contextLost || !this.scene) return;
     this.app.drawFramebuffer(this.scene.fb);
     this.app.viewport(0, 0, this.scene.w, this.scene.h);
     this.app.clear();
@@ -328,6 +377,7 @@ export class PicoGLRenderer implements IRenderer {
   }
 
   clear() {
+    if (this.contextLost) return;
     this.app.defaultDrawFramebuffer();
     this.app.defaultViewport();
     this.app.clear();
@@ -341,6 +391,15 @@ export class PicoGLRenderer implements IRenderer {
     }
   }
 
+  destroy(): void {
+    if (this.onContextLost)
+      this.canvas.removeEventListener("webglcontextlost", this.onContextLost, false);
+    if (this.onContextRestored)
+      this.canvas.removeEventListener("webglcontextrestored", this.onContextRestored, false);
+    this.onContextLost = null;
+    this.onContextRestored = null;
+  }
+
   setCamera(camX: number, camY: number, zoom: number, shakeX: number, shakeY: number) {
     this.zoom = zoom;
     this.offX = this.width / 2 - camX * zoom + shakeX * this.dpr;
@@ -348,6 +407,7 @@ export class PicoGLRenderer implements IRenderer {
   }
 
   pushLine(x1: number, y1: number, x2: number, y2: number, c: RGBA) {
+    if (!this.scene) return;
     if (this.count + 2 > MAX_VERTS) this.flush();
     const v = this.verts;
     let i = this.count * FLOATS_PER_VERT;
@@ -370,6 +430,7 @@ export class PicoGLRenderer implements IRenderer {
     x1: number, y1: number, x2: number, y2: number,
     width: number, c: RGBA, seed: number
   ) {
+    if (!this.scene) return;
     const len = Math.hypot(x2 - x1, y2 - y1);
     if (len <= 0.001) return;
     if (this.beamCount + 6 > MAX_BEAM_VERTS) {
@@ -495,6 +556,10 @@ export class PicoGLRenderer implements IRenderer {
   }
 
   private flushBeams(time = 0) {
+    if (this.contextLost) {
+      this.beamCount = 0;
+      return;
+    }
     if (this.beamCount === 0 || !this.scene) return;
     this.beamBuf.data(this.beamVerts.subarray(0, this.beamCount * FLOATS_PER_BEAM_VERT));
     this.applyCamera(this.beamCall);
@@ -505,6 +570,10 @@ export class PicoGLRenderer implements IRenderer {
   }
 
   private flush() {
+    if (this.contextLost) {
+      this.count = 0;
+      return;
+    }
     if (this.count === 0 || !this.scene) return;
     this.lineBuf.data(this.verts.subarray(0, this.count * FLOATS_PER_VERT));
     this.applyCamera(this.lineCall);
@@ -514,7 +583,7 @@ export class PicoGLRenderer implements IRenderer {
   }
 
   finish(time: number) {
-    if (!this.scene || !this.bloomA || !this.bloomB) return;
+    if (this.contextLost || !this.scene || !this.bloomA || !this.bloomB) return;
     this.flush();
     this.flushBeams(time);
     this.app.disable(PicoGL.BLEND);

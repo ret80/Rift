@@ -162,16 +162,16 @@ interface FBO {
 
 export class BaseRenderer implements IRenderer {
   readonly canvas: HTMLCanvasElement;
-  private gl: WebGLRenderingContext;
+  private gl!: WebGLRenderingContext;
 
-  private lineProg: WebGLProgram;
-  private beamProg: WebGLProgram;
-  private blurProg: WebGLProgram;
-  private compProg: WebGLProgram;
+  private lineProg!: WebGLProgram;
+  private beamProg!: WebGLProgram;
+  private blurProg!: WebGLProgram;
+  private compProg!: WebGLProgram;
 
-  private lineBuf: WebGLBuffer;
-  private beamBuf: WebGLBuffer;
-  private triBuf: WebGLBuffer;
+  private lineBuf!: WebGLBuffer;
+  private beamBuf!: WebGLBuffer;
+  private triBuf!: WebGLBuffer;
   private verts = new Float32Array(MAX_VERTS * FLOATS_PER_VERT);
   private count = 0;
   private beamVerts = new Float32Array(MAX_BEAM_VERTS * FLOATS_PER_BEAM_VERT);
@@ -192,9 +192,36 @@ export class BaseRenderer implements IRenderer {
 
   private u: Array<Record<string, WebGLUniformLocation | null>> = [];
 
+  /** Признак потери WebGL-контекста — кадры пропускаются до восстановления. */
+  private contextLost = false;
+  /** Исходные canvas-обработчики (чтобы снять при уничтожении). */
+  private onContextLost: ((e: Event) => void) | null = null;
+  private onContextRestored: (() => void) | null = null;
+
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
-    const gl = canvas.getContext("webgl", {
+    // Готовимся к потере/восстановлению контекста: пересоздаём GPU-ресурсы
+    // по событию webglcontextrestored.
+    this.installContextListeners();
+    this.initGL();
+  }
+
+  private installContextListeners(): void {
+    this.onContextLost = (e: Event) => {
+      e.preventDefault();
+      this.contextLost = true;
+    };
+    this.onContextRestored = () => {
+      this.contextLost = false;
+      // Все прежние GPU-объекты аннулированы — создаём заново.
+      this.initGL();
+    };
+    this.canvas.addEventListener("webglcontextlost", this.onContextLost, false);
+    this.canvas.addEventListener("webglcontextrestored", this.onContextRestored, false);
+  }
+
+  private initGL(): void {
+    const gl = this.canvas.getContext("webgl", {
       antialias: true,
       alpha: false,
       depth: false,
@@ -203,6 +230,13 @@ export class BaseRenderer implements IRenderer {
     });
     if (!gl) throw new Error("WebGL не поддерживается этим браузером");
     this.gl = gl;
+
+    // Сброс размеров заставляет следующий resize() пересоздать FBO.
+    this.sceneFbo = null;
+    this.bloomA = null;
+    this.bloomB = null;
+    this.width = 0;
+    this.height = 0;
 
     this.lineProg = this.makeProgram(LINE_VERT, LINE_FRAG);
     this.beamProg = this.makeProgram(BEAM_VERT, BEAM_FRAG);
@@ -299,6 +333,7 @@ export class BaseRenderer implements IRenderer {
   }
 
   resize(cssW: number, cssH: number) {
+    if (this.contextLost) return;
     this.dpr = Math.min(window.devicePixelRatio || 1, 1.75);
     const w = Math.max(2, Math.floor(cssW * this.dpr));
     const h = Math.max(2, Math.floor(cssH * this.dpr));
@@ -314,7 +349,7 @@ export class BaseRenderer implements IRenderer {
 
   beginFrame() {
     const gl = this.gl;
-    if (!this.sceneFbo) return;
+    if (this.contextLost || !this.sceneFbo) return;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.sceneFbo.fb);
     gl.viewport(0, 0, this.sceneFbo.w, this.sceneFbo.h);
     gl.clear(gl.COLOR_BUFFER_BIT);
@@ -327,6 +362,7 @@ export class BaseRenderer implements IRenderer {
 
   /** Clear the entire canvas (for menu). */
   clear() {
+    if (this.contextLost) return;
     const gl = this.gl;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, this.width, this.height);
@@ -341,6 +377,15 @@ export class BaseRenderer implements IRenderer {
     }
   }
 
+  destroy(): void {
+    if (this.onContextLost)
+      this.canvas.removeEventListener("webglcontextlost", this.onContextLost, false);
+    if (this.onContextRestored)
+      this.canvas.removeEventListener("webglcontextrestored", this.onContextRestored, false);
+    this.onContextLost = null;
+    this.onContextRestored = null;
+  }
+
   setCamera(camX: number, camY: number, zoom: number, shakeX: number, shakeY: number) {
     this.zoom = zoom;
     this.offX = this.width / 2 - camX * zoom + shakeX * this.dpr;
@@ -348,6 +393,7 @@ export class BaseRenderer implements IRenderer {
   }
 
   pushLine(x1: number, y1: number, x2: number, y2: number, c: RGBA) {
+    if (!this.sceneFbo) return;
     if (this.count + 2 > MAX_VERTS) this.flush();
     const v = this.verts;
     let i = this.count * FLOATS_PER_VERT;
@@ -375,6 +421,7 @@ export class BaseRenderer implements IRenderer {
     x1: number, y1: number, x2: number, y2: number,
     width: number, c: RGBA, seed: number
   ) {
+    if (!this.sceneFbo) return;
     const len = Math.hypot(x2 - x1, y2 - y1);
     if (len <= 0.001) return;
     if (this.beamCount + 6 > MAX_BEAM_VERTS) {
@@ -495,6 +542,10 @@ export class BaseRenderer implements IRenderer {
   }
 
   private flushBeams(time = 0) {
+    if (this.contextLost) {
+      this.beamCount = 0;
+      return;
+    }
     if (this.beamCount === 0 || !this.sceneFbo) return;
     const gl = this.gl;
     gl.useProgram(this.beamProg);
@@ -535,6 +586,10 @@ export class BaseRenderer implements IRenderer {
   }
 
   private flush() {
+    if (this.contextLost) {
+      this.count = 0;
+      return;
+    }
     if (this.count === 0 || !this.sceneFbo) return;
     const gl = this.gl;
     gl.useProgram(this.lineProg);
@@ -564,7 +619,7 @@ export class BaseRenderer implements IRenderer {
 
   finish(time: number) {
     const gl = this.gl;
-    if (!this.sceneFbo || !this.bloomA || !this.bloomB) return;
+    if (this.contextLost || !this.sceneFbo || !this.bloomA || !this.bloomB) return;
     this.flush();
     this.flushBeams(time);
     gl.disable(gl.BLEND);
