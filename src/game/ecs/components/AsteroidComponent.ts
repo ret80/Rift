@@ -1,14 +1,14 @@
 /**
- * AsteroidComponent — данные астероида (пояс-«belt»).
+ * AsteroidComponent — узкий маркер астероида (доменные поля).
  *
- * Единственный источник правды для астероида: позиция, скорость, радиус,
- * здоровье и визуальные вариации (verts/angle/spin). Пояс AsteroidField
- * генерирует астероиды чанками и спавнит их как ECS-сущности с этим
- * компонентом; физика/коллизии/рендер/зона читают и мутируют компонент.
- * Никакой отдельной живой ссылки и двойной записи view↔компонент нет.
+ * Позиция/скорость/радиус/здоровье вынесены в базовые компоненты:
+ *   PositionComponent, VelocityComponent, RadiusComponent, LifeComponent.
+ * Здесь остаются только доменные поля, не покрываемые базовыми:
+ *   key — идентичность в поясе; kind — крупность; angle/spin — вращение;
+ *   verts — форма полигона; mass — масса; dead — флаг уничтожения.
  *
- * Поле `key` — строковая идентичность в поясе (как старый `Asteroid.id`);
- * ECS-маркер `id` ("Asteroid") занят базовым классом, поэтому не используется.
+ * Значения читаются/пишутся ВМЕСТЕ с базовыми компонентами через
+ * AsteroidRef (см. EcsWorld.asteroids()/spawnAsteroid).
  */
 
 import type { Component } from "@trixt0r/ecs";
@@ -21,25 +21,17 @@ export class AsteroidComponent implements Component {
   /** Идентичность в поясе (напр. "1,2:3" или "f12"). */
   key = "";
   kind: AsteroidKind = "small";
-
-  // === Позиция/движение (вместо Position/Velocity) ===
-  x = 0;
-  y = 0;
-  vx = 0;
-  vy = 0;
+  /** Текущий угол вращения, рад. */
   angle = 0;
+  /** Угловая скорость, рад/с. */
   spin = 0;
-
-  // === Форма/здоровье/масса ===
-  r = 0;
   /** Нормированные радиусы вершин (0.72..1.02) — форма полигона. */
   verts: number[] = [];
-  hp = 0;
-  maxHp = 0;
+  /** Масса (для физических контактов). */
   mass = 0;
   dead = false;
 
-  constructor(state: Partial<AsteroidComponent> = {}) {
+  constructor(state: Partial<Omit<AsteroidComponent, "type" | "id">> = {}) {
     Object.assign(this, state);
     if (state.kind !== undefined) this.kind = state.kind as AsteroidKind;
   }

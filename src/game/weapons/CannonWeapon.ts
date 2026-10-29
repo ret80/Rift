@@ -127,12 +127,18 @@ export class CannonWeapon implements Weapon {
       {
         sx: ctx.player.x,
         sy: ctx.player.y,
-        target,
+        target: {
+          x: target.position.x,
+          y: target.position.y,
+          vx: target.velocity.vx,
+          vy: target.velocity.vy,
+          r: target.radius.r,
+        },
         bulletSpeed: CANNON_BULLET_SPEED,
         maxFlightTime: CANNON_BULLET_LIFE,
       },
       this.getHitChance(ctx),
-      target.r
+      target.radius.r
     );
   }
 

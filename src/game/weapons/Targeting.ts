@@ -9,7 +9,7 @@
  * пользовались одной и той же логикой выбора цели.
  */
 
-import type { Enemy } from "../types";
+import type { EnemyRef } from "../ecs";
 import type { PlayerSnapshot } from "./Weapon";
 
 /** Дальность автонаведения по умолчанию (базовая для пушки). */
@@ -21,7 +21,7 @@ export class Targeting {
   /** Игрок держит огонь. */
   private manualFiring = false;
   /** Текущая автоцель. */
-  private target: Enemy | null = null;
+  private target: EnemyRef | null = null;
   /** Угол до автоцели. */
   private autoAngle: number | null = null;
 
@@ -38,13 +38,13 @@ export class Targeting {
   }
 
   /** Обновить автоцель: ближайший живой враг в зоне поражения. */
-  update(player: PlayerSnapshot, enemies: readonly Enemy[]): void {
-    let nearest: Enemy | null = null;
+  update(player: PlayerSnapshot, enemies: readonly EnemyRef[]): void {
+    let nearest: EnemyRef | null = null;
     let nearestDist = this.range;
 
     for (const e of enemies) {
-      if (e.dead) continue;
-      const dist = Math.hypot(e.x - player.x, e.y - player.y);
+      if (e.marker.dead) continue;
+      const dist = Math.hypot(e.position.x - player.x, e.position.y - player.y);
       if (dist < nearestDist) {
         nearestDist = dist;
         nearest = e;
@@ -53,7 +53,7 @@ export class Targeting {
 
     this.target = nearest;
     this.autoAngle = nearest
-      ? Math.atan2(nearest.y - player.y, nearest.x - player.x)
+      ? Math.atan2(nearest.position.y - player.y, nearest.position.x - player.x)
       : null;
   }
 
@@ -68,7 +68,7 @@ export class Targeting {
   }
 
   /** Текущая автоцель (null — цели нет). */
-  get currentTarget(): Enemy | null {
+  get currentTarget(): EnemyRef | null {
     return this.target;
   }
 }

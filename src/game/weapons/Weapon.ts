@@ -14,7 +14,8 @@
 import type { LoadoutSlotMeta } from "../loadout/LoadoutTypes";
 import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
 import type { DroneFleetSpec } from "../drones/Drone";
-import type { AllyDrone, Bullet, Enemy, LaserBeam } from "../types";
+import type { Bullet, LaserBeam } from "../types";
+import type { DroneRef, EnemyRef, AllyDroneSpawn } from "../ecs";
 
 /** Идентификаторы видов оружия. */
 export type WeaponId = "cannon" | "missile" | "drone" | "laser";
@@ -39,7 +40,7 @@ export interface AimState {
   /** Готовность стрелять. */
   firing: boolean;
   /** Автоцель — враг, на который наведено орудие (null — ручной прицел). */
-  target: Enemy | null;
+  target: EnemyRef | null;
   /** Шанс попадания автонаведения (0..1, всегда < 1). */
   hitChance: number;
 }
@@ -64,15 +65,15 @@ export interface WeaponContext {
   /** Наведение: угол и готовность стрелять. */
   readonly aim: AimState;
   /** Враги — цели для наведения. */
-  readonly enemies: readonly Enemy[];
+  readonly enemies: readonly EnemyRef[];
   /** Пул снарядов игрока. */
   readonly bullets: Bullet[];
   /** Зарегистрировать новый снаряд игрока в ECS-мире. */
   addBullet(bullet: Bullet): void;
-  /** Пул дронов-компаньонов. */
-  readonly drones: AllyDrone[];
+  /** Пул дронов-компаньонов (живые связки компонентов). */
+  readonly drones: DroneRef[];
   /** Зарегистрировать новый дрон-компаньон в ECS-мире. */
-  addAllyDrone(drone: AllyDrone): void;
+  addAllyDrone(drone: AllyDroneSpawn): void;
   /** Пул лучей лазера — визуальная трасса выстрела. */
   readonly beams: LaserBeam[];
   /** Зарегистрировать новый визуальный луч лазера в ECS-мире. */
@@ -82,9 +83,9 @@ export interface WeaponContext {
   /** Колбэк выстрела — проигрывание звука. */
   onFired(id: WeaponId): void;
   /** Колбэк гибели врага — единый путь enemy_killed (дроп, счёт, волна). */
-  killEnemy?(enemy: Enemy): void;
+  killEnemy?(enemy: EnemyRef): void;
   /** Нанести урон врагу через единый канонический путь (ECS damageEnemy). */
-  damageEnemy?(enemy: Enemy, dmg: number): void;
+  damageEnemy?(enemy: EnemyRef, dmg: number): void;
 }
 
 /** Снимок слота оружия для строки снаряжения. */

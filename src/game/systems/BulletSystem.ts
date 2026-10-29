@@ -136,15 +136,17 @@ export class BulletSystem extends System {
   }
 
   /** Прочитать цель (позицию и живость) из сущности-врага по компонентам.
-   *  Позиция врага живёт в EnemyComponent (x/y), а не в PositionComponent. */
+   *  Позиция врага живёт в базовом PositionComponent, живость — в EnemyComponent. */
   private enemyFromEntity(entity: GameEntity | undefined): EnemyTarget | null {
     if (!entity) return null;
     const enemy = entity.components.get(EnemyComponent);
     if (!enemy) return null;
+    const position = entity.components.get(PositionComponent);
+    if (!position) return null;
     return {
       id: entity.id,
-      x: enemy.x,
-      y: enemy.y,
+      x: position.x,
+      y: position.y,
       dead: enemy.dead,
     };
   }

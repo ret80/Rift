@@ -11,7 +11,7 @@
  * независимо от того, попала она в цель или нет.
  */
 
-import type { Enemy } from "../types";
+import type { EnemyRef } from "../ecs";
 import type {
   Weapon,
   WeaponContext,
@@ -146,16 +146,16 @@ export class MissileWeapon implements Weapon {
 
   /** Ближайший живой враг в пределах дистанции наведения. */
   private findTarget(
-    enemies: readonly Enemy[],
+    enemies: readonly EnemyRef[],
     fromX: number,
     fromY: number
-  ): Enemy | null {
-    let nearest: Enemy | null = null;
+  ): EnemyRef | null {
+    let nearest: EnemyRef | null = null;
     let nearestDist = Infinity;
 
     for (const e of enemies) {
-      if (e.dead) continue;
-      const dist = Math.hypot(e.x - fromX, e.y - fromY);
+      if (e.marker.dead) continue;
+      const dist = Math.hypot(e.position.x - fromX, e.position.y - fromY);
       // Ограничим дистанцию наведения — ракета не должна锁定 на слишком далёких целях
       if (dist > MISSILE_LOCK_RANGE) continue;
       if (dist < nearestDist) {
@@ -168,11 +168,11 @@ export class MissileWeapon implements Weapon {
   }
 
   /** Пул самонаводящейся ракеты. */
-  private fire(ctx: WeaponContext, target: Enemy): void {
+  private fire(ctx: WeaponContext, target: EnemyRef): void {
     // Борт пуска: перпендикулярно направлению на цель, поэтому ракеты
     // вылетают то с левого, то с правого борта корабля.
-    const dx = target.x - ctx.player.x;
-    const dy = target.y - ctx.player.y;
+    const dx = target.position.x - ctx.player.x;
+    const dy = target.position.y - ctx.player.y;
     const dist = Math.hypot(dx, dy) || 1;
     const side = this.port === 0 ? -1 : 1;
     const mx = ctx.player.x - (dy / dist) * side * MISSILE_PORT_OFFSET;

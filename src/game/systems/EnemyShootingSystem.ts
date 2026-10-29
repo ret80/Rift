@@ -29,7 +29,14 @@ import {
 import { rand } from "../math";
 import type { AudioManager } from "./AudioManager";
 import { EnemyComponent } from "../ecs/components/EnemyComponent";
+import { PositionComponent } from "../ecs/components/PositionComponent";
 import { GameEntity } from "../ecs/GameEntity";
+
+/** Локальная связка «маркер + позиция» врага для стрельбы (без radius/life). */
+interface EnemyShotRef {
+  marker: EnemyComponent;
+  position: PositionComponent;
+}
 
 /** Внешний радиус хитбокса игрока — угловой размер цели для вражеских орудий. */
 const PLAYER_HIT_RADIUS = PLAYER_HITBOX_RADIUS + PLAYER_BULLET_HIT_OFFSET;
@@ -116,45 +123,50 @@ export class EnemyShootingSystem extends System {
     if (!enemies.length) return;
 
     const player = this.getPlayer();
-    for (const e of enemies) {
-      if (e.dead) continue;
+    for (const shot of enemies) {
+      const { marker, position } = shot;
+      if (marker.dead) continue;
 
-      const weapon = TURRETS[e.kind];
+      const weapon = TURRETS[marker.kind];
       if (!weapon) continue;
 
-      const dist = Math.hypot(player.x - e.x, player.y - e.y) || 1;
-      const range = e.kind === EnemyKind.Cruiser ? CRUISER_FIRE_RANGE : ENEMY_SHOOT_RANGE;
+      const dist = Math.hypot(player.x - position.x, player.y - position.y) || 1;
+      const range = marker.kind === EnemyKind.Cruiser ? CRUISER_FIRE_RANGE : ENEMY_SHOOT_RANGE;
       if (dist >= range) continue;
 
-      const hitChance = enemyHitChance(this.wave, e.kind);
+      const hitChance = enemyHitChance(this.wave, marker.kind);
 
-      if (e.kind === EnemyKind.Cruiser) {
-        this.fireCruiserTurrets(e, dt, player, weapon, hitChance);
+      if (marker.kind === EnemyKind.Cruiser) {
+        this.fireCruiserTurrets(shot, dt, player, weapon, hitChance);
       } else {
-        this.fireSingleTurret(e, dt, player, weapon, hitChance);
+        this.fireSingleTurret(shot, dt, player, weapon, hitChance);
       }
     }
   }
 
-  /** Собрать сущности с EnemyComponent. */
-  private collectEnemyShots(): EnemyComponent[] {
+  /** Собрать сущности с EnemyComponent (как «маркер + позиция»). */
+  private collectEnemyShots(): EnemyShotRef[] {
     if (!this.aspect) return [];
-    const result: EnemyComponent[] = [];
+    const result: EnemyShotRef[] = [];
     for (const entity of [...this.aspect.entities] as GameEntity[]) {
-      const c = entity.components.get(EnemyComponent);
-      if (c) result.push(c);
+      const marker = entity.components.get(EnemyComponent);
+      if (!marker) continue;
+      const position = entity.components.get(PositionComponent);
+      if (!position) continue;
+      result.push({ marker, position });
     }
     return result;
   }
 
   /** Двуствольный Cruiser: две независимые турели с таймерами tCd1/tCd2 */
   private fireCruiserTurrets(
-    e: EnemyComponent,
+    shot: EnemyShotRef,
     dt: number,
     player: PlayerMotion,
     weapon: EnemyWeapon,
     hitChance: number
   ): void {
+    const { marker: e, position } = shot;
     const rate =
       CRUISER_TURRET_RATE / (3 + this.wave * CRUISER_RATE_WAVE_STEP);
 
@@ -162,8 +174,8 @@ export class EnemyShootingSystem extends System {
     e.tCd1! -= dt;
     if (e.tCd1! <= 0) {
       e.tCd1! = rate + rand(-CRUISER_RATE_JITTER, CRUISER_RATE_JITTER);
-      const sx = e.x - Math.sin(e.angle) * 14;
-      const sy = e.y + Math.cos(e.angle) * 14;
+      const sx = position.x - Math.sin(e.angle) * 14;
+      const sy = position.y + Math.cos(e.angle) * 14;
       this.fire(e, sx, sy, player, weapon, hitChance);
       this.audio.playHeavyShoot();
     }
@@ -172,8 +184,8 @@ export class EnemyShootingSystem extends System {
     e.tCd2! -= dt;
     if (e.tCd2! <= 0) {
       e.tCd2! = rate + rand(-CRUISER_RATE_JITTER, CRUISER_RATE_JITTER);
-      const sx = e.x + Math.sin(e.angle) * 14;
-      const sy = e.y - Math.cos(e.angle) * 14;
+      const sx = position.x + Math.sin(e.angle) * 14;
+      const sy = position.y - Math.cos(e.angle) * 14;
       this.fire(e, sx, sy, player, weapon, hitChance);
       this.audio.playHeavyShoot();
     }
@@ -181,12 +193,13 @@ export class EnemyShootingSystem extends System {
 
   /** Одиночная турель: Fighter и Carrier */
   private fireSingleTurret(
-    e: EnemyComponent,
+    shot: EnemyShotRef,
     dt: number,
     player: PlayerMotion,
     weapon: EnemyWeapon,
     hitChance: number
   ): void {
+    const { marker: e, position } = shot;
     const baseRate = e.kind === EnemyKind.Carrier ? CARRIER_TURRET_RATE : SINGLE_TURRET_RATE;
     const waveBoost = Math.min(SINGLE_RATE_WAVE_CAP, 1 + this.wave * SINGLE_RATE_WAVE_BOOST);
     e.fireCd -= dt * waveBoost;
@@ -194,7 +207,7 @@ export class EnemyShootingSystem extends System {
     if (e.fireCd > 0) return;
     e.fireCd = baseRate;
 
-    this.fire(e, e.x, e.y, player, weapon, hitChance);
+    this.fire(e, position.x, position.y, player, weapon, hitChance);
     if (weapon.heavy) this.audio.playHeavyShoot();
     else this.audio.playEnemyShoot();
   }

@@ -24,7 +24,13 @@ import { renderPickups, buildPickupState, type PickupRenderState as PRS } from "
 import { renderEnemies, buildEnemyState, type EnemyRenderState as ERS } from "./Renderers/EnemyRenderer";
 import { renderPlayer, buildPlayerState, type PlayerRenderState } from "./Renderers/PlayerRenderer";
 import { renderAllyDrones, buildDroneState, type AllyDroneRenderState } from "./Renderers/DroneRenderer";
-import { renderBullets, buildBulletState, buildEBulletState, type BulletRenderState, type EBulletRenderState } from "./Renderers/BulletRenderer";
+import {
+  renderBullets,
+  buildBulletState,
+  buildEBulletState,
+  type BulletRenderState,
+  type EBulletRenderState,
+} from "./Renderers/BulletRenderer";
 import { renderZone, buildZoneState, type ZoneRenderState } from "./Renderers/ZoneRenderer";
 import { calcRiftAnim, drawRift } from "./Renderers/RiftAnimation";
 import { calcMenuRiftAnim } from "./Renderers/RiftAnimation";
@@ -70,9 +76,9 @@ export class RendererSystem {
     // Build render states — each renderer owns its transformation
     const playerRender = player
       ? buildPlayerState(
-          player.x, player.y, player.angle,
-          player.hp, player.maxHp, player.invuln,
-          player.thrusting, player.vx, player.vy,
+          player.position.x, player.position.y, player.marker.angle,
+          player.life.remaining, player.life.max, player.marker.invuln,
+          player.marker.thrusting, player.velocity.vx, player.velocity.vy,
           aim, guns, shield
         )
       : null;

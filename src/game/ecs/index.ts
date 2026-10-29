@@ -7,7 +7,7 @@
  */
 
 export { EcsWorld } from "./EcsWorld";
-export type { PlayerSource } from "./EcsWorld";
+export type { PlayerSource, AsteroidRef, AsteroidSpawn, DroneRef, AllyDroneSpawn, PlayerRef, EnemyRef } from "./EcsWorld";
 export { GameEntity } from "./GameEntity";
 
 // Базовые компоненты-данные и механика EntityRef.
@@ -23,6 +23,7 @@ export { BulletComponent } from "./components/BulletComponent";
 export { EnemyBulletComponent } from "./components/EnemyBulletComponent";
 export { BulletSweepComponent } from "./components/BulletSweepComponent";
 export { AllyDroneComponent } from "./components/AllyDroneComponent";
+export { AsteroidComponent } from "./components/AsteroidComponent";
 export { LaserBeamComponent } from "./components/LaserBeamComponent";
 export { PlayerComponent } from "./components/PlayerComponent";
 export { ParticleComponent } from "./components/ParticleComponent";

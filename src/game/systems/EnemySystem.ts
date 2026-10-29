@@ -24,7 +24,7 @@ import {
 } from "../balance";
 import { TAU, rand } from "../math";
 import type { Enemy } from "../types";
-import type { EcsWorld } from "../ecs";
+import type { EcsWorld, EnemyRef } from "../ecs";
 import { EnemyComponent } from "../ecs/components/EnemyComponent";
 import { GameEntity } from "../ecs/GameEntity";
 
@@ -90,27 +90,28 @@ export class EnemySystem extends System {
       wave: this.wave,
     });
 
-    // AI movement via strategy pattern (стратегии мутируют компоненты).
-    const enemyList = entities.map((e) => e.c);
-    this.context.enemies = enemyList;
-    this.ai.updateAI(enemyList, this.context, dt);
+    // AI movement via strategy pattern (стратегии мутируют базовые компоненты).
+    const enemyRefs = entities.map((e) => e.ref);
+    this.context.enemies = enemyRefs;
+    this.ai.updateAI(enemyRefs, this.context, dt);
 
     // Apply velocity and update state
     for (let i = 0; i < entities.length; i++) {
-      const e = entities[i].c;
-      if (e.dead) continue;
+      const { ref } = entities[i];
+      const marker = ref.marker;
+      if (marker.dead) continue;
 
-      e.flash = Math.max(0, e.flash - dt * 5);
-      e.hitCd = Math.max(0, e.hitCd - dt);
+      marker.flash = Math.max(0, marker.flash - dt * 5);
+      marker.hitCd = Math.max(0, marker.hitCd - dt);
 
       // skip velocity apply for orbiting drones — they control their own position
-      if (e.droneState === "orbiting") continue;
+      if (marker.droneState === "orbiting") continue;
 
       // apply velocity
       // В режиме Planck позицию интегрирует физический движок.
       if (integratePosition) {
-        e.x += e.vx * dt;
-        e.y += e.vy * dt;
+        ref.position.x += ref.velocity.vx * dt;
+        ref.position.y += ref.velocity.vy * dt;
       }
     }
 
@@ -120,28 +121,28 @@ export class EnemySystem extends System {
       const droneDef = this.getEnemyDef(EnemyKind.Drone);
       const drone = this.createEnemy(EnemyKind.Drone, spawn.x, spawn.y, droneDef, playerPos, null);
       // Set parent to carrier for proper tracking
-      const carrier = this.findCarrierForDrone(enemyList, spawn);
+      const carrier = this.findCarrierForDrone(enemyRefs, spawn);
       if (carrier) {
-        drone.parentId = carrier.ecsId ?? null;
+        drone.parentId = carrier.marker.ecsId ?? null;
         // Дрон начинается на орбите вокруг Carrier
         drone.droneState = "orbiting";
-        drone.orbitRadius = carrier.r + 80;
+        drone.orbitRadius = carrier.radius.r + 80;
         drone.orbitAngle = Math.random() * Math.PI * 2;
       }
       this.ecs.addEnemy(drone);
     }
 
     // Simple collision avoidance between all enemies
-    this.applyAvoidance(enemyList);
+    this.applyAvoidance(enemyRefs);
   }
 
   /** Собрать сущности с EnemyComponent. */
-  private collectEnemyEntities(): Array<{ entity: GameEntity; c: EnemyComponent }> {
+  private collectEnemyEntities(): Array<{ entity: GameEntity; ref: EnemyRef }> {
     if (!this.aspect) return [];
-    const result: Array<{ entity: GameEntity; c: EnemyComponent }> = [];
+    const result: Array<{ entity: GameEntity; ref: EnemyRef }> = [];
     for (const entity of [...this.aspect.entities] as GameEntity[]) {
-      const c = entity.components.get(EnemyComponent);
-      if (c) result.push({ entity, c });
+      const ref = this.ecs.enemyRefByEntity(entity);
+      if (ref) result.push({ entity, ref });
     }
     return result;
   }
@@ -150,7 +151,7 @@ export class EnemySystem extends System {
   private createEnemy(
     kind: EnemyKind, x: number, y: number, def: EnemyDef,
     playerPos?: { x: number; y: number },
-    parent: Enemy | null = null
+    parent: EnemyRef | null = null
   ): Enemy {
     const angle = kind === EnemyKind.Drone && playerPos
       ? Math.atan2(playerPos.y - y, playerPos.x - x)
@@ -167,7 +168,7 @@ export class EnemySystem extends System {
 
     if (kind === EnemyKind.Drone && parent) {
       droneState = "orbiting";
-      orbitRadius = parent.r + 80;
+      orbitRadius = parent.radius.r + 80;
     }
 
     // Орбитальные дроны имеют низкий dodgeWeight чтобы avoidance их не толкал
@@ -178,7 +179,7 @@ export class EnemySystem extends System {
 
     return {
       ecsId: "", // присваивается в addEnemy (entity.id)
-      parentId: parent?.ecsId ?? null,
+      parentId: parent?.marker.ecsId ?? null,
       kind, x, y, vx: 0, vy: 0, angle,
       hp: def.hp, maxHp: def.hp, r: def.r, speed: def.speed,
       contact: def.contact, score: def.score, boltDmg: def.bolt,
@@ -202,28 +203,28 @@ export class EnemySystem extends System {
   }
 
   /** Мягко раздвигает врагов, которые слишком близко друг к другу */
-  private applyAvoidance(enemyList: Enemy[]): void {
+  private applyAvoidance(enemyList: EnemyRef[]): void {
     const minDistSq = AI_MIN_DIST * AI_MIN_DIST;
 
     for (let i = 0; i < enemyList.length; i++) {
       const a = enemyList[i];
-      if (a.dead) continue;
+      if (a.marker.dead) continue;
 
       // Орбитальные дроны полностью игнорируют avoidance
-      if (a.droneState === "orbiting") continue;
+      if (a.marker.droneState === "orbiting") continue;
 
       for (let j = i + 1; j < enemyList.length; j++) {
         const b = enemyList[j];
-        if (b.dead) continue;
+        if (b.marker.dead) continue;
 
-        if (a.parentId !== null && a.parentId === b.ecsId) continue;
-        if (b.parentId !== null && b.parentId === a.ecsId) continue;
+        if (a.marker.parentId !== null && a.marker.parentId === b.marker.ecsId) continue;
+        if (b.marker.parentId !== null && b.marker.parentId === a.marker.ecsId) continue;
 
         // Орбитальные дроны игнорируют avoidance полностью
-        if (b.droneState === "orbiting") continue;
+        if (b.marker.droneState === "orbiting") continue;
 
-        const dx = a.x - b.x;
-        const dy = a.y - b.y;
+        const dx = a.position.x - b.position.x;
+        const dy = a.position.y - b.position.y;
         const distSq = dx * dx + dy * dy;
 
         if (distSq < minDistSq && distSq > 0.01) {
@@ -232,13 +233,13 @@ export class EnemySystem extends System {
           const pushX = (dx / dist) * push;
           const pushY = (dy / dist) * push;
 
-          const aMult = a.dodgeWeight || 1.0;
-          const bMult = b.dodgeWeight || 1.0;
+          const aMult = a.marker.dodgeWeight || 1.0;
+          const bMult = b.marker.dodgeWeight || 1.0;
 
-          a.vx += pushX * aMult;
-          a.vy += pushY * aMult;
-          b.vx -= pushX * bMult;
-          b.vy -= pushY * bMult;
+          a.velocity.vx += pushX * aMult;
+          a.velocity.vy += pushY * aMult;
+          b.velocity.vx -= pushX * bMult;
+          b.velocity.vy -= pushY * bMult;
         }
       }
     }
@@ -256,23 +257,23 @@ export class EnemySystem extends System {
     return weights[kind] ?? 1.0;
   }
 
-  spawn(kind: EnemyKind, x: number, y: number, parent: Enemy | null, playerPos?: { x: number; y: number }): void {
+  spawn(kind: EnemyKind, x: number, y: number, parent: EnemyRef | null, playerPos?: { x: number; y: number }): void {
     const def = this.getEnemyDef(kind);
     let spawnX = x;
     let spawnY = y;
 
     // Если дрон спавнится от Carrier — размещаем на орбите
-    if (kind === EnemyKind.Drone && parent && parent.kind === EnemyKind.Carrier) {
+    if (kind === EnemyKind.Drone && parent && parent.marker.kind === EnemyKind.Carrier) {
       const orbitAngle = Math.random() * TAU;
-      const orbitRadius = parent.r + 80;
-      spawnX = parent.x + Math.cos(orbitAngle) * orbitRadius;
-      spawnY = parent.y + Math.sin(orbitAngle) * orbitRadius;
+      const orbitRadius = parent.radius.r + 80;
+      spawnX = parent.position.x + Math.cos(orbitAngle) * orbitRadius;
+      spawnY = parent.position.y + Math.sin(orbitAngle) * orbitRadius;
     }
 
     const e = this.createEnemy(kind, spawnX, spawnY, def, playerPos, parent);
     this.ecs.addEnemy(e);
     if (parent) {
-      parent.spawnCd = 0;
+      parent.marker.spawnCd = 0;
     }
   }
 
@@ -281,12 +282,12 @@ export class EnemySystem extends System {
   }
 
   /** Найти ближайшего живого Carrier для дрона */
-  private findCarrierForDrone(enemies: Enemy[], spawnPos: { x: number; y: number }): Enemy | null {
-    let closest: Enemy | null = null;
+  private findCarrierForDrone(enemies: EnemyRef[], spawnPos: { x: number; y: number }): EnemyRef | null {
+    let closest: EnemyRef | null = null;
     let closestDist = Infinity;
     for (const e of enemies) {
-      if (e.kind !== EnemyKind.Carrier || e.dead) continue;
-      const d = Math.hypot(e.x - spawnPos.x, e.y - spawnPos.y);
+      if (e.marker.kind !== EnemyKind.Carrier || e.marker.dead) continue;
+      const d = Math.hypot(e.position.x - spawnPos.x, e.position.y - spawnPos.y);
       if (d < closestDist) {
         closestDist = d;
         closest = e;

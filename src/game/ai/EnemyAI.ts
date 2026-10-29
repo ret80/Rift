@@ -3,7 +3,7 @@
  * Создает стратегии для каждого типа врага и управляет их обновлением.
  */
 
-import type { Enemy } from '../types';
+import type { EnemyRef } from '../ecs';
 import type { GameContext } from './GameContext';
 import type { IEnemyStrategy } from './IEnemyStrategy';
 import { EnemyKind } from '../balance';
@@ -46,12 +46,12 @@ export class EnemyAI {
    * @param context - контекст игры
    * @param dt - дельта времени
    */
-  updateAI(enemies: Enemy[], context: GameContext, dt: number): void {
+  updateAI(enemies: EnemyRef[], context: GameContext, dt: number): void {
     for (const enemy of enemies) {
-      if (enemy.dead) continue;
+      if (enemy.marker.dead) continue;
 
       // Получаем стратегию для типа врага
-      const strategy = this.getStrategy(enemy.kind);
+      const strategy = this.getStrategy(enemy.marker.kind);
 
       if (strategy) {
         strategy.update(enemy, context, dt);
@@ -65,11 +65,11 @@ export class EnemyAI {
   /**
     * Резервное обновление для врагов без стратегии.
     */
-  private fallbackUpdate(enemy: Enemy, context: GameContext, dt: number): void {
-    const angleToPlayer = angleTo(enemy.x, enemy.y, context.playerX, context.playerY);
-    const speed = enemy.speed;
-    smoothVelocity(enemy, Math.cos(angleToPlayer) * speed, Math.sin(angleToPlayer) * speed, 6, dt);
-    enemy.angle = angleToPlayer;
+  private fallbackUpdate(enemy: EnemyRef, context: GameContext, dt: number): void {
+    const angleToPlayer = angleTo(enemy.position.x, enemy.position.y, context.playerX, context.playerY);
+    const speed = enemy.marker.speed;
+    smoothVelocity(enemy.velocity, Math.cos(angleToPlayer) * speed, Math.sin(angleToPlayer) * speed, 6, dt);
+    enemy.marker.angle = angleToPlayer;
   }
 
 }

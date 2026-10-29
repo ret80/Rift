@@ -13,7 +13,7 @@
  */
 
 import type { LoadoutSlotMeta } from "../loadout/LoadoutTypes";
-import type { Enemy } from "../types";
+import type { EnemyRef } from "../ecs";
 import type { Fx } from "../fx";
 
 /** Идентификаторы активных способностей. */
@@ -28,13 +28,13 @@ export interface AbilityContext {
   playerX: number;
   playerY: number;
   /** Живые враги — потенциальные цели способности. */
-  enemies: readonly Enemy[];
+  enemies: readonly EnemyRef[];
   /** Переместить корабль в точку (со сбросом скорости). */
   movePlayerTo(x: number, y: number): void;
   /** Убить врага — начислить очки и выбросить дроп. */
-  killEnemy(enemy: Enemy): void;
+  killEnemy(enemy: EnemyRef): void;
   /** Нанести урон врагу через единый канонический путь (ECS damageEnemy). */
-  damageEnemy(enemy: Enemy, dmg: number): void;
+  damageEnemy(enemy: EnemyRef, dmg: number): void;
   /** Система эффектов — искры, вспышки. */
   fx: Fx;
 }

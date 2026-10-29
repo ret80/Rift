@@ -1,13 +1,13 @@
 /**
- * PlayerState — состояние игрока: положение, корпус и движок.
+ * PlayerState — доменное состояние игрока (ориентация, корпус-неуязвимость,
+ * движок, масса). Позиция/скорость/радиус и запас прочности живут в базовых
+ * ECS-компонентах (Position/Velocity/Radius/Life) на Singleton-сущности игрока.
  *
- * Временные бонусы сюда не входят: темп огня, доп. стволы и рывок живут
- * в модуле бонусов (src/game/loadout/bonuses) под управлением BonusManager.
- * Здесь остаётся только то, что относится к самому кораблю.
+ * Временные бонусы (темп огня, доп. стволы, рывок) живут в модуле бонусов
+ * (src/game/loadout/bonuses) под управлением BonusManager.
  */
 
 import { massForRadius, PLAYER_RADIUS } from '../balance';
-import type { PlayerRenderState } from './Renderers/PlayerRenderer';
 
 /* ============================== constants ============================== */
 
@@ -16,16 +16,15 @@ export const FRICTION_EXP = 2.4;
 
 /* ============================== interface ============================== */
 
+/** Доменное состояние игрока (без базовых x/y/vx/vy/r/hp). */
 export interface PlayerState {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
+  /** Ориентация корабля, радианы. */
   angle: number;
-  hp: number;
-  maxHp: number;
+  /** Кадры неуязвимости после попадания. */
   invuln: number;
+  /** Игрок в настоящий момент жмёт газ. */
   thrusting: boolean;
+  /** Масса корабля. */
   mass: number;
 }
 
@@ -33,13 +32,7 @@ export interface PlayerState {
 
 export function createPlayerState(): PlayerState {
   return {
-    x: 0,
-    y: 0,
-    vx: 0,
-    vy: 0,
     angle: -Math.PI / 2,
-    hp: 100,
-    maxHp: 100,
     invuln: 0,
     thrusting: false,
     mass: massForRadius(PLAYER_RADIUS),
@@ -48,9 +41,7 @@ export function createPlayerState(): PlayerState {
 
 /* ============================== state helpers ============================== */
 
-/** Reset internal state to defaults. */
+/** Сброс доменного состояния игрока (позиция/корпус сбрасываются отдельно). */
 export function resetPlayerState(state: PlayerState): void {
   Object.assign(state, createPlayerState());
 }
-
-/* ============================== render ============================== */

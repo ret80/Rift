@@ -12,8 +12,8 @@
  * добавляет временную единицу разведчика, которая гибнет безвозвратно.
  */
 
-import type { AllyDrone } from "../types";
 import type { DroneCombatSpec, DroneFleetSpec, DroneId } from "../drones/Drone";
+import type { AllyDroneSpawn } from "../ecs";
 import {
   DRONE_CATALOG,
   buildDroneCombatSpec,
@@ -98,7 +98,7 @@ export class DroneWeapon implements Weapon {
     let alivePermanent = 0;
     let aliveBonus = 0;
     for (const drone of ctx.drones) {
-      if (drone.permanent) alivePermanent++;
+      if (drone.marker.permanent) alivePermanent++;
       else aliveBonus++;
     }
 
@@ -137,12 +137,11 @@ export class DroneWeapon implements Weapon {
     combat: DroneCombatSpec,
     permanent: boolean,
     kind: DroneId = "scout"
-  ): AllyDrone {
+  ): AllyDroneSpawn {
     const phase = (ctx.drones.length / MAX_ALLY_DRONES) * Math.PI * 2;
     const hp = Math.max(1, Math.round(ctx.player.maxHp * combat.hpRatio));
 
     return {
-      entityId: "",
       x: ctx.player.x + Math.cos(phase) * DRONE_ORBIT_RADIUS,
       y: ctx.player.y + Math.sin(phase) * DRONE_ORBIT_RADIUS,
       r: combat.radius,

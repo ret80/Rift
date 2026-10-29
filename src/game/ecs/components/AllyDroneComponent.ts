@@ -1,12 +1,13 @@
 /**
- * AllyDroneComponent — ECS-компонент дрона-компаньона игрока.
+ * AllyDroneComponent — узкий доменный ECS-компонент дрона-компаньона игрока.
  *
  * Дрон — живая боевая единица роя: он кружит вокруг корабля, сам выбирает
  * цель и стреляет по ней снарядами с упреждением, а также получает урон от
- * вражеских снарядов. Компонент хранит только чистые данные (без ссылки на
- * внешний объект `AllyDrone`); орбиту, выбор цели, стрельбу и урон ведёт
- * ECS-система AllyDroneSystem, а `EcsWorld.allyDrones()` отдаёт
- * свежесобранные plain-объекты для рендера и чтения.
+ * вражеских снарядов. Компонент хранит только **доменные** поля (орбитальное
+ * состояние, боевые характеристики, идентичность); позиция и радиус живут в
+ * базовых `PositionComponent`/`RadiusComponent`, запас прочности — в
+ * `LifeComponent`. Орбиту, выбор цели, стрельбу и урон ведёт ECS-система
+ * AllyDroneSystem, работающая с этими компонентами напрямую.
  */
 
 import type { Component } from "@trixt0r/ecs";
@@ -19,17 +20,16 @@ export class AllyDroneComponent implements Component {
   constructor(
     /** EntityRef: id ECS-сущности дрона (для удаления/нанесения урона в ECS). */
     public entityId: number | string = "",
-    public x = 0,
-    public y = 0,
-    public r = 0,
+    /** Ориентация/ствол дрона (задаётся при выстреле и на орбите). */
     public angle = 0,
+    /** Текущая перезарядка, секунды. */
     public fireCd = 0,
+    /** Фаза орбиты вокруг корабля, радианы. */
     public phase = 0,
-    public hp = 0,
-    public maxHp = 0,
     /** EntityRef: id ECS-сущности текущей цели (или null). */
     public targetId: number | string | null = null,
     public retargetT = 0,
+    /** Вспышка ствола после выстрела. */
     public flash = 0,
     /** Постоянная единица флота — восстанавливается после гибели. */
     public permanent = false,

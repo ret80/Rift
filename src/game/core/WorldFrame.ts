@@ -4,35 +4,8 @@
  * а не получают 9–18 позиционных аргументов.
  */
 
-import type { AllyDrone, Bullet, EBullet, Enemy, Pickup, LaserBeam } from "../types";
-import type { AsteroidKind } from "../balance";
-
-/** Астероид в том виде, в котором видят его системы. */
-export interface AsteroidWorld {
-  x: number;
-  y: number;
-  r: number;
-  vx: number;
-  vy: number;
-  mass: number;
-  kind: AsteroidKind;
-  dead?: boolean;
-}
-
-/** Игрок в том виде, в котором видят его системы. */
-export interface PlayerWorld {
-  x: number;
-  y: number;
-  angle: number;
-  vx: number;
-  vy: number;
-  r: number;
-  hp: number;
-  maxHp: number;
-  invuln: number;
-  mass: number;
-  thrusting: boolean;
-}
+import type { Bullet, EBullet, Pickup, LaserBeam } from "../types";
+import type { AsteroidRef, DroneRef, EnemyRef, PlayerRef } from "../ecs";
 
 /** Состояние зоны арены. */
 export interface ZoneWorld {
@@ -59,13 +32,13 @@ export interface ViewWorld {
 
 /** Мир кадра: ссылки на пулы сущностей. */
 export interface WorldFrame {
-  player: PlayerWorld;
-  enemies: Enemy[];
+  player: PlayerRef;
+  enemies: EnemyRef[];
   bullets: Bullet[];
   enemyBullets: EBullet[];
   pickups: Pickup[];
-  allyDrones: AllyDrone[];
+  allyDrones: DroneRef[];
   beams: LaserBeam[];
-  asteroids: AsteroidWorld[];
+  asteroids: AsteroidRef[];
   zone?: ZoneWorld | null;
 }

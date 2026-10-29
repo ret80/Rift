@@ -3,7 +3,7 @@
  * Содержит только те данные, которые реально используются стратегиями.
  */
 
-import type { Enemy } from '../types';
+import type { EnemyRef } from '../ecs';
 
 /** Данные для синхронизации контекста (объектный параметр вместо 12 positional args). */
 export interface GameContextInput {
@@ -30,7 +30,7 @@ export class GameContext {
   public wave = 1;
 
   /** Живой список врагов (присваивается из EnemySystem перед AI pass). */
-  public enemies: Enemy[] = [];
+  public enemies: EnemyRef[] = [];
 
   /** Выходной буфер CarrierStrategy — спавн дронов. */
   public carrierSpawns: Array<{ x: number; y: number }> = [];

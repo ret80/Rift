@@ -23,16 +23,17 @@ import { EventBus } from "./EventBus";
 import type { GameFSMContext } from "./GameFSM";
 import { GAME_TRANSITIONS } from "./GameFSM";
 import { GameStateMachine } from "./StateMachine";
-import type { AsteroidWorld, PlayerWorld, WorldFrame } from "./WorldFrame";
+import type { WorldFrame } from "./WorldFrame";
+import type { PlayerRef } from "../ecs";
 import { AsteroidField } from "../asteroids";
 import { Fx } from "../fx";
 import { InputManager } from "../input";
 import { RiftField } from "../rifts";
 import { Starfield } from "../starfield";
-import type { Enemy } from "../types";
+import type { EnemyRef } from "../ecs";
 import { LoadoutSystem } from "../loadout/LoadoutSystem";
 import { BonusManager } from "../loadout/bonuses/BonusManager";
-import type { WeaponId } from "../weapons/Weapon";
+import type { WeaponId, PlayerSnapshot } from "../weapons/Weapon";
 import { WeaponManager } from "../weapons/WeaponManager";
 import { AbilitySystem } from "../abilities/AbilitySystem";
 import { ApplyPickupSystem } from "../systems/ApplyPickupSystem";
@@ -200,9 +201,8 @@ export class GameContext {
 
     this.zoneSystem = new ZoneSystem({
       getZoneState: () => this.waveOrchestrator.zoneState,
-      getPlayerRef: () => this.playerSystem.getPlayerRef(),
-      getAsteroids: () =>
-        this.ecs.asteroids() as Array<{ x: number; y: number; r: number; vx: number; vy: number }>,
+      getPlayerRef: () => this.ecs.playerRef(),
+      getAsteroids: () => this.ecs.asteroids(),
     });
 
     this.input = new InputManager({
@@ -258,14 +258,15 @@ export class GameContext {
     this.ecs.engine.systems.add(this.scoringSystem);
     this.ecs.engine.systems.add(this.bonusManager);
     this.ecs.engine.systems.add(this.shieldSystem);
-    // Игрок — Singleton-сущность ECS-мира: компонент владеет состоянием,
-    // PlayerSystem его потребляет. Никакого «зеркала»-состояния нет.
-    const playerState = this.ecs.registerPlayer();
+    // Игрок — Singleton-сущность ECS-мира: базовые компоненты (Position/Velocity/
+    // Radius/Life) + узкий PlayerComponent. PlayerSystem работает через живую
+    // связку PlayerRef. Никакого «зеркала»-состояния нет.
+    this.ecs.registerPlayer();
     this.playerSystem = new PlayerSystem(
       this.eventBus,
       this.input,
       this.fx,
-      playerState,
+      () => this.ecs.playerRef(),
       () => !this.physics.integratesPositions,
     );
     this.playerSystem.setShield(this.shieldSystem);
@@ -274,13 +275,13 @@ export class GameContext {
     this.abilitySystem = new AbilitySystem(
       this.input,
       {
-        getPlayerX: () => this.playerSystem.getPlayerRef().x,
-        getPlayerY: () => this.playerSystem.getPlayerRef().y,
+        getPlayerX: () => this.playerSystem.getPlayerRef()?.position.x ?? 0,
+        getPlayerY: () => this.playerSystem.getPlayerRef()?.position.y ?? 0,
         movePlayerTo: (x, y) => this.playerSystem.teleportTo(x, y),
         getEnemies: () => this.ecs.enemies(),
         killEnemy: (enemy) => this.killEnemy(enemy),
         damageEnemy: (enemy, dmg) => {
-          const id = enemy.ecsId;
+          const id = enemy.marker.ecsId;
           if (id !== null && id !== undefined) this.ecs.damageEnemy(id, dmg);
         },
       },
@@ -296,7 +297,7 @@ export class GameContext {
 
     this.weaponManager = new WeaponManager(
       {
-        getPlayer: () => this.playerSystem.getPlayerRef(),
+        getPlayer: () => this.getPlayerSnapshot(),
         getEnemies: () => this.ecs.enemies(),
         getBullets: () => this.ecs.bullets(),
         addBullet: (b) => this.ecs.addBullet(b),
@@ -308,7 +309,7 @@ export class GameContext {
         getZone: () => this.getZoneSnapshot(),
         killEnemy: (enemy) => this.killEnemy(enemy),
         damageEnemy: (enemy, dmg) => {
-          const id = enemy.ecsId;
+          const id = enemy.marker.ecsId;
           if (id !== null && id !== undefined) this.ecs.damageEnemy(id, dmg);
         },
       },
@@ -321,7 +322,7 @@ export class GameContext {
 
     // Дроны-компаньоны: ECS-система ведёт орбиту/цель/стрельбу/гибель по компонентам.
     this.ecs.engine.systems.add(new AllyDroneSystem({
-      getPlayer: () => this.playerSystem.getPlayerRef(),
+      getPlayer: () => this.ecs.playerRef(),
       getRateMult: () => this.bonusManager.getRateMult(),
       getHitChance: () => this.weaponManager.getHitChance(),
       getEnemies: () => this.ecs.enemies(),
@@ -497,14 +498,18 @@ export class GameContext {
 
   /** Позиция игрока для систем (world coordinates + скорость). */
   getPlayerPosition(): { x: number; y: number; vx: number; vy: number } {
-    const state = this.playerSystem.getPlayerRef();
-    return { x: state.x, y: state.y, vx: state.vx, vy: state.vy };
+    const ref = this.ecs.playerRef();
+    return ref
+      ? { x: ref.position.x, y: ref.position.y, vx: ref.velocity.vx, vy: ref.velocity.vy }
+      : { x: 0, y: 0, vx: 0, vy: 0 };
   }
 
   /** Хитбокс игрока в игровых координатах (для систем пикапов). */
   private getPlayerHitbox(): { x: number; y: number; r: number } {
-    const state = this.playerSystem.getPlayerRef();
-    return { x: state.x, y: state.y, r: PLAYER_HITBOX_RADIUS };
+    const ref = this.ecs.playerRef();
+    return ref
+      ? { x: ref.position.x, y: ref.position.y, r: ref.radius.r }
+      : { x: 0, y: 0, r: PLAYER_HITBOX_RADIUS };
   }
 
   /** Границы зоны для врагов/констрейнтов. */
@@ -520,38 +525,46 @@ export class GameContext {
     return { active: z.active, x: z.x, y: z.y, radius: z.radius };
   }
 
-  /** Снимок игрока в едином виде WorldFrame (для кадра и рендера). */
-  getPlayerWorld(): PlayerWorld {
-    const s = this.playerSystem.getPlayerRef();
-    return {
-      x: s.x,
-      y: s.y,
-      angle: s.angle,
-      vx: s.vx || 0,
-      vy: s.vy || 0,
-      r: PLAYER_HITBOX_RADIUS,
-      hp: s.hp,
-      maxHp: s.maxHp,
-      invuln: s.invuln,
-      mass: s.mass || 1,
-      thrusting: s.thrusting,
-    };
+  /** Живая связка компонентов игрока (единый вид WorldFrame для кадра и рендера). */
+  getPlayerWorld(): PlayerRef {
+    const ref = this.ecs.playerRef();
+    if (ref) return ref;
+    // Фолбэк формально не достижим в работающем мире, но нужен для типов.
+    throw new Error("playerRef is null while world is active");
+  }
+
+  /** Снимок игрока для WeaponManager (PlayerSnapshot из Weapon.ts). */
+  getPlayerSnapshot(): PlayerSnapshot {
+    const ref = this.ecs.playerRef();
+    return ref
+      ? {
+          x: ref.position.x,
+          y: ref.position.y,
+          vx: ref.velocity.vx,
+          vy: ref.velocity.vy,
+          hp: ref.life.remaining,
+          maxHp: ref.life.max,
+        }
+      : { x: 0, y: 0, vx: 0, vy: 0, hp: 0, maxHp: 0 };
   }
 
   /** Единое мировое сечение для систем и рендера (справочные ссылки на пулы). */
   buildWorld(): WorldFrame {
     const zoneState = this.waveOrchestrator.zoneState;
-    return {
-      player: this.getPlayerWorld(),
+    const player = this.ecs.playerRef();
+    // Без игрока строится только меню/прелоадер — тогда кадр не рендерится.
+    const world: WorldFrame = {
+      player: player ?? this.getPlayerWorld(),
       enemies: this.ecs.enemies(),
       bullets: this.ecs.bullets(),
       enemyBullets: this.ecs.enemyBullets(),
       pickups: this.ecs.pickups(),
       allyDrones: this.ecs.allyDrones(),
       beams: this.ecs.beams(),
-      asteroids: this.ecs.asteroids() as AsteroidWorld[],
+      asteroids: this.ecs.asteroids(),
       zone: zoneState && zoneState.active ? zoneState : null,
     };
+    return world;
   }
 
   /** Зависимости спавна для engine.run(dt) (SpawnSystem). */
@@ -564,8 +577,8 @@ export class GameContext {
       hooks: { onToast: (data) => this.hooks.onToast(data) },
       wave: this.waveOrchestrator.wave,
       killedWave: this.scoringSystem.killedWave,
-      playerX: player.x,
-      playerY: player.y,
+      playerX: player.position.x,
+      playerY: player.position.y,
     };
   }
 
@@ -590,21 +603,23 @@ export class GameContext {
 
   // ===== Entities / combat =====
 
-  spawnEnemy(kind: EnemyKind, x: number, y: number, parent: Enemy | null): void {
+  spawnEnemy(kind: EnemyKind, x: number, y: number, parent: EnemyRef | null): void {
     const playerPos = this.getPlayerPosition();
     this.ecs.spawnEnemy(kind, x, y, parent, playerPos);
   }
 
   /** Единый путь гибели: публикует enemy_killed (дроп, счёт, волна). */
-  killEnemy(enemy: Enemy): void {
-    if (enemy.dead) return;
-    enemy.dead = true;
+  killEnemy(enemy: EnemyRef): void {
+    const marker = enemy.marker;
+    const position = enemy.position;
+    if (marker.dead) return;
+    marker.dead = true;
     this.eventBus.publish("enemy_killed", {
-      score: enemy.score,
-      kind: enemy.kind,
-      x: enemy.x,
-      y: enemy.y,
-      seed: enemy.seed,
+      score: marker.score,
+      kind: marker.kind,
+      x: position.x,
+      y: position.y,
+      seed: marker.seed,
     });
   }
 
@@ -612,8 +627,9 @@ export class GameContext {
     const cp = this.cameraSystem.getPosition();
     const worldX = cp.x + (mouseX - winW / 2) / cp.zoom;
     const worldY = cp.y + (mouseY - winH / 2) / cp.zoom;
-    const player = this.playerSystem.getPlayerRef();
-    const angle = Math.atan2(worldY - player.y, worldX - player.x);
+    const player = this.ecs.playerRef();
+    if (!player) return;
+    const angle = Math.atan2(worldY - player.position.y, worldX - player.position.x);
     this.weaponManager.setManualAim(angle);
   }
 

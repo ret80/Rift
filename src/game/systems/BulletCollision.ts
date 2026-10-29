@@ -4,7 +4,8 @@
  */
 
 import type { EventBus } from '../core/EventBus';
-import type { AllyDrone, Bullet, EBullet, Enemy } from '../types';
+import type { Bullet, EBullet } from '../types';
+import type { AsteroidRef, DroneRef, EnemyRef } from '../ecs';
 import {
   segmentGrazesHitbox,
   segmentHitsHitbox,
@@ -51,8 +52,8 @@ export interface BulletEnemyHit {
 
 export function checkBulletCollisions(
   bullets: Bullet[],
-  enemies: Enemy[],
-  asteroids: Array<{ x: number; y: number; r: number; dead?: boolean; key?: string }>,
+  enemies: EnemyRef[],
+  asteroids: AsteroidRef[],
   damageAsteroidFn: (index: number, dmg: number, vx: number, vy: number, x: number, y: number) => void
 ): BulletEnemyHit[] {
   const hits: BulletEnemyHit[] = [];
@@ -63,24 +64,24 @@ export function checkBulletCollisions(
 
     // Check collision with enemies
     for (const e of enemies) {
-      if (e.dead) continue;
+      if (e.marker.dead) continue;
 
-      if (bulletHits(b.x, b.y, { x: e.x, y: e.y, r: e.r })) {
-        hits.push({ bulletIndex: i, enemyId: e.ecsId ?? null });
+      if (bulletHits(b.x, b.y, { x: e.position.x, y: e.position.y, r: e.radius.r })) {
+        hits.push({ bulletIndex: i, enemyId: e.marker.ecsId ?? null });
         bulletHit = true;
         break;
       }
     }
 
-    // Check collision with asteroids
+    // Check collision with asteroids (базовые компоненты через AsteroidRef)
     if (!bulletHit) {
       for (let ai = 0; ai < asteroids.length; ai++) {
         const a = asteroids[ai];
-        if (a.dead) continue;
-        if (bulletHits(b.x, b.y, { x: a.x, y: a.y, r: a.r })) {
+        if (a.marker.dead) continue;
+        if (bulletHits(b.x, b.y, { x: a.position.x, y: a.position.y, r: a.radius.r })) {
           bulletHit = true;
           hits.push({ bulletIndex: i, enemyId: null });
-          damageAsteroidFn(ai, b.dmg, b.vx, b.vy, a.x, a.y);
+          damageAsteroidFn(ai, b.dmg, b.vx, b.vy, a.position.x, a.position.y);
           break;
         }
       }
@@ -136,7 +137,7 @@ export function checkEnemyBulletVsPlayer(
  */
 export function checkEnemyBulletVsDrones(
   enemyBullets: EBullet[],
-  drones: AllyDrone[]
+  drones: DroneRef[]
 ): DroneHit[] {
   const hits: DroneHit[] = [];
 
@@ -145,7 +146,7 @@ export function checkEnemyBulletVsDrones(
     if (!b) continue;
     for (let j = drones.length - 1; j >= 0; j--) {
       const d = drones[j];
-      if (!bulletHits(b.x, b.y, { x: d.x, y: d.y, r: d.r })) continue;
+      if (!bulletHits(b.x, b.y, { x: d.position.x, y: d.position.y, r: d.radius.r })) continue;
 
       hits.push({ bulletIndex: i, droneIndex: j });
       break;

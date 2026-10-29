@@ -10,7 +10,7 @@
 import { Engine, type Component, type ComponentClass } from "@trixt0r/ecs";
 import { PickupKind, EnemyKind } from "../balance";
 import type { EventBus } from "../core/EventBus";
-import type { Enemy, Bullet, EBullet, AllyDrone, LaserBeam, Particle, Ring, Rift, Pickup } from "../types";
+import type { Enemy, Bullet, EBullet, LaserBeam, Particle, Ring, Rift, Pickup } from "../types";
 import type { AudioManager } from "../systems/AudioManager";
 import type { PlayerState } from "../systems/PlayerState";
 import { createPlayerState } from "../systems/PlayerState";
@@ -79,6 +79,79 @@ function seedForId(id: number | string): number {
   // Оборачиваем отрицательные значения hash в (0,1).
   return ((Math.abs(h) * 2654435761) % 1000) / 1000;
 }
+
+/**
+ * Живая связка компонентов астероида. Читатели работают с базовыми
+ * компонентами напрямую (компонентные запросы), без DTO-копирования.
+ */
+export interface AsteroidRef {
+  entity: GameEntity;
+  marker: AsteroidComponent;
+  position: PositionComponent;
+  velocity: VelocityComponent;
+  radius: RadiusComponent;
+  life: LifeComponent;
+}
+
+/**
+ * Живая связка компонентов дрона-компаньона. Читатели работают с базовыми
+ * компонентами напрямую (компонентные запросы), без DTO-копирования.
+ * Дрон не имеет собственной скорости — орбита задаётся системой кинематически,
+ * поэтому VelocityComponent не входит (как и раньше).
+ */
+export interface DroneRef {
+  entity: GameEntity;
+  marker: AllyDroneComponent;
+  position: PositionComponent;
+  radius: RadiusComponent;
+  life: LifeComponent;
+}
+
+/** Живая связка компонентов игрока (Singleton-сущность). Читатели работают с
+ *  базовыми компонентами напрямую (компонентные запросы), без DTO-копирования.
+ *  Скорость/позиция/радиус/запас прочности — в базовых; домен (angle/invuln/
+ *  thrusting/mass) — в PlayerComponent. */
+export interface PlayerRef {
+  entity: GameEntity;
+  marker: PlayerComponent;
+  position: PositionComponent;
+  velocity: VelocityComponent;
+  radius: RadiusComponent;
+  life: LifeComponent;
+}
+
+/** Живая связка компонентов врага. Читатели работают с базовыми
+ *  компонентами напрямую (компонентные запросы), без DTO-копирования.
+ *  Позиция/скорость/радиус/запас прочности — в базовых; домен (вид, AI,
+ *  бой, идентичность) — в EnemyComponent. */
+export interface EnemyRef {
+  entity: GameEntity;
+  marker: EnemyComponent;
+  position: PositionComponent;
+  velocity: VelocityComponent;
+  radius: RadiusComponent;
+  life: LifeComponent;
+}
+
+/** Данные для спавна астероида (раскладываются по базовым+доменным компонентам). */
+export type AsteroidSpawn = Partial<Omit<AsteroidComponent, "type" | "id">> & {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  r: number;
+  hp: number;
+  maxHp: number;
+};
+
+/** Данные для спавна дрона-компаньона (раскладываются по базовым+доменным компонентам). */
+export type AllyDroneSpawn = Partial<Omit<AllyDroneComponent, "type" | "id">> & {
+  x: number;
+  y: number;
+  r: number;
+  hp: number;
+  maxHp: number;
+};
 
 export class EcsWorld {
   readonly engine = new Engine<GameEntity>();
@@ -223,28 +296,74 @@ export class EcsWorld {
 
   // ===== Asteroid API =====
 
+  /** Кэш живых связок компонентов астероидов (ключ = сущность). Обеспечивает
+   *  стабильную объектную идентичность: physics-контакты и мир кадра ссылаются
+   *  на ОДИН И ТОТ ЖЕ AsteroidRef, поэтому indexOf/includes/`userData` совпадают. */
+  private readonly asteroidRefCache = new WeakMap<GameEntity, AsteroidRef>();
+
   /**
-   * Зарегистрировать астероид как ECS-сущность с AsteroidComponent.
-   * Данные астероида (позиция/скорость/форма/здоровье/масса) — единственный
-   * источник правды. Никакой отдельной живой ссылки на plain-объект нет:
-   * физика/коллизии/рендер/зона читают компонент напрямую.
+   * Собрать из сущности астероида живую связку компонентов.
+   * Возвращает null, если у сущности нет маркера AsteroidComponent.
+   * ВСЕ компоненты — живые ссылки; никакого DTO-копирования нет.
+   * Связка кэшируется на сущность — объектная идентичность стабильна.
    */
-  spawnAsteroid(state: Partial<AsteroidComponent>): void {
+  private asteroidRefOf(entity: GameEntity): AsteroidRef | null {
+    const cached = this.asteroidRefCache.get(entity);
+    if (cached) return cached;
+    const marker = entity.components.get(AsteroidComponent);
+    if (!marker) return null;
+    const position = entity.components.get(PositionComponent);
+    const velocity = entity.components.get(VelocityComponent);
+    const radius = entity.components.get(RadiusComponent);
+    const life = entity.components.get(LifeComponent);
+    if (!position || !velocity || !radius || !life) return null;
+    const ref: AsteroidRef = { entity, marker, position, velocity, radius, life };
+    this.asteroidRefCache.set(entity, ref);
+    return ref;
+  }
+
+  /**
+   * Производное чтиво: живые связки компонентов всех астероидов пояса.
+   * Читатели работают с базовыми компонентами (Position/Velocity/Radius/Life)
+   * и маркером AsteroidComponent напрямую (компонентные запросы).
+   */
+  asteroids(): AsteroidRef[] {
+    const result: AsteroidRef[] = [];
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      const ref = this.asteroidRefOf(entity);
+      if (ref) result.push(ref);
+    }
+    return result;
+  }
+
+  /**
+   * Зарегистрировать астероид как ECS-сущность из базовых+доменных компонентов.
+   * Позицию/скорость/радиус/здоровье кладём в Position/Velocity/Radius/Life,
+   * доменные поля (key/kind/angle/spin/verts/mass/dead) — в AsteroidComponent.
+   */
+  spawnAsteroid(state: AsteroidSpawn): void {
     const entity = new GameEntity();
-    entity.components.add(new AsteroidComponent(state));
+    entity.components.add(new PositionComponent(state.x, state.y));
+    entity.components.add(new VelocityComponent(state.vx, state.vy));
+    entity.components.add(new RadiusComponent(state.r));
+    entity.components.add(new LifeComponent(state.hp, state.maxHp));
+    entity.components.add(new AsteroidComponent({
+      key: state.key,
+      kind: state.kind,
+      angle: state.angle,
+      spin: state.spin,
+      verts: state.verts,
+      mass: state.mass,
+      dead: state.dead,
+    }));
     this.engine.entities.add(entity);
   }
 
-  /** Производное чтиво: все живые AsteroidComponent (пояс). */
-  asteroids(): AsteroidComponent[] {
-    return this.query(AsteroidComponent);
-  }
-
-  /** Найти AsteroidComponent-сущность по строковой идентичности пояса (или null). */
-  asteroidByKey(key: string): AsteroidComponent | null {
+  /** Найти связку компонентов астероида по строковой идентичности пояса (или null). */
+  asteroidByKey(key: string): AsteroidRef | null {
     for (const entity of this.engine.entities.elements as GameEntity[]) {
-      const c = entity.components.get(AsteroidComponent);
-      if (c && c.key === key) return c;
+      const marker = entity.components.get(AsteroidComponent);
+      if (marker && marker.key === key) return this.asteroidRefOf(entity);
     }
     return null;
   }
@@ -281,14 +400,11 @@ export class EcsWorld {
    */
   addEnemy(enemy: Enemy): void {
     const entity = new GameEntity();
+    entity.components.add(new PositionComponent(enemy.x, enemy.y));
+    entity.components.add(new VelocityComponent(enemy.vx, enemy.vy));
+    entity.components.add(new RadiusComponent(enemy.r));
+    entity.components.add(new LifeComponent(enemy.hp, enemy.maxHp));
     const c = new EnemyComponent({
-      x: enemy.x,
-      y: enemy.y,
-      vx: enemy.vx,
-      vy: enemy.vy,
-      hp: enemy.hp,
-      maxHp: enemy.maxHp,
-      r: enemy.r,
       ecsId: entity.id,
       parentId: enemy.parentId ?? null,
       kind: enemy.kind,
@@ -328,26 +444,58 @@ export class EcsWorld {
     this.engine.entities.add(entity);
   }
 
-  /** Производное чтиво: живые EnemyComponent.
-   *  EnemyComponent структурно идентичен Enemy и является единственным источником
-   *  правды, поэтому физика/коллизии/зоны/AI могут работать с ним напрямую.
-   *  Возвращаются настоящие компоненты (без каста в legacy-тип). */
-  enemies(): Enemy[] {
-    return this.query(EnemyComponent);
+  /** Кэш живых связок компонентов врагов (ключ = сущность). Обеспечивает
+   *  стабильную объектную идентичность: физика/коллизии/зоны/AI ссылаются на
+   *  ОДИН И ТОТ ЖЕ EnemyRef, поэтому indexOf/includes/`userData` совпадают. */
+  private readonly enemyRefCache = new WeakMap<GameEntity, EnemyRef>();
+
+  /** Собрать из сущности врага живую связку компонентов.
+   *  Возвращает null, если у сущности нет маркера EnemyComponent или не хватает
+   *  базовых компонентов. Все компоненты — живые ссылки; DTO-копий нет. */
+  private enemyRefOf(entity: GameEntity): EnemyRef | null {
+    const cached = this.enemyRefCache.get(entity);
+    if (cached) return cached;
+    const marker = entity.components.get(EnemyComponent);
+    if (!marker) return null;
+    const position = entity.components.get(PositionComponent);
+    const velocity = entity.components.get(VelocityComponent);
+    const radius = entity.components.get(RadiusComponent);
+    const life = entity.components.get(LifeComponent);
+    if (!position || !velocity || !radius || !life) return null;
+    const ref: EnemyRef = { entity, marker, position, velocity, radius, life };
+    this.enemyRefCache.set(entity, ref);
+    return ref;
   }
 
-  /** Найти EnemyComponent по EntityRef-идентификатору врага (или null). */
-  enemyComponentById(id: number | string | null): EnemyComponent | null {
+  /** Производное чтиво: живые связки компонентов всех врагов.
+   *  Читатели работают с базовыми компонентами (Position/Velocity/Life/Radius)
+   *  и маркером EnemyComponent напрямую (компонентные запросы). */
+  enemies(): EnemyRef[] {
+    const result: EnemyRef[] = [];
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      const ref = this.enemyRefOf(entity);
+      if (ref) result.push(ref);
+    }
+    return result;
+  }
+
+  /** Найти связку компонентов врага по EntityRef-идентификатору (или null). */
+  enemyComponentById(id: number | string | null): EnemyRef | null {
     if (id === null) return null;
     for (const entity of this.engine.entities.elements as GameEntity[]) {
       const c = entity.components.get(EnemyComponent);
-      if (c && c.ecsId === id) return c;
+      if (c && c.ecsId === id) return this.enemyRefOf(entity);
     }
     return null;
   }
 
+  /** Живая связка компонентов врага по сущности (или null). */
+  enemyRefByEntity(entity: GameEntity): EnemyRef | null {
+    return this.enemyRefOf(entity);
+  }
+
   /** Заспавнить врага через вражескую AI-систему. */
-  spawnEnemy(kind: EnemyKind, x: number, y: number, parent: Enemy | null, playerPos?: { x: number; y: number }): void {
+  spawnEnemy(kind: EnemyKind, x: number, y: number, parent: EnemyRef | null, playerPos?: { x: number; y: number }): void {
     this.enemySystem.spawn(kind, x, y, parent, playerPos);
   }
 
@@ -382,9 +530,9 @@ export class EcsWorld {
     this.engine.entities.add(entity);
   }
 
-  /** Найти id сущности врага, соответствующей данному объекту `Enemy`. */
-  private entityIdForEnemy(target: Enemy): number | string | null {
-    return target.ecsId ?? null;
+  /** Найти id сущности врага, соответствующей данному объекту `EnemyRef`. */
+  private entityIdForEnemy(target: EnemyRef): number | string | null {
+    return target.marker.ecsId ?? null;
   }
 
   /**
@@ -508,44 +656,61 @@ export class EcsWorld {
 
   // ===== AllyDrone API =====
 
-  /** Зарегистрировать дрон-компаньон как ECS-сущность из чистых данных. */
-  addAllyDrone(drone: AllyDrone): void {
-    const entity = new GameEntity();
-    entity.components.add(new AllyDroneComponent(
-      entity.id,
-      drone.x, drone.y, drone.r, drone.angle, drone.fireCd, drone.phase,
-      drone.hp, drone.maxHp, drone.targetId ?? null, drone.retargetT, drone.flash,
-      drone.permanent, drone.kind, drone.combat,
-    ));
-    this.engine.entities.add(entity);
+  /** Кэш живых связок компонентов дронов (ключ = сущность). Обеспечивает
+   *  стабильную объектную идентичность: мир кадра/коллизии ссылаются на ОДИН
+   *  И ТОТ ЖЕ DroneRef, поэтому indexOf/includes/`userData` совпадают. */
+  private readonly droneRefCache = new WeakMap<GameEntity, DroneRef>();
+
+  /** Собрать из сущности дрона живую связку компонентов.
+   *  Возвращает null, если у сущности нет маркера AllyDroneComponent или не
+   *  хватает базовых компонентов. Все компоненты — живые ссылки; DTO-копий нет. */
+  private droneRefOf(entity: GameEntity): DroneRef | null {
+    const cached = this.droneRefCache.get(entity);
+    if (cached) return cached;
+    const marker = entity.components.get(AllyDroneComponent);
+    if (!marker) return null;
+    const position = entity.components.get(PositionComponent);
+    const radius = entity.components.get(RadiusComponent);
+    const life = entity.components.get(LifeComponent);
+    if (!position || !radius || !life) return null;
+    const ref: DroneRef = { entity, marker, position, radius, life };
+    this.droneRefCache.set(entity, ref);
+    return ref;
   }
 
-  /** Производное чтиво: свежесобранные plain-объекты для рендера и чтения. */
-  allyDrones(): AllyDrone[] {
-    const result: AllyDrone[] = [];
+  /** Производное чтиво: живые связки компонентов всех дронов-компаньонов.
+   *  Читатели работают с базовыми компонентами (Position/Radius/Life) и
+   *  маркером AllyDroneComponent напрямую (компонентные запросы). */
+  allyDrones(): DroneRef[] {
+    const result: DroneRef[] = [];
     for (const entity of this.engine.entities.elements as GameEntity[]) {
-      const d = entity.components.get(AllyDroneComponent);
-      if (d) {
-        result.push({
-          entityId: d.entityId,
-          x: d.x,
-          y: d.y,
-          r: d.r,
-          angle: d.angle,
-          fireCd: d.fireCd,
-          phase: d.phase,
-          hp: d.hp,
-          maxHp: d.maxHp,
-          targetId: d.targetId ?? null,
-          retargetT: d.retargetT,
-          flash: d.flash,
-          permanent: d.permanent,
-          kind: d.kind,
-          combat: d.combat,
-        });
-      }
+      const ref = this.droneRefOf(entity);
+      if (ref) result.push(ref);
     }
     return result;
+  }
+
+  /** Зарегистрировать дрон-компаньон как ECS-сущность из чистых данных.
+   *   Раскладывает state по базовым (Position/Radius/Life) и узкому
+   *   (AllyDroneComponent) компонентам. */
+  addAllyDrone(state: AllyDroneSpawn): void {
+    const entity = new GameEntity();
+    entity.components.add(new PositionComponent(state.x, state.y));
+    entity.components.add(new RadiusComponent(state.r));
+    entity.components.add(new LifeComponent(state.hp, state.maxHp));
+    entity.components.add(new AllyDroneComponent(
+      entity.id,
+      state.angle,
+      state.fireCd,
+      state.phase,
+      state.targetId ?? null,
+      state.retargetT,
+      state.flash,
+      state.permanent,
+      state.kind,
+      state.combat,
+    ));
+    this.engine.entities.add(entity);
   }
 
   /** Удалить дрон по его EntityRef-идентификатору. */
@@ -559,14 +724,16 @@ export class EcsWorld {
     }
   }
 
-  /** Нанести урон дрону по EntityRef-идентификатору; возвращает true, если погиб. */
+  /** Нанести урон дрону по EntityRef-идентификатору; возвращает true, если погиб.
+   *   Запас прочности дрона хранится в базовом LifeComponent. */
   damageAllyDrone(id: number | string, dmg: number): boolean {
     for (const entity of this.engine.entities.elements as GameEntity[]) {
       const d = entity.components.get(AllyDroneComponent);
       if (d && d.entityId === id) {
-        d.hp -= dmg;
+        const life = entity.components.get(LifeComponent);
+        if (life) life.remaining -= dmg;
         d.flash = 1;
-        return d.hp <= 0;
+        return life ? life.remaining <= 0 : false;
       }
     }
     return false;
@@ -578,18 +745,18 @@ export class EcsWorld {
    * если враг погиб. При гибели публикует событие 'enemy_killed'.
    */
   damageEnemy(id: number | string, dmg: number): boolean {
-    const c = this.enemyComponentById(id);
-    if (!c || c.dead) return false;
-    c.hp -= dmg;
-    c.flash = 1;
-    if (c.hp <= 0) {
-      c.dead = true;
+    const ref = this.enemyComponentById(id);
+    if (!ref || ref.marker.dead) return false;
+    ref.life.remaining -= dmg;
+    ref.marker.flash = 1;
+    if (ref.life.remaining <= 0) {
+      ref.marker.dead = true;
       this.eventBus?.publish?.("enemy_killed", {
-        score: c.score,
-        kind: c.kind,
-        x: c.x,
-        y: c.y,
-        seed: c.seed,
+        score: ref.marker.score,
+        kind: ref.marker.kind,
+        x: ref.position.x,
+        y: ref.position.y,
+        seed: ref.marker.seed,
       });
       return true;
     }
@@ -600,24 +767,47 @@ export class EcsWorld {
 
   /**
    * Зарегистрировать игрока как Singleton-сущность ECS-мира.
-   * Компонент PlayerComponent создаёт и владеет состоянием игрока
-   * (единственный источник правды); возвращает его для PlayerSystem.
+   * Раскладывает состояние по базовым (Position/Velocity/Radius/Life) и
+   * узкому (PlayerComponent) компонентам; возвращает доменное состояние.
    */
   registerPlayer(): PlayerState {
     if (this.playerEntity) this.engine.entities.remove(this.playerEntity);
     const entity = new GameEntity();
     const state = createPlayerState();
-    entity.components.add(new PlayerComponent(state));
+    entity.components.add(new PositionComponent(0, 0));
+    entity.components.add(new VelocityComponent(0, 0));
+    entity.components.add(new RadiusComponent(PLAYER_HITBOX_RADIUS));
+    entity.components.add(new LifeComponent(100, 100));
+    entity.components.add(new PlayerComponent(state.angle, state.invuln, state.thrusting, state.mass));
     this.engine.entities.add(entity);
     this.playerEntity = entity;
     return state;
   }
 
-  /** Производное чтиво: состояние игрока. */
-  playerState(): PlayerState | null {
+  /** Живая связка компонентов игрока (или null, если игрока нет). */
+  playerRef(): PlayerRef | null {
     if (!this.playerEntity) return null;
-    const component = this.playerEntity.components.get(PlayerComponent);
-    return component ? component.state : null;
+    const entity = this.playerEntity;
+    const marker = entity.components.get(PlayerComponent);
+    const position = entity.components.get(PositionComponent);
+    const velocity = entity.components.get(VelocityComponent);
+    const radius = entity.components.get(RadiusComponent);
+    const life = entity.components.get(LifeComponent);
+    if (!marker || !position || !velocity || !radius || !life) return null;
+    return { entity, marker, position, velocity, radius, life };
+  }
+
+  /** Производное чтиво: доменное состояние игрока. */
+  playerState(): PlayerState | null {
+    const ref = this.playerRef();
+    return ref
+      ? {
+          angle: ref.marker.angle,
+          invuln: ref.marker.invuln,
+          thrusting: ref.marker.thrusting,
+          mass: ref.marker.mass,
+        }
+      : null;
   }
 
   // ===== Physics body source (компонентный источник тел) =====
@@ -648,52 +838,63 @@ export class EcsWorld {
   physicsBodies(): PhysicsEntity[] {
     const bodies: PhysicsEntity[] = [];
 
-    // Игрок.
-    const ps = this.playerState();
-    if (ps) {
+    // Игрок (компонентные запросы: базовые Position/Velocity + узкий маркер).
+    const player = this.playerRef();
+    if (player) {
+      const { position, velocity, radius, marker } = player;
       bodies.push({
-        userData: ps,
+        userData: player,
         kind: "player",
-        radius: PLAYER_HITBOX_RADIUS,
-        ...EcsWorld.commonBodyDef("player", PLAYER_HITBOX_RADIUS),
-        getState: () => ({ x: ps.x, y: ps.y, angle: ps.angle, vx: ps.vx, vy: ps.vy, spin: 0 }),
+        radius: radius.r,
+        ...EcsWorld.commonBodyDef("player", radius.r),
+        getState: () => ({
+          x: position.x, y: position.y, angle: marker.angle,
+          vx: velocity.vx, vy: velocity.vy, spin: 0,
+        }),
         applyResult: (s) => {
-          ps.x = s.x; ps.y = s.y; ps.angle = s.angle; ps.vx = s.vx; ps.vy = s.vy;
+          position.x = s.x; position.y = s.y; marker.angle = s.angle;
+          velocity.vx = s.vx; velocity.vy = s.vy;
         },
       });
     }
 
-    // Враги (EnemyComponent — единственный источник правды).
-    for (const e of this.query(EnemyComponent)) {
-      if (e.dead) continue;
-      const kinematic = e.droneState === "orbiting";
+    // Враги (компонентные запросы: базовые Position/Velocity/Radius + маркер).
+    for (const e of this.enemies()) {
+      if (e.marker.dead) continue;
+      const { position, velocity, radius, marker } = e;
+      const kinematic = marker.droneState === "orbiting";
       bodies.push({
         userData: e,
         kind: "enemy",
-        radius: e.r,
-        ...EcsWorld.commonBodyDef("enemy", e.r, { kinematic }),
+        radius: radius.r,
+        ...EcsWorld.commonBodyDef("enemy", radius.r, { kinematic }),
         getState: () => ({
-          x: e.x, y: e.y, angle: e.angle,
-          vx: kinematic ? 0 : e.vx, vy: kinematic ? 0 : e.vy, spin: 0,
+          x: position.x, y: position.y, angle: marker.angle,
+          vx: kinematic ? 0 : velocity.vx, vy: kinematic ? 0 : velocity.vy, spin: 0,
         }),
         applyResult: (s) => {
-          e.x = s.x; e.y = s.y; e.angle = s.angle;
-          if (!kinematic) { e.vx = s.vx; e.vy = s.vy; }
+          position.x = s.x; position.y = s.y; marker.angle = s.angle;
+          if (!kinematic) { velocity.vx = s.vx; velocity.vy = s.vy; }
         },
       });
     }
 
-    // Астероиды (AsteroidComponent — единственный источник правды).
-    for (const a of this.query(AsteroidComponent)) {
-      if (a.dead) continue;
+    // Астероиды (компонентные запросы: базовые Position/Velocity/Radius + маркер).
+    for (const a of this.asteroids()) {
+      if (a.marker.dead) continue;
+      const { position, velocity, radius, marker } = a;
       bodies.push({
         userData: a,
         kind: "asteroid",
-        radius: a.r,
-        ...EcsWorld.commonBodyDef("asteroid", a.r, { restitution: 0.15, friction: 0.05 }),
-        getState: () => ({ x: a.x, y: a.y, angle: a.angle, vx: a.vx, vy: a.vy, spin: a.spin }),
+        radius: radius.r,
+        ...EcsWorld.commonBodyDef("asteroid", radius.r, { restitution: 0.15, friction: 0.05 }),
+        getState: () => ({
+          x: position.x, y: position.y, angle: marker.angle,
+          vx: velocity.vx, vy: velocity.vy, spin: marker.spin,
+        }),
         applyResult: (s) => {
-          a.x = s.x; a.y = s.y; a.angle = s.angle; a.vx = s.vx; a.vy = s.vy;
+          position.x = s.x; position.y = s.y; marker.angle = s.angle;
+          velocity.vx = s.vx; velocity.vy = s.vy;
         },
       });
     }

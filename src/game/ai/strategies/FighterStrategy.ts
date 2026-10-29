@@ -14,7 +14,7 @@
  */
 
 import { lerpAngle, smoothVelocity } from '../../math';
-import type { Enemy } from '../../types';
+import type { EnemyRef } from '../../ecs';
 import type { GameContext } from '../GameContext';
 import type { IEnemyStrategy } from '../IEnemyStrategy';
 
@@ -42,67 +42,70 @@ const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 const smooth01 = (v: number) => v * v * (3 - 2 * v);
 
 export class FighterStrategy implements IEnemyStrategy {
-  update(enemy: Enemy, context: GameContext, dt: number): void {
+  update(enemy: EnemyRef, context: GameContext, dt: number): void {
     const { playerX, playerY, zoneX, zoneY, zoneRadius } = context;
+    const pos = enemy.position;
+    const vel = enemy.velocity;
+    const marker = enemy.marker;
     const hasZone = zoneRadius > 40;
 
-    const dx = playerX - enemy.x;
-    const dy = playerY - enemy.y;
+    const dx = playerX - pos.x;
+    const dy = playerY - pos.y;
     const dist = Math.hypot(dx, dy) || 1;
     const angleToPlayer = Math.atan2(dy, dx);
 
     // --- Переходы между фазами ---
-    if (enemy.mode === 0) {
+    if (marker.mode === 0) {
       // APPROACH: подошли на дальность выстрела — переключаемся на атаку
-      enemy.modeT += dt; // фаза "покачивания" при заходе
+      marker.modeT += dt; // фаза "покачивания" при заходе
       if (dist <= FIRE_RANGE) {
-        enemy.mode = 1;
-        enemy.modeT = BURST_TIME;
+        marker.mode = 1;
+        marker.modeT = BURST_TIME;
       }
-    } else if (enemy.mode === 1) {
+    } else if (marker.mode === 1) {
       // SHOOT: очередь отстреляна или проскочили слишком близко — уход
-      enemy.modeT -= dt;
-      if (dist < PANIC_DIST || enemy.modeT <= 0) {
-        enemy.mode = 2;
-        enemy.modeT = EVADE_TIME;
-        enemy.strafeDir = this.pickEscapeSide(enemy, context, angleToPlayer);
+      marker.modeT -= dt;
+      if (dist < PANIC_DIST || marker.modeT <= 0) {
+        marker.mode = 2;
+        marker.modeT = EVADE_TIME;
+        marker.strafeDir = this.pickEscapeSide(enemy, context, angleToPlayer);
       } else if (dist > FIRE_RANGE) {
         // Игрок ушёл из зоны огня — снова заход
-        enemy.mode = 0;
-        enemy.modeT = 0;
+        marker.mode = 0;
+        marker.modeT = 0;
       }
     } else {
       // EVADE: набрали дистанцию или вышло время — следующий заход
-      enemy.modeT -= dt;
-      if (enemy.modeT <= 0 || dist > EVADE_LEAD) {
-        enemy.mode = 0;
-        enemy.modeT = 0;
-        enemy.strafeDir = this.pickEscapeSide(enemy, context, angleToPlayer);
+      marker.modeT -= dt;
+      if (marker.modeT <= 0 || dist > EVADE_LEAD) {
+        marker.mode = 0;
+        marker.modeT = 0;
+        marker.strafeDir = this.pickEscapeSide(enemy, context, angleToPlayer);
       }
     }
 
     // --- Целевой угол движения по текущей фазе ---
     let targetMoveAngle: number;
-    let speed = enemy.speed;
+    let speed = marker.speed;
     let turnRate: number;
 
-    if (enemy.mode === 0) {
+    if (marker.mode === 0) {
       // Прямой манёвр в сторону игрока с лёгким "покачиванием"
-      const weave = Math.sin(enemy.seed + enemy.modeT * 2.3) * 0.1;
+      const weave = Math.sin(marker.seed + marker.modeT * 2.3) * 0.1;
       targetMoveAngle = angleToPlayer + weave;
-      speed = enemy.speed * 1.05;
+      speed = marker.speed * 1.05;
       turnRate = 1 - Math.exp(-4.5 * dt);
-    } else if (enemy.mode === 1) {
+    } else if (marker.mode === 1) {
       // Продолжаем заход на игрока, стреляя на проходе
       targetMoveAngle = angleToPlayer;
-      speed = enemy.speed * 0.95;
+      speed = marker.speed * 0.95;
       turnRate = 1 - Math.exp(-4.2 * dt);
     } else {
       // Уход от игрока по дуге — в сторону с бОльшим свободным пространством
       const side = this.pickEscapeSide(enemy, context, angleToPlayer);
       const escape = angleToPlayer + Math.PI + (Math.PI / 3) * -side;
       targetMoveAngle = escape;
-      speed = enemy.speed * 1.15;
+      speed = marker.speed * 1.15;
       turnRate = 1 - Math.exp(-4.8 * dt);
     }
 
@@ -110,7 +113,7 @@ export class FighterStrategy implements IEnemyStrategy {
     // Срабатывает в любой фазе, если враг приближается к игроку.
     // (playerVx/playerVy передаются как 0 — учитываем только движение врага.)
     {
-      const closing = (enemy.vx * dx + enemy.vy * dy) / dist;
+      const closing = (vel.vx * dx + vel.vy * dy) / dist;
       if (dist < TURN_AVOID_DIST && closing > 15) {
         const w = smooth01((TURN_AVOID_DIST - dist) / (TURN_AVOID_DIST - TURN_HARD_DIST));
         const side = this.pickEscapeSide(enemy, context, angleToPlayer);
@@ -125,8 +128,8 @@ export class FighterStrategy implements IEnemyStrategy {
 
     // --- Отворачивание от края зоны (только если движение ведёт к барьеру) ---
     if (hasZone) {
-      const distToZoneCenter = Math.hypot(enemy.x - zoneX, enemy.y - zoneY) || 1;
-      const distToZoneEdge = zoneRadius - distToZoneCenter - enemy.r;
+      const distToZoneCenter = Math.hypot(pos.x - zoneX, pos.y - zoneY) || 1;
+      const distToZoneEdge = zoneRadius - distToZoneCenter - enemy.radius.r;
 
       if (distToZoneEdge < AVOID_ZONE_RADIUS) {
         const raw = clamp01(
@@ -136,21 +139,21 @@ export class FighterStrategy implements IEnemyStrategy {
 
         // Доля движения, направленного внутрь зоны (к центру).
         // Если файтер уже летит от края — избегание не вмешивается.
-        const angleToCenter = Math.atan2(zoneY - enemy.y, zoneX - enemy.x);
+        const angleToCenter = Math.atan2(zoneY - pos.y, zoneX - pos.x);
         const inwardness = Math.cos(targetMoveAngle - angleToCenter);
         const needAvoid = clamp01(1 - inwardness * 1.5);
 
         if (needAvoid > 0.05) {
           // Касательная к окружности зоны — направление облёта края
-          const angleToEdge = Math.atan2(enemy.y - zoneY, enemy.x - zoneX);
+          const angleToEdge = Math.atan2(pos.y - zoneY, pos.x - zoneX);
           const tangentA = angleToEdge + Math.PI / 2;
-          const velMag = Math.hypot(enemy.vx, enemy.vy);
+          const velMag = Math.hypot(vel.vx, vel.vy);
           let tangent: number;
           if (velMag > 5) {
-            const velAngle = Math.atan2(enemy.vy, enemy.vx);
+            const velAngle = Math.atan2(vel.vy, vel.vx);
             tangent = Math.cos(velAngle - tangentA) >= 0 ? tangentA : tangentA + Math.PI;
           } else {
-            tangent = enemy.strafeDir >= 0 ? tangentA : tangentA + Math.PI;
+            tangent = marker.strafeDir >= 0 ? tangentA : tangentA + Math.PI;
           }
 
           const effective = avoidWeight * needAvoid;
@@ -158,47 +161,48 @@ export class FighterStrategy implements IEnemyStrategy {
 
           // Гасим направленную наружу радиальную скорость — файтер не "тыкается" в барьер,
           // а плавно скользит вдоль края
-          const rx = (enemy.x - zoneX) / distToZoneCenter;
-          const ry = (enemy.y - zoneY) / distToZoneCenter;
-          const radialV = enemy.vx * rx + enemy.vy * ry;
+          const rx = (pos.x - zoneX) / distToZoneCenter;
+          const ry = (pos.y - zoneY) / distToZoneCenter;
+          const radialV = vel.vx * rx + vel.vy * ry;
           if (radialV > 0) {
             const damp = effective * (1 - Math.exp(-9 * dt));
-            enemy.vx -= rx * radialV * damp;
-            enemy.vy -= ry * radialV * damp;
+            vel.vx -= rx * radialV * damp;
+            vel.vy -= ry * radialV * damp;
           }
         }
       }
     }
-
     // --- Плавный разворот и применение скорости ---
-    enemy.angle = lerpAngle(enemy.angle, targetMoveAngle, turnRate);
+    marker.angle = lerpAngle(marker.angle, targetMoveAngle, turnRate);
 
     // Целевая скорость в направлении targetMoveAngle
     const targetVx = Math.cos(targetMoveAngle) * speed;
     const targetVy = Math.sin(targetMoveAngle) * speed;
-    smoothVelocity(enemy, targetVx, targetVy, 5, dt);
+    smoothVelocity(vel, targetVx, targetVy, 5, dt);
   }
 
   /**
    * Выбрать сторону (справа/слева) с большим свободным пространством до края зоны.
    * Без зоны — сохранить текущее направление стрейфа.
    */
-  private pickEscapeSide(enemy: Enemy, context: GameContext, angleToPlayer: number): number {
+  private pickEscapeSide(enemy: EnemyRef, context: GameContext, angleToPlayer: number): number {
     const { zoneX, zoneY, zoneRadius } = context;
+    const pos = enemy.position;
+    const marker = enemy.marker;
     const hasZone = zoneRadius > 40;
 
-    let best = enemy.strafeDir;
+    let best = marker.strafeDir;
     let bestScore = -Infinity;
     for (const side of [1, -1]) {
       let score: number;
       if (hasZone) {
         const angle = angleToPlayer + (Math.PI / 2) * side;
         // Прогноз позиции через ~0.6 с — там должно быть свободнее
-        const px = enemy.x + Math.cos(angle) * 60;
-        const py = enemy.y + Math.sin(angle) * 60;
-        score = zoneRadius - Math.hypot(px - zoneX, py - zoneY) - enemy.r;
+        const px = pos.x + Math.cos(angle) * 60;
+        const py = pos.y + Math.sin(angle) * 60;
+        score = zoneRadius - Math.hypot(px - zoneX, py - zoneY) - enemy.radius.r;
       } else {
-        score = side === enemy.strafeDir ? 1 : 0;
+        score = side === marker.strafeDir ? 1 : 0;
       }
       if (score > bestScore) {
         bestScore = score;

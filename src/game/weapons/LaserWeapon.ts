@@ -10,7 +10,7 @@
  * если луч с рассеянным углом прошёл по цели — цель получает урон.
  */
 import { aimAtTarget } from "../aiming/AimSolver";
-import type { Enemy } from "../types";
+import type { EnemyRef } from "../ecs";
 import type {
   Weapon,
   WeaponContext,
@@ -183,14 +183,14 @@ export class LaserWeapon implements Weapon {
   }
 
   /** Ближайший живой враг, не занятый другим лучом. */
-  private findFreeTarget(ctx: WeaponContext): Enemy | null {
-    let nearest: Enemy | null = null;
+  private findFreeTarget(ctx: WeaponContext): EnemyRef | null {
+    let nearest: EnemyRef | null = null;
     let nearestDist = LASER_TARGET_RANGE;
 
     for (const e of ctx.enemies) {
-      if (e.dead) continue;
-      if (e.ecsId !== null && ctx.beams.some((b) => b.targetId === e.ecsId)) continue;
-      const dist = Math.hypot(e.x - ctx.player.x, e.y - ctx.player.y);
+      if (e.marker.dead) continue;
+      if (e.marker.ecsId !== null && ctx.beams.some((b) => b.targetId === e.marker.ecsId)) continue;
+      const dist = Math.hypot(e.position.x - ctx.player.x, e.position.y - ctx.player.y);
       if (dist < nearestDist) {
         nearestDist = dist;
         nearest = e;
@@ -206,18 +206,25 @@ export class LaserWeapon implements Weapon {
   }
 
   /** Выстрел: упреждающий угол, луч обрывается на первой преграде. */
-  private fire(ctx: WeaponContext, target: Enemy): void {
+  private fire(ctx: WeaponContext, target: EnemyRef): void {
     // Точность как у обычного орудия: упреждение + конус рассеивания.
+    const aimTarget = {
+      x: target.position.x,
+      y: target.position.y,
+      vx: target.velocity.vx,
+      vy: target.velocity.vy,
+      r: target.radius.r,
+    };
     const angle = aimAtTarget(
       {
         sx: ctx.player.x,
         sy: ctx.player.y,
-        target,
+        target: aimTarget,
         bulletSpeed: 560,
         maxFlightTime: 0.85,
       },
       this.getHitChance(ctx),
-      target.r
+      target.radius.r
     );
 
     const dx = Math.cos(angle);
@@ -236,11 +243,11 @@ export class LaserWeapon implements Weapon {
     }
 
     // Луч останавливается на ближайшем враге, через которого проходит.
-    let hitEnemy: Enemy | null = null;
+    let hitEnemy: EnemyRef | null = null;
     let hitDist = maxDist;
     for (const e of ctx.enemies) {
-      if (e.dead) continue;
-      const dist = rayCircleEntryDistance(muzzleX, muzzleY, dx, dy, e.x, e.y, e.r);
+      if (e.marker.dead) continue;
+      const dist = rayCircleEntryDistance(muzzleX, muzzleY, dx, dy, e.position.x, e.position.y, e.radius.r);
       if (dist == null || dist > hitDist) continue;
       hitDist = dist;
       hitEnemy = e;
@@ -257,14 +264,14 @@ export class LaserWeapon implements Weapon {
       maxLife: LASER_BEAM_LIFE,
       seed: Math.random() * 100,
       // Не занята ли цель, видно по живым лучам: своя цель — «занята».
-      targetId: target.ecsId ?? null,
+      targetId: target.marker.ecsId ?? null,
     });
 
     ctx.onFired(this.id);
   }
 
   /** Нанести урон цели через единый путь гибели (дроп, счёт, волна). */
-  private damageEnemy(ctx: WeaponContext, enemy: Enemy, dmg: number): void {
+  private damageEnemy(ctx: WeaponContext, enemy: EnemyRef, dmg: number): void {
     ctx.damageEnemy?.(enemy, dmg);
   }
 }

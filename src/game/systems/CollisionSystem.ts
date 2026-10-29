@@ -27,7 +27,7 @@ import {
   checkEnemyBulletVsDrones,
 } from './BulletCollision';
 import type { PlayerHitbox } from './GrazeCollision';
-import type { EcsWorld } from '../ecs';
+import type { EcsWorld, AsteroidRef, EnemyRef } from '../ecs';
 
 /** Источник мирового сечения (buildWorld из GameContext). */
 export type WorldSource = () => WorldFrame;
@@ -66,7 +66,7 @@ export class CollisionSystem extends System {
    * @param wave — номер текущей волны (для масштабирования урона dmgScale).
    */
   update(dt: number, world: WorldFrame, wave: number): void {
-    const playerState = world.player;
+    const player = world.player;
     const enemies = world.enemies;
     const bullets = world.bullets;
     const enemyBullets = world.enemyBullets;
@@ -94,13 +94,13 @@ export class CollisionSystem extends System {
 
     // Enemy bullet → player (попадание и касание считаются одним проходом)
     const hitbox: PlayerHitbox = {
-      x: playerState.x,
-      y: playerState.y,
-      outer: playerState.r + PLAYER_BULLET_HIT_OFFSET,
+      x: player.position.x,
+      y: player.position.y,
+      outer: player.radius.r + PLAYER_BULLET_HIT_OFFSET,
     };
     const bulletCheck = checkEnemyBulletVsPlayer(
       this.eventBus, enemyBullets, hitbox,
-      playerState.invuln, playerState.hp, GRAZE_BAND
+      player.marker.invuln, player.life.remaining, GRAZE_BAND
     );
     if (bulletCheck.hitIndex >= 0) {
       this.ecs.removeEnemyBullet(enemyBullets[bulletCheck.hitIndex]);
@@ -114,8 +114,8 @@ export class CollisionSystem extends System {
       }
       this.eventBus.publish('bullet_grazed', {
         count: bulletCheck.grazeIndices.length,
-        x: playerState.x,
-        y: playerState.y,
+        x: player.position.x,
+        y: player.position.y,
       });
     }
 
@@ -130,7 +130,7 @@ export class CollisionSystem extends System {
     const bulletToRemoveNow = new Set<number>();
     for (const hit of droneHits) {
       const b = enemyBullets[hit.bulletIndex];
-      const dead = this.ecs.damageAllyDrone(drones[hit.droneIndex].entityId, b.dmg);
+      const dead = this.ecs.damageAllyDrone(drones[hit.droneIndex].marker.entityId, b.dmg);
       if (dead) dronesToRemove.add(hit.droneIndex);
       bulletToRemoveNow.add(hit.bulletIndex);
     }
@@ -139,15 +139,15 @@ export class CollisionSystem extends System {
     }
     // Дроны хранятся в ECS-мире — удаляем по EntityRef-идентификатору.
     for (const i of dronesToRemove) {
-      this.ecs.removeAllyDroneById(drones[i].entityId);
+      this.ecs.removeAllyDroneById(drones[i].marker.entityId);
     }
     // Публикуем факт попадания по дрону (звуковой/визуальный фидбек).
     for (const hit of droneHits) {
       const d = drones[hit.droneIndex];
       const b = enemyBullets[hit.bulletIndex];
       this.eventBus.publish("drone_hit", {
-        x: d.x,
-        y: d.y,
+        x: d.position.x,
+        y: d.position.y,
         dmg: b ? b.dmg : 0,
         dead: dronesToRemove.has(hit.droneIndex),
       });
@@ -164,7 +164,7 @@ export class CollisionSystem extends System {
     world: WorldFrame,
     wave: number
   ): void {
-    const playerState = world.player;
+    const player = world.player;
     const enemies = world.enemies;
     const asteroids = world.asteroids;
     const softImpulse = !this.physics.resolvesVelocity;
@@ -186,12 +186,12 @@ export class CollisionSystem extends System {
         (kindA === 'enemy' && kindB === 'player')
       ) {
         const enemy = kindA === 'enemy' ? a : b;
-        const e = enemy as (typeof enemies)[number];
+        const e = enemy as EnemyRef;
 
         // Урон игроку — не более одного раза за кадр и только не в неуязвимости.
         // По формуле урон = масса врага × dmgScale(wave).
-        if (!playerHit && playerState.invuln <= 0 && playerState.hp > 0) {
-          const dmg = (e.mass || massForRadius(e.r)) * dmgScale(wave);
+        if (!playerHit && player.marker.invuln <= 0 && player.life.remaining > 0) {
+          const dmg = (e.marker.mass || massForRadius(e.radius.r)) * dmgScale(wave);
           this.eventBus.publish('player_damaged', {
             dmg,
           });
@@ -199,8 +199,8 @@ export class CollisionSystem extends System {
         }
 
         // Каждый врезавшийся враг гибнет сразу, даже если их несколько.
-        if (!e.dead && enemies.includes(e)) {
-          this.ecs.damageEnemy(e.ecsId ?? "", e.hp);
+        if (!e.marker.dead && enemies.includes(e)) {
+          this.ecs.damageEnemy(e.marker.ecsId ?? "", e.life.remaining);
         }
       }
 
@@ -210,20 +210,21 @@ export class CollisionSystem extends System {
       // hp <= 0 уничтожается через канонический путь asteroid_hit.
       if (
         !playerHit &&
-        playerState.invuln <= 0 &&
-        playerState.hp > 0 &&
+        player.marker.invuln <= 0 &&
+        player.life.remaining > 0 &&
         ((kindA === 'player' && kindB === 'asteroid') || (kindA === 'asteroid' && kindB === 'player'))
       ) {
         const ast = kindA === 'asteroid' ? a : b;
-        const rock = ast as (typeof asteroids)[number];
+        const rock = ast as AsteroidRef;
         const rockIndex = asteroids.indexOf(rock);
-        if (rockIndex >= 0 && !rock.dead) {
-          const playerMass = playerState.mass || massForRadius(playerState.r);
+        if (rockIndex >= 0 && !rock.marker.dead) {
+          const playerMass = player.marker.mass || massForRadius(player.radius.r);
           const dgS = dmgScale(wave);
+          const { position, velocity, marker } = rock;
 
           // Урон игроку = масса астероида × dmgScale.
           this.eventBus.publish('player_damaged', {
-            dmg: rock.mass * dgS,
+            dmg: marker.mass * dgS,
           });
           playerHit = true;
 
@@ -233,22 +234,22 @@ export class CollisionSystem extends System {
           this.eventBus.publish('asteroid_hit', {
             index: rockIndex,
             dmg: playerMass * dgS,
-            x: rock.x,
-            y: rock.y,
-            vx: rock.vx,
-            vy: rock.vy,
+            x: position.x,
+            y: position.y,
+            vx: velocity.vx,
+            vy: velocity.vy,
           });
 
           if (softImpulse) {
             const impulse = 80;
             const result = softResolveCollision(
-              playerState.x, playerState.y, playerMass,
-              playerState.vx, playerState.vy,
-              rock.x, rock.y, rock.mass, rock.vx, rock.vy,
+              player.position.x, player.position.y, playerMass,
+              player.velocity.vx, player.velocity.vy,
+              position.x, position.y, marker.mass, velocity.vx, velocity.vy,
               impulse
             );
-            rock.vx = result.nb.vx;
-            rock.vy = result.nb.vy;
+            velocity.vx = result.nb.vx;
+            velocity.vy = result.nb.vy;
           }
         }
       }
@@ -260,27 +261,28 @@ export class CollisionSystem extends System {
       ) {
         const enemy = kindA === 'enemy' ? a : b;
         const ast = kindA === 'asteroid' ? a : b;
-        const e = enemy as (typeof enemies)[number];
-        const rock = ast as (typeof asteroids)[number];
-        if (e.dead || !enemies.includes(e)) continue;
-        if (rock.dead || !asteroids.includes(rock)) continue;
+        const e = enemy as EnemyRef;
+        const rock = ast as AsteroidRef;
+        if (e.marker.dead || !enemies.includes(e)) continue;
+        if (rock.marker.dead || !asteroids.includes(rock)) continue;
+        const { position, velocity, marker } = rock;
 
         if (softImpulse) {
-          const enemyMass = e.mass || massForRadius(e.r);
+          const enemyMass = e.marker.mass || massForRadius(e.radius.r);
           const impulse = 60;
           const result = softResolveCollision(
-            e.x, e.y, enemyMass,
-            e.vx, e.vy,
-            rock.x, rock.y, rock.mass, rock.vx, rock.vy,
+            e.position.x, e.position.y, enemyMass,
+            e.velocity.vx, e.velocity.vy,
+            position.x, position.y, marker.mass, velocity.vx, velocity.vy,
             impulse
           );
-          e.vx = result.na.vx;
-          e.vy = result.na.vy;
-          rock.vx = result.nb.vx;
-          rock.vy = result.nb.vy;
+          e.velocity.vx = result.na.vx;
+          e.velocity.vy = result.na.vy;
+          velocity.vx = result.nb.vx;
+          velocity.vy = result.nb.vy;
         }
         // Урон/смерть врага — единый канонический путь через ECS-мир.
-        this.ecs.damageEnemy(e.ecsId ?? "", 1);
+        this.ecs.damageEnemy(e.marker.ecsId ?? "", 1);
       }
     }
   }
@@ -291,14 +293,14 @@ export class CollisionSystem extends System {
   private checkDroneAvoidance(
     world: WorldFrame
   ): void {
-    const playerState = world.player;
+    const player = world.player;
     const drones = world.allyDrones;
-    if (playerState.invuln <= 0 && playerState.hp > 0) {
+    if (player.marker.invuln <= 0 && player.life.remaining > 0) {
       for (const d of drones) {
-        const dx = d.x - playerState.x;
-        const dy = d.y - playerState.y;
+        const dx = d.position.x - player.position.x;
+        const dy = d.position.y - player.position.y;
         const dist = Math.hypot(dx, dy);
-        const minDist = DRONE_PROXIMITY + playerState.r;
+        const minDist = DRONE_PROXIMITY + player.radius.r;
 
         if (dist < minDist && dist > 0.01) {
           const push = (1 - dist / minDist) * 0.5;

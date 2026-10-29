@@ -10,7 +10,7 @@
  */
 
 import { lerpAngle, smoothVelocity } from '../../math';
-import type { Enemy } from '../../types';
+import type { EnemyRef } from '../../ecs';
 import type { GameContext } from '../GameContext';
 import type { IEnemyStrategy } from '../IEnemyStrategy';
 
@@ -74,38 +74,41 @@ export class HunterStrategy implements IEnemyStrategy {
     return { x: px + pvx * t, y: py + pvy * t };
   }
 
-  update(enemy: Enemy, context: GameContext, dt: number): void {
+  update(enemy: EnemyRef, context: GameContext, dt: number): void {
     const { playerX, playerY, playerVx, playerVy } = context;
+    const pos = enemy.position;
+    const vel = enemy.velocity;
+    const marker = enemy.marker;
 
     // Точка встречи, пересчитанная в этом кадре
     const intercept = this.computeIntercept(
-      enemy.x, enemy.y,
+      pos.x, pos.y,
       playerX, playerY,
       playerVx, playerVy,
-      enemy.speed
+      marker.speed
     );
 
     // Цель маршрута: точка перехвата; если её нет — прямой pursuit
     const tx = intercept ? intercept.x : playerX;
     const ty = intercept ? intercept.y : playerY;
 
-    const gx = tx - enemy.x;
-    const gy = ty - enemy.y;
+    const gx = tx - pos.x;
+    const gy = ty - pos.y;
     const gd = Math.hypot(gx, gy) || 1;
 
     // У самой точки встречи тормозим, чтобы не проскочить мимо игрока
-    const targetSpeed = enemy.speed * Math.min(1, gd / BRAKE_DIST);
+    const targetSpeed = marker.speed * Math.min(1, gd / BRAKE_DIST);
 
     // Целевая скорость в направлении цели
     const targetVx = (gx / gd) * targetSpeed;
     const targetVy = (gy / gd) * targetSpeed;
-    smoothVelocity(enemy, targetVx, targetVy, gd < 120 ? 7.5 : 4.5, dt);
+    smoothVelocity(vel, targetVx, targetVy, gd < 120 ? 7.5 : 4.5, dt);
 
     // Вращение: смотреть по направлению движения
-    const hv = Math.hypot(enemy.vx, enemy.vy);
+    const hv = Math.hypot(vel.vx, vel.vy);
     if (hv > 5) {
-      const targetAngle = Math.atan2(enemy.vy, enemy.vx);
-      enemy.angle = lerpAngle(enemy.angle, targetAngle, 1 - Math.exp(-6 * dt));
+      const targetAngle = Math.atan2(vel.vy, vel.vx);
+      marker.angle = lerpAngle(marker.angle, targetAngle, 1 - Math.exp(-6 * dt));
     }
   }
 }

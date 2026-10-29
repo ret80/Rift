@@ -6,6 +6,7 @@
 import { C, EnemyKind } from "../../balance";
 import { clamp, rgba } from "../../math";
 import type { IRenderer, RGBA } from "../../render/index";
+import type { EnemyRef } from "../../ecs";
 import { drawShipPoly } from "./ShipRenderer";
 
 export interface EnemyRenderState {
@@ -37,12 +38,36 @@ export interface EnemyRenderState {
 }
 
 /**
- * Строит render-state из врагов.
- * EnemyRenderState — read-only проекция EnemyComponent (структурно совместим),
- * которая нужна только рендеру; каст-моста из ECS не требуется.
+ * Строит render-state из живых связок компонентов врагов.
+ * Читает позицию/радиус/жизнь из базовых компонентов, остальное — из маркера.
  */
-export function buildEnemyState(enemies: EnemyRenderState[]): EnemyRenderState[] {
-  return enemies;
+export function buildEnemyState(enemies: EnemyRef[]): EnemyRenderState[] {
+  return enemies.map((e) => ({
+    kind: e.marker.kind,
+    x: e.position.x,
+    y: e.position.y,
+    vx: e.velocity.vx,
+    vy: e.velocity.vy,
+    angle: e.marker.angle,
+    hp: e.life.remaining,
+    maxHp: e.life.max,
+    r: e.radius.r,
+    speed: e.marker.speed,
+    contact: e.marker.contact,
+    score: e.marker.score,
+    boltDmg: e.marker.boltDmg,
+    fireCd: e.marker.fireCd,
+    mode: e.marker.mode,
+    modeT: e.marker.modeT,
+    strafeDir: e.marker.strafeDir,
+    seed: e.marker.seed,
+    spawnCd: e.marker.spawnCd,
+    flash: e.marker.flash,
+    hitCd: e.marker.hitCd,
+    dead: e.marker.dead,
+    droneState: e.marker.droneState,
+    orbitRadius: e.marker.orbitRadius,
+  }));
 }
 
 export function renderEnemies(

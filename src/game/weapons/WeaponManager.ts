@@ -15,8 +15,10 @@ import { PLAYER_AIM_BASE_CHANCE } from "../balance";
 import { weaponDamageMult, weaponReloadMult, weaponHitChance } from "../upgrades";
 import type { LoadoutSlotData } from "../loadout/LoadoutTypes";
 import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
-import type { AllyDrone, Bullet, Enemy, LaserBeam } from "../types";
+import type { Bullet, LaserBeam } from "../types";
 import { Targeting, DEFAULT_TARGET_RANGE } from "./Targeting";
+import type { DroneFleetSpec } from "../drones/Drone";
+import type { AllyDroneSpawn, DroneRef, EnemyRef } from "../ecs";
 import type {
   AimState,
   PlayerSnapshot,
@@ -28,7 +30,6 @@ import type {
   WeaponUpgrades,
   ZoneSnapshot,
 } from "./Weapon";
-import type { DroneFleetSpec } from "../drones/Drone";
 import { createWeaponRegistry } from "./WeaponRegistry";
 
 /** Провайдеры живых данных игрового мира для оружия. */
@@ -36,15 +37,15 @@ export interface WeaponWorld {
   /** Текущее состояние игрока. */
   getPlayer(): PlayerSnapshot;
   /** Враги — цели для наведения. */
-  getEnemies(): readonly Enemy[];
+  getEnemies(): readonly EnemyRef[];
   /** Пул снарядов игрока. */
   getBullets(): Bullet[];
   /** Зарегистрировать новый снаряд игрока в ECS-мире. */
   addBullet(bullet: Bullet): void;
-  /** Пул дронов-компаньонов. */
-  getDrones(): AllyDrone[];
+  /** Пул дронов-компаньонов (живые связки компонентов). */
+  getDrones(): DroneRef[];
   /** Зарегистрировать новый дрон-компаньон в ECS-мире. */
-  addAllyDrone(drone: AllyDrone): void;
+  addAllyDrone(drone: AllyDroneSpawn): void;
   /** Текущие временные бонусы игрока. */
   getBonuses(): PlayerBonuses;
   /** Пул лучей лазера — визуальная трасса выстрела. */
@@ -54,9 +55,9 @@ export interface WeaponWorld {
   /** Граница игровой зоны (null — зона не задана). */
   getZone?(): ZoneSnapshot | null;
   /** Убить врага через единый путь (дроп, счёт, волна). */
-  killEnemy?(enemy: Enemy): void;
+  killEnemy?(enemy: EnemyRef): void;
   /** Нанести урон врагу через единый канонический путь (ECS damageEnemy). */
-  damageEnemy?(enemy: Enemy, dmg: number): void;
+  damageEnemy?(enemy: EnemyRef, dmg: number): void;
 }
 
 export class WeaponManager extends System {

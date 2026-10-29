@@ -13,7 +13,7 @@ export class GameRender {
   /** Отрисовать кадр игры/меню по текущему состоянию FSM. */
   renderScene(dt: number): void {
     const ctx = this.ctx;
-    const playerState = ctx.playerSystem.getPlayerRef();
+    const playerState = ctx.playerSystem.getPosition();
 
     // Smooth camera follow (delegated to CameraSystem)
     ctx.cameraSystem.update(playerState, dt);

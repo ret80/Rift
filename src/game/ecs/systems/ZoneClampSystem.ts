@@ -22,6 +22,9 @@
 
 import { System, Aspect } from "@trixt0r/ecs";
 import { EnemyComponent } from "../components/EnemyComponent";
+import { PositionComponent } from "../components/PositionComponent";
+import { VelocityComponent } from "../components/VelocityComponent";
+import { RadiusComponent } from "../components/RadiusComponent";
 import { GameEntity } from "../GameEntity";
 import type { EcsWorld } from "../EcsWorld";
 
@@ -45,27 +48,31 @@ export class ZoneClampSystem extends System {
     if (!this.aspect) this.aspect = Aspect.for(this.ecs.engine).all(EnemyComponent);
 
     for (const entity of [...this.aspect.entities] as GameEntity[]) {
-      const e = entity.components.get(EnemyComponent);
-      if (!e || e.dead) continue;
+      const marker = entity.components.get(EnemyComponent);
+      if (!marker || marker.dead) continue;
+      const position = entity.components.get(PositionComponent);
+      const velocity = entity.components.get(VelocityComponent);
+      const radius = entity.components.get(RadiusComponent);
+      if (!position || !velocity || !radius) continue;
 
-      const dx = e.x - zone.x;
-      const dy = e.y - zone.y;
+      const dx = position.x - zone.x;
+      const dy = position.y - zone.y;
       const dist = Math.hypot(dx, dy);
-      const limit = zone.radius - (e.r || 15);
+      const limit = zone.radius - (radius.r || 15);
 
       if (dist > limit) {
         const angle = Math.atan2(dy, dx);
         // Жёсткий возврат на границу.
-        e.x = zone.x + Math.cos(angle) * limit;
-        e.y = zone.y + Math.sin(angle) * limit;
+        position.x = zone.x + Math.cos(angle) * limit;
+        position.y = zone.y + Math.sin(angle) * limit;
 
         // Отражаем радиальную составляющую скорости.
         const nx = Math.cos(angle);
         const ny = Math.sin(angle);
-        const dot = e.vx * nx + e.vy * ny;
+        const dot = velocity.vx * nx + velocity.vy * ny;
         if (dot > 0) {
-          e.vx -= 2 * dot * nx;
-          e.vy -= 2 * dot * ny;
+          velocity.vx -= 2 * dot * nx;
+          velocity.vy -= 2 * dot * ny;
         }
       }
     }

@@ -13,7 +13,7 @@
 
 import { System } from "@trixt0r/ecs";
 import type { LoadoutSlotData } from "../loadout/LoadoutTypes";
-import type { Enemy } from "../types";
+import type { EnemyRef } from "../ecs";
 import type { AbilityContext, AbilityId } from "./Ability";
 import { createAbilityRegistry, type AbilityRegistryData } from "./AbilityRegistry";
 import type { InputManager } from "../input";
@@ -29,11 +29,11 @@ export interface AbilityWorld {
   /** Переместить корабль в точку (сброс скорости обрабатывает игрок). */
   movePlayerTo(x: number, y: number): void;
   /** Живые враги. */
-  getEnemies(): readonly Enemy[];
+  getEnemies(): readonly EnemyRef[];
   /** Убить врага — начислить очки и выбросить дроп. */
-  killEnemy(enemy: Enemy): void;
+  killEnemy(enemy: EnemyRef): void;
   /** Нанести урон врагу через единый канонический путь (ECS damageEnemy). */
-  damageEnemy(enemy: Enemy, dmg: number): void;
+  damageEnemy(enemy: EnemyRef, dmg: number): void;
 }
 
 export class AbilitySystem extends System {

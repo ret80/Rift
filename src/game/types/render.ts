@@ -3,8 +3,9 @@
  * Содержит только данные; RendererSystem сам строит render-state'ы.
  */
 
-import type { AllyDrone, Bullet, EBullet, Enemy, Pickup, LaserBeam } from "../types";
-import type { CameraWorld, PlayerWorld, ViewWorld, ZoneWorld } from "../core/WorldFrame";
+import type { Bullet, EBullet, Pickup, LaserBeam } from "../types";
+import type { CameraWorld, ViewWorld, ZoneWorld } from "../core/WorldFrame";
+import type { DroneRef, EnemyRef, PlayerRef } from "../ecs";
 
 /** Снимок щита для рендера. */
 export interface ShieldRenderState {
@@ -29,15 +30,15 @@ export interface RenderScene {
   time: number;
   wave: number;
   score: number;
-  player: PlayerWorld | null;
+  player: PlayerRef | null;
   aim: number | null;
   guns: number;
   shield: ShieldRenderState;
-  enemies: Enemy[];
+  enemies: EnemyRef[];
   bullets: Bullet[];
   enemyBullets: EBullet[];
   pickups: Pickup[];
-  allyDrones: AllyDrone[];
+  allyDrones: DroneRef[];
   beams: LaserBeam[];
   zone: ZoneWorld | null;
   camera: CameraWorld;

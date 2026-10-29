@@ -9,6 +9,7 @@ import type { IRenderer, RGBA } from "../../render/index";
 import { DRONE_ORBIT_RADIUS } from "../../weapons/DroneWeapon";
 import { drawShipPoly } from "./ShipRenderer";
 import type { PlayerRenderState } from "./PlayerRenderer";
+import type { DroneRef } from "../../ecs";
 
 export interface AllyDroneRenderState {
   x: number;
@@ -24,10 +25,22 @@ export interface AllyDroneRenderState {
 }
 
 /**
- * Строит render-state из raw-массива союзных дронов.
+ * Строит render-state из живых связок компонентов союзных дронов.
+ * Читает позицию/радиус/жизнь из базовых компонентов, остальное — из маркера.
  */
-export function buildDroneState(drones: unknown[]): AllyDroneRenderState[] {
-  return drones as unknown as AllyDroneRenderState[];
+export function buildDroneState(drones: DroneRef[]): AllyDroneRenderState[] {
+  return drones.map((d) => ({
+    x: d.position.x,
+    y: d.position.y,
+    angle: d.marker.angle,
+    fireCd: d.marker.fireCd,
+    phase: d.marker.phase,
+    hp: d.life.remaining,
+    maxHp: d.life.max,
+    target: d.marker.targetId,
+    retargetT: d.marker.retargetT,
+    flash: d.marker.flash,
+  }));
 }
 
 /**

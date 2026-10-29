@@ -9,10 +9,10 @@
  * Множитель скорости приходит из персистентного апгрейда «скорость»,
  * задаётся через setSpeedMult().
  *
- * PlayerSystem — наследник System и исполняется через engine.run(dt):
- * состояние игрока (PlayerComponent.state) — единственный источник
- * правды, система мутирует его напрямую. Управление игроком больше
- * не императивный класс вне ECS.
+ * PlayerSystem — наследник System и исполняется через engine.run(dt).
+ * Источник правды — Singleton-сущность игрока: базовые компоненты
+ * (Position/Velocity/Life/Radius) и узкий PlayerComponent (angle/invuln/
+ * thrusting/mass). Система читает и мутирует их через живую связку PlayerRef.
  */
 
 import { System, Aspect, type Engine } from "@trixt0r/ecs";
@@ -22,14 +22,14 @@ import type { Fx } from '../fx';
 import type { InputManager } from '../input';
 import type { ShieldSystem } from './ShieldSystem';
 import { updateMovement } from './PlayerMovement';
-import {
-  resetPlayerState,
-  type PlayerState,
-} from './PlayerState';
+import type { PlayerRef } from '../ecs';
 import { PlayerComponent } from '../ecs/components/PlayerComponent';
 
 /** Флаг: должна ли система сама интегрировать позицию (true в custom-режиме). */
 export type PlayerIntegrateSource = () => boolean;
+
+/** Источник живой связки компонентов игрока (EntityRef-идентичность). */
+export type PlayerRefSource = () => PlayerRef | null;
 
 export class PlayerSystem extends System {
   private aspect: Aspect | null = null;
@@ -41,21 +41,21 @@ export class PlayerSystem extends System {
   /** Энергетический щит: блокирует часть урона. */
   private shield: ShieldSystem | null = null;
 
-  /** Единственный источник правды — состояние из PlayerComponent. */
-  private pState: PlayerState;
+  /** Источник живой связки компонентов игрока. */
+  private readonly playerRefSource: PlayerRefSource;
 
   constructor(
     eventBus: EventBus,
     input: InputManager,
     fx: Fx,
-    state: PlayerState,
+    playerRefSource: PlayerRefSource,
     private readonly getIntegrate: PlayerIntegrateSource,
   ) {
     super(-1); // движение игрока — до врагов/пикапов (их системы читают позицию)
     this.eventBus = eventBus;
     this.input = input;
     this.fx = fx;
-    this.pState = state;
+    this.playerRefSource = playerRefSource;
 
     // Subscribe to player damage events
     eventBus.subscribe('player_damaged', (event) => {
@@ -66,8 +66,11 @@ export class PlayerSystem extends System {
     // Subscribe to drone push events (soft avoidance)
     eventBus.subscribe('drone_push_player', (event) => {
       const data = event.payload as { vx: number; vy: number };
-      this.pState.vx += data.vx;
-      this.pState.vy += data.vy;
+      const ref = this.playerRefSource();
+      if (ref) {
+        ref.velocity.vx += data.vx;
+        ref.velocity.vy += data.vy;
+      }
     });
   }
 
@@ -77,7 +80,9 @@ export class PlayerSystem extends System {
 
   /** Обновление игрока внутри engine.run(dt). */
   process(dt: number): void {
-    const state = this.pState;
+    const ref = this.playerRefSource();
+    if (!ref) return;
+    const { position, velocity, marker } = ref;
 
     // Движение из оси ввода.
     const mv = this.input.axis;
@@ -86,7 +91,9 @@ export class PlayerSystem extends System {
 
     // Movement module
     updateMovement(
-      state,
+      position,
+      velocity,
+      marker,
       dt,
       ax,
       ay,
@@ -97,22 +104,32 @@ export class PlayerSystem extends System {
     );
 
     // Invulnerability timer
-    state.invuln = Math.max(0, state.invuln - dt);
+    marker.invuln = Math.max(0, marker.invuln - dt);
   }
 
   reset(): void {
-    resetPlayerState(this.pState);
+    const ref = this.playerRefSource();
+    if (!ref) return;
+    ref.position.x = 0; ref.position.y = 0;
+    ref.velocity.vx = 0; ref.velocity.vy = 0;
+    ref.marker.angle = -Math.PI / 2;
+    ref.marker.invuln = 0;
+    ref.marker.thrusting = false;
   }
 
-  // ---- HP ----
+  // ---- HP (базовый LifeComponent) ----
 
   setMaxHp(max: number): void {
-    this.pState.maxHp = max;
-    this.pState.hp = Math.min(this.pState.hp, max);
+    const ref = this.playerRefSource();
+    if (!ref) return;
+    ref.life.max = max;
+    ref.life.remaining = Math.min(ref.life.remaining, max);
   }
 
   resetHp(): void {
-    this.pState.hp = this.pState.maxHp;
+    const ref = this.playerRefSource();
+    if (!ref) return;
+    ref.life.remaining = ref.life.max;
   }
 
   // ---- Persistent upgrades ----
@@ -129,21 +146,24 @@ export class PlayerSystem extends System {
 
   // ---- Getters ----
 
-  /** Живая ссылка на состояние игрока. */
-  getPlayerRef(): PlayerState {
-    return this.pState;
+  /** Живая связка компонентов игрока (PlayerRef). */
+  getPlayerRef(): PlayerRef | null {
+    return this.playerRefSource();
   }
 
   getPosition(): { x: number; y: number } {
-    return { x: this.pState.x, y: this.pState.y };
+    const ref = this.playerRefSource();
+    return ref ? { x: ref.position.x, y: ref.position.y } : { x: 0, y: 0 };
   }
 
   getHp(): number {
-    return this.pState.hp;
+    const ref = this.playerRefSource();
+    return ref ? ref.life.remaining : 0;
   }
 
   getMaxHp(): number {
-    return this.pState.maxHp;
+    const ref = this.playerRefSource();
+    return ref ? ref.life.max : 0;
   }
 
   /**
@@ -151,29 +171,35 @@ export class PlayerSystem extends System {
    * Используется активной способностью «телепорт-подмена».
    */
   teleportTo(x: number, y: number): void {
-    this.pState.x = x;
-    this.pState.y = y;
-    this.pState.vx = 0;
-    this.pState.vy = 0;
+    const ref = this.playerRefSource();
+    if (!ref) return;
+    ref.position.x = x;
+    ref.position.y = y;
+    ref.velocity.vx = 0;
+    ref.velocity.vy = 0;
   }
 
   // ---- Core methods ----
 
   hit(dmg: number): void {
-    if (this.pState.invuln > 0) return;
+    const ref = this.playerRefSource();
+    if (!ref) return;
+    if (ref.marker.invuln > 0) return;
     // Щит гасит часть урона и тратит на это энергию.
     const incoming = this.shield ? this.shield.absorb(dmg) : dmg;
-    this.pState.hp -= incoming;
+    ref.life.remaining -= incoming;
     // Кадры неуязвимости после попадания: спасают от залпа в упор.
-    this.pState.invuln = PLAYER_HIT_INVULN;
-    if (this.pState.hp <= 0) {
-      this.pState.hp = 0;
+    ref.marker.invuln = PLAYER_HIT_INVULN;
+    if (ref.life.remaining <= 0) {
+      ref.life.remaining = 0;
       this.eventBus.publish('game_over', {});
     }
   }
 
   heal(amount: number): void {
-    this.pState.hp = Math.min(this.pState.maxHp, this.pState.hp + amount);
+    const ref = this.playerRefSource();
+    if (!ref) return;
+    ref.life.remaining = Math.min(ref.life.max, ref.life.remaining + amount);
   }
 
   // ---- Input delegation ----

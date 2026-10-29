@@ -32,7 +32,7 @@ export interface WaveFlowDeps {
   spawnSystem: SpawnSystem;
   upgradeSystem: UpgradeSystem;
   countdownSystem: CountdownSystem;
-  getEnemyList: () => Array<{ dead?: boolean }>;
+  getEnemyList: () => Array<{ marker: { dead: boolean } }>;
   getPlayerPosition: () => PlayerPosition;
 }
 
@@ -84,7 +84,7 @@ export class WaveFlowSystem extends System {
     if (orchestrator.waveState !== "active") return;
 
     // Проверяем что все враги убиты
-    const alive = getEnemyList().filter((e) => !e.dead).length;
+    const alive = getEnemyList().filter((e) => !e.marker.dead).length;
     if (alive > 0) return;
 
     // Проверяем что все враги спавнятся и убиты

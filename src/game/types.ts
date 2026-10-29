@@ -2,7 +2,7 @@
    All subsystems import from here to avoid duplication. */
 
 import type { RGBA } from "./render/index";
-import type { DroneCombatSpec, DroneId } from "./drones/Drone";
+import type { EnemyRef } from "./ecs";
 
 /* ---- Effect types (from fx.ts) ---- */
 
@@ -97,7 +97,7 @@ export interface Bullet {
   /** Самонаведение: цель хранится живой ссылкой, поэтому ракета ведёт цель.
    *  При гибели цели ракета перенаводится на ближайшего живого врага,
    *  ограниченного radius захвата; null — целей в радиусе нет. */
-  homing?: { target: Enemy | null; turnRate: number; lockRange: number };
+  homing?: { target: EnemyRef | null; turnRate: number; lockRange: number };
   /** Идентификатор ECS-сущности снаряда — для удаления по id (без WeakMap-моста). */
   entityId?: number | string;
 }
@@ -142,23 +142,4 @@ export interface Pickup {
   vx: number; vy: number;
   life: number; seed: number;
   r: number;
-}
-
-export interface AllyDrone {
-  /** EntityRef: id ECS-сущности дрона (для удаления/нанесения урона в ECS). */
-  entityId: number | string;
-  x: number; y: number;
-  r: number;
-  angle: number;
-  fireCd: number; phase: number;
-  hp: number; maxHp: number;
-  /** EntityRef: id ECS-сущности текущей цели (или null). Вместо живой ссылки. */
-  targetId: number | string | null;
-  retargetT: number; flash: number;
-  /** Постоянная единица флота — восстанавливается после гибели. */
-  permanent: boolean;
-  /** Вид дрона (для отрисовки и служебной логики). */
-  kind: DroneId;
-  /** Боевые характеристики единицы дрона. */
-  combat: DroneCombatSpec | null;
 }

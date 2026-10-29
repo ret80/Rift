@@ -16,7 +16,7 @@ import {
   QUANTUM_SWAP_COOLDOWN,
   QUANTUM_SWAP_RANGE,
 } from "../balance/player";
-import type { Enemy } from "../types";
+import type { EnemyRef } from "../ecs";
 import type { Ability, AbilityContext, AbilityId, AbilityMeta, AbilitySlotState } from "./Ability";
 
 /** Цвет вспышки подмены. */
@@ -60,24 +60,26 @@ export class QuantumSwapAbility implements Ability {
     if (!target) return false;
 
     // Куда переносимся мы и куда — враг.
-    const targetX = target.x;
-    const targetY = target.y;
+    const targetPos = target.position;
+    const targetVel = target.velocity;
+    const targetX = targetPos.x;
+    const targetY = targetPos.y;
     const playerX = ctx.playerX;
     const playerY = ctx.playerY;
 
-    target.x = playerX;
-    target.y = playerY;
-    target.vx = 0;
-    target.vy = 0;
+    targetPos.x = playerX;
+    targetPos.y = playerY;
+    targetVel.vx = 0;
+    targetVel.vy = 0;
     ctx.movePlayerTo(targetX, targetY);
 
     // Разрыв в точке выхода корабля бьёт по врагам рядом.
     ctx.fx.ring(targetX, targetY, 8, 320, 0.35, SWAP_COLOR);
     ctx.fx.burst(targetX, targetY, 18, SWAP_COLOR, 260, 0.4);
     for (const e of ctx.enemies) {
-      if (e.dead || e === target) continue;
-      const dist = Math.hypot(e.x - targetX, e.y - targetY);
-      if (dist > QUANTUM_SWAP_BLAST_RADIUS + e.r) continue;
+      if (e.marker.dead || e === target) continue;
+      const dist = Math.hypot(e.position.x - targetX, e.position.y - targetY);
+      if (dist > QUANTUM_SWAP_BLAST_RADIUS + e.radius.r) continue;
       ctx.damageEnemy(e, QUANTUM_SWAP_BLAST_DAMAGE);
     }
 
@@ -96,12 +98,12 @@ export class QuantumSwapAbility implements Ability {
   }
 
   /** Ближайший живой враг в радиусе действия. */
-  private nearestEnemy(ctx: AbilityContext): Enemy | null {
-    let best: Enemy | null = null;
+  private nearestEnemy(ctx: AbilityContext): EnemyRef | null {
+    let best: EnemyRef | null = null;
     let bestDist = QUANTUM_SWAP_RANGE;
     for (const e of ctx.enemies) {
-      if (e.dead) continue;
-      const dist = Math.hypot(e.x - ctx.playerX, e.y - ctx.playerY);
+      if (e.marker.dead) continue;
+      const dist = Math.hypot(e.position.x - ctx.playerX, e.position.y - ctx.playerY);
       if (dist <= bestDist) {
         bestDist = dist;
         best = e;
