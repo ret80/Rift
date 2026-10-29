@@ -11,9 +11,7 @@
 import { EnemyKind, PickupKind, PLAYER_HITBOX_RADIUS, PLAYER_MAX_SPEED } from "../balance";
 import type { PersistencePort } from "./PersistencePort";
 import { EcsWorld } from "../ecs";
-import { BaseRenderer } from "../render/index";
-import { PicoGLRenderer } from "../render/index";
-import type { IRenderer } from "../render/index";
+import { BaseRenderer, PicoGLRenderer, NullRenderer, type IRenderer } from "../render/index";
 import { PhysicsSystem } from "../physics/index";
 import type { PhysicsEngineId } from "../physics/index";
 import { createPhysicsEngine, normalizePhysicsEngine } from "../physics/index";
@@ -136,14 +134,20 @@ export class GameContext {
     this.hooks = hooks;
     this.storage = storage;
 
-    // Рендер-бэкенд: PicoGL по умолчанию; raw WebGL включается флагом
-    // URL (?renderer=webgl).
+    // Рендер-бэкенд: PicoGL по умолчанию; raw WebGL и NullRenderer — через
+    // URL-параметр (?renderer=webgl | ?renderer=null). NullRenderer рисует на
+    // Canvas 2D и копит debug-метрики — удобен в средах без WebGL.
     const rendererParam =
       typeof window !== "undefined"
         ? new URLSearchParams(window.location.search).get("renderer")
         : null;
-    const usePicoGL = rendererParam === null || rendererParam === "picogl";
-    this.renderer = usePicoGL ? new PicoGLRenderer(canvas) : new BaseRenderer(canvas);
+    const useNull = rendererParam === "null";
+    const usePicoGL = !useNull && (rendererParam === null || rendererParam === "picogl");
+    this.renderer = useNull
+      ? new NullRenderer(canvas)
+      : usePicoGL
+        ? new PicoGLRenderer(canvas)
+        : new BaseRenderer(canvas);
 
     // Физический бэкенд: выбирается через меню настроек (persisted) или
     // URL-параметр ?physics=<id>. По умолчанию — Planck.js.

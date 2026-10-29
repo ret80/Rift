@@ -1,15 +1,17 @@
 /**
  * PickupCollectionSystem — ECS-система подбора пикапов игроком.
  *
- * Проверяет пересечение бонуса с хитбоксом игрока и публикует событие
- * pickup_collected в шину, после чего удаляет сущность. Заменяет прежний
- * массивный PickupCollection (побочный эффект сбора по-прежнему
- * обрабатывается подписчиками EventBus).
+ * Проверяет пересечение бонуса (Position + Radius) с хитбоксом игрока
+ * и публикует событие pickup_collected в шину, после чего удаляет сущность.
+ * Вид бонуса берётся из маркера PickupKindComponent. Побочный эффект сбора
+ * по-прежнему обрабатывается подписчиками EventBus.
  */
 
 import { System, Aspect, type Engine } from "@trixt0r/ecs";
 import type { EventBus } from "../../core/EventBus";
-import { PickupComponent } from "../components/PickupComponent";
+import { PositionComponent } from "../components/PositionComponent";
+import { RadiusComponent } from "../components/RadiusComponent";
+import { PickupKindComponent } from "../components/PickupKindComponent";
 import { GameEntity } from "../GameEntity";
 
 /** Хитбокс игрока в игровых координатах. */
@@ -26,7 +28,7 @@ export class PickupCollectionSystem extends System {
   }
 
   onAddedToEngine(engine: Engine): void {
-    this.aspect = Aspect.for(engine).all(PickupComponent);
+    this.aspect = Aspect.for(engine).all(PickupKindComponent, PositionComponent, RadiusComponent);
   }
 
   process(): void {
@@ -38,17 +40,19 @@ export class PickupCollectionSystem extends System {
     const toRemove: GameEntity[] = [];
 
     for (const entity of [...aspect.entities] as GameEntity[]) {
-      const pickup = entity.components.get(PickupComponent);
-      if (!pickup) continue;
+      const position = entity.components.get(PositionComponent);
+      const radius = entity.components.get(RadiusComponent);
+      const kind = entity.components.get(PickupKindComponent);
+      if (!position || !radius || !kind) continue;
 
-      const dx = player.x - pickup.x;
-      const dy = player.y - pickup.y;
+      const dx = player.x - position.x;
+      const dy = player.y - position.y;
       const dist = Math.hypot(dx, dy);
-      if (dist < playerR + pickup.r) {
+      if (dist < playerR + radius.r) {
         this.eventBus.publish("pickup_collected", {
-          kind: pickup.kind,
-          x: pickup.x,
-          y: pickup.y,
+          kind: kind.kind,
+          x: position.x,
+          y: position.y,
         });
         toRemove.push(entity);
       }

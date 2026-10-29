@@ -10,10 +10,21 @@ export { EcsWorld } from "./EcsWorld";
 export type { PlayerSource } from "./EcsWorld";
 export { GameEntity } from "./GameEntity";
 
+// Базовые компоненты-данные и механика EntityRef.
+export { PositionComponent } from "./components/PositionComponent";
+export { VelocityComponent } from "./components/VelocityComponent";
+export { RadiusComponent } from "./components/RadiusComponent";
+export { LifeComponent } from "./components/LifeComponent";
+export { HealthComponent } from "./components/HealthComponent";
+export { TransformComponent } from "./components/TransformComponent";
+export { HomingRef } from "./components/HomingRef";
+export { resolveEntityId, type EntityId } from "./ECSUtils";
+
 export { PickupComponent } from "./components/PickupComponent";
 export { EnemyComponent } from "./components/EnemyComponent";
 export { BulletComponent } from "./components/BulletComponent";
 export { EnemyBulletComponent } from "./components/EnemyBulletComponent";
+export { BulletSweepComponent } from "./components/BulletSweepComponent";
 export { AllyDroneComponent } from "./components/AllyDroneComponent";
 export { LaserBeamComponent } from "./components/LaserBeamComponent";
 export { PlayerComponent } from "./components/PlayerComponent";

@@ -60,7 +60,11 @@ export interface Enemy {
   mode: number; modeT: number;
   strafeDir: number; seed: number;
   spawnCd: number; flash: number; hitCd: number;
-  dead: boolean; parent: Enemy | null;
+  dead: boolean;
+  /** EntityRef: id ECS-сущности этого врага (или null до регистрации). */
+  ecsId: number | string | null;
+  /** EntityRef: id родителя (Carrier) или null. Вместо живой ссылки. */
+  parentId: number | string | null;
   mass: number;
   dodgeWeight: number;
   dodgeDir: number; dodgeTimer: number;

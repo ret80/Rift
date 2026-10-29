@@ -1,20 +1,24 @@
 /**
- * EnemyBulletComponent — ECS-компонент снаряда врага.
+ * EnemyBulletComponent — данные вражеского снаряда.
  *
- * Вражеские снаряды (энергетические болты) хранятся так же, как снаряды
- * игрока: компонент оборачивает живой мутируемый объект `EBullet`,
- * а движение/время жизни обрабатывает ECS-система BulletSystem.
+ * Вражеские болты описываются базовыми компонентами-данными (Position + Velocity
+ * + Life), а EnemyBulletComponent хранит тип (тяжёлый/крейсерский) и урон.
+ * Swept-позиция и флаг касания — в соседнем BulletSweepComponent. Никаких
+ * живых ссылок на внешние объекты — только данные.
  */
 
 import type { Component } from "@trixt0r/ecs";
-import type { EBullet } from "../../types";
 
 export class EnemyBulletComponent implements Component {
   readonly type = "EnemyBullet";
   readonly id = "EnemyBullet";
 
   constructor(
-    /** Живая ссылка на мутируемый объект вражеского снаряда. */
-    public bullet: EBullet,
+    /** Урон снаряда при попадании. */
+    public dmg = 0,
+    /** Тяжёлый болт. */
+    public heavy = false,
+    /** Крейсерский болт. */
+    public cruiser = false,
   ) {}
 }

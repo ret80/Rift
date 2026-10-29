@@ -120,7 +120,7 @@ export class EnemySystem extends System {
       // Set parent to carrier for proper tracking
       const carrier = this.findCarrierForDrone(enemyList, spawn);
       if (carrier) {
-        drone.parent = carrier;
+        drone.parentId = carrier.ecsId ?? null;
         // Дрон начинается на орбите вокруг Carrier
         drone.droneState = "orbiting";
         drone.orbitRadius = carrier.r + 80;
@@ -181,7 +181,8 @@ export class EnemySystem extends System {
       fireCd: rand(0.3, 1), mode: 0, modeT: 0,
       strafeDir: Math.random() < 0.5 ? -1 : 1,
       seed: Math.random() * 100, spawnCd: rand(1, 2),
-      flash: 0, hitCd: 0, dead: false, parent, mass,
+      flash: 0, hitCd: 0, dead: false,
+      ecsId: null, parentId: parent?.ecsId ?? null, mass,
       dodgeWeight,
       tCd1: rand(0.3, 0.8) + tStagger,
       tCd2: rand(0.3, 0.8) - tStagger,
@@ -211,7 +212,8 @@ export class EnemySystem extends System {
         const b = enemyList[j];
         if (b.dead) continue;
 
-        if (a.parent === b || b.parent === a) continue;
+        if (a.parentId !== null && a.parentId === b.ecsId) continue;
+        if (b.parentId !== null && b.parentId === a.ecsId) continue;
 
         // Орбитальные дроны игнорируют avoidance полностью
         if (b.droneState === "orbiting") continue;

@@ -1,21 +1,21 @@
 /**
- * BulletComponent — ECS-компонент снаряда игрока.
+ * BulletComponent — данные снаряда игрока.
  *
- * Снаряды игрока не имеют внешних живых ссылок на самих себя (у ракеты
- * есть homing.target, но это ссылка на *врага*, а не на снаряд). Поэтому
- * компонент хранит ссылку на живой мутируемый объект `Bullet`. Движение,
+ * Снаряд полностью описан базовыми компонентами-данными: Position + Velocity
+ * + Life задают геометрию/движение/время жизни, а BulletComponent хранит
+ * урон (и, для самонаводящихся ракет, соседний компонент HomingRef с id
+ * цели). Никаких живых ссылок на внешние объекты — только данные. Движение,
  * самонаведение и время жизни обрабатывает ECS-система BulletSystem.
  */
 
 import type { Component } from "@trixt0r/ecs";
-import type { Bullet } from "../../types";
 
 export class BulletComponent implements Component {
   readonly type = "Bullet";
   readonly id = "Bullet";
 
   constructor(
-    /** Живая ссылка на мутируемый объект снаряда игрока. */
-    public bullet: Bullet,
+    /** Урон снаряда при попадании. */
+    public dmg = 0,
   ) {}
 }

@@ -44,7 +44,7 @@ export class CarrierStrategy implements IEnemyStrategy {
     for (const o of context.enemies) {
       if (o === enemy || o.dead) continue;
       // Исключаем parent-child коллизии: carrier не должен избегать дроны, которые он спавнит
-      if (o.parent === enemy || enemy.parent === o) continue;
+      if (o.parentId === enemy.ecsId || enemy.parentId === o.ecsId) continue;
       const ddx = enemy.x - o.x;
       const ddy = enemy.y - o.y;
       const d2 = ddx * ddx + ddy * ddy;
@@ -121,7 +121,7 @@ export class CarrierStrategy implements IEnemyStrategy {
    */
   private triggerAttack(enemies: Enemy[], carrier: Enemy): void {
     for (const e of enemies) {
-      if (e.parent === carrier && !e.dead && e.droneState === 'orbiting') {
+      if (e.parentId === carrier.ecsId && !e.dead && e.droneState === 'orbiting') {
         e.droneState = 'attacking';
       }
     }

@@ -1,33 +1,51 @@
 /**
- * BulletSystem — ECS-система движения снарядов игрока и врагов.
+ * BulletSystem — ECS-система движения и самонаведения снарядов.
  *
- * Снаряды зарегистрированы как ECS-сущности с компонентами
- * BulletComponent (игрок) или EnemyBulletComponent (враг). Система
- * фильтрует сущности по аспектам, интегрирует движение/самонаведение,
- * обновляет время жизни и удаляет просроченные снаряды.
- *
- * Здесь же живёт самонаведение ракет: цель хранится живой ссылкой,
- * поэтому снаряд ведёт врага, а не застывшую точку.
+ * Снаряды игрока и врагов — чистые данные (Position + Velocity + Life,
+ * плюс BulletComponent / EnemyBulletComponent, BulletSweepComponent и
+ * HomingRef). Система фильтрует сущности по аспектам, интегрирует
+ * движение/самонаведение, обновляет время жизни и удаляет просроченные
+ * снаряды. Цель самонаведения — HomingRef.targetId (ссылка на сущность
+ * по id, EntityRef), а не живая ссылка на объект.
  */
 
 import { System, Aspect, type Engine } from "@trixt0r/ecs";
-import type { Bullet, Enemy } from "../types";
 import { BulletComponent } from "../ecs/components/BulletComponent";
 import { EnemyBulletComponent } from "../ecs/components/EnemyBulletComponent";
 import { EnemyComponent } from "../ecs/components/EnemyComponent";
+import { HomingRef } from "../ecs/components/HomingRef";
+import { PositionComponent } from "../ecs/components/PositionComponent";
+import { VelocityComponent } from "../ecs/components/VelocityComponent";
+import { LifeComponent } from "../ecs/components/LifeComponent";
+import { BulletSweepComponent } from "../ecs/components/BulletSweepComponent";
 import { GameEntity } from "../ecs/GameEntity";
+
+/** Позиция (и признак живости) врага как цель самонаведения. */
+interface EnemyTarget {
+  id: number | string;
+  x: number;
+  y: number;
+  dead: boolean;
+}
 
 export class BulletSystem extends System {
   private bulletAspect: Aspect | null = null;
   private enemyBulletAspect: Aspect | null = null;
+  private enemyAspect: Aspect | null = null;
 
   constructor() {
     super(2); // после движения врагов (0) и стрельбы (1), до физики
   }
 
   onAddedToEngine(engine: Engine): void {
-    this.bulletAspect = Aspect.for(engine).all(BulletComponent);
-    this.enemyBulletAspect = Aspect.for(engine).all(EnemyBulletComponent);
+    this.bulletAspect = Aspect.for(engine).all(
+      BulletComponent, PositionComponent, VelocityComponent, LifeComponent,
+    );
+    this.enemyBulletAspect = Aspect.for(engine).all(
+      EnemyBulletComponent, PositionComponent, VelocityComponent, LifeComponent,
+      BulletSweepComponent,
+    );
+    this.enemyAspect = Aspect.for(engine).all(EnemyComponent);
   }
 
   /** Обновить все снаряды (движение + самонаведение + очистка по времени жизни). */
@@ -38,14 +56,17 @@ export class BulletSystem extends System {
     if (bulletAspect) {
       const toRemove: GameEntity[] = [];
       for (const entity of [...bulletAspect.entities] as GameEntity[]) {
-        const component = entity.components.get(BulletComponent);
-        if (!component) continue;
-        const b = component.bullet;
-        this.steer(b, dt, this.collectEnemies());
-        b.x += b.vx * dt;
-        b.y += b.vy * dt;
-        b.life -= dt;
-        if (b.life <= 0) toRemove.push(entity);
+        const position = entity.components.get(PositionComponent);
+        const velocity = entity.components.get(VelocityComponent);
+        const life = entity.components.get(LifeComponent);
+        const bullet = entity.components.get(BulletComponent);
+        if (!position || !velocity || !life || !bullet) continue;
+
+        this.steer(entity, dt);
+        position.x += velocity.vx * dt;
+        position.y += velocity.vy * dt;
+        life.remaining -= dt;
+        if (life.remaining <= 0) toRemove.push(entity);
       }
       for (const entity of toRemove) this.engine?.entities.remove(entity);
     }
@@ -53,53 +74,53 @@ export class BulletSystem extends System {
     if (enemyBulletAspect) {
       const toRemove: GameEntity[] = [];
       for (const entity of [...enemyBulletAspect.entities] as GameEntity[]) {
-        const component = entity.components.get(EnemyBulletComponent);
-        if (!component) continue;
-        const b = component.bullet;
+        const position = entity.components.get(PositionComponent);
+        const velocity = entity.components.get(VelocityComponent);
+        const life = entity.components.get(LifeComponent);
+        const sweep = entity.components.get(BulletSweepComponent);
+        if (!position || !velocity || !life || !sweep) continue;
+
         // Предыдущая позиция нужна для swept-проверки пролёта мимо корабля.
-        b.px = b.x;
-        b.py = b.y;
-        b.x += b.vx * dt;
-        b.y += b.vy * dt;
-        b.life -= dt;
-        if (b.life <= 0) toRemove.push(entity);
+        sweep.px = position.x;
+        sweep.py = position.y;
+        position.x += velocity.vx * dt;
+        position.y += velocity.vy * dt;
+        life.remaining -= dt;
+        if (life.remaining <= 0) toRemove.push(entity);
       }
       for (const entity of toRemove) this.engine?.entities.remove(entity);
     }
   }
 
-  /** Собрать живых врагов из ECS-сущностей с EnemyComponent. */
-  private collectEnemies(): Enemy[] {
-    const result: Enemy[] = [];
-    if (!this.engine) return result;
-    for (const entity of this.engine.entities.elements as GameEntity[]) {
-      const component = entity.components.get(EnemyComponent);
-      if (component) result.push(component.enemy);
-    }
-    return result;
-  }
-
   /**
    * Повернуть самонаводящийся снаряд к живой цели.
    *
-   * Если текущая цель погибла, ракета перенаводится на ближайшего
-   * живого врага в пределах радиуса захвата (lockRange). Целей нет —
-   * ракета летит прямо до конца времени жизни.
+   * Если текущая цель погибла/удалена, ракета перенаводится на ближайшего
+   * живого врага в пределах радиуса захвата (lockRange). Целей нет — ракета
+   * летит прямо до конца времени жизни.
    */
-  private steer(b: Bullet, dt: number, enemies: readonly Enemy[]): void {
-    const homing = b.homing;
+  private steer(entity: GameEntity, dt: number): void {
+    const homing = entity.components.get(HomingRef);
     if (!homing) return;
 
-    let target = homing.target;
+    const position = entity.components.get(PositionComponent);
+    const velocity = entity.components.get(VelocityComponent);
+    if (!position || !velocity) return;
+
+    const targetEntity = homing.targetId !== null && homing.targetId !== undefined
+      ? this.engine?.entities.get(homing.targetId)
+      : undefined;
+    // Цель жива, только если сущность существует и враг ещё не погиб.
+    let target = this.enemyFromEntity(targetEntity);
     if (!target || target.dead) {
-      target = this.findNearest(b.x, b.y, enemies, homing.lockRange);
-      homing.target = target;
+      target = this.findNearest(position.x, position.y, homing.lockRange);
+      homing.targetId = target ? target.id : null;
     }
     if (!target) return;
 
-    const speed = Math.hypot(b.vx, b.vy) || 1;
-    const current = Math.atan2(b.vy, b.vx);
-    const desired = Math.atan2(target.y - b.y, target.x - b.x);
+    const speed = Math.hypot(velocity.vx, velocity.vy) || 1;
+    const current = Math.atan2(velocity.vy, velocity.vx);
+    const desired = Math.atan2(target.y - position.y, target.x - position.x);
 
     // Разница углов в диапазоне (-PI, PI].
     let diff = desired - current;
@@ -110,21 +131,43 @@ export class BulletSystem extends System {
     const step = Math.min(Math.abs(diff), homing.turnRate * dt);
     const next = current + Math.sign(diff) * step;
 
-    b.vx = Math.cos(next) * speed;
-    b.vy = Math.sin(next) * speed;
+    velocity.vx = Math.cos(next) * speed;
+    velocity.vy = Math.sin(next) * speed;
+  }
+
+  /** Прочитать живой объект врага из сущности-цели (пока враги — обёртки). */
+  private enemyFromEntity(entity: GameEntity | undefined): EnemyTarget | null {
+    if (!entity) return null;
+    const enemy = entity.components.get(EnemyComponent);
+    if (!enemy) return null;
+    const e = enemy.enemy;
+    return {
+      id: entity.id,
+      x: e.x,
+      y: e.y,
+      dead: e.dead,
+    };
+  }
+
+  /** Собрать живых врагов из ECS-сущностей с EnemyComponent. */
+  private collectEnemyTargets(): EnemyTarget[] {
+    const result: EnemyTarget[] = [];
+    if (!this.enemyAspect) return result;
+    for (const entity of this.enemyAspect.entities as GameEntity[]) {
+      const enemy = entity.components.get(EnemyComponent);
+      if (!enemy) continue;
+      const e = enemy.enemy;
+      result.push({ id: entity.id, x: e.x, y: e.y, dead: e.dead });
+    }
+    return result;
   }
 
   /** Ближайший живой враг в пределах радиуса захвата от точки. */
-  private findNearest(
-    x: number,
-    y: number,
-    enemies: readonly Enemy[],
-    lockRange: number
-  ): Enemy | null {
-    let nearest: Enemy | null = null;
+  private findNearest(x: number, y: number, lockRange: number): EnemyTarget | null {
+    let nearest: EnemyTarget | null = null;
     let nearestDist = lockRange;
 
-    for (const e of enemies) {
+    for (const e of this.collectEnemyTargets()) {
       if (e.dead) continue;
       const dist = Math.hypot(e.x - x, e.y - y);
       if (dist < nearestDist) {

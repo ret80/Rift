@@ -12,7 +12,7 @@ import { HunterStrategy } from './strategies/HunterStrategy';
 import { FighterStrategy } from './strategies/FighterStrategy';
 import { CruiserStrategy } from './strategies/CruiserStrategy';
 import { CarrierStrategy } from './strategies/CarrierStrategy';
-import { angleTo, smoothVelocity, TAU } from '../math';
+import { angleTo, smoothVelocity } from '../math';
 
 export class EnemyAI {
   private strategies: Map<string, IEnemyStrategy> = new Map();

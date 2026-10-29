@@ -33,7 +33,7 @@ export class DroneStrategy implements IEnemyStrategy {
     * Орбитальное движение вокруг Carrier
     */
    private updateOrbiting(enemy: Enemy, context: GameContext, dt: number): void {
-     const carrier = enemy.parent;
+     const carrier = this.findParentById(enemy, context);
      if (!carrier || carrier.dead) {
        // Carrier мёртв — переходим к атаке
        enemy.droneState = 'attacking';
@@ -106,4 +106,13 @@ export class DroneStrategy implements IEnemyStrategy {
        enemy.angle = lerpAngle(enemy.angle, movementAngle, 1 - Math.exp(-5 * dt));
      }
    }
+
+  /** Найти живого родителя (Carrier) по parentId из списка врагов контекста. */
+  private findParentById(enemy: Enemy, context: GameContext): Enemy | null {
+    if (enemy.parentId === null || enemy.parentId === undefined) return null;
+    for (const o of context.enemies) {
+      if (o.ecsId === enemy.parentId) return o;
+    }
+    return null;
+  }
 }

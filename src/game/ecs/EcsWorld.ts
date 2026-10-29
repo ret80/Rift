@@ -10,10 +10,16 @@
 import { Engine } from "@trixt0r/ecs";
 import { PickupKind, EnemyKind } from "../balance";
 import type { EventBus } from "../core/EventBus";
-import type { Enemy, Bullet, EBullet, AllyDrone, LaserBeam, Particle, Ring, Rift } from "../types";
+import type { Enemy, Bullet, EBullet, AllyDrone, LaserBeam, Particle, Ring, Rift, Pickup } from "../types";
 import type { AudioManager } from "../systems/AudioManager";
 import type { PlayerState } from "../systems/PlayerState";
-import { PickupComponent } from "./components/PickupComponent";
+import { PickupKindComponent } from "./components/PickupKindComponent";
+import { PositionComponent } from "./components/PositionComponent";
+import { VelocityComponent } from "./components/VelocityComponent";
+import { RadiusComponent } from "./components/RadiusComponent";
+import { LifeComponent } from "./components/LifeComponent";
+import { HomingRef } from "./components/HomingRef";
+import { BulletSweepComponent } from "./components/BulletSweepComponent";
 import { EnemyComponent } from "./components/EnemyComponent";
 import { BulletComponent } from "./components/BulletComponent";
 import { EnemyBulletComponent } from "./components/EnemyBulletComponent";
@@ -50,6 +56,20 @@ export interface EnemySystemDeps {
   getPlayerMotion: PlayerMotionSource;
   isCombatActive: CombatActiveSource;
   audio: AudioManager;
+}
+
+/** Детерминированный seed (0..1) из id сущности для визуальных вариаций. */
+function seedForId(id: number | string): number {
+  if (typeof id === "number") {
+    // Простой линейный конгруэнтный шаг в диапазон (0,1) — стабилен для id.
+    return ((id * 2654435761) % 1000) / 1000;
+  }
+  let h = 0;
+  for (let i = 0; i < id.length; i++) {
+    h = (h * 31 + id.charCodeAt(i)) | 0;
+  }
+  // Оборачиваем отрицательные значения hash в (0,1).
+  return ((Math.abs(h) * 2654435761) % 1000) / 1000;
 }
 
 export class EcsWorld {
@@ -108,19 +128,38 @@ export class EcsWorld {
 
   // ===== Pickup API =====
 
-  /** Заспавнить пикап как ECS-сущность с компонентом PickupComponent. */
+  /** Заспавнить пикап как ECS-сущность из базовых компонентов. */
   spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number): void {
     const entity = new GameEntity();
-    entity.components.add(new PickupComponent(kind, x, y, vx, vy));
+    entity.components.add(new PickupKindComponent(kind));
+    entity.components.add(new PositionComponent(x, y));
+    entity.components.add(new VelocityComponent(vx, vy));
+    entity.components.add(new LifeComponent(20, 20));
+    entity.components.add(new RadiusComponent(14));
     this.engine.entities.add(entity);
   }
 
   /** Производное чтиво для рендера и констант: список текущих пикапов. */
-  pickups(): PickupComponent[] {
-    const result: PickupComponent[] = [];
+  pickups(): Pickup[] {
+    const result: Pickup[] = [];
     for (const entity of this.engine.entities.elements as GameEntity[]) {
-      const pickup = entity.components.get(PickupComponent);
-      if (pickup) result.push(pickup);
+      const kind = entity.components.get(PickupKindComponent);
+      const position = entity.components.get(PositionComponent);
+      const velocity = entity.components.get(VelocityComponent);
+      const life = entity.components.get(LifeComponent);
+      const radius = entity.components.get(RadiusComponent);
+      if (kind && position && velocity && life && radius) {
+        result.push({
+          kind: kind.kind,
+          x: position.x,
+          y: position.y,
+          vx: velocity.vx,
+          vy: velocity.vy,
+          life: life.remaining,
+          seed: seedForId(entity.id),
+          r: radius.r,
+        });
+      }
     }
     return result;
   }
@@ -132,6 +171,8 @@ export class EcsWorld {
     const entity = new GameEntity();
     entity.components.add(new EnemyComponent(enemy));
     this.engine.entities.add(entity);
+    // Присваиваем EntityRef: id сущности этого врага (для parentId/ecsId сравнений).
+    enemy.ecsId = entity.id;
   }
 
   /** Производное чтиво: список живых врагов (объекты `Enemy`). */
@@ -151,59 +192,124 @@ export class EcsWorld {
 
   // ===== Bullet API =====
 
-  /** Зарегистрировать снаряд игрока как ECS-сущность. */
+  /** Реестр «объект-представление → сущность» для удаления по идентичности. */
+  private readonly bulletEntity = new WeakMap<Bullet, GameEntity>();
+  private readonly enemyBulletEntity = new WeakMap<EBullet, GameEntity>();
+  /** Стабильные объекты-представления (одна и та же ссылка между кадрами). */
+  private readonly bulletViews = new WeakMap<GameEntity, Bullet>();
+  private readonly enemyBulletViews = new WeakMap<GameEntity, EBullet>();
+
+  /** Зарегистрировать снаряд игрока как ECS-сущность из чистых данных. */
   addBullet(bullet: Bullet): void {
     const entity = new GameEntity();
-    entity.components.add(new BulletComponent(bullet));
+    entity.components.add(new BulletComponent(bullet.dmg));
+    entity.components.add(new PositionComponent(bullet.x, bullet.y));
+    entity.components.add(new VelocityComponent(bullet.vx, bullet.vy));
+    entity.components.add(new LifeComponent(bullet.life, bullet.life));
+    if (bullet.homing) {
+      entity.components.add(new HomingRef(
+        bullet.homing.target ? this.entityIdForEnemy(bullet.homing.target) : null,
+        bullet.homing.turnRate,
+        bullet.homing.lockRange,
+      ));
+    }
     this.engine.entities.add(entity);
+    this.bulletEntity.set(bullet, entity);
+    this.bulletViews.set(entity, bullet);
   }
 
-  /** Зарегистрировать вражеский снаряд как ECS-сущность. */
+  /** Зарегистрировать вражеский снаряд как ECS-сущность из чистых данных. */
   addEnemyBullet(bullet: EBullet): void {
     const entity = new GameEntity();
-    entity.components.add(new EnemyBulletComponent(bullet));
+    entity.components.add(new EnemyBulletComponent(bullet.dmg, bullet.heavy, bullet.cruiser));
+    entity.components.add(new PositionComponent(bullet.x, bullet.y));
+    entity.components.add(new VelocityComponent(bullet.vx, bullet.vy));
+    entity.components.add(new LifeComponent(bullet.life, bullet.life));
+    entity.components.add(new RadiusComponent(bullet.r));
+    entity.components.add(new BulletSweepComponent(bullet.px, bullet.py, bullet.grazed));
     this.engine.entities.add(entity);
+    this.enemyBulletEntity.set(bullet, entity);
+    this.enemyBulletViews.set(entity, bullet);
   }
 
-  /** Производное чтиво: список снарядов игрока. */
+  /** Найти id сущности врага, соответствующей данному объекту `Enemy`. */
+  private entityIdForEnemy(target: Enemy): number | string | null {
+    return target.ecsId ?? null;
+  }
+
+  /** Производное чтиво: список снарядов игрока (стабильные представления). */
   bullets(): Bullet[] {
     const result: Bullet[] = [];
     for (const entity of this.engine.entities.elements as GameEntity[]) {
-      const component = entity.components.get(BulletComponent);
-      if (component) result.push(component.bullet);
+      const bullet = entity.components.get(BulletComponent);
+      if (!bullet) continue;
+      const position = entity.components.get(PositionComponent);
+      const velocity = entity.components.get(VelocityComponent);
+      const life = entity.components.get(LifeComponent);
+      const homing = entity.components.get(HomingRef);
+      if (!position || !velocity || !life) continue;
+
+      const view = this.bulletViews.get(entity)!;
+      view.x = position.x;
+      view.y = position.y;
+      view.vx = velocity.vx;
+      view.vy = velocity.vy;
+      view.life = life.remaining;
+      view.dmg = bullet.dmg;
+      view.homing = homing ? { target: null, turnRate: homing.turnRate, lockRange: homing.lockRange } : undefined;
+      result.push(view);
     }
     return result;
   }
 
-  /** Производное чтиво: список вражеских снарядов. */
+  /** Производное чтиво: список вражеских снарядов (стабильные представления). */
   enemyBullets(): EBullet[] {
     const result: EBullet[] = [];
     for (const entity of this.engine.entities.elements as GameEntity[]) {
-      const component = entity.components.get(EnemyBulletComponent);
-      if (component) result.push(component.bullet);
+      const bullet = entity.components.get(EnemyBulletComponent);
+      if (!bullet) continue;
+      const position = entity.components.get(PositionComponent);
+      const velocity = entity.components.get(VelocityComponent);
+      const life = entity.components.get(LifeComponent);
+      const radius = entity.components.get(RadiusComponent);
+      const sweep = entity.components.get(BulletSweepComponent);
+      if (!position || !velocity || !life || !sweep) continue;
+
+      const view = this.enemyBulletViews.get(entity)!;
+      view.x = position.x;
+      view.y = position.y;
+      view.vx = velocity.vx;
+      view.vy = velocity.vy;
+      view.life = life.remaining;
+      view.dmg = bullet.dmg;
+      view.heavy = bullet.heavy;
+      view.cruiser = bullet.cruiser;
+      view.r = radius ? radius.r : 2.5;
+      view.px = sweep.px;
+      view.py = sweep.py;
+      view.grazed = sweep.grazed;
+      result.push(view);
     }
     return result;
   }
 
   /** Удалить конкретный объект снаряда игрока из ECS. */
   removeBullet(bullet: Bullet): void {
-    for (const entity of this.engine.entities.elements as GameEntity[]) {
-      const component = entity.components.get(BulletComponent);
-      if (component && component.bullet === bullet) {
-        this.engine.entities.remove(entity);
-        return;
-      }
+    const entity = this.bulletEntity.get(bullet);
+    if (entity) {
+      this.bulletEntity.delete(bullet);
+      this.bulletViews.delete(entity);
+      this.engine.entities.remove(entity);
     }
   }
 
   /** Удалить конкретный объект вражеского снаряда из ECS. */
   removeEnemyBullet(bullet: EBullet): void {
-    for (const entity of this.engine.entities.elements as GameEntity[]) {
-      const component = entity.components.get(EnemyBulletComponent);
-      if (component && component.bullet === bullet) {
-        this.engine.entities.remove(entity);
-        return;
-      }
+    const entity = this.enemyBulletEntity.get(bullet);
+    if (entity) {
+      this.enemyBulletEntity.delete(bullet);
+      this.enemyBulletViews.delete(entity);
+      this.engine.entities.remove(entity);
     }
   }
 
@@ -287,11 +393,11 @@ export class EcsWorld {
 
   // ===== Clear =====
 
-  /** Удалить все сущности только с компонентом PickupComponent. */
+  /** Удалить все сущности только с компонентом PickupKindComponent. */
   clearPickups(): void {
     const toRemove: GameEntity[] = [];
     for (const entity of this.engine.entities.elements as GameEntity[]) {
-      if (entity.components.get(PickupComponent)) toRemove.push(entity);
+      if (entity.components.get(PickupKindComponent)) toRemove.push(entity);
     }
     for (const entity of toRemove) this.engine.entities.remove(entity);
   }
@@ -302,7 +408,11 @@ export class EcsWorld {
     for (const entity of this.engine.entities.elements as GameEntity[]) {
       if (entity.components.get(EnemyComponent)) toRemove.push(entity);
     }
-    for (const entity of toRemove) this.engine.entities.remove(entity);
+    for (const entity of toRemove) {
+      const enemy = entity.components.get(EnemyComponent)?.enemy;
+      if (enemy) enemy.ecsId = null;
+      this.engine.entities.remove(entity);
+    }
   }
 
   /** Удалить все снаряды игрока (сущности с BulletComponent). */

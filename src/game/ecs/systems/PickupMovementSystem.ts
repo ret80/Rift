@@ -1,14 +1,18 @@
 /**
  * PickupMovementSystem — ECS-система движения и времени жизни пикапов.
  *
- * Оперирует сущностями с компонентом PickupComponent: интегрирует скорость,
- * притягивает бонус к игроку в радиусе магнита и удаляет просроченные
- * пикапы. Заменяет прежний массивный PickupSystem.
+ * Оперирует сущностями с компонентами Position + Velocity + Life (и
+ * маркером PickupKindComponent): интегрирует скорость, притягивает бонус
+ * к игроку в радиусе магнита и удаляет просроченные пикапы. Логика — по
+ * компонентам через Aspect, без ссылок на внешний объект Pickup.
  */
 
 import { System, Aspect, type Engine } from "@trixt0r/ecs";
 import { ZONE_PICKUP_MAGNET } from "../../balance";
-import { PickupComponent } from "../components/PickupComponent";
+import { PositionComponent } from "../components/PositionComponent";
+import { VelocityComponent } from "../components/VelocityComponent";
+import { LifeComponent } from "../components/LifeComponent";
+import { PickupKindComponent } from "../components/PickupKindComponent";
 import { GameEntity } from "../GameEntity";
 
 /** Источник позиции игрока для магнита. */
@@ -22,7 +26,7 @@ export class PickupMovementSystem extends System {
   }
 
   onAddedToEngine(engine: Engine): void {
-    this.aspect = Aspect.for(engine).all(PickupComponent);
+    this.aspect = Aspect.for(engine).all(PickupKindComponent, PositionComponent, VelocityComponent, LifeComponent);
   }
 
   process(dt: number): void {
@@ -33,25 +37,27 @@ export class PickupMovementSystem extends System {
     const toRemove: GameEntity[] = [];
 
     for (const entity of [...aspect.entities] as GameEntity[]) {
-      const pickup = entity.components.get(PickupComponent);
-      if (!pickup) continue;
+      const position = entity.components.get(PositionComponent);
+      const velocity = entity.components.get(VelocityComponent);
+      const life = entity.components.get(LifeComponent);
+      if (!position || !velocity || !life) continue;
 
       // Движение дрифтом
-      pickup.x += pickup.vx * dt;
-      pickup.y += pickup.vy * dt;
+      position.x += velocity.vx * dt;
+      position.y += velocity.vy * dt;
 
       // Магнит к игроку: чем ближе, тем сильнее
-      const dx = player.x - pickup.x;
-      const dy = player.y - pickup.y;
+      const dx = player.x - position.x;
+      const dy = player.y - position.y;
       const dist = Math.hypot(dx, dy);
       if (dist < ZONE_PICKUP_MAGNET && dist > 2) {
         const fraction = Math.pow(1 - dist / ZONE_PICKUP_MAGNET, 0.5) * 25;
-        pickup.x += dx * fraction * dt;
-        pickup.y += dy * fraction * dt;
+        position.x += dx * fraction * dt;
+        position.y += dy * fraction * dt;
       }
 
-      pickup.life -= dt;
-      if (pickup.life <= 0) {
+      life.remaining -= dt;
+      if (life.remaining <= 0) {
         toRemove.push(entity);
       }
     }
