@@ -5,7 +5,7 @@
  * скорость/жизнь хранятся в базовых компонентах (PositionComponent,
  * VelocityComponent, LifeComponent), а здесь — только цвет и размер.
  * Симуляция (дрейф + затухание) обновляется ECS-системой; `EcsWorld`
- * предоставляет стабильный cached-view объекта `Particle` для рендера.
+ * предоставляет read-only снапшот объекта `Particle` (DTO на лету) для рендера.
  */
 
 import type { Component } from "@trixt0r/ecs";

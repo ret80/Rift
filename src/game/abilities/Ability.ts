@@ -33,6 +33,8 @@ export interface AbilityContext {
   movePlayerTo(x: number, y: number): void;
   /** Убить врага — начислить очки и выбросить дроп. */
   killEnemy(enemy: Enemy): void;
+  /** Нанести урон врагу через единый канонический путь (ECS damageEnemy). */
+  damageEnemy(enemy: Enemy, dmg: number): void;
   /** Система эффектов — искры, вспышки. */
   fx: Fx;
 }

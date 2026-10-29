@@ -12,6 +12,7 @@
  * не хранятся — их применяет ApplyPickupSystem, а HUD мигает по событиям.
  */
 
+import { System } from "@trixt0r/ecs";
 import type { PickupKind } from "../../balance";
 import type { LoadoutSlotData } from "../LoadoutTypes";
 import type { PlayerBonuses } from "./Bonus";
@@ -21,15 +22,16 @@ import {
   type BonusRegistryData,
 } from "./BonusRegistry";
 
-export class BonusManager {
+export class BonusManager extends System {
   private bonuses: BonusRegistryData;
 
   constructor() {
+    super(-15); // тик временных бонусов — до игровых систем
     this.bonuses = createBonusRegistry();
   }
 
-  /** Тик всех временных бонусов. */
-  update(dt: number): void {
+  /** Тик всех временных бонусов (внутри engine.run(dt)). */
+  process(dt: number): void {
     for (const bonus of Object.values(this.bonuses)) {
       bonus.update(dt);
     }

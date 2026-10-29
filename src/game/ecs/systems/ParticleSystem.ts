@@ -4,8 +4,8 @@
  * Оперирует сущностями с компонентами Position + Velocity + Life (и маркером
  * ParticleComponent): интегрирует скорость, применяет вязкое затухание и
  * удаляет просроченные частицы. Логика — по компонентам через Aspect, без
- * ссылок на внешний объект Particle. `EcsWorld.particles()` отдаёт стабильный
- * cached-view для рендера, не мутируя его здесь.
+ * ссылок на внешний объект Particle. `EcsWorld.particles()` отдаёт read-only
+ * снапшот (DTO на лету) для рендера, не мутируя его здесь.
  */
 
 import { System, Aspect, type Engine } from "@trixt0r/ecs";

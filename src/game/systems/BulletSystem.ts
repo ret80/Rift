@@ -135,16 +135,16 @@ export class BulletSystem extends System {
     velocity.vy = Math.sin(next) * speed;
   }
 
-  /** Прочитать цель (позицию и живость) из сущности-врага по компонентам. */
+  /** Прочитать цель (позицию и живость) из сущности-врага по компонентам.
+   *  Позиция врага живёт в EnemyComponent (x/y), а не в PositionComponent. */
   private enemyFromEntity(entity: GameEntity | undefined): EnemyTarget | null {
     if (!entity) return null;
-    const position = entity.components.get(PositionComponent);
     const enemy = entity.components.get(EnemyComponent);
-    if (!position || !enemy) return null;
+    if (!enemy) return null;
     return {
       id: entity.id,
-      x: position.x,
-      y: position.y,
+      x: enemy.x,
+      y: enemy.y,
       dead: enemy.dead,
     };
   }

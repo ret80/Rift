@@ -269,8 +269,8 @@ export class MenuScene {
 
       const hp = kind === "large" ? 140 : kind === "medium" ? 60 : 22;
 
-      this.asteroidField.asteroidList.push({
-        id: `menu-${i}`,
+      this.asteroidField.spawn({
+        key: `menu-${i}`,
         kind,
         x,
         y,
@@ -283,6 +283,7 @@ export class MenuScene {
         hp,
         maxHp: hp,
         mass: massForRadius(r),
+        dead: false,
       });
     }
   }

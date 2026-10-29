@@ -1,6 +1,11 @@
 /* Infinite asteroid belt, chunk-generated like the starfield.
    Big rocks always split, mediums sometimes do, smalls never.
-   The wave zone repels rocks. */
+   The wave zone repels rocks.
+
+   Астероиды — ECS-сущности с AsteroidComponent (единственный источник правды).
+   Пояс (этот класс) генерирует чанки и спавнит астероиды в engine; физика,
+   коллизии, зона и рендер читают/пишут компоненты. Позицию астероида может
+   интегрировать физический движок (Planck) — тогда игровой код не двигает её. */
 
 import type { IRenderer } from "./render/index";
 import type { AudioManager } from "./systems/AudioManager";
@@ -10,22 +15,8 @@ import { softResolveCollision } from "./systems/EntityCollision";
 import { TAU, clamp, mulberry32, rgba } from "./math";
 import type { AsteroidKind, PickupKind } from "./balance";
 import { massForRadius } from "./balance";
-
-export interface Asteroid {
-  id: string;
-  kind: AsteroidKind;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  r: number;
-  angle: number;
-  spin: number;
-  verts: number[];
-  hp: number;
-  maxHp: number;
-  mass: number;
-}
+import type { EcsWorld } from "./ecs";
+import { AsteroidComponent } from "./ecs/components/AsteroidComponent";
 
 export interface AsteroidEnv {
   camX: number;
@@ -45,6 +36,8 @@ export interface AsteroidHooks {
   spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number): void;
   fx: Fx;
   audio: AudioManager;
+  /** ECS-мир: пояс спавнит астероиды сюда как сущности. */
+  ecs: EcsWorld;
 }
 
 const CHUNK = 1000;
@@ -63,21 +56,21 @@ function astDef(kind: AsteroidKind) {
 }
 
 function makeAst(
-  id: string,
+  key: string,
   kind: AsteroidKind,
   x: number,
   y: number,
   rnd: () => number,
   vx: number,
   vy: number
-): Asteroid {
+): AsteroidComponent {
   const d = astDef(kind);
   const r = d.rMin + rnd() * (d.rMax - d.rMin);
   const verts: number[] = [];
   const n = 9 + Math.floor(rnd() * 3);
   for (let i = 0; i < n; i++) verts.push(0.72 + rnd() * 0.3);
-  return {
-    id,
+  return new AsteroidComponent({
+    key,
     kind,
     x,
     y,
@@ -90,13 +83,17 @@ function makeAst(
     hp: d.hp,
     maxHp: d.hp,
     mass: massForRadius(r),
-  };
+    dead: false,
+  });
 }
 
 export class AsteroidField {
-  readonly asteroidList: Asteroid[] = [];
+  /** Живые астероиды пояса — читаются из ECS (те же компоненты, что физика/рендер). */
+  get asteroidList(): AsteroidComponent[] {
+    return this.h.ecs.asteroids();
+  }
 
-  private chunks = new Map<string, Asteroid[]>();
+  private chunks = new Map<string, AsteroidComponent[]>();
   private gone = new Set<string>();
   private boundsKey = "";
   private fragSeq = 0;
@@ -110,10 +107,10 @@ export class AsteroidField {
     }
   }
 
-  private genChunk(cx: number, cy: number): Asteroid[] {
+  private genChunk(cx: number, cy: number): AsteroidComponent[] {
     const seed = (Math.imul(cx, 91733) ^ Math.imul(cy, 46511) ^ 0x5eed) >>> 0;
     const rnd = mulberry32(seed || 0x9e3779b9);
-    const out: Asteroid[] = [];
+    const out: AsteroidComponent[] = [];
     const count = 9 + Math.floor(rnd() * 5);
     for (let i = 0; i < count; i++) {
       const roll = rnd();
@@ -154,17 +151,33 @@ export class AsteroidField {
     }
 
     // spawn any seeded asteroids that are not alive or destroyed
-    const alive = new Set<string>();
-    for (const a of this.asteroidList) alive.add(a.id);
+    const alive = new Map<string, AsteroidComponent>();
+    for (const a of this.asteroidList) alive.set(a.key, a);
     for (const chunk of this.chunks.values()) {
       for (const seedAst of chunk) {
-        if (!alive.has(seedAst.id) && !this.gone.has(seedAst.id)) {
-          this.asteroidList.push(seedAst);
-          alive.add(seedAst.id);
+        if (!alive.has(seedAst.key) && !this.gone.has(seedAst.key)) {
+          this.h.ecs.spawnAsteroid({
+            key: seedAst.key,
+            kind: seedAst.kind,
+            x: seedAst.x,
+            y: seedAst.y,
+            vx: seedAst.vx,
+            vy: seedAst.vy,
+            r: seedAst.r,
+            angle: seedAst.angle,
+            spin: seedAst.spin,
+            verts: seedAst.verts,
+            hp: seedAst.hp,
+            maxHp: seedAst.maxHp,
+            mass: seedAst.mass,
+            dead: false,
+          });
+          alive.set(seedAst.key, seedAst);
         }
       }
     }
 
+    // cull anything far behind the camera; integrate pos if custom physics
     for (let i = this.asteroidList.length - 1; i >= 0; i--) {
       const a = this.asteroidList[i];
       // В режиме Planck позицию астероида интегрирует физический движок.
@@ -191,7 +204,7 @@ export class AsteroidField {
 
       // cull anything far behind the camera
       if (Math.hypot(a.x - env.camX, a.y - env.camY) > CULL_DIST) {
-        this.asteroidList.splice(i, 1);
+        this.removeByKey(a.key);
       }
     }
 
@@ -199,12 +212,13 @@ export class AsteroidField {
     // В режиме Planck контакты астероидов решает физический движок
     // (тела зарегистрированы в PhysicsSystem), поэтому дублирование
     // убираем, чтобы не накладывать два импульса.
+    const astList = this.asteroidList;
     if (!env.physicsResolves) {
-      const astCount = this.asteroidList.length;
+      const astCount = astList.length;
       for (let i = 0; i < astCount; i++) {
-        const a1 = this.asteroidList[i];
+        const a1 = astList[i];
         for (let j = i + 1; j < astCount; j++) {
-          const a2 = this.asteroidList[j];
+          const a2 = astList[j];
           const dx = a2.x - a1.x;
           const dy = a2.y - a1.y;
           const dist = Math.hypot(dx, dy);
@@ -224,22 +238,31 @@ export class AsteroidField {
         }
       }
     }
-    if (this.asteroidList.length > CAP) this.asteroidList.length = CAP;
+    if (astList.length > CAP) {
+      for (let i = CAP; i < astList.length; i++) this.removeByKey(astList[i].key);
+    }
   }
 
   /** Bullet hit: damages the rock at `index`, destroying it at 0 hp. */
   damageAt(index: number, dmg: number, hx: number, hy: number) {
     const a = this.asteroidList[index];
+    if (!a) return;
     a.hp -= dmg;
     this.h.fx.burst(hx, hy, 3, "#b9c4d6", 100, 0.2);
     if (a.hp <= 0) {
-      this.asteroidList.splice(index, 1);
       this.destroy(a);
     }
   }
 
-  private destroy(a: Asteroid) {
-    this.gone.add(a.id);
+  /** Впрыснуть готовый астероид в пояс (напр. меню-сценой) как ECS-сущность. */
+  spawn(state: Partial<AsteroidComponent>): void {
+    this.h.ecs.spawnAsteroid(state);
+  }
+
+  /** Снять астероид с ECS-мира и пометить как уничтоженный (осколки/счёт/звук). */
+  private destroy(a: AsteroidComponent) {
+    this.gone.add(a.key);
+    this.removeByKey(a.key);
     const d = astDef(a.kind);
     this.h.addScore(d.score);
     this.h.fx.burst(
@@ -266,7 +289,12 @@ export class AsteroidField {
         a.vx + Math.cos(ang) * (40 + Math.random() * 60),
         a.vy + Math.sin(ang) * (40 + Math.random() * 60)
       );
-      this.asteroidList.push(frag);
+      this.h.ecs.spawnAsteroid({
+        key: frag.key, kind: frag.kind, x: frag.x, y: frag.y,
+        vx: frag.vx, vy: frag.vy, r: frag.r, angle: frag.angle,
+        spin: frag.spin, verts: frag.verts, hp: frag.hp, maxHp: frag.maxHp,
+        mass: frag.mass, dead: false,
+      });
     };
 
     if (a.kind === "large") {
@@ -289,9 +317,16 @@ export class AsteroidField {
     }
   }
 
+  /** Удалить астероид по строковой идентичности пояса. */
+  private removeByKey(key: string): void {
+    this.h.ecs.removeAsteroidByKey(key);
+  }
+
   draw(R: IRenderer, time: number) {
     for (const a of this.asteroidList) {
+      if (a.dead) continue;
       const n = a.verts.length;
+      if (n === 0) continue;
       const pts: Array<[number, number]> = [];
       for (let i = 0; i < n; i++) {
         const ang = a.angle + (i / n) * TAU;
@@ -315,14 +350,15 @@ export class AsteroidField {
 
   /** Soft reset (back to menu): the belt regrows from its chunks. */
   reset() {
-    this.asteroidList.length = 0;
+    this.h.ecs.clearAsteroids();
   }
 
   /** Hard reset (new run): wipe chunks and the destroyed ledger too. */
   hardReset() {
-    this.asteroidList.length = 0;
+    this.h.ecs.clearAsteroids();
     this.chunks.clear();
     this.gone.clear();
     this.boundsKey = "";
+    this.fragSeq = 0;
   }
 }

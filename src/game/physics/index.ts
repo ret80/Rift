@@ -25,7 +25,6 @@ export { PhysicsSystem } from "./PhysicsSystem";
 export { CustomCurrentPhysics } from "./CustomCurrentPhysics";
 export { PlanckPhysics } from "./PlanckPhysics";
 export { P2Physics } from "./P2Physics";
-export { playerEntity, enemyEntity, asteroidEntity, pickupEntity } from "./entities";
 
 /** Идентификаторы физических движков, доступных в игре. */
 export type PhysicsEngineId = "planck" | "custom" | "p2";

@@ -4,6 +4,7 @@
  * and announcing new enemy types.
  */
 
+import { System } from "@trixt0r/ecs";
 import { t, type TKey } from "../../i18n";
 import {
     C,
@@ -65,9 +66,13 @@ const RIFT_ANGLE_STEP = 0.4;
 /** Количество проб по радиусу при поиске точки разлома */
 const RIFT_RADIUS_PROBES = 4;
 
-export class SpawnSystem {
+/** Источник зависимостей спавна (из GameContext) для engine.run(dt). */
+export type SpawnDepsSource = () => SpawnDependencies;
+
+export class SpawnSystem extends System {
   private eventBus: EventBus;
   private riftField: RiftField;
+  private getDeps: SpawnDepsSource;
   private announcedKinds = new Set<EnemyKind>();
   private enabledEnemies: EnemyKind[] | null = null;
 
@@ -91,9 +96,17 @@ export class SpawnSystem {
   constructor(config: {
     eventBus: EventBus;
     riftField: RiftField;
+    getDeps: SpawnDepsSource;
   }) {
+    super(8); // после коллизий (7), до waveFlow/зоны (8/9) — волны/зона обновляются вовремя
     this.eventBus = config.eventBus;
     this.riftField = config.riftField;
+    this.getDeps = config.getDeps;
+  }
+
+  /** Тик спавна внутри engine.run(dt). */
+  process(dt: number): void {
+    this.update(dt, this.getDeps());
   }
 
   /**

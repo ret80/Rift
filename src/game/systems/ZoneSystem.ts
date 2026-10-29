@@ -2,17 +2,15 @@
  * ZoneSystem — централизованное управление зоной.
  * Отвечает за:
  *  1. Clamp игрока к границе зоны (отталкивание обратно)
- *  2. Clamp врагов к границе зоны (удержание внутри)
- *  3. Применение ограничений зоны для астероидов и врагов
+ *  2. Применение ограничений зоны для астероидов (выталкивание наружу)
+ *
+ * Кламп/ограничение врагов вынесено в ECS-систему ZoneClampSystem,
+ * которая исполняется после шага физики (см. EcsWorld.clampEnemiesToZone).
  */
 
-import {
-  ZONE_ASTEROID_PUSH_FORCE,
-  ZONE_ENEMY_PUSH_FORCE_COEFF,
-  ZONE_ENEMY_PUSH_FORCE_MAX,
-} from "../balance";
+import { System } from "@trixt0r/ecs";
+import { ZONE_ASTEROID_PUSH_FORCE } from "../balance";
 import type { ZoneData } from "../core/ZoneTypes";
-import type { Enemy } from "../types";
 
 /* ============================== Types ============================== */
 
@@ -21,24 +19,31 @@ export interface ZoneSystemConfig {
   getZoneState: () => ZoneData;
   /** mutable player position+velocity for clamp */
   getPlayerRef: () => { x: number; y: number; vx: number; vy: number };
-  /** reference to enemy list for constraints */
-  getEnemyList: () => Enemy[];
   /** reference to asteroids for constraints */
   getAsteroids: () => Array<{ x: number; y: number; r: number; vx: number; vy: number }>;
 }
 
 /* ============================== ZoneSystem ============================== */
 
-export class ZoneSystem {
+export class ZoneSystem extends System {
   private config: ZoneSystemConfig;
 
   constructor(config: ZoneSystemConfig) {
+    super(10); // после waveFlow (9), до ZoneClamp (11)
     this.config = config;
   }
 
   /**
-   * Обновить все аспекты зоны: clamp, ограничения.
-   * Вызывается каждый кадр во время active/cleared состояний.
+   * Обновить аспекты зоны, относящиеся к игроку и астероидам.
+   * Кламп врагов вынесен в ECS-систему ZoneClampSystem (см. EcsWorld.
+   * clampEnemiesToZone) — он исполняется после шага физики.
+   */
+  process(dt: number): void {
+    this.update(dt);
+  }
+
+  /**
+   * Обновить аспекты зоны, относящиеся к игроку и астероидам.
    */
   update(dt: number): void {
     const zone = this.config.getZoneState();
@@ -49,10 +54,7 @@ export class ZoneSystem {
     // Clamp player to zone boundary
     this.clampPlayer(zone);
 
-    // Clamp enemies to zone boundary
-    this.clampEnemies(zone);
-
-    // Apply zone constraints (asteroids out, enemies in)
+    // Apply zone constraints (asteroids out)
     this.applyZoneConstraints(dt, zone);
   }
 
@@ -87,45 +89,12 @@ export class ZoneSystem {
     }
   }
 
-  /**
-   * Clamp all enemies to zone boundary.
-   * Pushes enemies back inside if outside, reflects outward velocity.
-   */
-  clampEnemies(zone: ZoneData): void {
-    const enemies = this.config.getEnemyList();
-
-    for (const enemy of enemies) {
-      if (enemy.dead) continue;
-
-      const dx = enemy.x - zone.x;
-      const dy = enemy.y - zone.y;
-      const dist = Math.hypot(dx, dy);
-      const limit = zone.radius - (enemy.r || 15);
-
-      if (dist > limit) {
-        const angle = Math.atan2(dy, dx);
-        // Hard position reset to boundary
-        enemy.x = zone.x + Math.cos(angle) * limit;
-        enemy.y = zone.y + Math.sin(angle) * limit;
-
-        // Reflect velocity
-        const nx = Math.cos(angle);
-        const ny = Math.sin(angle);
-        const dot = enemy.vx * nx + enemy.vy * ny;
-        if (dot > 0) {
-          enemy.vx -= 2 * dot * nx;
-          enemy.vy -= 2 * dot * ny;
-        }
-      }
-    }
-  }
-
   // ============================== Constraints ==============================
 
   /**
    * Apply zone constraints:
    *  - Asteroids: push OUT of zone if inside boundary
-   *  - Enemies: push IN to zone if outside boundary
+   *  - Enemies: handled in ZoneClampSystem (ECS) after physics
    */
   applyZoneConstraints(dt: number, zone: ZoneData): void {
     const zoneRadius = zone.radius;
@@ -146,29 +115,6 @@ export class ZoneSystem {
           (zoneRadius - asteroid.r * 0.5 - dist) * ZONE_ASTEROID_PUSH_FORCE;
         asteroid.vx += (adx * pushDir) * pushForce;
         asteroid.vy += (ady * pushDir) * pushForce;
-      }
-    }
-
-    // Constrain enemies - keep them inside the zone
-    const enemies = this.config.getEnemyList();
-    for (const enemy of enemies) {
-      if (enemy.dead) continue;
-
-      const edx = enemy.x - zoneCenterX;
-      const edy = enemy.y - zoneCenterY;
-      const dist = Math.hypot(edx, edy);
-      const enemyR = enemy.r || 15;
-
-      // If enemy is outside zone boundary, push it back inside
-      if (dist > zoneRadius - enemyR) {
-        const pushDir = dist > 0.01 ? 1 / dist : 0;
-        const penetration = dist - (zoneRadius - enemyR);
-        const pushForce = Math.min(
-          penetration * ZONE_ENEMY_PUSH_FORCE_COEFF,
-          ZONE_ENEMY_PUSH_FORCE_MAX
-        );
-        enemy.vx -= (edx * pushDir) * pushForce * dt;
-        enemy.vy -= (edy * pushDir) * pushForce * dt;
       }
     }
   }

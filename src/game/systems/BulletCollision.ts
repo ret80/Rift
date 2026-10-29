@@ -39,16 +39,23 @@ function bulletHits(bx: number, by: number, target: Collidable): boolean {
 
 /**
  * Check player bullets against enemies and asteroids.
- * Returns indices of bullets to remove.
+ * Детектирует попадания, но НЕ мутирует врага/астероид — урон/смерть
+ * применяет вызывающая сторона через единый канонический путь (ecs.damageEnemy).
+ * Returns bullet indices and which enemy each hit bullet struck.
  */
+export interface BulletEnemyHit {
+  bulletIndex: number;
+  /** EntityRef-идентификатор задетого врага (или null, если это астероид). */
+  enemyId: number | string | null;
+}
+
 export function checkBulletCollisions(
-  eventBus: EventBus,
   bullets: Bullet[],
   enemies: Enemy[],
-  asteroids: Array<{ x: number; y: number; r: number; dead?: boolean }>,
+  asteroids: Array<{ x: number; y: number; r: number; dead?: boolean; key?: string }>,
   damageAsteroidFn: (index: number, dmg: number, vx: number, vy: number, x: number, y: number) => void
-): Set<number> {
-  const toRemove = new Set<number>();
+): BulletEnemyHit[] {
+  const hits: BulletEnemyHit[] = [];
 
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i];
@@ -59,21 +66,8 @@ export function checkBulletCollisions(
       if (e.dead) continue;
 
       if (bulletHits(b.x, b.y, { x: e.x, y: e.y, r: e.r })) {
-        e.hp -= b.dmg;
-        e.flash = 1;
-        e.hitCd = 0.15;
+        hits.push({ bulletIndex: i, enemyId: e.ecsId ?? null });
         bulletHit = true;
-
-        if (e.hp <= 0) {
-          e.dead = true;
-          eventBus.publish('enemy_killed', {
-            score: e.score,
-            kind: e.kind,
-            x: e.x,
-            y: e.y,
-            seed: e.seed,
-          });
-        }
         break;
       }
     }
@@ -85,18 +79,15 @@ export function checkBulletCollisions(
         if (a.dead) continue;
         if (bulletHits(b.x, b.y, { x: a.x, y: a.y, r: a.r })) {
           bulletHit = true;
+          hits.push({ bulletIndex: i, enemyId: null });
           damageAsteroidFn(ai, b.dmg, b.vx, b.vy, a.x, a.y);
           break;
         }
       }
     }
-
-    if (bulletHit) {
-      toRemove.add(i);
-    }
   }
 
-  return toRemove;
+  return hits;
 }
 
 /**

@@ -19,10 +19,12 @@ export interface PickupRenderState {
 }
 
 /**
- * Строит render-state из raw-массива пикапов.
+ * Строит render-state из пикапов.
+ * PickupRenderState — read-only проекция данных пикапа (компонентов);
+ * каст-моста из ECS не требуется.
  */
-export function buildPickupState(pickups: unknown[]): PickupRenderState[] {
-  return pickups as unknown as PickupRenderState[];
+export function buildPickupState(pickups: PickupRenderState[]): PickupRenderState[] {
+  return pickups;
 }
 
 /** Цвет пикапа по его виду — из каталога. */

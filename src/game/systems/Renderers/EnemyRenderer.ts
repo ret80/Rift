@@ -33,15 +33,16 @@ export interface EnemyRenderState {
   dead: boolean;
   droneState?: 'orbiting' | 'attacking' | 'none' | 'accumulating' | 'waiting';
   orbitRadius?: number;
-  parent: EnemyRenderState | null;
+  parent?: EnemyRenderState | null;
 }
 
 /**
- * Строит render-state из raw-массива врагов.
- * EnemyRenderState структурно идентичен Enemy — просто приведение типов.
+ * Строит render-state из врагов.
+ * EnemyRenderState — read-only проекция EnemyComponent (структурно совместим),
+ * которая нужна только рендеру; каст-моста из ECS не требуется.
  */
-export function buildEnemyState(enemies: unknown[]): EnemyRenderState[] {
-  return enemies as unknown as EnemyRenderState[];
+export function buildEnemyState(enemies: EnemyRenderState[]): EnemyRenderState[] {
+  return enemies;
 }
 
 export function renderEnemies(

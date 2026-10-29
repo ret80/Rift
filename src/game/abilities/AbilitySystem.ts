@@ -11,6 +11,7 @@
  * через AbilityWorld — набор провайдеров и колбэков.
  */
 
+import { System } from "@trixt0r/ecs";
 import type { LoadoutSlotData } from "../loadout/LoadoutTypes";
 import type { Enemy } from "../types";
 import type { AbilityContext, AbilityId } from "./Ability";
@@ -31,9 +32,11 @@ export interface AbilityWorld {
   getEnemies(): readonly Enemy[];
   /** Убить врага — начислить очки и выбросить дроп. */
   killEnemy(enemy: Enemy): void;
+  /** Нанести урон врагу через единый канонический путь (ECS damageEnemy). */
+  damageEnemy(enemy: Enemy, dmg: number): void;
 }
 
-export class AbilitySystem {
+export class AbilitySystem extends System {
   private abilities: AbilityRegistryData;
   private world: AbilityWorld;
   private input: InputManager;
@@ -45,6 +48,7 @@ export class AbilitySystem {
     world: AbilityWorld,
     fx: AbilityContext["fx"]
   ) {
+    super(-8); // кулдауны способностей — до игровых систем (как shield/bonus)
     this.input = input;
     this.world = world;
     this.fx = fx;
@@ -52,7 +56,7 @@ export class AbilitySystem {
   }
 
   /** Тик: кулдауны способностей и активация по клавише. */
-  update(dt: number): void {
+  process(dt: number): void {
     for (const ability of Object.values(this.abilities)) {
       ability.update(dt);
     }
@@ -99,6 +103,7 @@ export class AbilitySystem {
       enemies: this.world.getEnemies(),
       movePlayerTo: (x, y) => this.world.movePlayerTo(x, y),
       killEnemy: (e) => this.world.killEnemy(e),
+      damageEnemy: (e, dmg) => this.world.damageEnemy(e, dmg),
       fx: this.fx,
     };
   }

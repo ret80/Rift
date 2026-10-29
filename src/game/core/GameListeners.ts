@@ -8,7 +8,6 @@
 import { waveTotalFor } from "../balance";
 import type { PickupKind } from "../balance";
 import type { GameContext } from "./GameContext";
-import type { EnemyFiredPayload } from "./EventBus";
 
 export class GameListeners {
   private unsubscribers: Array<() => void> = [];
@@ -64,24 +63,6 @@ export class GameListeners {
     this.unsubscribers.push(
       bus.subscribe("pickup_collected", (event) => {
         this.ctx.applyPickupSystem.apply(event.payload.kind as PickupKind);
-      }),
-    );
-
-    // Вражеский выстрел: спавн пули со смещением от дула
-    this.unsubscribers.push(
-      bus.subscribe("enemy_fired", (event) => {
-        const data = event.payload as EnemyFiredPayload;
-        const heavy = data.cruiser || data.heavy;
-        this.ctx.entityPool.spawnEnemyBullet(
-          data.x + Math.cos(data.angle) * 14,
-          data.y + Math.sin(data.angle) * 14,
-          Math.cos(data.angle) * data.boltSpeed,
-          Math.sin(data.angle) * data.boltSpeed,
-          data.boltLife,
-          data.boltDmg,
-          heavy,
-          data.cruiser,
-        );
       }),
     );
   }

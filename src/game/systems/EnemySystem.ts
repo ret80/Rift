@@ -92,8 +92,8 @@ export class EnemySystem extends System {
 
     // AI movement via strategy pattern (стратегии мутируют компоненты).
     const enemyList = entities.map((e) => e.c);
-    this.context.enemies = enemyList as unknown as Enemy[];
-    this.ai.updateAI(enemyList as unknown as Enemy[], this.context, dt);
+    this.context.enemies = enemyList;
+    this.ai.updateAI(enemyList, this.context, dt);
 
     // Apply velocity and update state
     for (let i = 0; i < entities.length; i++) {
@@ -120,7 +120,7 @@ export class EnemySystem extends System {
       const droneDef = this.getEnemyDef(EnemyKind.Drone);
       const drone = this.createEnemy(EnemyKind.Drone, spawn.x, spawn.y, droneDef, playerPos, null);
       // Set parent to carrier for proper tracking
-      const carrier = this.findCarrierForDrone(enemyList as Enemy[], spawn);
+      const carrier = this.findCarrierForDrone(enemyList, spawn);
       if (carrier) {
         drone.parentId = carrier.ecsId ?? null;
         // Дрон начинается на орбите вокруг Carrier
@@ -132,7 +132,7 @@ export class EnemySystem extends System {
     }
 
     // Simple collision avoidance between all enemies
-    this.applyAvoidance(enemyList as Enemy[]);
+    this.applyAvoidance(enemyList);
   }
 
   /** Собрать сущности с EnemyComponent. */

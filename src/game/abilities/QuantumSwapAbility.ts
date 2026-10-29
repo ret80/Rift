@@ -78,10 +78,7 @@ export class QuantumSwapAbility implements Ability {
       if (e.dead || e === target) continue;
       const dist = Math.hypot(e.x - targetX, e.y - targetY);
       if (dist > QUANTUM_SWAP_BLAST_RADIUS + e.r) continue;
-      e.hp -= QUANTUM_SWAP_BLAST_DAMAGE;
-      e.flash = 1;
-      e.hitCd = 0.15;
-      if (e.hp <= 0) ctx.killEnemy(e);
+      ctx.damageEnemy(e, QUANTUM_SWAP_BLAST_DAMAGE);
     }
 
     this.cd = QUANTUM_SWAP_COOLDOWN;

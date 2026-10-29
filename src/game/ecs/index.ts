@@ -15,12 +15,9 @@ export { PositionComponent } from "./components/PositionComponent";
 export { VelocityComponent } from "./components/VelocityComponent";
 export { RadiusComponent } from "./components/RadiusComponent";
 export { LifeComponent } from "./components/LifeComponent";
-export { HealthComponent } from "./components/HealthComponent";
-export { TransformComponent } from "./components/TransformComponent";
 export { HomingRef } from "./components/HomingRef";
 export { resolveEntityId, type EntityId } from "./ECSUtils";
 
-export { PickupComponent } from "./components/PickupComponent";
 export { EnemyComponent } from "./components/EnemyComponent";
 export { BulletComponent } from "./components/BulletComponent";
 export { EnemyBulletComponent } from "./components/EnemyBulletComponent";

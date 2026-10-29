@@ -46,19 +46,6 @@ export interface DronePushPlayerPayload {
   vy: number;
 }
 
-export interface EnemyFiredPayload {
-  x: number;
-  y: number;
-  kind: string;
-  angle: number;
-  r: number;
-  boltDmg: number;
-  heavy: boolean;
-  cruiser: boolean;
-  boltSpeed: number;
-  boltLife: number;
-}
-
 export interface BulletGrazedPayload {
   /** Сколько снарядов засчитано как касание за кадр. */
   count: number;
@@ -84,7 +71,6 @@ export type GameEventMap = {
   game_over: Record<string, never>;
   drone_hit: DroneHitPayload;
   drone_push_player: DronePushPlayerPayload;
-  enemy_fired: EnemyFiredPayload;
   bullet_grazed: BulletGrazedPayload;
   score_added: ScoreAddedPayload;
 };

@@ -7,18 +7,19 @@
  * остальные домены (пули, дроны, игрок) переводятся на ECS.
  */
 
-import { Engine } from "@trixt0r/ecs";
+import { Engine, type Component, type ComponentClass } from "@trixt0r/ecs";
 import { PickupKind, EnemyKind } from "../balance";
 import type { EventBus } from "../core/EventBus";
 import type { Enemy, Bullet, EBullet, AllyDrone, LaserBeam, Particle, Ring, Rift, Pickup } from "../types";
 import type { AudioManager } from "../systems/AudioManager";
 import type { PlayerState } from "../systems/PlayerState";
+import { createPlayerState } from "../systems/PlayerState";
 import { PickupKindComponent } from "./components/PickupKindComponent";
+import { AsteroidComponent } from "./components/AsteroidComponent";
 import { PositionComponent } from "./components/PositionComponent";
 import { VelocityComponent } from "./components/VelocityComponent";
 import { RadiusComponent } from "./components/RadiusComponent";
 import { LifeComponent } from "./components/LifeComponent";
-import { HealthComponent } from "./components/HealthComponent";
 import { HomingRef } from "./components/HomingRef";
 import { ParticleComponent } from "./components/ParticleComponent";
 import { RingComponent } from "./components/RingComponent";
@@ -31,12 +32,13 @@ import { LaserBeamComponent } from "./components/LaserBeamComponent";
 import { PlayerComponent } from "./components/PlayerComponent";
 import { RiftComponent } from "./components/RiftComponent";
 import { GameEntity } from "./GameEntity";
+import type { PhysicsBodyDef, PhysicsEntity } from "../physics/IPhysics";
+import { PLAYER_HITBOX_RADIUS } from "../balance/player";
 import { PickupMovementSystem } from "./systems/PickupMovementSystem";
 import { PickupCollectionSystem } from "./systems/PickupCollectionSystem";
 import { ParticleSystem } from "./systems/ParticleSystem";
 import { RingSystem } from "./systems/RingSystem";
 import { BeamSystem } from "./systems/BeamSystem";
-import { AllyDroneSystem } from "./systems/AllyDroneSystem";
 import { BulletSystem } from "../systems/BulletSystem";
 import {
   EnemySystem,
@@ -49,6 +51,7 @@ import {
   type PlayerMotionSource,
   type CombatActiveSource,
 } from "../systems/EnemyShootingSystem";
+import { ZoneClampSystem } from "./systems/ZoneClampSystem";
 
 /** Источник позиции игрока (хитбокс) для систем пикапов. */
 export type PlayerSource = () => { x: number; y: number; r: number };
@@ -84,14 +87,18 @@ export class EcsWorld {
   private readonly enemySystem: EnemySystem;
   private readonly enemyShootingSystem: EnemyShootingSystem;
   private readonly bulletSystem: BulletSystem;
+  /** Пост-физический кламп врагов к границе зоны (вызывается явно из кадра). */
+  readonly zoneClampSystem: ZoneClampSystem;
   /** ECS-сущность игрока (Singleton). */
   private playerEntity: GameEntity | null = null;
+  private readonly eventBus: EventBus;
 
   constructor(
     eventBus: EventBus,
     private readonly getPlayer: PlayerSource,
     deps: EnemySystemDeps,
   ) {
+    this.eventBus = eventBus;
     // Пикапы: движение раньше сбора.
     this.engine.systems.add(new PickupMovementSystem(getPlayer));
     this.engine.systems.add(new PickupCollectionSystem(eventBus, getPlayer));
@@ -110,18 +117,56 @@ export class EcsWorld {
     // Враги: AI/движение (priority 0) раньше стрельбы (priority 1).
     this.enemySystem = new EnemySystem(this, deps.getPlayer, deps.getZoneBounds, deps.getIntegrate);
     this.enemyShootingSystem = new EnemyShootingSystem(
-      eventBus,
       deps.audio,
       deps.getPlayerMotion,
       deps.isCombatActive,
+      (shot) => this.spawnEnemyBullet(
+        shot.sx + Math.cos(shot.angle) * 14,
+        shot.sy + Math.sin(shot.angle) * 14,
+        Math.cos(shot.angle) * shot.boltSpeed,
+        Math.sin(shot.angle) * shot.boltSpeed,
+        shot.boltLife,
+        shot.boltDmg,
+        shot.heavy,
+        shot.cruiser,
+      ),
     );
     this.engine.systems.add(this.enemySystem);
     this.engine.systems.add(this.enemyShootingSystem);
+
+    // Зон-кламп врагов официально регистрируется в engine.systems (priority 10):
+    // физика (6) и коллизии (7) уже внутри engine.run, поэтому кламп, исполняемый
+    // после них, не даёт врагам «протекать» за границу на v*dt в каждом кадре.
+    this.zoneClampSystem = new ZoneClampSystem(this, deps.getZoneBounds);
+    this.engine.systems.add(this.zoneClampSystem);
   }
 
   /** Выполнить все системы текущего кадра с дельтой времени. */
   update(dt: number): void {
     this.engine.run(dt);
+  }
+
+  /**
+   * Типизированный запрос всех компонентов заданного класса по всем сущностям мира.
+   * Никаких кастов в legacy-типы: возвращаются настоящие компоненты.
+   * Это единый способ для игровых систем читать сущности без plain-моста.
+   */
+  query<T extends Component>(componentClass: ComponentClass<T>): T[] {
+    const result: T[] = [];
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      const c = entity.components.get(componentClass);
+      if (c) result.push(c);
+    }
+    return result;
+  }
+
+  /**
+   * Клампнуть врагов к границе игровой зоны. Вызывается ЯВНО после шага
+   * физики (PhysicsSystem.update уже записал позиции обратно в сущности),
+   * чтобы враги не «протекали» за границу на v*dt в каждом кадре.
+   */
+  clampEnemiesToZone(dt: number): void {
+    this.zoneClampSystem.process(dt);
   }
 
   // ===== Enemy wave control =====
@@ -174,6 +219,57 @@ export class EcsWorld {
       }
     }
     return result;
+  }
+
+  // ===== Asteroid API =====
+
+  /**
+   * Зарегистрировать астероид как ECS-сущность с AsteroidComponent.
+   * Данные астероида (позиция/скорость/форма/здоровье/масса) — единственный
+   * источник правды. Никакой отдельной живой ссылки на plain-объект нет:
+   * физика/коллизии/рендер/зона читают компонент напрямую.
+   */
+  spawnAsteroid(state: Partial<AsteroidComponent>): void {
+    const entity = new GameEntity();
+    entity.components.add(new AsteroidComponent(state));
+    this.engine.entities.add(entity);
+  }
+
+  /** Производное чтиво: все живые AsteroidComponent (пояс). */
+  asteroids(): AsteroidComponent[] {
+    return this.query(AsteroidComponent);
+  }
+
+  /** Найти AsteroidComponent-сущность по строковой идентичности пояса (или null). */
+  asteroidByKey(key: string): AsteroidComponent | null {
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      const c = entity.components.get(AsteroidComponent);
+      if (c && c.key === key) return c;
+    }
+    return null;
+  }
+
+  /** Удалить астероид по строковой идентичности пояса. */
+  removeAsteroidByKey(key: string): void {
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      const c = entity.components.get(AsteroidComponent);
+      if (c && c.key === key) {
+        this.engine.entities.remove(entity);
+        return;
+      }
+    }
+  }
+
+  /**
+   * Удалить все астероиды (мягкий сброс — пустой пояс, без сброса чанков).
+   * Используется при возврате в меню и начале забега (пояс отрастает из чанков).
+   */
+  clearAsteroids(): void {
+    const toRemove: GameEntity[] = [];
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      if (entity.components.get(AsteroidComponent)) toRemove.push(entity);
+    }
+    for (const entity of toRemove) this.engine.entities.remove(entity);
   }
 
   // ===== Enemy API =====
@@ -232,16 +328,12 @@ export class EcsWorld {
     this.engine.entities.add(entity);
   }
 
-  /** Производное чтиво: живые EnemyComponent, приведённые к типу Enemy.
-   *  Компонент структурно идентичен Enemy и является единственным источником
-   *  правды, поэтому физика/коллизии/зоны/AI мутируют его напрямую. */
+  /** Производное чтиво: живые EnemyComponent.
+   *  EnemyComponent структурно идентичен Enemy и является единственным источником
+   *  правды, поэтому физика/коллизии/зоны/AI могут работать с ним напрямую.
+   *  Возвращаются настоящие компоненты (без каста в legacy-тип). */
   enemies(): Enemy[] {
-    const result: Enemy[] = [];
-    for (const entity of this.engine.entities.elements as GameEntity[]) {
-      const c = entity.components.get(EnemyComponent);
-      if (c) result.push(c as unknown as Enemy);
-    }
-    return result;
+    return this.query(EnemyComponent);
   }
 
   /** Найти EnemyComponent по EntityRef-идентификатору врага (или null). */
@@ -261,13 +353,6 @@ export class EcsWorld {
 
   // ===== Bullet API =====
 
-  /** Реестр «объект-представление → сущность» для удаления по идентичности. */
-  private readonly bulletEntity = new WeakMap<Bullet, GameEntity>();
-  private readonly enemyBulletEntity = new WeakMap<EBullet, GameEntity>();
-  /** Стабильные объекты-представления (одна и та же ссылка между кадрами). */
-  private readonly bulletViews = new WeakMap<GameEntity, Bullet>();
-  private readonly enemyBulletViews = new WeakMap<GameEntity, EBullet>();
-
   /** Зарегистрировать снаряд игрока как ECS-сущность из чистых данных. */
   addBullet(bullet: Bullet): void {
     const entity = new GameEntity();
@@ -283,8 +368,6 @@ export class EcsWorld {
       ));
     }
     this.engine.entities.add(entity);
-    this.bulletEntity.set(bullet, entity);
-    this.bulletViews.set(entity, bullet);
   }
 
   /** Зарегистрировать вражеский снаряд как ECS-сущность из чистых данных. */
@@ -297,8 +380,6 @@ export class EcsWorld {
     entity.components.add(new RadiusComponent(bullet.r));
     entity.components.add(new BulletSweepComponent(bullet.px, bullet.py, bullet.grazed));
     this.engine.entities.add(entity);
-    this.enemyBulletEntity.set(bullet, entity);
-    this.enemyBulletViews.set(entity, bullet);
   }
 
   /** Найти id сущности врага, соответствующей данному объекту `Enemy`. */
@@ -306,7 +387,30 @@ export class EcsWorld {
     return target.ecsId ?? null;
   }
 
-  /** Производное чтиво: список снарядов игрока (стабильные представления). */
+  /**
+   * Спавн вражеского снаряда напрямую в ECS-мир.
+   * Единственная точка создания вражеской пули; никакого промежуточного
+   * plain-класса или события-«моста» (enemy_fired) здесь нет.
+   */
+  spawnEnemyBullet(
+    x: number,
+    y: number,
+    vx: number,
+    vy: number,
+    life: number,
+    dmg: number,
+    heavy: boolean,
+    cruiser: boolean,
+  ): void {
+    this.addEnemyBullet({
+      x, y, vx, vy, life, dmg, heavy, cruiser,
+      r: cruiser ? 5.5 : heavy ? 3.4 : 2.5,
+      px: x, py: y,
+      grazed: false,
+    });
+  }
+
+  /** Производное чтиво: список снарядов игрока (свежие снапшоты по компонентам). */
   bullets(): Bullet[] {
     const result: Bullet[] = [];
     for (const entity of this.engine.entities.elements as GameEntity[]) {
@@ -318,20 +422,21 @@ export class EcsWorld {
       const homing = entity.components.get(HomingRef);
       if (!position || !velocity || !life) continue;
 
-      const view = this.bulletViews.get(entity)!;
-      view.x = position.x;
-      view.y = position.y;
-      view.vx = velocity.vx;
-      view.vy = velocity.vy;
-      view.life = life.remaining;
-      view.dmg = bullet.dmg;
-      view.homing = homing ? { target: null, turnRate: homing.turnRate, lockRange: homing.lockRange } : undefined;
-      result.push(view);
+      result.push({
+        x: position.x,
+        y: position.y,
+        vx: velocity.vx,
+        vy: velocity.vy,
+        life: life.remaining,
+        dmg: bullet.dmg,
+        homing: homing ? { target: null, turnRate: homing.turnRate, lockRange: homing.lockRange } : undefined,
+        entityId: entity.id,
+      });
     }
     return result;
   }
 
-  /** Производное чтиво: список вражеских снарядов (стабильные представления). */
+  /** Производное чтиво: список вражеских снарядов (свежие снапшоты по компонентам). */
   enemyBullets(): EBullet[] {
     const result: EBullet[] = [];
     for (const entity of this.engine.entities.elements as GameEntity[]) {
@@ -344,41 +449,60 @@ export class EcsWorld {
       const sweep = entity.components.get(BulletSweepComponent);
       if (!position || !velocity || !life || !sweep) continue;
 
-      const view = this.enemyBulletViews.get(entity)!;
-      view.x = position.x;
-      view.y = position.y;
-      view.vx = velocity.vx;
-      view.vy = velocity.vy;
-      view.life = life.remaining;
-      view.dmg = bullet.dmg;
-      view.heavy = bullet.heavy;
-      view.cruiser = bullet.cruiser;
-      view.r = radius ? radius.r : 2.5;
-      view.px = sweep.px;
-      view.py = sweep.py;
-      view.grazed = sweep.grazed;
-      result.push(view);
+      result.push({
+        x: position.x,
+        y: position.y,
+        vx: velocity.vx,
+        vy: velocity.vy,
+        life: life.remaining,
+        dmg: bullet.dmg,
+        heavy: bullet.heavy,
+        cruiser: bullet.cruiser,
+        r: radius ? radius.r : 2.5,
+        px: sweep.px,
+        py: sweep.py,
+        grazed: sweep.grazed,
+        entityId: entity.id,
+      });
     }
     return result;
   }
 
-  /** Удалить конкретный объект снаряда игрока из ECS. */
+  /** Удалить снаряд игрока по идентификатору его ECS-сущности. */
   removeBullet(bullet: Bullet): void {
-    const entity = this.bulletEntity.get(bullet);
-    if (entity) {
-      this.bulletEntity.delete(bullet);
-      this.bulletViews.delete(entity);
-      this.engine.entities.remove(entity);
+    const id = bullet.entityId;
+    if (id === undefined || id === null) return;
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      if (entity.id === id && entity.components.get(BulletComponent)) {
+        this.engine.entities.remove(entity);
+        return;
+      }
     }
   }
 
-  /** Удалить конкретный объект вражеского снаряда из ECS. */
+  /** Удалить вражеский снаряд по идентификатору его ECS-сущности. */
   removeEnemyBullet(bullet: EBullet): void {
-    const entity = this.enemyBulletEntity.get(bullet);
-    if (entity) {
-      this.enemyBulletEntity.delete(bullet);
-      this.enemyBulletViews.delete(entity);
-      this.engine.entities.remove(entity);
+    const id = bullet.entityId;
+    if (id === undefined || id === null) return;
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      if (entity.id === id && entity.components.get(EnemyBulletComponent)) {
+        this.engine.entities.remove(entity);
+        return;
+      }
+    }
+  }
+
+  /** Отметить вражеский снаряд как уже засчитанный касанием (обратно в компонент).
+   *  Источник правды — BulletSweepComponent.grazed: снапшот читает его каждый кадр,
+   *  поэтому метка сохраняется между кадрами без WeakMap-«представлений». */
+  markEnemyBulletGrazed(id: number | string | null | undefined): void {
+    if (id === undefined || id === null) return;
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      if (entity.id === id) {
+        const sweep = entity.components.get(BulletSweepComponent);
+        if (sweep) sweep.grazed = true;
+        return;
+      }
     }
   }
 
@@ -448,15 +572,45 @@ export class EcsWorld {
     return false;
   }
 
+  /**
+   * Нанести урон врагу по EntityRef-идентификатору (единый канонический
+   * путь для пуль, контактов, лазера и способностей). Возвращает true,
+   * если враг погиб. При гибели публикует событие 'enemy_killed'.
+   */
+  damageEnemy(id: number | string, dmg: number): boolean {
+    const c = this.enemyComponentById(id);
+    if (!c || c.dead) return false;
+    c.hp -= dmg;
+    c.flash = 1;
+    if (c.hp <= 0) {
+      c.dead = true;
+      this.eventBus?.publish?.("enemy_killed", {
+        score: c.score,
+        kind: c.kind,
+        x: c.x,
+        y: c.y,
+        seed: c.seed,
+      });
+      return true;
+    }
+    return false;
+  }
+
   // ===== Player API =====
 
-  /** Зарегистрировать игрока как Singleton-сущность ECS-мира. */
-  registerPlayer(state: PlayerState): void {
+  /**
+   * Зарегистрировать игрока как Singleton-сущность ECS-мира.
+   * Компонент PlayerComponent создаёт и владеет состоянием игрока
+   * (единственный источник правды); возвращает его для PlayerSystem.
+   */
+  registerPlayer(): PlayerState {
     if (this.playerEntity) this.engine.entities.remove(this.playerEntity);
     const entity = new GameEntity();
+    const state = createPlayerState();
     entity.components.add(new PlayerComponent(state));
     this.engine.entities.add(entity);
     this.playerEntity = entity;
+    return state;
   }
 
   /** Производное чтиво: состояние игрока. */
@@ -464,6 +618,108 @@ export class EcsWorld {
     if (!this.playerEntity) return null;
     const component = this.playerEntity.components.get(PlayerComponent);
     return component ? component.state : null;
+  }
+
+  // ===== Physics body source (компонентный источник тел) =====
+
+  /** Плотность тела: согласована с массой massForRadius (π·r²·0.02). */
+  private static readonly BODY_DENSITY = 0.02;
+  private static readonly BODY_RESTITUTION = 0.15;
+  private static readonly BODY_FRICTION = 0.05;
+
+  /** Единые параметры тела для ECS-сущностей (игрок/враг/пикап). */
+  private static commonBodyDef(kind: PhysicsBodyDef["kind"], r: number, opts: {
+    kinematic?: boolean; sensor?: boolean; restitution?: number; friction?: number;
+  } = {}): Omit<PhysicsBodyDef, "x" | "y" | "kind" | "radius"> {
+    return {
+      density: EcsWorld.BODY_DENSITY,
+      restitution: opts.restitution ?? EcsWorld.BODY_RESTITUTION,
+      friction: opts.friction ?? EcsWorld.BODY_FRICTION,
+      fixedRotation: true,
+      kinematic: opts.kinematic ?? false,
+      sensor: opts.sensor ?? false,
+    };
+  }
+
+  /**
+   * Живые сущности текущего кадра для физического слоя, собранные из ECS-компонентов.
+   * Игрок/враг/пикап/астероид читаются напрямую из компонентов, без plain-адаптеров.
+   */
+  physicsBodies(): PhysicsEntity[] {
+    const bodies: PhysicsEntity[] = [];
+
+    // Игрок.
+    const ps = this.playerState();
+    if (ps) {
+      bodies.push({
+        userData: ps,
+        kind: "player",
+        radius: PLAYER_HITBOX_RADIUS,
+        ...EcsWorld.commonBodyDef("player", PLAYER_HITBOX_RADIUS),
+        getState: () => ({ x: ps.x, y: ps.y, angle: ps.angle, vx: ps.vx, vy: ps.vy, spin: 0 }),
+        applyResult: (s) => {
+          ps.x = s.x; ps.y = s.y; ps.angle = s.angle; ps.vx = s.vx; ps.vy = s.vy;
+        },
+      });
+    }
+
+    // Враги (EnemyComponent — единственный источник правды).
+    for (const e of this.query(EnemyComponent)) {
+      if (e.dead) continue;
+      const kinematic = e.droneState === "orbiting";
+      bodies.push({
+        userData: e,
+        kind: "enemy",
+        radius: e.r,
+        ...EcsWorld.commonBodyDef("enemy", e.r, { kinematic }),
+        getState: () => ({
+          x: e.x, y: e.y, angle: e.angle,
+          vx: kinematic ? 0 : e.vx, vy: kinematic ? 0 : e.vy, spin: 0,
+        }),
+        applyResult: (s) => {
+          e.x = s.x; e.y = s.y; e.angle = s.angle;
+          if (!kinematic) { e.vx = s.vx; e.vy = s.vy; }
+        },
+      });
+    }
+
+    // Астероиды (AsteroidComponent — единственный источник правды).
+    for (const a of this.query(AsteroidComponent)) {
+      if (a.dead) continue;
+      bodies.push({
+        userData: a,
+        kind: "asteroid",
+        radius: a.r,
+        ...EcsWorld.commonBodyDef("asteroid", a.r, { restitution: 0.15, friction: 0.05 }),
+        getState: () => ({ x: a.x, y: a.y, angle: a.angle, vx: a.vx, vy: a.vy, spin: a.spin }),
+        applyResult: (s) => {
+          a.x = s.x; a.y = s.y; a.angle = s.angle; a.vx = s.vx; a.vy = s.vy;
+        },
+      });
+    }
+
+    // Пикапы (сенсорные кинематические тела).
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      const kind = entity.components.get(PickupKindComponent);
+      if (!kind) continue;
+      const position = entity.components.get(PositionComponent);
+      if (!position) continue;
+      const radius = entity.components.get(RadiusComponent);
+      const r = radius ? radius.r : 14;
+      bodies.push({
+        userData: entity,
+        kind: "pickup",
+        radius: r,
+        ...EcsWorld.commonBodyDef("pickup", r, { kinematic: true, sensor: true, restitution: 0, friction: 0 }),
+        getState: () => ({ x: position.x, y: position.y, angle: 0, vx: 0, vy: 0, spin: 0 }),
+        applyResult: (s) => {
+          // Кинематический сенсор двигается ECS PickupMovementSystem — результат не пишем.
+          position.x = s.x; position.y = s.y;
+        },
+      });
+    }
+
+    return bodies;
   }
 
   // ===== LaserBeam API =====
@@ -558,11 +814,6 @@ export class EcsWorld {
 
   // ===== Fx API (particles / rings) =====
 
-  /** Стабильные объекты-представления частиц (те же ссылки между кадрами). */
-  private readonly particleViews = new WeakMap<GameEntity, Particle>();
-  /** Стабильные объекты-представления колец (те же ссылки между кадрами). */
-  private readonly ringViews = new WeakMap<GameEntity, Ring>();
-
   /** Зарегистрировать частицу как ECS-сущность из чистых данных-компонентов. */
   addParticle(particle: Particle): void {
     const entity = new GameEntity();
@@ -571,45 +822,32 @@ export class EcsWorld {
     entity.components.add(new VelocityComponent(particle.vx, particle.vy));
     entity.components.add(new LifeComponent(particle.life, particle.maxLife));
     this.engine.entities.add(entity);
-    this.particleViews.set(entity, particle);
   }
 
-  /** Производное чтиво: список частиц (стабильные представления). */
+  /**
+   * Производное чтиво: read-only снапшот частиц (DTO на лету из компонентов).
+   * Никаких стабильных представлений — рендер читает скалярные поля каждый кадр.
+   */
   particles(): Particle[] {
     const result: Particle[] = [];
     for (const entity of this.engine.entities.elements as GameEntity[]) {
       const particle = entity.components.get(ParticleComponent);
       if (!particle) continue;
-      const view = this.particleViews.get(entity);
-      if (!view) continue;
       const position = entity.components.get(PositionComponent);
       const velocity = entity.components.get(VelocityComponent);
       const life = entity.components.get(LifeComponent);
-      if (position) { view.x = position.x; view.y = position.y; }
-      if (velocity) { view.vx = velocity.vx; view.vy = velocity.vy; }
-      if (life) { view.life = life.remaining; view.maxLife = life.max; }
-      view.c = particle.c;
-      view.size = particle.size;
-      result.push(view);
+      result.push({
+        x: position ? position.x : 0,
+        y: position ? position.y : 0,
+        vx: velocity ? velocity.vx : 0,
+        vy: velocity ? velocity.vy : 0,
+        life: life ? life.remaining : 0,
+        maxLife: life ? life.max : 0,
+        c: particle.c,
+        size: particle.size,
+      });
     }
     return result;
-  }
-
-  /** Удалить конкретную частицу из ECS. */
-  removeParticle(particle: Particle): void {
-    const entity = this.particleEntity(particle);
-    if (entity) {
-      this.particleViews.delete(entity);
-      this.engine.entities.remove(entity);
-    }
-  }
-
-  /** Найти сущность частицы по её стабильному представлению. */
-  private particleEntity(particle: Particle): GameEntity | null {
-    for (const entity of this.engine.entities.elements as GameEntity[]) {
-      if (this.particleViews.get(entity) === particle) return entity;
-    }
-    return null;
   }
 
   /** Удалить все частицы. */
@@ -618,10 +856,7 @@ export class EcsWorld {
     for (const entity of this.engine.entities.elements as GameEntity[]) {
       if (entity.components.get(ParticleComponent)) toRemove.push(entity);
     }
-    for (const entity of toRemove) {
-      this.particleViews.delete(entity);
-      this.engine.entities.remove(entity);
-    }
+    for (const entity of toRemove) this.engine.entities.remove(entity);
   }
 
   /** Зарегистрировать кольцо как ECS-сущность из чистых данных-компонентов. */
@@ -631,44 +866,30 @@ export class EcsWorld {
     entity.components.add(new PositionComponent(ring.x, ring.y));
     entity.components.add(new LifeComponent(ring.life, ring.maxLife));
     this.engine.entities.add(entity);
-    this.ringViews.set(entity, ring);
   }
 
-  /** Производное чтиво: список колец (стабильные представления). */
+  /**
+   * Производное чтиво: read-only снапшот колец (DTO на лету из компонентов).
+   * Никаких стабильных представлений — рендер читает скалярные поля каждый кадр.
+   */
   rings(): Ring[] {
     const result: Ring[] = [];
     for (const entity of this.engine.entities.elements as GameEntity[]) {
       const ring = entity.components.get(RingComponent);
       if (!ring) continue;
-      const view = this.ringViews.get(entity);
-      if (!view) continue;
       const position = entity.components.get(PositionComponent);
       const life = entity.components.get(LifeComponent);
-      if (position) { view.x = position.x; view.y = position.y; }
-      if (life) { view.life = life.remaining; view.maxLife = life.max; }
-      view.r = ring.r;
-      view.vr = ring.vr;
-      view.c = ring.c;
-      result.push(view);
+      result.push({
+        x: position ? position.x : 0,
+        y: position ? position.y : 0,
+        r: ring.r,
+        vr: ring.vr,
+        life: life ? life.remaining : 0,
+        maxLife: life ? life.max : 0,
+        c: ring.c,
+      });
     }
     return result;
-  }
-
-  /** Удалить конкретное кольцо из ECS. */
-  removeRing(ring: Ring): void {
-    const entity = this.ringEntity(ring);
-    if (entity) {
-      this.ringViews.delete(entity);
-      this.engine.entities.remove(entity);
-    }
-  }
-
-  /** Найти сущность кольца по её стабильному представлению. */
-  private ringEntity(ring: Ring): GameEntity | null {
-    for (const entity of this.engine.entities.elements as GameEntity[]) {
-      if (this.ringViews.get(entity) === ring) return entity;
-    }
-    return null;
   }
 
   /** Удалить все кольца. */
@@ -677,10 +898,7 @@ export class EcsWorld {
     for (const entity of this.engine.entities.elements as GameEntity[]) {
       if (entity.components.get(RingComponent)) toRemove.push(entity);
     }
-    for (const entity of toRemove) {
-      this.ringViews.delete(entity);
-      this.engine.entities.remove(entity);
-    }
+    for (const entity of toRemove) this.engine.entities.remove(entity);
   }
 
   // ===== Rift API =====

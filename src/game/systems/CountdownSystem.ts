@@ -3,6 +3,7 @@
  * Отвечает за показ счётчиков (5, 4, 3, 2, 1) при начале волны.
  */
 
+import { System } from "@trixt0r/ecs";
 import { t } from "../../i18n";
 import type { EventBus } from "../core/EventBus";
 import type { BannerData, ToastData, CountData } from "../types/ui";
@@ -14,7 +15,7 @@ export interface CountdownHooks {
   countdownDone?: () => void;
 }
 
-export class CountdownSystem {
+export class CountdownSystem extends System {
   private hooks: CountdownHooks;
   private eventBus: EventBus;
   private cdT = 0;
@@ -25,6 +26,7 @@ export class CountdownSystem {
   private doneCalled = false;
 
   constructor(config: { hooks: CountdownHooks; eventBus: EventBus }) {
+    super(-10); // отсчёт волны — до игровых систем (движения/стрельбы)
     this.hooks = config.hooks;
     this.eventBus = config.eventBus;
   }
@@ -48,9 +50,9 @@ export class CountdownSystem {
   }
 
   /**
-    * Обновить отсчёт.
+    * Обновить отсчёт (внутри engine.run(dt)).
     */
-  update(dt: number): void {
+  process(dt: number): void {
     this.cdT -= dt;
     const c = Math.ceil(this.cdT);
 

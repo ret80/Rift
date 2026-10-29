@@ -6,8 +6,10 @@
  * но никогда не достигает 100% — см. balance/accuracy.ts.
  *
  * Система фильтрует ECS-сущности с компонентом EnemyComponent (единый
- * источник правды), публикует событие 'enemy_fired' и обновляет таймеры
- * орудий прямо в компонентах. Движение и AI остаются в EnemySystem.
+ * источник правды), спавнит болт напрямую в ECS-мир через SpawnBoltSource
+ * и обновляет таймеры орудий прямо в компонентах. Никакой публикации
+ * события 'enemy_fired' нет — вражеская пуля создаётся в том же домене.
+ * Движение и AI остаются в EnemySystem.
  */
 
 import { System, Aspect, type Engine } from "@trixt0r/ecs";
@@ -24,7 +26,6 @@ import {
   PLAYER_BULLET_HIT_OFFSET,
   PLAYER_HITBOX_RADIUS,
 } from "../balance";
-import type { EventBus } from "../core/EventBus";
 import { rand } from "../math";
 import type { AudioManager } from "./AudioManager";
 import { EnemyComponent } from "../ecs/components/EnemyComponent";
@@ -60,20 +61,36 @@ export type PlayerMotionSource = () => PlayerMotion;
 /** Флаг: активен ли игровой режим (playing/active) для стрельбы. */
 export type CombatActiveSource = () => boolean;
 
+/** Вычислительный результат одного выстрела врага — параметры снаряда. */
+export interface EnemyBoltShot {
+  sx: number;
+  sy: number;
+  angle: number;
+  boltDmg: number;
+  heavy: boolean;
+  cruiser: boolean;
+  boltSpeed: number;
+  boltLife: number;
+}
+
+/**
+ * Спавн болта врага напрямую в ECS-мир. Передаётся из EcsWorld:
+ * система стрельбы не публикует событие и не знает про чужие сущности.
+ */
+export type SpawnBoltSource = (shot: EnemyBoltShot) => void;
+
 export class EnemyShootingSystem extends System {
   private aspect: Aspect | null = null;
-  private eventBus: EventBus;
   private audio: AudioManager;
   private wave = 1;
 
   constructor(
-    eventBus: EventBus,
     audio: AudioManager,
     private readonly getPlayer: PlayerMotionSource,
     private readonly isCombatActive: CombatActiveSource,
+    private readonly spawnBolt: SpawnBoltSource,
   ) {
     super(1); // после движения врагов (priority 0)
-    this.eventBus = eventBus;
     this.audio = audio;
   }
 
@@ -91,7 +108,7 @@ export class EnemyShootingSystem extends System {
 
   /**
    * Обновить стрельбу всех врагов.
-   * Отвечает только за публикацию события 'enemy_fired'.
+   * Вражеская пуля спавнится напрямую в Engine (без события-«моста»).
    */
   process(dt: number): void {
     if (!this.isCombatActive()) return;
@@ -208,12 +225,10 @@ export class EnemyShootingSystem extends System {
       PLAYER_HIT_RADIUS
     );
 
-    this.eventBus.publish("enemy_fired", {
-      x: sx,
-      y: sy,
-      kind: e.kind,
+    this.spawnBolt({
+      sx,
+      sy,
       angle,
-      r: e.r,
       boltDmg: e.boltDmg,
       heavy: weapon.heavy,
       cruiser: e.kind === EnemyKind.Cruiser,

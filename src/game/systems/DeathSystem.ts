@@ -5,7 +5,7 @@
 
 import type { AudioManager } from "./AudioManager";
 import type { ScoringSystem } from "./ScoringSystem";
-import type { EntityPoolSystem } from "./EntityPoolSystem";
+import type { EcsWorld } from "../ecs";
 import type { Fx } from "../fx";
 import {
   DEATH_ANIMATION_DURATION,
@@ -29,7 +29,7 @@ export class DeathSystem {
     private readonly getPlayerPosition: () => { x: number; y: number },
     private readonly fx: Fx,
     private readonly audio: AudioManager,
-    private readonly entityPool: EntityPoolSystem,
+    private readonly ecs: EcsWorld,
     private readonly scoringSystem: ScoringSystem,
     private readonly hooks: DeathSystemHooks,
   ) {}
@@ -38,8 +38,8 @@ export class DeathSystem {
   startDeath(): void {
     this.deathTimer = DEATH_ANIMATION_DURATION;
     // Clear all enemy bullets to prevent "orphan bullets" on restart
-    this.entityPool.clearEnemyBullets();
-    this.entityPool.clearBullets();
+    this.ecs.clearEnemyBullets();
+    this.ecs.clearBullets();
     // Spawn death explosion particles
     const pos = this.getPlayerPosition();
     for (let i = 0; i < DEATH_EXPLOSION_PARTICLES; i++) {

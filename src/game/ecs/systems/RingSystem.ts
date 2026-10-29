@@ -4,8 +4,8 @@
  * Оперирует сущностями с компонентами Position + Life (и маркером
  * RingComponent): расширяет радиус со скоростью RingComponent.vr и удаляет
  * просроченные кольца. Логика — по компонентам через Aspect, без ссылок на
- * внешний объект Ring. `EcsWorld.rings()` отдаёт стабильный cached-view для
- * рендера, не мутируя его здесь.
+ * внешний объект Ring. `EcsWorld.rings()` отдаёт read-only снапшот (DTO на лету)
+ * для рендера, не мутируя его здесь.
  */
 
 import { System, Aspect, type Engine } from "@trixt0r/ecs";

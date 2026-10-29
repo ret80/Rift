@@ -5,16 +5,9 @@
  * определяет поведение (зона, волна, коллизии, HUD).
  */
 
-import type { AsteroidWorld, WorldFrame } from "./WorldFrame";
+import type { WorldFrame } from "./WorldFrame";
 import type { GameContext } from "./GameContext";
 import type { GameRender } from "./GameRender";
-import type { PhysicsEntity } from "../physics/index";
-import {
-  asteroidEntity,
-  enemyEntity,
-  playerEntity,
-  pickupEntity,
-} from "../physics/index";
 
 export class GameFrame {
   constructor(
@@ -40,14 +33,10 @@ export class GameFrame {
     }
 
     /* Update all systems in order */
-    ctx.countdownSystem.update(dt);
-    ctx.scoringSystem.updateCombo(dt);
-    ctx.bonusManager.update(dt);
-    ctx.shieldSystem.update(dt);
-    if (fsm.is("playing", "active")) {
-      ctx.abilitySystem.update(dt);
-    }
-    ctx.playerSystem.update(dt, fsm.not("menu", "over", "dying"), !ctx.physics.integratesPositions);
+    // Весь игровой апдейт идёт внутри engine.run(dt) (ctx.ecs.update(dt)) по возрастанию
+    // priority: scoring(-20) → bonus(-15) → shield(-12) → countdown(-10) → ability(-8) →
+    // player(-1) → entities(0..4) → weapons(5) → physics(6) → collisions(7) → spawn(8) →
+    // waveFlow(9) → zone(10) → zoneClamp(11) → loadout(12). Ниже — только презентация.
 
     // Handle dying → over transition
     if (fsm.is("dying")) {
@@ -59,49 +48,14 @@ export class GameFrame {
     // Stop enemies and bullets during dying/over (prevent orphan bullets)
     const isDead = fsm.is("dying", "over");
     if (!isDead) {
-      // ECS: AI/движение врагов, вражеская стрельба и пикапы.
       ctx.ecs.update(dt);
-      // Weapons: targeting, cannon fire, missiles, drones
-      if (fsm.is("playing", "active")) {
-        ctx.weaponManager.update(dt);
-      }
     }
 
-    // Физика: регистрация тел, синхронизация, шаг, контакты.
-    // В custom-режиме позиции уже проинтегрированы системами выше;
-    // в Planck-режиме движок сам двигает тела и возвращает состояние,
-    // поэтому единое мировое сечение строится после шага физики.
-    if (!isDead) {
-      ctx.physics.update(dt, this.buildPhysicsEntities());
-    }
-
-    const world = this.buildWorld();
-    if (!isDead) {
-      ctx.collisionSystem.update(dt, world, ctx.waveOrchestrator.wave);
-      ctx.spawnSystem.update(dt, {
-        countdownSystem: ctx.countdownSystem,
-        zoneState: world.zone ?? null,
-        riftField: ctx.riftField,
-        hooks: {
-          onToast: (data) => ctx.hooks.onToast(data),
-        },
-        wave: ctx.waveOrchestrator.wave,
-        killedWave: ctx.scoringSystem.killedWave,
-        playerX: world.player.x,
-        playerY: world.player.y,
-      });
-    }
+    // Спавн/волна/зона — ECS-системы (priority 8..11) внутри engine.run(dt) выше;
+    // здесь вручную не вызываются.
     ctx.fx.update(dt, dt); // Обновляем частицы и тряску экрана
 
-    // Zone updates (always run, damage handled inside)
-    ctx.waveFlowSystem.updateZoneAndWaves(dt);
-
-    // Update zone system: sync, clamp, constraints (after orchestrator update)
-    if (!isDead) {
-      ctx.zoneSystem.update(dt);
-    }
-
-    // Update asteroid field with camera and zone info
+    // Астероиды — презентация поверх ECS (вне engine.run, путь B).
     const cp = ctx.cameraSystem.getPosition();
     ctx.asteroidField.update(dt, {
       camX: cp.x,
@@ -121,44 +75,13 @@ export class GameFrame {
 
     this.render.renderScene(dt);
     this.render.renderDebug();
-    ctx.loadoutSystem.update(dt);
+    // Loadout — ECS-система (priority 12) внутри engine.run(dt) выше; HUD-слоты
+    // уже пересобраны к моменту updateHud(). Вручную не вызывается.
     this.render.updateHud();
   }
 
-  /** Единое мировое сечение для систем и рендера (справочные ссылки на пулы). */
+  /** Единое мировое сечение для систем и рендера (делегировано в GameContext). */
   buildWorld(): WorldFrame {
-    const ctx = this.ctx;
-    const zoneState = ctx.waveOrchestrator.zoneState;
-    return {
-      player: ctx.getPlayerWorld(),
-      enemies: ctx.entityPool.enemyList,
-      bullets: ctx.entityPool.bulletList,
-      enemyBullets: ctx.entityPool.enemyBulletList,
-      pickups: ctx.entityPool.pickupList,
-      allyDrones: ctx.entityPool.allyDroneList,
-      beams: ctx.entityPool.beamList,
-      asteroids: ctx.asteroidField.asteroidList as AsteroidWorld[],
-      zone: zoneState && zoneState.active ? zoneState : null,
-    };
-  }
-
-  /** Живые сущности физики текущего кадра (live-мосты над игровыми объектами). */
-  private buildPhysicsEntities(): PhysicsEntity[] {
-    const ctx = this.ctx;
-    const entities: PhysicsEntity[] = [
-      playerEntity(ctx.playerSystem.getPlayerRef()),
-    ];
-    for (const e of ctx.entityPool.enemyList) {
-      if (!e.dead) entities.push(enemyEntity(e));
-    }
-    for (const a of ctx.asteroidField.asteroidList) {
-      entities.push(asteroidEntity(a));
-    }
-    // Бонусы — сенсорные тела: регистрируются в физике, чтобы их можно было
-    // подбирать через контакт, но они не толкают/не отталкивают игрока.
-    for (const p of ctx.entityPool.pickupList) {
-      entities.push(pickupEntity(p));
-    }
-    return entities;
+    return this.ctx.buildWorld();
   }
 }

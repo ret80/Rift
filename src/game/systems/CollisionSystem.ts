@@ -9,6 +9,7 @@
  * Сбор пикапов вынесен в ECS (PickupCollectionSystem).
  */
 
+import { System } from "@trixt0r/ecs";
 import { massForRadius, dmgScale } from '../balance';
 import {
   GRAZE_BAND,
@@ -28,15 +29,36 @@ import {
 import type { PlayerHitbox } from './GrazeCollision';
 import type { EcsWorld } from '../ecs';
 
-export class CollisionSystem {
+/** Источник мирового сечения (buildWorld из GameContext). */
+export type WorldSource = () => WorldFrame;
+/** Источник текущего номера волны. */
+export type WaveSource = () => number;
+
+export class CollisionSystem extends System {
   private eventBus: EventBus;
   private physics: PhysicsSystem;
   private ecs: EcsWorld;
+  private getWorld: WorldSource;
+  private getWave: WaveSource;
 
-  constructor(eventBus: EventBus, physics: PhysicsSystem, ecs: EcsWorld) {
+  constructor(
+    eventBus: EventBus,
+    physics: PhysicsSystem,
+    ecs: EcsWorld,
+    getWorld: WorldSource,
+    getWave: WaveSource,
+  ) {
+    super(7); // после физики (6): контакты уже собраны; до zone/spawn
     this.eventBus = eventBus;
     this.physics = physics;
     this.ecs = ecs;
+    this.getWorld = getWorld;
+    this.getWave = getWave;
+  }
+
+  /** Тик коллизий внутри engine.run(dt): собрать мир, применить столкновения. */
+  process(dt: number): void {
+    this.update(dt, this.getWorld(), this.getWave());
   }
 
   /**
@@ -52,10 +74,19 @@ export class CollisionSystem {
     const asteroids = world.asteroids;
 
     // === Bullet collisions ===
-    const bulletToRemove = checkBulletCollisions(
-      this.eventBus, bullets, enemies, asteroids,
+    const bulletHits = checkBulletCollisions(
+      bullets, enemies, asteroids,
       this.damageAsteroid.bind(this)
     );
+    // Урон/смерть врага — единый канонический путь через ECS-мир.
+    const bulletToRemove = new Set<number>();
+    for (const hit of bulletHits) {
+      bulletToRemove.add(hit.bulletIndex);
+      if (hit.enemyId !== null) {
+        const b = bullets[hit.bulletIndex];
+        if (b) this.ecs.damageEnemy(hit.enemyId, b.dmg);
+      }
+    }
     // Удаляем снаряды по объектной идентичности через ECS-мир.
     for (const i of bulletToRemove) {
       this.ecs.removeBullet(bullets[i]);
@@ -75,6 +106,12 @@ export class CollisionSystem {
       this.ecs.removeEnemyBullet(enemyBullets[bulletCheck.hitIndex]);
     }
     if (bulletCheck.grazeIndices.length > 0) {
+      // Обновляем метку grazed в компоненте, чтобы один и тот же снаряд не
+      // считался касанием повторно (источник правды — BulletSweepComponent).
+      for (const idx of bulletCheck.grazeIndices) {
+        const eb = enemyBullets[idx];
+        if (eb) this.ecs.markEnemyBulletGrazed(eb.entityId);
+      }
       this.eventBus.publish('bullet_grazed', {
         count: bulletCheck.grazeIndices.length,
         x: playerState.x,
@@ -163,14 +200,7 @@ export class CollisionSystem {
 
         // Каждый врезавшийся враг гибнет сразу, даже если их несколько.
         if (!e.dead && enemies.includes(e)) {
-          e.dead = true;
-          this.eventBus.publish('enemy_killed', {
-            score: e.score,
-            kind: e.kind,
-            x: e.x,
-            y: e.y,
-            seed: e.seed,
-          });
+          this.ecs.damageEnemy(e.ecsId ?? "", e.hp);
         }
       }
 
@@ -249,17 +279,8 @@ export class CollisionSystem {
           rock.vx = result.nb.vx;
           rock.vy = result.nb.vy;
         }
-        e.hp -= 1;
-        if (e.hp <= 0) {
-          e.dead = true;
-          this.eventBus.publish('enemy_killed', {
-            score: e.score,
-            kind: e.kind,
-            x: e.x,
-            y: e.y,
-            seed: e.seed,
-          });
-        }
+        // Урон/смерть врага — единый канонический путь через ECS-мир.
+        this.ecs.damageEnemy(e.ecsId ?? "", 1);
       }
     }
   }

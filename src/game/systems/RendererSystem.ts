@@ -80,7 +80,7 @@ export class RendererSystem {
     const enemyRender = buildEnemyState(enemies);
     const bulletRender = buildBulletState(bullets);
     const ebulletRender = buildEBulletState(ebullets);
-    const pickupRender = buildPickupState(pickups as never[] as Parameters<typeof buildPickupState>[0]);
+    const pickupRender = buildPickupState(pickups);
     const droneRender = buildDroneState(drones);
     const zoneRender = zoneState ? buildZoneState(
       zoneState.active, zoneState.x, zoneState.y,

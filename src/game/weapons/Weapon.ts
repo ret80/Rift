@@ -83,6 +83,8 @@ export interface WeaponContext {
   onFired(id: WeaponId): void;
   /** Колбэк гибели врага — единый путь enemy_killed (дроп, счёт, волна). */
   killEnemy?(enemy: Enemy): void;
+  /** Нанести урон врагу через единый канонический путь (ECS damageEnemy). */
+  damageEnemy?(enemy: Enemy, dmg: number): void;
 }
 
 /** Снимок слота оружия для строки снаряжения. */

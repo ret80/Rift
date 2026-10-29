@@ -3,6 +3,7 @@
  * Handles score, best (localStorage), killed, combo timer/multiplier.
  */
 
+import { System } from "@trixt0r/ecs";
 import type { EventBus } from '../core/EventBus';
 import type { PersistencePort } from '../core/PersistencePort';
 
@@ -23,7 +24,7 @@ export interface ScoringState {
 
 export interface ScoringHooks {}
 
-export class ScoringSystem {
+export class ScoringSystem extends System {
   private _score = 0;
   private _best = 0;
   private _killed = 0;
@@ -36,9 +37,15 @@ export class ScoringSystem {
   private _killedWave = 0;
 
   constructor(hooks: ScoringHooks = {}, storage: PersistencePort) {
+    super(-20); // комбо/скорость времени — до игровых систем
     this.hooks = hooks;
     this.storage = storage;
     this._best = Number(storage.get(BEST_KEY)) || 0;
+  }
+
+  /** Обновление комбо-таймера внутри engine.run(dt). */
+  process(dt: number): void {
+    this.updateCombo(dt);
   }
 
   /** Subscribe to enemy_killed events and auto-update score/kills/combo */

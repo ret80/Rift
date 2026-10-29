@@ -10,6 +10,7 @@
  * Все системы остаются независимыми, WaveFlowSystem — только координатор.
  */
 
+import { System } from "@trixt0r/ecs";
 import type { EventBus } from "../core/EventBus";
 import type { ScoringSystem } from "./ScoringSystem";
 import type { SpawnSystem } from "./SpawnSystem";
@@ -35,11 +36,17 @@ export interface WaveFlowDeps {
   getPlayerPosition: () => PlayerPosition;
 }
 
-export class WaveFlowSystem {
+export class WaveFlowSystem extends System {
   private deps: WaveFlowDeps;
 
   constructor(deps: WaveFlowDeps) {
+    super(9); // после спавна (8) и коллизий (7); до zoneSystem (10) и ZoneClamp (11)
     this.deps = deps;
+  }
+
+  /** Обновление зоны и волн внутри engine.run(dt). */
+  process(dt: number): void {
+    this.updateZoneAndWaves(dt);
   }
 
   /**

@@ -25,18 +25,18 @@ export class GameStart {
 
     // Clear entity pools before applying upgrades:
     // the weapon manager rebuilds the drone swarm from the applied upgrades.
-    ctx.entityPool.clearEnemies();
-    ctx.entityPool.clearBullets();
-    ctx.entityPool.clearEnemyBullets();
-    ctx.entityPool.clearPickups();
-    ctx.entityPool.clearAllyDrones();
+    ctx.ecs.clearEnemies();
+    ctx.ecs.clearBullets();
+    ctx.ecs.clearEnemyBullets();
+    ctx.ecs.clearPickups();
+    ctx.ecs.clearAllyDrones();
     ctx.loadoutSystem.reset();
     ctx.weaponManager.reset();
     ctx.bonusManager.reset();
     ctx.shieldSystem.reset();
     ctx.grazeSystem.reset();
     ctx.abilitySystem.reset();
-    ctx.entityPool.clearBeams();
+    ctx.ecs.clearBeams();
 
     // Apply persistent upgrades to the player and the weapons
     ctx.applyUpgrades(true);
@@ -58,7 +58,7 @@ export class GameStart {
       () => ctx.getPlayerPosition(),
       ctx.fx,
       ctx.audio,
-      ctx.entityPool,
+      ctx.ecs,
       ctx.scoringSystem,
       {
         onGameOver: () => {
@@ -70,7 +70,7 @@ export class GameStart {
         },
       },
     );
-    ctx.asteroidField.asteroidList.length = 0;
+    // Пояс уже очищен в hardReset() выше; дубликат не нужен.
 
     ctx.hooks.onBanner(null);
     ctx.hooks.onCountdown(null);

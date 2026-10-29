@@ -13,6 +13,7 @@
  *   5. собирает контакты и обогащает их ролями тел для игровых систем.
  */
 
+import { System } from "@trixt0r/ecs";
 import type {
   IPhysics,
   PhysicsBodyDef,
@@ -21,11 +22,24 @@ import type {
   PhysicsEntity,
 } from "./IPhysics.ts";
 
-export class PhysicsSystem implements IPhysics {
+/** Источник тел текущего кадра (EcsWorld.physicsBodies + астероиды). */
+export type PhysicsEntitySource = () => PhysicsEntity[];
+
+export class PhysicsSystem extends System {
   /** Реестр зарегистрированных сущностей (userData -> адаптер и ключ дефа). */
   private registered = new Map<unknown, { entity: PhysicsEntity; defKey: string }>();
 
-  constructor(private engine: IPhysics) {}
+  constructor(
+    private backend: IPhysics,
+    private readonly entitySource: PhysicsEntitySource,
+  ) {
+    super(6); // после оружия (5): пули успевают в мир до шага физики
+  }
+
+  /** Тик физики внутри engine.run(dt): собрать тела, зарегистрировать, шагнуть. */
+  process(dt: number): void {
+    this.update(dt, this.entitySource());
+  }
 
   /**
    * Заменить бэкенд физики (выбор движка в настройках). Сущности текущего
@@ -33,14 +47,14 @@ export class PhysicsSystem implements IPhysics {
    * старый мир очищается.
    */
   setEngine(engine: IPhysics): void {
-    if (engine === this.engine) return;
+    if (engine === this.backend) return;
     this.registered.clear();
-    this.engine.clear();
-    this.engine = engine;
+    this.backend.clear();
+    this.backend = engine;
   }
 
   get contacts(): PhysicsContact[] {
-    return this.engine.contacts.map((c) => ({
+    return this.backend.contacts.map((c) => ({
       a: c.a,
       b: c.b,
       kindA: this.registered.get(c.a)?.entity.kind,
@@ -49,63 +63,63 @@ export class PhysicsSystem implements IPhysics {
   }
 
   get bodyCount(): number {
-    return this.engine.bodyCount;
+    return this.backend.bodyCount;
   }
 
   get resolvesVelocity(): boolean {
-    return this.engine.resolvesVelocity;
+    return this.backend.resolvesVelocity;
   }
 
   /** Позиции интегрирует сам бэкенд — внешние системы её не двигают. */
   get integratesPosition(): boolean {
-    return this.engine.integratesPosition;
+    return this.backend.integratesPosition;
   }
 
   /** Псевдоним integratesPosition (используется игровым кадром). */
   get integratesPositions(): boolean {
-    return this.engine.integratesPosition;
+    return this.backend.integratesPosition;
   }
 
   // ===== Делегирование бэкенду =====
 
   addBody(userData: unknown, def: PhysicsBodyDef): void {
-    this.engine.addBody(userData, def);
+    this.backend.addBody(userData, def);
   }
 
   removeBody(userData: unknown): void {
     this.registered.delete(userData);
-    this.engine.removeBody(userData);
+    this.backend.removeBody(userData);
   }
 
   clear(): void {
     this.registered.clear();
-    this.engine.clear();
+    this.backend.clear();
   }
 
   syncBody(userData: unknown, state: PhysicsBodyState): void {
-    this.engine.syncBody(userData, state);
+    this.backend.syncBody(userData, state);
   }
 
   beginFrame(): void {
-    this.engine.beginFrame();
+    this.backend.beginFrame();
   }
 
   step(dt: number): void {
-    this.engine.step(dt);
+    this.backend.step(dt);
   }
 
   endFrame(): void {
-    this.engine.endFrame();
+    this.backend.endFrame();
   }
 
   getState(userData: unknown): PhysicsBodyState {
-    return this.engine.getState(userData);
+    return this.backend.getState(userData);
   }
 
   /** Полный сброс (новый забег/меню): тела пересоздаются в следующем кадре. */
   reset(): void {
     this.registered.clear();
-    this.engine.clear();
+    this.backend.clear();
   }
 
   /** Ключ определения тела: при изменении тело пересоздаётся. */
@@ -130,9 +144,9 @@ export class PhysicsSystem implements IPhysics {
       const key = this.defKey(entity);
       const prev = this.registered.get(entity.userData);
       if (prev && prev.defKey === key) continue;
-      if (prev) this.engine.removeBody(entity.userData);
+      if (prev) this.backend.removeBody(entity.userData);
       const s = entity.getState();
-      this.engine.addBody(entity.userData, {
+      this.backend.addBody(entity.userData, {
         x: s.x,
         y: s.y,
         angle: s.angle,
@@ -152,23 +166,23 @@ export class PhysicsSystem implements IPhysics {
     for (const userData of Array.from(this.registered.keys())) {
       if (!seen.has(userData)) {
         this.registered.delete(userData);
-        this.engine.removeBody(userData);
+        this.backend.removeBody(userData);
       }
     }
 
     // 3. Синхронизация тел с игровым состоянием (позиция + скорости).
     this.beginFrame();
     for (const { entity } of this.registered.values()) {
-      this.engine.syncBody(entity.userData, entity.getState());
+      this.backend.syncBody(entity.userData, entity.getState());
     }
 
     // 4. Шаг физики.
-    this.engine.step(dt);
+    this.backend.step(dt);
 
     // 5. Если бэкенд авторитетен — записать результат в игровые сущности.
-    if (this.engine.integratesPosition) {
+    if (this.backend.integratesPosition) {
       for (const { entity } of this.registered.values()) {
-        entity.applyResult(this.engine.getState(entity.userData));
+        entity.applyResult(this.backend.getState(entity.userData));
       }
     }
 

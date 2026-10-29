@@ -11,6 +11,7 @@
  * в строке короткое время после подбора.
  */
 
+import { System } from "@trixt0r/ecs";
 import type { PickupKind } from "../balance";
 import type { EventBus } from "../core/EventBus";
 import type { BonusKind } from "./bonuses/Bonus";
@@ -33,12 +34,13 @@ export interface LoadoutSources {
   getSystemSlots: () => LoadoutSlotData[];
 }
 
-export class LoadoutSystem {
+export class LoadoutSystem extends System {
   private sources: LoadoutSources;
   private flashes = new Map<BonusKind, number>();
   private slots: LoadoutSlotData[] = [];
 
   constructor(sources: LoadoutSources, eventBus: EventBus) {
+    super(12); // пересборка HUD-слотов — после всех игровых систем (0..11)
     this.sources = sources;
 
     eventBus.subscribe("pickup_collected", (event) => {
@@ -54,6 +56,11 @@ export class LoadoutSystem {
   reset(): void {
     this.flashes.clear();
     this.slots = [];
+  }
+
+  /** Обновить таймеры мигания и пересобрать видимые слоты. */
+  process(dt: number): void {
+    this.update(dt);
   }
 
   /** Обновить таймеры мигания и пересобрать видимые слоты. */

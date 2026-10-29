@@ -10,6 +10,7 @@
  * он получает через WeaponWorld — набор провайдеров живых данных.
  */
 
+import { System } from "@trixt0r/ecs";
 import { PLAYER_AIM_BASE_CHANCE } from "../balance";
 import { weaponDamageMult, weaponReloadMult, weaponHitChance } from "../upgrades";
 import type { LoadoutSlotData } from "../loadout/LoadoutTypes";
@@ -54,9 +55,11 @@ export interface WeaponWorld {
   getZone?(): ZoneSnapshot | null;
   /** Убить врага через единый путь (дроп, счёт, волна). */
   killEnemy?(enemy: Enemy): void;
+  /** Нанести урон врагу через единый канонический путь (ECS damageEnemy). */
+  damageEnemy?(enemy: Enemy, dmg: number): void;
 }
 
-export class WeaponManager {
+export class WeaponManager extends System {
   private weapons: Record<WeaponId, Weapon>;
   private targeting: Targeting;
   private world: WeaponWorld;
@@ -85,6 +88,7 @@ export class WeaponManager {
     onWeaponFired: (id: WeaponId) => void,
     targetRange: number = DEFAULT_TARGET_RANGE
   ) {
+    super(5); // после движения/стрельбы/пуль (0..4), до физики (6)
     this.world = world;
     this.onWeaponFired = onWeaponFired;
     this.weapons = createWeaponRegistry();
@@ -92,7 +96,7 @@ export class WeaponManager {
   }
 
   /** Тик оружия: обновить наведение и все виды оружия. */
-  update(dt: number): void {
+  process(dt: number): void {
     this.targeting.update(this.world.getPlayer(), this.world.getEnemies());
     const ctx = this.buildContext();
     for (const weapon of Object.values(this.weapons)) {
@@ -219,6 +223,7 @@ export class WeaponManager {
       zone: this.world.getZone?.() ?? null,
       onFired: (id) => this.onWeaponFired(id),
       killEnemy: (enemy) => this.world.killEnemy?.(enemy),
+      damageEnemy: (enemy, dmg) => this.world.damageEnemy?.(enemy, dmg),
     };
   }
 }

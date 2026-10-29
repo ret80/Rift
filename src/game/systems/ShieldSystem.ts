@@ -12,6 +12,7 @@
  * а полоски щита не рисуются.
  */
 
+import { System } from "@trixt0r/ecs";
 import {
   SHIELD_DRAIN_PER_DAMAGE,
   SHIELD_ENERGY_MAX,
@@ -46,7 +47,7 @@ export interface ShieldSnapshot {
   flash: number;
 }
 
-export class ShieldSystem {
+export class ShieldSystem extends System {
   /** Щит куплен в меню прокачки. Пока не куплен — система полностью бездействует. */
   private owned = false;
   /** Уровень линии «процент щита». */
@@ -60,6 +61,10 @@ export class ShieldSystem {
   private overloadT = 0;
   /** Остаток вспышки после срабатывания, секунды. */
   private flashT = 0;
+
+  constructor() {
+    super(-12); // восстановление щита — до игровых систем
+  }
 
   /* ======================== Upgrade hooks ======================== */
 
@@ -178,7 +183,7 @@ export class ShieldSystem {
 
   /* ======================== Tick ======================== */
 
-  update(dt: number): void {
+  process(dt: number): void {
     if (!this.owned) return;
     if (this.flashT > 0) this.flashT = Math.max(0, this.flashT - dt);
     if (this.overloadT > 0) {

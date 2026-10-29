@@ -98,6 +98,8 @@ export interface Bullet {
    *  При гибели цели ракета перенаводится на ближайшего живого врага,
    *  ограниченного radius захвата; null — целей в радиусе нет. */
   homing?: { target: Enemy | null; turnRate: number; lockRange: number };
+  /** Идентификатор ECS-сущности снаряда — для удаления по id (без WeakMap-моста). */
+  entityId?: number | string;
 }
 
 export interface EBullet {
@@ -112,6 +114,8 @@ export interface EBullet {
   px: number; py: number;
   /** Снаряд уже засчитан как касание — повторно касанием не считается. */
   grazed: boolean;
+  /** Идентификатор ECS-сущности снаряда — для удаления по id (без WeakMap-моста). */
+  entityId?: number | string;
 }
 
 /**

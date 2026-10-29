@@ -265,9 +265,6 @@ export class LaserWeapon implements Weapon {
 
   /** Нанести урон цели через единый путь гибели (дроп, счёт, волна). */
   private damageEnemy(ctx: WeaponContext, enemy: Enemy, dmg: number): void {
-    enemy.hp -= dmg;
-    enemy.flash = 1;
-    enemy.hitCd = 0.15;
-    if (enemy.hp <= 0) ctx.killEnemy?.(enemy);
+    ctx.damageEnemy?.(enemy, dmg);
   }
 }

@@ -23,7 +23,7 @@ import { EventBus } from "./EventBus";
 import type { GameFSMContext } from "./GameFSM";
 import { GAME_TRANSITIONS } from "./GameFSM";
 import { GameStateMachine } from "./StateMachine";
-import type { PlayerWorld } from "./WorldFrame";
+import type { AsteroidWorld, PlayerWorld, WorldFrame } from "./WorldFrame";
 import { AsteroidField } from "../asteroids";
 import { Fx } from "../fx";
 import { InputManager } from "../input";
@@ -40,14 +40,13 @@ import { CameraSystem } from "../systems/CameraSystem";
 import { CollisionSystem } from "../systems/CollisionSystem";
 import { CountdownSystem } from "../systems/CountdownSystem";
 import type { DeathSystem } from "../systems/DeathSystem";
-import { EntityPoolSystem } from "../systems/EntityPoolSystem";
 import { GrazeSystem } from "../systems/GrazeSystem";
 import { InputSystem } from "../systems/InputSystem";
 import { PickupDropSystem } from "../systems/PickupDropSystem";
 import { PlayerSystem } from "../systems/PlayerSystem";
 import { RendererSystem } from "../systems/RendererSystem";
 import { ShieldSystem } from "../systems/ShieldSystem";
-import { SpawnSystem } from "../systems/SpawnSystem";
+import { SpawnSystem, type SpawnDependencies } from "../systems/SpawnSystem";
 import { UpgradeSystem } from "../systems/UpgradeSystem";
 import { WaveFlowSystem } from "../systems/WaveFlowSystem";
 import { WaveOrchestrator } from "../systems/WaveOrchestrator";
@@ -72,7 +71,6 @@ export class GameContext {
 
   readonly cameraSystem: CameraSystem;
   readonly debugSystem: DebugSystem;
-  readonly entityPool: EntityPoolSystem;
   readonly scoringSystem: ScoringSystem;
   readonly upgradeSystem: UpgradeSystem;
   readonly ecs: EcsWorld;
@@ -157,8 +155,13 @@ export class GameContext {
         ? new URLSearchParams(window.location.search).get("physics")
         : null;
     this.physics = new PhysicsSystem(
-      createPhysicsEngine(normalizePhysicsEngine(physicsParam ?? this.physicsEngineId))
+      createPhysicsEngine(normalizePhysicsEngine(physicsParam ?? this.physicsEngineId)),
+      // Источник тел кадра: ECS-компоненты (игрок/враг/астероид/пикап).
+      // Читается лениво при каждом шаге физики (внутри engine.run(dt)), поэтому
+      // this.ecs к моменту вызова уже создан.
+      () => this.ecs.physicsBodies(),
     );
+    // Физика — ECS-система; регистрируется позже (см. блок после weaponManager).
 
     this.scoringSystem = new ScoringSystem({}, storage);
     this.upgradeSystem = UpgradeSystem.create(storage);
@@ -173,8 +176,6 @@ export class GameContext {
       isCombatActive: () => this.fsm.is("playing", "active"),
       audio: this.audio,
     });
-    this.entityPool = new EntityPoolSystem(this.ecs);
-
     this.resize();
 
     this.inputSystem = new InputSystem(canvas, {
@@ -200,9 +201,8 @@ export class GameContext {
     this.zoneSystem = new ZoneSystem({
       getZoneState: () => this.waveOrchestrator.zoneState,
       getPlayerRef: () => this.playerSystem.getPlayerRef(),
-      getEnemyList: () => this.entityPool.enemyList,
       getAsteroids: () =>
-        this.asteroidField.asteroidList as Array<{ x: number; y: number; r: number; vx: number; vy: number }>,
+        this.ecs.asteroids() as Array<{ x: number; y: number; r: number; vx: number; vy: number }>,
     });
 
     this.input = new InputManager({
@@ -220,9 +220,10 @@ export class GameContext {
 
     this.asteroidField = new AsteroidField({
       addScore: (n) => this.scoringSystem.add(n),
-      spawnPickup: (kind, x, y, vx, vy) => this.entityPool.spawnPickup(kind, x, y, vx, vy),
+      spawnPickup: (kind, x, y, vx, vy) => this.ecs.spawnPickup(kind, x, y, vx, vy),
       fx: this.fx,
       audio: this.audio,
+      ecs: this.ecs,
     }, this.eventBus);
 
     this.riftField = new RiftField({
@@ -253,14 +254,22 @@ export class GameContext {
     this.bonusManager.setHealHook((amount) => this.playerSystem.heal(amount));
     this.shieldSystem = new ShieldSystem();
     this.grazeSystem = new GrazeSystem(this.eventBus, this.fx, this.scoringSystem);
+    // State/timer-домены теперь — ECS-системы: тикают внутри engine.run(dt).
+    this.ecs.engine.systems.add(this.scoringSystem);
+    this.ecs.engine.systems.add(this.bonusManager);
+    this.ecs.engine.systems.add(this.shieldSystem);
+    // Игрок — Singleton-сущность ECS-мира: компонент владеет состоянием,
+    // PlayerSystem его потребляет. Никакого «зеркала»-состояния нет.
+    const playerState = this.ecs.registerPlayer();
     this.playerSystem = new PlayerSystem(
       this.eventBus,
       this.input,
       this.fx,
+      playerState,
+      () => !this.physics.integratesPositions,
     );
     this.playerSystem.setShield(this.shieldSystem);
-    // Игрок — Singleton-сущность ECS-мира: регистрируем его ссылку на состояние.
-    this.ecs.registerPlayer(this.playerSystem.getPlayerRef());
+    this.ecs.engine.systems.add(this.playerSystem);
 
     this.abilitySystem = new AbilitySystem(
       this.input,
@@ -268,40 +277,55 @@ export class GameContext {
         getPlayerX: () => this.playerSystem.getPlayerRef().x,
         getPlayerY: () => this.playerSystem.getPlayerRef().y,
         movePlayerTo: (x, y) => this.playerSystem.teleportTo(x, y),
-        getEnemies: () => this.entityPool.enemyList,
+        getEnemies: () => this.ecs.enemies(),
         killEnemy: (enemy) => this.killEnemy(enemy),
+        damageEnemy: (enemy, dmg) => {
+          const id = enemy.ecsId;
+          if (id !== null && id !== undefined) this.ecs.damageEnemy(id, dmg);
+        },
       },
       this.fx,
     );
+    // Ability — ECS-система (priority -8): кулдауны/активация до игровых систем.
+    this.ecs.engine.systems.add(this.abilitySystem);
     this.spawnSystem = new SpawnSystem({
       eventBus: this.eventBus,
       riftField: this.riftField,
+      getDeps: () => this.buildSpawnDeps(),
     });
 
     this.weaponManager = new WeaponManager(
       {
         getPlayer: () => this.playerSystem.getPlayerRef(),
-        getEnemies: () => this.entityPool.enemyList,
-        getBullets: () => this.entityPool.bulletList,
-        addBullet: (b) => this.entityPool.addBullet(b),
-        getDrones: () => this.entityPool.allyDroneList,
-        addAllyDrone: (d) => this.entityPool.addAllyDrone(d),
+        getEnemies: () => this.ecs.enemies(),
+        getBullets: () => this.ecs.bullets(),
+        addBullet: (b) => this.ecs.addBullet(b),
+        getDrones: () => this.ecs.allyDrones(),
+        addAllyDrone: (d) => this.ecs.addAllyDrone(d),
         getBonuses: () => this.bonusManager.getBonuses(),
-        getBeams: () => this.entityPool.beamList,
-        addBeam: (b) => this.entityPool.addBeam(b),
+        getBeams: () => this.ecs.beams(),
+        addBeam: (b) => this.ecs.addBeam(b),
         getZone: () => this.getZoneSnapshot(),
         killEnemy: (enemy) => this.killEnemy(enemy),
+        damageEnemy: (enemy, dmg) => {
+          const id = enemy.ecsId;
+          if (id !== null && id !== undefined) this.ecs.damageEnemy(id, dmg);
+        },
       },
       (id) => this.onWeaponFired(id),
     );
+    // Оружие и физика — ECS-системы внутри engine.run(dt): оружие (priority 5)
+    // спавнит пули, физика (priority 6) их интегрирует и собирает контакты.
+    this.ecs.engine.systems.add(this.weaponManager);
+    this.ecs.engine.systems.add(this.physics);
 
     // Дроны-компаньоны: ECS-система ведёт орбиту/цель/стрельбу/гибель по компонентам.
     this.ecs.engine.systems.add(new AllyDroneSystem({
       getPlayer: () => this.playerSystem.getPlayerRef(),
       getRateMult: () => this.bonusManager.getRateMult(),
       getHitChance: () => this.weaponManager.getHitChance(),
-      getEnemies: () => this.entityPool.enemyList,
-      addBullet: (b) => this.entityPool.addBullet(b),
+      getEnemies: () => this.ecs.enemies(),
+      addBullet: (b) => this.ecs.addBullet(b),
       onDroneFired: () => this.onWeaponFired("drone"),
     }));
 
@@ -323,6 +347,7 @@ export class GameContext {
       },
       eventBus: this.eventBus,
     });
+    this.ecs.engine.systems.add(this.countdownSystem);
 
     this.applyPickupSystem = new ApplyPickupSystem({
       applyBonus: (pickup: PickupKind) => this.bonusManager.applyPickup(pickup),
@@ -341,13 +366,23 @@ export class GameContext {
       },
       this.eventBus,
     );
+    // Loadout — ECS-система (priority 12): пересборка HUD-слотов после игровых систем.
+    this.ecs.engine.systems.add(this.loadoutSystem);
 
     this.dropSystem = new PickupDropSystem(this.eventBus, {
-      spawnPickup: (kind, x, y, vx, vy) => this.entityPool.spawnPickup(kind, x, y, vx, vy),
+      spawnPickup: (kind, x, y, vx, vy) => this.ecs.spawnPickup(kind, x, y, vx, vy),
       addParts: (n) => this.upgradeSystem.addParts(n),
     });
 
-    this.collisionSystem = new CollisionSystem(this.eventBus, this.physics, this.ecs);
+    this.collisionSystem = new CollisionSystem(
+      this.eventBus,
+      this.physics,
+      this.ecs,
+      () => this.buildWorld(),
+      () => this.waveOrchestrator.wave,
+    );
+    // Коллизии — ECS-система (priority 7): после физики (6), до zone/spawn.
+    this.ecs.engine.systems.add(this.collisionSystem);
 
     this.waveFlowSystem = new WaveFlowSystem({
       eventBus: this.eventBus,
@@ -356,9 +391,16 @@ export class GameContext {
       spawnSystem: this.spawnSystem,
       upgradeSystem: this.upgradeSystem,
       countdownSystem: this.countdownSystem,
-      getEnemyList: () => this.entityPool.enemyList,
+      getEnemyList: () => this.ecs.enemies(),
       getPlayerPosition: () => this.getPlayerPosition(),
     });
+    // Зона и волны — ECS-системы внутри engine.run(dt): waveFlow (8) обновляет
+    // zoneState, zoneSystem (9) клампит игрока/астероиды, ZoneClampSystem (10)
+    // клампит врагов — всё после физики/коллизий (6/7).
+    this.ecs.engine.systems.add(this.waveFlowSystem);
+    this.ecs.engine.systems.add(this.zoneSystem);
+    // Спавн — ECS-система (priority 8): после коллизий (7), до волны/зоны (9/10).
+    this.ecs.engine.systems.add(this.spawnSystem);
 
     const fsmCtx: GameFSMContext = {
       onPlayerDeath: () => {
@@ -493,6 +535,37 @@ export class GameContext {
       invuln: s.invuln,
       mass: s.mass || 1,
       thrusting: s.thrusting,
+    };
+  }
+
+  /** Единое мировое сечение для систем и рендера (справочные ссылки на пулы). */
+  buildWorld(): WorldFrame {
+    const zoneState = this.waveOrchestrator.zoneState;
+    return {
+      player: this.getPlayerWorld(),
+      enemies: this.ecs.enemies(),
+      bullets: this.ecs.bullets(),
+      enemyBullets: this.ecs.enemyBullets(),
+      pickups: this.ecs.pickups(),
+      allyDrones: this.ecs.allyDrones(),
+      beams: this.ecs.beams(),
+      asteroids: this.ecs.asteroids() as AsteroidWorld[],
+      zone: zoneState && zoneState.active ? zoneState : null,
+    };
+  }
+
+  /** Зависимости спавна для engine.run(dt) (SpawnSystem). */
+  private buildSpawnDeps(): SpawnDependencies {
+    const player = this.getPlayerWorld();
+    return {
+      countdownSystem: this.countdownSystem,
+      zoneState: this.waveOrchestrator.zoneState,
+      riftField: this.riftField,
+      hooks: { onToast: (data) => this.hooks.onToast(data) },
+      wave: this.waveOrchestrator.wave,
+      killedWave: this.scoringSystem.killedWave,
+      playerX: player.x,
+      playerY: player.y,
     };
   }
 
