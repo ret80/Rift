@@ -18,6 +18,7 @@ import { PositionComponent } from "./components/PositionComponent";
 import { VelocityComponent } from "./components/VelocityComponent";
 import { RadiusComponent } from "./components/RadiusComponent";
 import { LifeComponent } from "./components/LifeComponent";
+import { HealthComponent } from "./components/HealthComponent";
 import { HomingRef } from "./components/HomingRef";
 import { BulletSweepComponent } from "./components/BulletSweepComponent";
 import { EnemyComponent } from "./components/EnemyComponent";
@@ -100,6 +101,7 @@ export class EcsWorld {
     this.enemyShootingSystem = new EnemyShootingSystem(
       eventBus,
       deps.audio,
+      this,
       deps.getPlayerMotion,
       deps.isCombatActive,
     );
@@ -166,23 +168,123 @@ export class EcsWorld {
 
   // ===== Enemy API =====
 
-  /** Зарегистрировать существующий объект врага как ECS-сущность. */
+  /** Стабильные объекты-представления врагов (те же ссылки между кадрами). */
+  private readonly enemyViews = new WeakMap<GameEntity, Enemy>();
+
+  /**
+   * Зарегистрировать существующий объект врага как ECS-сущность.
+   * Сущность владеет декомпозированными данными (Position/Velocity/Health/
+   * Radius + EnemyComponent), а объект `Enemy` остаётся стабильным view,
+   * который физика/коллизии/рендер/оружие читают как единый протокол.
+   */
   addEnemy(enemy: Enemy): void {
     const entity = new GameEntity();
-    entity.components.add(new EnemyComponent(enemy));
+    entity.components.add(new EnemyComponent({
+      kind: enemy.kind,
+      angle: enemy.angle,
+      speed: enemy.speed,
+      contact: enemy.contact,
+      score: enemy.score,
+      boltDmg: enemy.boltDmg,
+      fireCd: enemy.fireCd,
+      mode: enemy.mode,
+      modeT: enemy.modeT,
+      strafeDir: enemy.strafeDir,
+      seed: enemy.seed,
+      spawnCd: enemy.spawnCd,
+      flash: enemy.flash,
+      hitCd: enemy.hitCd,
+      dead: enemy.dead,
+      mass: enemy.mass,
+      dodgeWeight: enemy.dodgeWeight,
+      dodgeDir: enemy.dodgeDir,
+      dodgeTimer: enemy.dodgeTimer,
+      burstSpawned: enemy.burstSpawned,
+      burstActive: enemy.burstActive,
+      burstRestT: enemy.burstRestT,
+      burstCd: enemy.burstCd,
+      tCd1: enemy.tCd1,
+      tCd2: enemy.tCd2,
+      droneState: enemy.droneState,
+      orbitAngle: enemy.orbitAngle,
+      orbitRadius: enemy.orbitRadius,
+      orbitTimer: enemy.orbitTimer,
+      waitTimer: enemy.waitTimer,
+      phaseDrones: enemy.phaseDrones,
+      carrierChildren: enemy.carrierChildren,
+    }));
+    entity.components.add(new PositionComponent(enemy.x, enemy.y));
+    entity.components.add(new VelocityComponent(enemy.vx, enemy.vy));
+    entity.components.add(new HealthComponent(enemy.hp, enemy.maxHp));
+    entity.components.add(new RadiusComponent(enemy.r));
     this.engine.entities.add(entity);
     // Присваиваем EntityRef: id сущности этого врага (для parentId/ecsId сравнений).
     enemy.ecsId = entity.id;
+    this.enemyViews.set(entity, enemy);
   }
 
-  /** Производное чтиво: список живых врагов (объекты `Enemy`). */
+  /** Производное чтиво: список живых врагов (стабильные представления). */
   enemies(): Enemy[] {
     const result: Enemy[] = [];
     for (const entity of this.engine.entities.elements as GameEntity[]) {
-      const component = entity.components.get(EnemyComponent);
-      if (component) result.push(component.enemy);
+      const view = this.enemyViews.get(entity);
+      if (view) result.push(view);
     }
     return result;
+  }
+
+  /** Получить стабильное представление врага по сущности (или null). */
+  enemyView(entity: GameEntity): Enemy | null {
+    return this.enemyViews.get(entity) ?? null;
+  }
+
+  /** Синхронизировать компоненты сущности из текущего состояния view. */
+  syncEnemyEntity(entity: GameEntity): void {
+    const view = this.enemyViews.get(entity);
+    if (!view) return;
+    const component = entity.components.get(EnemyComponent);
+    if (component) {
+      component.kind = view.kind;
+      component.angle = view.angle;
+      component.speed = view.speed;
+      component.contact = view.contact;
+      component.score = view.score;
+      component.boltDmg = view.boltDmg;
+      component.fireCd = view.fireCd;
+      component.mode = view.mode;
+      component.modeT = view.modeT;
+      component.strafeDir = view.strafeDir;
+      component.seed = view.seed;
+      component.spawnCd = view.spawnCd;
+      component.flash = view.flash;
+      component.hitCd = view.hitCd;
+      component.dead = view.dead;
+      component.mass = view.mass;
+      component.dodgeWeight = view.dodgeWeight;
+      component.dodgeDir = view.dodgeDir;
+      component.dodgeTimer = view.dodgeTimer;
+      component.burstSpawned = view.burstSpawned;
+      component.burstActive = view.burstActive;
+      component.burstRestT = view.burstRestT;
+      component.burstCd = view.burstCd;
+      component.tCd1 = view.tCd1;
+      component.tCd2 = view.tCd2;
+      component.droneState = view.droneState;
+      component.orbitAngle = view.orbitAngle;
+      component.orbitRadius = view.orbitRadius;
+      component.orbitTimer = view.orbitTimer;
+      component.waitTimer = view.waitTimer;
+      component.phaseDrones = view.phaseDrones;
+      component.carrierChildren = view.carrierChildren;
+    }
+    const position = entity.components.get(PositionComponent);
+    if (position) { position.x = view.x; position.y = view.y; }
+    const velocity = entity.components.get(VelocityComponent);
+    if (velocity) { velocity.vx = view.vx; velocity.vy = view.vy; }
+    const health = entity.components.get(HealthComponent);
+    if (health) { health.hp = view.hp; health.maxHp = view.maxHp; }
+    const radius = entity.components.get(RadiusComponent);
+    if (radius) { radius.r = view.r; }
   }
 
   /** Заспавнить врага через вражескую AI-систему. */
@@ -409,8 +511,9 @@ export class EcsWorld {
       if (entity.components.get(EnemyComponent)) toRemove.push(entity);
     }
     for (const entity of toRemove) {
-      const enemy = entity.components.get(EnemyComponent)?.enemy;
+      const enemy = this.enemyViews.get(entity);
       if (enemy) enemy.ecsId = null;
+      this.enemyViews.delete(entity);
       this.engine.entities.remove(entity);
     }
   }

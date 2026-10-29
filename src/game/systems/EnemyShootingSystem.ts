@@ -30,6 +30,7 @@ import type { Enemy } from "../types";
 import type { AudioManager } from "./AudioManager";
 import { EnemyComponent } from "../ecs/components/EnemyComponent";
 import { GameEntity } from "../ecs/GameEntity";
+import type { EcsWorld } from "../ecs";
 
 /** Внешний радиус хитбокса игрока — угловой размер цели для вражеских орудий. */
 const PLAYER_HIT_RADIUS = PLAYER_HITBOX_RADIUS + PLAYER_BULLET_HIT_OFFSET;
@@ -70,6 +71,7 @@ export class EnemyShootingSystem extends System {
   constructor(
     eventBus: EventBus,
     audio: AudioManager,
+    private readonly ecs: EcsWorld,
     private readonly getPlayer: PlayerMotionSource,
     private readonly isCombatActive: CombatActiveSource,
   ) {
@@ -96,11 +98,11 @@ export class EnemyShootingSystem extends System {
    */
   process(dt: number): void {
     if (!this.isCombatActive()) return;
-    const enemyList = this.collectEnemies();
-    if (!enemyList.length) return;
+    const shots = this.collectEnemyShots();
+    if (!shots.length) return;
 
     const player = this.getPlayer();
-    for (const e of enemyList) {
+    for (const { entity, view: e } of shots) {
       if (e.dead) continue;
 
       const weapon = TURRETS[e.kind];
@@ -117,16 +119,20 @@ export class EnemyShootingSystem extends System {
       } else {
         this.fireSingleTurret(e, dt, player, weapon, hitChance);
       }
+
+      // Стрельба мутирует cooldown'ы (fireCd/tCd1/tCd2) на view — вернуть в компоненты.
+      this.ecs.syncEnemyEntity(entity);
     }
   }
 
-  /** Собрать врагов (объекты Enemy) из ECS-сущностей с EnemyComponent. */
-  private collectEnemies(): Enemy[] {
+  /** Собрать пары (ECS-сущность, стабильное представление Enemy) с EnemyComponent. */
+  private collectEnemyShots(): Array<{ entity: GameEntity; view: Enemy }> {
     if (!this.aspect) return [];
-    const result: Enemy[] = [];
+    const result: Array<{ entity: GameEntity; view: Enemy }> = [];
     for (const entity of [...this.aspect.entities] as GameEntity[]) {
-      const component = entity.components.get(EnemyComponent);
-      if (component) result.push(component.enemy);
+      if (!entity.components.get(EnemyComponent)) continue;
+      const view = this.ecs.enemyView(entity);
+      if (view) result.push({ entity, view });
     }
     return result;
   }

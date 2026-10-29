@@ -67,8 +67,8 @@ export class EnemySystem extends System {
   }
 
   process(dt: number): void {
-    const enemyList = this.collectEnemies();
-    if (!enemyList.length) return;
+    const entities = this.collectEnemyEntities();
+    if (!entities.length) return;
 
     const playerPos = this.getPlayer();
     const zoneBounds = this.getZoneBounds();
@@ -89,13 +89,14 @@ export class EnemySystem extends System {
       wave: this.wave,
     });
 
-    // AI movement via strategy pattern
+    // AI movement via strategy pattern (стратегии мутируют view-объект Enemy)
+    const enemyList = entities.map((e) => e.view);
     this.context.enemies = enemyList;
     this.ai.updateAI(enemyList, this.context, dt);
 
     // Apply velocity and update state
-    for (let i = 0; i < enemyList.length; i++) {
-      const e = enemyList[i];
+    for (let i = 0; i < entities.length; i++) {
+      const { view: e } = entities[i];
       if (e.dead) continue;
 
       e.flash = Math.max(0, e.flash - dt * 5);
@@ -131,15 +132,21 @@ export class EnemySystem extends System {
 
     // Simple collision avoidance between all enemies
     this.applyAvoidance(enemyList);
+
+    // После AI/движения вернуть мутированное состояние view в компоненты сущности.
+    for (const { entity } of entities) {
+      this.ecs.syncEnemyEntity(entity);
+    }
   }
 
-  /** Собрать врагов (объекты Enemy) из ECS-сущностей с EnemyComponent. */
-  private collectEnemies(): Enemy[] {
+  /** Собрать пары (ECS-сущность, стабильное представление Enemy) с EnemyComponent. */
+  private collectEnemyEntities(): Array<{ entity: GameEntity; view: Enemy }> {
     if (!this.aspect) return [];
-    const result: Enemy[] = [];
+    const result: Array<{ entity: GameEntity; view: Enemy }> = [];
     for (const entity of [...this.aspect.entities] as GameEntity[]) {
-      const component = entity.components.get(EnemyComponent);
-      if (component) result.push(component.enemy);
+      if (!entity.components.get(EnemyComponent)) continue;
+      const view = this.ecs.enemyView(entity);
+      if (view) result.push({ entity, view });
     }
     return result;
   }
