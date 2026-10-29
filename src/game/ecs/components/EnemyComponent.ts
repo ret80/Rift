@@ -1,15 +1,16 @@
 /**
- * EnemyComponent — данные-компонент врага (вид + боевое/AI-состояние).
+ * EnemyComponent — канонический данные-компонент врага.
  *
- * Это чистые данные, НЕ обёртка над живым объектом `Enemy`. Позиция/скорость/
- * здоровье/радиус живут в собственных базовых компонентах
- * (PositionComponent, VelocityComponent, HealthComponent, RadiusComponent),
- * а здесь — только «вид» и специализированное состояние конкретного врага.
+ * Содержит ПОЛНОЕ состояние врага: позицию, скорость, здоровье, радиус и
+ * специализированное AI/боевое состояние. Это единый источник правды.
+ * Остальной код (физика, коллизии, рендер, оружие, AI-стратегии) читает и
+ * пишет врага через этот компонент (или производный DTO). Никакой отдельной
+ * живой ссылки и двойной записи между view и компонентами нет.
  *
- * Остальной код игры (физика, коллизии, рендер, оружие, AI-стратегии) по-прежнему
- * работает с живым объектом `Enemy` как стабильным представлением (view) — тот же
- * паттерн, что и у пуль/пикапов. EcsWorld синхронизирует компоненты сущности и
- * представление через EnemySystem, поэтому Aspect-системы читают данные напрямую.
+ * Позиция/скорость/здоровье/радиус дублируются здесь в полях x/y/vx/vy/hp/r —
+ * для врагов это удобнее, чем раскладывать по базовым компонентам, т.к.
+ * AI-стратегии и физика оперируют врагом как единым объектом. Базовые
+ * Position/Velocity/Health/Radius для врагов не используются.
  */
 
 import type { Component } from "@trixt0r/ecs";
@@ -23,48 +24,30 @@ export type EnemyDroneState =
   | "accumulating"
   | "waiting";
 
-/** Начальное/текущее состояние врага как чистые данные. */
-export interface EnemyState {
-  kind: EnemyKind;
-  angle: number;
-  speed: number;
-  contact: number;
-  score: number;
-  boltDmg: number;
-  fireCd: number;
-  mode: number;
-  modeT: number;
-  strafeDir: number;
-  seed: number;
-  spawnCd: number;
-  flash: number;
-  hitCd: number;
-  dead: boolean;
-  mass: number;
-  dodgeWeight: number;
-  dodgeDir: number;
-  dodgeTimer: number;
-  burstSpawned: number;
-  burstActive: boolean;
-  burstRestT: number;
-  burstCd: number;
-  tCd1?: number;
-  tCd2?: number;
-  droneState: EnemyDroneState;
-  orbitAngle: number;
-  orbitRadius: number;
-  orbitTimer: number;
-  waitTimer: number;
-  phaseDrones: number;
-  carrierChildren: number;
-}
-
 export class EnemyComponent implements Component {
   readonly type = "Enemy";
   readonly id = "Enemy";
 
-  kind!: EnemyKind;
+  // === Позиция/движение (вместо Position/Velocity) ===
+  x = 0;
+  y = 0;
+  vx = 0;
+  vy = 0;
   angle = 0;
+
+  // === Здоровье/радиус (вместо Health/Radius) ===
+  hp = 0;
+  maxHp = 0;
+  r = 0;
+
+  // === EntityRef ===
+  /** Id ECS-сущности этого врага. */
+  ecsId: number | string = "";
+  /** Id ECS-сущности родителя (Carrier) или null. */
+  parentId: number | string | null = null;
+
+  // === Вид ===
+  kind!: EnemyKind;
   speed = 0;
   contact = 0;
   score = 0;
@@ -96,7 +79,8 @@ export class EnemyComponent implements Component {
   phaseDrones = 0;
   carrierChildren = 0;
 
-  constructor(state: EnemyState) {
+  constructor(state: Partial<EnemyComponent> = {}) {
     Object.assign(this, state);
+    if (state.kind !== undefined) this.kind = state.kind as EnemyKind;
   }
 }

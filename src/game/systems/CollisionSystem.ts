@@ -87,16 +87,33 @@ export class CollisionSystem {
     // === Drone-player avoidance ===
     this.checkDroneAvoidance(world);
 
-    // === Enemy bullet → drones ===
-    const droneHits = checkEnemyBulletVsDrones(this.eventBus, enemyBullets, drones);
+    // === Enemy bullet → drones (детекция; урон/смерть применяем в ECS) ===
+    const droneHits = checkEnemyBulletVsDrones(enemyBullets, drones);
     const dronesToRemove = new Set<number>();
+    const bulletToRemoveNow = new Set<number>();
     for (const hit of droneHits) {
-      this.ecs.removeEnemyBullet(enemyBullets[hit.bulletIndex]);
-      if (hit.killed) dronesToRemove.add(hit.droneIndex);
+      const b = enemyBullets[hit.bulletIndex];
+      const dead = this.ecs.damageAllyDrone(drones[hit.droneIndex].entityId, b.dmg);
+      if (dead) dronesToRemove.add(hit.droneIndex);
+      bulletToRemoveNow.add(hit.bulletIndex);
     }
-    // Дроны хранятся в ECS-мире — удаляем по объектной идентичности.
+    for (const i of bulletToRemoveNow) {
+      if (enemyBullets[i]) this.ecs.removeEnemyBullet(enemyBullets[i]);
+    }
+    // Дроны хранятся в ECS-мире — удаляем по EntityRef-идентификатору.
     for (const i of dronesToRemove) {
-      this.ecs.removeAllyDrone(drones[i]);
+      this.ecs.removeAllyDroneById(drones[i].entityId);
+    }
+    // Публикуем факт попадания по дрону (звуковой/визуальный фидбек).
+    for (const hit of droneHits) {
+      const d = drones[hit.droneIndex];
+      const b = enemyBullets[hit.bulletIndex];
+      this.eventBus.publish("drone_hit", {
+        x: d.x,
+        y: d.y,
+        dmg: b ? b.dmg : 0,
+        dead: dronesToRemove.has(hit.droneIndex),
+      });
     }
   }
 

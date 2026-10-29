@@ -11,6 +11,7 @@
 import { EnemyKind, PickupKind, PLAYER_HITBOX_RADIUS, PLAYER_MAX_SPEED } from "../balance";
 import type { PersistencePort } from "./PersistencePort";
 import { EcsWorld } from "../ecs";
+import { AllyDroneSystem } from "../ecs/systems/AllyDroneSystem";
 import { BaseRenderer, PicoGLRenderer, NullRenderer, type IRenderer } from "../render/index";
 import { PhysicsSystem } from "../physics/index";
 import type { PhysicsEngineId } from "../physics/index";
@@ -229,6 +230,8 @@ export class GameContext {
       fx: this.fx,
       audio: this.audio,
     }, this.ecs);
+    // RiftField — теперь ECS-система: жизненный цикл ведёт engine.run.
+    this.ecs.engine.systems.add(this.riftField);
 
     this.rendererSystem = new RendererSystem({
       fx: this.fx,
@@ -286,12 +289,21 @@ export class GameContext {
         getBonuses: () => this.bonusManager.getBonuses(),
         getBeams: () => this.entityPool.beamList,
         addBeam: (b) => this.entityPool.addBeam(b),
-        removeBeam: (b) => this.entityPool.removeBeam(b),
         getZone: () => this.getZoneSnapshot(),
         killEnemy: (enemy) => this.killEnemy(enemy),
       },
       (id) => this.onWeaponFired(id),
     );
+
+    // Дроны-компаньоны: ECS-система ведёт орбиту/цель/стрельбу/гибель по компонентам.
+    this.ecs.engine.systems.add(new AllyDroneSystem({
+      getPlayer: () => this.playerSystem.getPlayerRef(),
+      getRateMult: () => this.bonusManager.getRateMult(),
+      getHitChance: () => this.weaponManager.getHitChance(),
+      getEnemies: () => this.entityPool.enemyList,
+      addBullet: (b) => this.entityPool.addBullet(b),
+      onDroneFired: () => this.onWeaponFired("drone"),
+    }));
 
     this.countdownSystem = new CountdownSystem({
       hooks: {

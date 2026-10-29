@@ -75,11 +75,6 @@ export class EntityPoolSystem {
     this.ecs.addBeam(beam);
   }
 
-  /* Удалить истёкший визуальный луч лазера из ECS-мира. */
-  removeBeam(beam: LaserBeam): void {
-    this.ecs.removeBeam(beam);
-  }
-
   /* Очистить визуальные лучи лазера (перед перезапуском забега). */
   clearBeams(): void {
     this.ecs.clearBeams();

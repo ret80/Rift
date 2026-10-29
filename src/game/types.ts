@@ -141,6 +141,8 @@ export interface Pickup {
 }
 
 export interface AllyDrone {
+  /** EntityRef: id ECS-сущности дрона (для удаления/нанесения урона в ECS). */
+  entityId: number | string;
   x: number; y: number;
   r: number;
   angle: number;

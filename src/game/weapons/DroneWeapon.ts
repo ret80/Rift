@@ -12,8 +12,7 @@
  * добавляет временную единицу разведчика, которая гибнет безвозвратно.
  */
 
-import { aimAtTarget } from "../aiming/AimSolver";
-import type { AllyDrone, Enemy } from "../types";
+import type { AllyDrone } from "../types";
 import type { DroneCombatSpec, DroneFleetSpec, DroneId } from "../drones/Drone";
 import {
   DRONE_CATALOG,
@@ -30,16 +29,8 @@ import type {
 
 /** Радиус орбиты дронов вокруг корабля. */
 export const DRONE_ORBIT_RADIUS = 58;
-/** Скорость вращения роя вокруг корабля. */
-const DRONE_ORBIT_SPEED = 0.5;
-/** Дальность захвата цели дроном. */
-const DRONE_TARGET_RANGE = 430;
 /** Максимальное число дронов в рое (и слотов корабля). */
 export const MAX_ALLY_DRONES = 8;
-/** Период смены цели дроном, секунды. */
-const DRONE_RETARGET_INTERVAL = 1;
-/** Длительность вспышки ствола после выстрела, секунды. */
-const DRONE_FLASH_TIME = 0.15;
 
 export class DroneWeapon implements Weapon {
   readonly id: WeaponId = "drone";
@@ -77,12 +68,7 @@ export class DroneWeapon implements Weapon {
 
   update(dt: number, ctx: WeaponContext): void {
     this.syncDrones(ctx);
-
-    let fired = false;
-    for (const drone of ctx.drones) {
-      if (this.updateDrone(dt, drone, ctx)) fired = true;
-    }
-    if (fired) ctx.onFired(this.id);
+    // Орбита/цель/стрельба/гибель дронов ведётся ECS-системой AllyDroneSystem.
   }
 
   getSlot(): WeaponSlotState {
@@ -142,93 +128,10 @@ export class DroneWeapon implements Weapon {
   }
 
   /**
-   * Тик одного дрона: орбита, выбор цели, выстрел.
-   * Возвращает true, если дрон выстрелил.
+   * Создать единицу дрона с указанным видом и поместить её на орбиту.
+   * Физическое поведение (орбита/цель/стрельба/гибель) ведёт
+   * ECS-система AllyDroneSystem, здесь задаются только характеристики.
    */
-  private updateDrone(dt: number, drone: AllyDrone, ctx: WeaponContext): boolean {
-    const combat = drone.combat;
-    if (!combat) return false;
-
-    // Орбита вокруг корабля.
-    drone.phase += dt * DRONE_ORBIT_SPEED;
-    drone.x = ctx.player.x + Math.cos(drone.phase) * DRONE_ORBIT_RADIUS;
-    drone.y = ctx.player.y + Math.sin(drone.phase) * DRONE_ORBIT_RADIUS;
-    drone.angle = drone.phase + Math.PI / 2;
-
-    if (drone.flash > 0) drone.flash = Math.max(0, drone.flash - dt);
-    if (drone.fireCd > 0) drone.fireCd = Math.max(0, drone.fireCd - dt);
-
-    // Выбор цели.
-    drone.retargetT -= dt;
-    const currentTarget = drone.targetId ? this.enemyById(ctx.enemies, drone.targetId) : null;
-    if (!currentTarget || drone.retargetT <= 0 || currentTarget.dead) {
-      const next = this.findTarget(drone.x, drone.y, ctx.enemies);
-      drone.targetId = next ? next.ecsId ?? null : null;
-      drone.retargetT = DRONE_RETARGET_INTERVAL;
-    }
-
-    const target = currentTarget ?? (drone.targetId ? this.enemyById(ctx.enemies, drone.targetId) : null);
-    if (!target) return false;
-
-    const dx = target.x - drone.x;
-    const dy = target.y - drone.y;
-    if (Math.hypot(dx, dy) > DRONE_TARGET_RANGE) return false;
-    if (drone.fireCd > 0) return false;
-
-    // Выстрел с упреждением: снаряд летит в точку, куда цель придёт к подлёту.
-    const angle = aimAtTarget(
-      {
-        sx: drone.x,
-        sy: drone.y,
-        target,
-        bulletSpeed: combat.bulletSpeed,
-        maxFlightTime: combat.bulletLife,
-      },
-      ctx.aim.hitChance,
-      target.r
-    );
-
-    drone.fireCd = combat.reloadTime / ctx.bonuses.rateMult;
-    drone.flash = DRONE_FLASH_TIME;
-    drone.angle = angle;
-    ctx.addBullet({
-      x: drone.x,
-      y: drone.y,
-      vx: Math.cos(angle) * combat.bulletSpeed,
-      vy: Math.sin(angle) * combat.bulletSpeed,
-      life: combat.bulletLife,
-      dmg: combat.damage,
-    });
-
-    return true;
-  }
-
-  /** Найти живого врага по EntityRef (ecsId) из списка целей. */
-  private enemyById(enemies: readonly Enemy[], id: number | string): Enemy | null {
-    for (const e of enemies) {
-      if (e.ecsId === id) return e;
-    }
-    return null;
-  }
-
-  /** Ближайший живой враг в зоне захвата дрона. */
-  private findTarget(x: number, y: number, enemies: readonly Enemy[]): Enemy | null {
-    let nearest: Enemy | null = null;
-    let nearestDist = DRONE_TARGET_RANGE;
-
-    for (const enemy of enemies) {
-      if (enemy.dead) continue;
-      const dist = Math.hypot(enemy.x - x, enemy.y - y);
-      if (dist < nearestDist) {
-        nearestDist = dist;
-        nearest = enemy;
-      }
-    }
-
-    return nearest;
-  }
-
-  /** Создать единицу дрона с указанным видом и поместить её на орбиту. */
   private createUnit(
     ctx: WeaponContext,
     combat: DroneCombatSpec,
@@ -239,6 +142,7 @@ export class DroneWeapon implements Weapon {
     const hp = Math.max(1, Math.round(ctx.player.maxHp * combat.hpRatio));
 
     return {
+      entityId: "",
       x: ctx.player.x + Math.cos(phase) * DRONE_ORBIT_RADIUS,
       y: ctx.player.y + Math.sin(phase) * DRONE_ORBIT_RADIUS,
       r: combat.radius,

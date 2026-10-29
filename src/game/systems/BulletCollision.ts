@@ -25,8 +25,6 @@ export interface DroneHit {
   bulletIndex: number;
   /** Индекс дрона в пуле дронов. */
   droneIndex: number;
-  /** Дрон погиб и должен быть удалён. */
-  killed: boolean;
 }
 
 /**
@@ -146,7 +144,6 @@ export function checkEnemyBulletVsPlayer(
  * Returns the list of hits; the caller removes bullets and dead drones.
  */
 export function checkEnemyBulletVsDrones(
-  eventBus: EventBus,
   enemyBullets: EBullet[],
   drones: AllyDrone[]
 ): DroneHit[] {
@@ -159,16 +156,7 @@ export function checkEnemyBulletVsDrones(
       const d = drones[j];
       if (!bulletHits(b.x, b.y, { x: d.x, y: d.y, r: d.r })) continue;
 
-      d.hp -= b.dmg;
-      d.flash = 1;
-      const killed = d.hp <= 0;
-      eventBus.publish('drone_hit', {
-        x: d.x,
-        y: d.y,
-        dmg: b.dmg,
-        dead: killed,
-      });
-      hits.push({ bulletIndex: i, droneIndex: j, killed });
+      hits.push({ bulletIndex: i, droneIndex: j });
       break;
     }
   }

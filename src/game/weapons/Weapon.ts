@@ -77,8 +77,6 @@ export interface WeaponContext {
   readonly beams: LaserBeam[];
   /** Зарегистрировать новый визуальный луч лазера в ECS-мире. */
   addBeam(beam: LaserBeam): void;
-  /** Удалить истёкший визуальный луч лазера из ECS-мира. */
-  removeBeam(beam: LaserBeam): void;
   /** Граница игровой зоны (null — зона не задана). */
   readonly zone: ZoneSnapshot | null;
   /** Колбэк выстрела — проигрывание звука. */

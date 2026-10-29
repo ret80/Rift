@@ -4,15 +4,28 @@
    crack; closing plays the exact reverse. Each rift keeps a random
    orientation and a size matched to its biggest passenger. */
 
+import { System, Aspect, type Engine } from "@trixt0r/ecs";
 import type { IRenderer } from "./render/index";
 import type { AudioManager } from "./systems/AudioManager";
 import type { Fx } from "./fx";
 import type { EcsWorld } from "./ecs";
 import { TAU, rand, clamp, easeOutCubic, rgba } from "./math";
 import { C, type EnemyKind } from "./balance";
-import type { Rift } from "./types";
+import { RiftComponent, type RiftState } from "./ecs/components/RiftComponent";
+import { GameEntity } from "./ecs/GameEntity";
 
-export { Rift };
+/** Плоское представление разлома для рендера и чтения вне ECS. */
+export interface Rift {
+  x: number;
+  y: number;
+  t: number;
+  state: RiftState;
+  queue: EnemyKind[];
+  timer: number;
+  seed: number;
+  rot: number;
+  size: number;
+}
 
 export interface RiftHooks {
   spawnEnemy(kind: EnemyKind, x: number, y: number): void;
@@ -20,7 +33,8 @@ export interface RiftHooks {
   audio: AudioManager;
 }
 
-export class RiftField {
+export class RiftField extends System {
+  private aspect: Aspect | null = null;
   private readonly ecs: EcsWorld;
 
   /** Производное чтиво разломов из ECS-мира. */
@@ -29,7 +43,12 @@ export class RiftField {
   }
 
   constructor(private h: RiftHooks, ecs: EcsWorld) {
+    super(3); // после пуль и лучей — спавн врагов рифта следующим кадром
     this.ecs = ecs;
+  }
+
+  onAddedToEngine(engine: Engine): void {
+    this.aspect = Aspect.for(engine).all(RiftComponent);
   }
 
   /** Utility: draw a rift shape at the given position (used by menu scene). */
@@ -121,8 +140,17 @@ export class RiftField {
     this.h.audio.playRiftOpen();
   }
 
-  update(dt: number) {
-    for (const rf of this.ecs.rifts()) {
+  /** ECS-кадр: ведёт жизненный цикл всех разломов по компонентам. */
+  process(dt: number): void {
+    const aspect = this.aspect;
+    if (!aspect) return;
+
+    const toRemove: GameEntity[] = [];
+
+    for (const entity of [...aspect.entities] as GameEntity[]) {
+      const rf = entity.components.get(RiftComponent);
+      if (!rf) continue;
+
       rf.t += dt;
       if (rf.state === "opening") {
         if (rf.t >= 0.6) {
@@ -145,9 +173,11 @@ export class RiftField {
           this.h.audio.playRiftClose();
         }
       } else if (rf.state === "closing") {
-        if (rf.t >= 0.5) this.ecs.removeRift(rf);
+        if (rf.t >= 0.5) toRemove.push(entity);
       }
     }
+
+    for (const entity of toRemove) this.engine?.entities.remove(entity);
   }
 
   reset() {

@@ -35,6 +35,8 @@ import { PickupMovementSystem } from "./systems/PickupMovementSystem";
 import { PickupCollectionSystem } from "./systems/PickupCollectionSystem";
 import { ParticleSystem } from "./systems/ParticleSystem";
 import { RingSystem } from "./systems/RingSystem";
+import { BeamSystem } from "./systems/BeamSystem";
+import { AllyDroneSystem } from "./systems/AllyDroneSystem";
 import { BulletSystem } from "../systems/BulletSystem";
 import {
   EnemySystem,
@@ -98,6 +100,9 @@ export class EcsWorld {
     this.engine.systems.add(new ParticleSystem());
     this.engine.systems.add(new RingSystem());
 
+    // Лучи лазера: визуал затухает по LifeComponent.
+    this.engine.systems.add(new BeamSystem());
+
     // Снаряды: движение/самонаведение/жизнь.
     this.bulletSystem = new BulletSystem();
     this.engine.systems.add(this.bulletSystem);
@@ -107,7 +112,6 @@ export class EcsWorld {
     this.enemyShootingSystem = new EnemyShootingSystem(
       eventBus,
       deps.audio,
-      this,
       deps.getPlayerMotion,
       deps.isCombatActive,
     );
@@ -174,18 +178,23 @@ export class EcsWorld {
 
   // ===== Enemy API =====
 
-  /** Стабильные объекты-представления врагов (те же ссылки между кадрами). */
-  private readonly enemyViews = new WeakMap<GameEntity, Enemy>();
-
   /**
-   * Зарегистрировать существующий объект врага как ECS-сущность.
-   * Сущность владеет декомпозированными данными (Position/Velocity/Health/
-   * Radius + EnemyComponent), а объект `Enemy` остаётся стабильным view,
-   * который физика/коллизии/рендер/оружие читают как единый протокол.
+   * Зарегистрировать врага как ECS-сущность из чистых данных.
+   * EnemyComponent — единственный источник правды; никакого отдельного
+   * живого объекта `Enemy` мы не храним (enemies() строит DTO на лету).
    */
   addEnemy(enemy: Enemy): void {
     const entity = new GameEntity();
-    entity.components.add(new EnemyComponent({
+    const c = new EnemyComponent({
+      x: enemy.x,
+      y: enemy.y,
+      vx: enemy.vx,
+      vy: enemy.vy,
+      hp: enemy.hp,
+      maxHp: enemy.maxHp,
+      r: enemy.r,
+      ecsId: entity.id,
+      parentId: enemy.parentId ?? null,
       kind: enemy.kind,
       angle: enemy.angle,
       speed: enemy.speed,
@@ -218,79 +227,31 @@ export class EcsWorld {
       waitTimer: enemy.waitTimer,
       phaseDrones: enemy.phaseDrones,
       carrierChildren: enemy.carrierChildren,
-    }));
-    entity.components.add(new PositionComponent(enemy.x, enemy.y));
-    entity.components.add(new VelocityComponent(enemy.vx, enemy.vy));
-    entity.components.add(new HealthComponent(enemy.hp, enemy.maxHp));
-    entity.components.add(new RadiusComponent(enemy.r));
+    });
+    entity.components.add(c);
     this.engine.entities.add(entity);
-    // Присваиваем EntityRef: id сущности этого врага (для parentId/ecsId сравнений).
-    enemy.ecsId = entity.id;
-    this.enemyViews.set(entity, enemy);
   }
 
-  /** Производное чтиво: список живых врагов (стабильные представления). */
+  /** Производное чтиво: живые EnemyComponent, приведённые к типу Enemy.
+   *  Компонент структурно идентичен Enemy и является единственным источником
+   *  правды, поэтому физика/коллизии/зоны/AI мутируют его напрямую. */
   enemies(): Enemy[] {
     const result: Enemy[] = [];
     for (const entity of this.engine.entities.elements as GameEntity[]) {
-      const view = this.enemyViews.get(entity);
-      if (view) result.push(view);
+      const c = entity.components.get(EnemyComponent);
+      if (c) result.push(c as unknown as Enemy);
     }
     return result;
   }
 
-  /** Получить стабильное представление врага по сущности (или null). */
-  enemyView(entity: GameEntity): Enemy | null {
-    return this.enemyViews.get(entity) ?? null;
-  }
-
-  /** Синхронизировать компоненты сущности из текущего состояния view. */
-  syncEnemyEntity(entity: GameEntity): void {
-    const view = this.enemyViews.get(entity);
-    if (!view) return;
-    const component = entity.components.get(EnemyComponent);
-    if (component) {
-      component.kind = view.kind;
-      component.angle = view.angle;
-      component.speed = view.speed;
-      component.contact = view.contact;
-      component.score = view.score;
-      component.boltDmg = view.boltDmg;
-      component.fireCd = view.fireCd;
-      component.mode = view.mode;
-      component.modeT = view.modeT;
-      component.strafeDir = view.strafeDir;
-      component.seed = view.seed;
-      component.spawnCd = view.spawnCd;
-      component.flash = view.flash;
-      component.hitCd = view.hitCd;
-      component.dead = view.dead;
-      component.mass = view.mass;
-      component.dodgeWeight = view.dodgeWeight;
-      component.dodgeDir = view.dodgeDir;
-      component.dodgeTimer = view.dodgeTimer;
-      component.burstSpawned = view.burstSpawned;
-      component.burstActive = view.burstActive;
-      component.burstRestT = view.burstRestT;
-      component.burstCd = view.burstCd;
-      component.tCd1 = view.tCd1;
-      component.tCd2 = view.tCd2;
-      component.droneState = view.droneState;
-      component.orbitAngle = view.orbitAngle;
-      component.orbitRadius = view.orbitRadius;
-      component.orbitTimer = view.orbitTimer;
-      component.waitTimer = view.waitTimer;
-      component.phaseDrones = view.phaseDrones;
-      component.carrierChildren = view.carrierChildren;
+  /** Найти EnemyComponent по EntityRef-идентификатору врага (или null). */
+  enemyComponentById(id: number | string | null): EnemyComponent | null {
+    if (id === null) return null;
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      const c = entity.components.get(EnemyComponent);
+      if (c && c.ecsId === id) return c;
     }
-    const position = entity.components.get(PositionComponent);
-    if (position) { position.x = view.x; position.y = view.y; }
-    const velocity = entity.components.get(VelocityComponent);
-    if (velocity) { velocity.vx = view.vx; velocity.vy = view.vy; }
-    const health = entity.components.get(HealthComponent);
-    if (health) { health.hp = view.hp; health.maxHp = view.maxHp; }
-    const radius = entity.components.get(RadiusComponent);
-    if (radius) { radius.r = view.r; }
+    return null;
   }
 
   /** Заспавнить врага через вражескую AI-систему. */
@@ -423,11 +384,68 @@ export class EcsWorld {
 
   // ===== AllyDrone API =====
 
-  /** Зарегистрировать дрон-компаньон как ECS-сущность. */
+  /** Зарегистрировать дрон-компаньон как ECS-сущность из чистых данных. */
   addAllyDrone(drone: AllyDrone): void {
     const entity = new GameEntity();
-    entity.components.add(new AllyDroneComponent(drone));
+    entity.components.add(new AllyDroneComponent(
+      entity.id,
+      drone.x, drone.y, drone.r, drone.angle, drone.fireCd, drone.phase,
+      drone.hp, drone.maxHp, drone.targetId ?? null, drone.retargetT, drone.flash,
+      drone.permanent, drone.kind, drone.combat,
+    ));
     this.engine.entities.add(entity);
+  }
+
+  /** Производное чтиво: свежесобранные plain-объекты для рендера и чтения. */
+  allyDrones(): AllyDrone[] {
+    const result: AllyDrone[] = [];
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      const d = entity.components.get(AllyDroneComponent);
+      if (d) {
+        result.push({
+          entityId: d.entityId,
+          x: d.x,
+          y: d.y,
+          r: d.r,
+          angle: d.angle,
+          fireCd: d.fireCd,
+          phase: d.phase,
+          hp: d.hp,
+          maxHp: d.maxHp,
+          targetId: d.targetId ?? null,
+          retargetT: d.retargetT,
+          flash: d.flash,
+          permanent: d.permanent,
+          kind: d.kind,
+          combat: d.combat,
+        });
+      }
+    }
+    return result;
+  }
+
+  /** Удалить дрон по его EntityRef-идентификатору. */
+  removeAllyDroneById(id: number | string): void {
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      const d = entity.components.get(AllyDroneComponent);
+      if (d && d.entityId === id) {
+        this.engine.entities.remove(entity);
+        return;
+      }
+    }
+  }
+
+  /** Нанести урон дрону по EntityRef-идентификатору; возвращает true, если погиб. */
+  damageAllyDrone(id: number | string, dmg: number): boolean {
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      const d = entity.components.get(AllyDroneComponent);
+      if (d && d.entityId === id) {
+        d.hp -= dmg;
+        d.flash = 1;
+        return d.hp <= 0;
+      }
+    }
+    return false;
   }
 
   // ===== Player API =====
@@ -450,56 +468,37 @@ export class EcsWorld {
 
   // ===== LaserBeam API =====
 
-  /** Зарегистрировать визуальный луч лазера как ECS-сущность. */
+  /** Зарегистрировать визуальный луч лазера как ECS-сущность из чистых данных. */
   addBeam(beam: LaserBeam): void {
     const entity = new GameEntity();
-    entity.components.add(new LaserBeamComponent(beam));
+    entity.components.add(new LaserBeamComponent(
+      beam.x1, beam.y1, beam.x2, beam.y2, beam.seed, beam.targetId ?? null,
+    ));
+    entity.components.add(new LifeComponent(beam.life, beam.maxLife));
     this.engine.entities.add(entity);
   }
 
-  /** Производное чтиво: список визуальных лучей лазера. */
+  /** Производное чтиво: свежесобранные plain-объекты для рендера. */
   beams(): LaserBeam[] {
     const result: LaserBeam[] = [];
     for (const entity of this.engine.entities.elements as GameEntity[]) {
-      const component = entity.components.get(LaserBeamComponent);
-      if (component) result.push(component.beam);
+      const beam = entity.components.get(LaserBeamComponent);
+      if (!beam) continue;
+      const life = entity.components.get(LifeComponent);
+      if (!life) continue;
+      result.push({
+        x1: beam.x1,
+        y1: beam.y1,
+        x2: beam.x2,
+        y2: beam.y2,
+        life: life.remaining,
+        maxLife: life.max,
+        seed: beam.seed,
+        targetId: beam.targetId ?? null,
+      });
     }
     return result;
   }
-
-  /** Удалить конкретный визуальный луч из ECS. */
-  removeBeam(beam: LaserBeam): void {
-    for (const entity of this.engine.entities.elements as GameEntity[]) {
-      const component = entity.components.get(LaserBeamComponent);
-      if (component && component.beam === beam) {
-        this.engine.entities.remove(entity);
-        return;
-      }
-    }
-  }
-
-  /** Производное чтиво: список дронов-компаньонов. */
-  allyDrones(): AllyDrone[] {
-    const result: AllyDrone[] = [];
-    for (const entity of this.engine.entities.elements as GameEntity[]) {
-      const component = entity.components.get(AllyDroneComponent);
-      if (component) result.push(component.drone);
-    }
-    return result;
-  }
-
-  /** Удалить конкретный дрон-компаньон из ECS. */
-  removeAllyDrone(drone: AllyDrone): void {
-    for (const entity of this.engine.entities.elements as GameEntity[]) {
-      const component = entity.components.get(AllyDroneComponent);
-      if (component && component.drone === drone) {
-        this.engine.entities.remove(entity);
-        return;
-      }
-    }
-  }
-
-  // ===== Clear =====
 
   /** Удалить все сущности только с компонентом PickupKindComponent. */
   clearPickups(): void {
@@ -517,9 +516,6 @@ export class EcsWorld {
       if (entity.components.get(EnemyComponent)) toRemove.push(entity);
     }
     for (const entity of toRemove) {
-      const enemy = this.enemyViews.get(entity);
-      if (enemy) enemy.ecsId = null;
-      this.enemyViews.delete(entity);
       this.engine.entities.remove(entity);
     }
   }
@@ -689,32 +685,36 @@ export class EcsWorld {
 
   // ===== Rift API =====
 
-  /** Зарегистрировать разлом как ECS-сущность. */
+  /** Зарегистрировать разлом как ECS-сущность из чистых данных. */
   addRift(rift: Rift): void {
     const entity = new GameEntity();
-    entity.components.add(new RiftComponent(rift));
+    entity.components.add(new RiftComponent(
+      rift.x, rift.y, rift.t, rift.state, rift.queue, rift.timer,
+      rift.seed, rift.rot, rift.size,
+    ));
     this.engine.entities.add(entity);
   }
 
-  /** Производное чтиво: список разломов. */
+  /** Производное чтиво: свежесобранные plain-объекты для рендера и чтения. */
   rifts(): Rift[] {
     const result: Rift[] = [];
     for (const entity of this.engine.entities.elements as GameEntity[]) {
       const component = entity.components.get(RiftComponent);
-      if (component) result.push(component.rift);
-    }
-    return result;
-  }
-
-  /** Удалить конкретный разлом из ECS. */
-  removeRift(rift: Rift): void {
-    for (const entity of this.engine.entities.elements as GameEntity[]) {
-      const component = entity.components.get(RiftComponent);
-      if (component && component.rift === rift) {
-        this.engine.entities.remove(entity);
-        return;
+      if (component) {
+        result.push({
+          x: component.x,
+          y: component.y,
+          t: component.t,
+          state: component.state,
+          queue: component.queue,
+          timer: component.timer,
+          seed: component.seed,
+          rot: component.rot,
+          size: component.size,
+        });
       }
     }
+    return result;
   }
 
   /** Удалить все разломы. */

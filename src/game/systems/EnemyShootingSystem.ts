@@ -5,9 +5,9 @@
  * к моменту подлёта, а не в его текущую позицию. Меткость растёт с волной,
  * но никогда не достигает 100% — см. balance/accuracy.ts.
  *
- * Система фильтрует ECS-сущности с EnemyComponent (обёртка над объектом
- * Enemy), публикует событие 'enemy_fired' и обновляет таймеры орудий.
- * Движение и AI остаются в EnemySystem (приоритет выше).
+ * Система фильтрует ECS-сущности с компонентом EnemyComponent (единый
+ * источник правды), публикует событие 'enemy_fired' и обновляет таймеры
+ * орудий прямо в компонентах. Движение и AI остаются в EnemySystem.
  */
 
 import { System, Aspect, type Engine } from "@trixt0r/ecs";
@@ -26,11 +26,9 @@ import {
 } from "../balance";
 import type { EventBus } from "../core/EventBus";
 import { rand } from "../math";
-import type { Enemy } from "../types";
 import type { AudioManager } from "./AudioManager";
 import { EnemyComponent } from "../ecs/components/EnemyComponent";
 import { GameEntity } from "../ecs/GameEntity";
-import type { EcsWorld } from "../ecs";
 
 /** Внешний радиус хитбокса игрока — угловой размер цели для вражеских орудий. */
 const PLAYER_HIT_RADIUS = PLAYER_HITBOX_RADIUS + PLAYER_BULLET_HIT_OFFSET;
@@ -71,7 +69,6 @@ export class EnemyShootingSystem extends System {
   constructor(
     eventBus: EventBus,
     audio: AudioManager,
-    private readonly ecs: EcsWorld,
     private readonly getPlayer: PlayerMotionSource,
     private readonly isCombatActive: CombatActiveSource,
   ) {
@@ -98,11 +95,11 @@ export class EnemyShootingSystem extends System {
    */
   process(dt: number): void {
     if (!this.isCombatActive()) return;
-    const shots = this.collectEnemyShots();
-    if (!shots.length) return;
+    const enemies = this.collectEnemyShots();
+    if (!enemies.length) return;
 
     const player = this.getPlayer();
-    for (const { entity, view: e } of shots) {
+    for (const e of enemies) {
       if (e.dead) continue;
 
       const weapon = TURRETS[e.kind];
@@ -119,27 +116,23 @@ export class EnemyShootingSystem extends System {
       } else {
         this.fireSingleTurret(e, dt, player, weapon, hitChance);
       }
-
-      // Стрельба мутирует cooldown'ы (fireCd/tCd1/tCd2) на view — вернуть в компоненты.
-      this.ecs.syncEnemyEntity(entity);
     }
   }
 
-  /** Собрать пары (ECS-сущность, стабильное представление Enemy) с EnemyComponent. */
-  private collectEnemyShots(): Array<{ entity: GameEntity; view: Enemy }> {
+  /** Собрать сущности с EnemyComponent. */
+  private collectEnemyShots(): EnemyComponent[] {
     if (!this.aspect) return [];
-    const result: Array<{ entity: GameEntity; view: Enemy }> = [];
+    const result: EnemyComponent[] = [];
     for (const entity of [...this.aspect.entities] as GameEntity[]) {
-      if (!entity.components.get(EnemyComponent)) continue;
-      const view = this.ecs.enemyView(entity);
-      if (view) result.push({ entity, view });
+      const c = entity.components.get(EnemyComponent);
+      if (c) result.push(c);
     }
     return result;
   }
 
   /** Двуствольный Cruiser: две независимые турели с таймерами tCd1/tCd2 */
   private fireCruiserTurrets(
-    e: Enemy,
+    e: EnemyComponent,
     dt: number,
     player: PlayerMotion,
     weapon: EnemyWeapon,
@@ -171,7 +164,7 @@ export class EnemyShootingSystem extends System {
 
   /** Одиночная турель: Fighter и Carrier */
   private fireSingleTurret(
-    e: Enemy,
+    e: EnemyComponent,
     dt: number,
     player: PlayerMotion,
     weapon: EnemyWeapon,
@@ -194,7 +187,7 @@ export class EnemyShootingSystem extends System {
    * под меткость врага. boltSpeed в снаряде и в упреждении — одно и то же.
    */
   private fire(
-    e: Enemy,
+    e: EnemyComponent,
     sx: number,
     sy: number,
     player: PlayerMotion,

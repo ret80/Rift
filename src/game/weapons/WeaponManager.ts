@@ -50,8 +50,6 @@ export interface WeaponWorld {
   getBeams?(): LaserBeam[];
   /** Зарегистрировать новый визуальный луч лазера в ECS-мире. */
   addBeam?(beam: LaserBeam): void;
-  /** Удалить истёкший визуальный луч лазера из ECS-мира. */
-  removeBeam?(beam: LaserBeam): void;
   /** Граница игровой зоны (null — зона не задана). */
   getZone?(): ZoneSnapshot | null;
   /** Убить врага через единый путь (дроп, счёт, волна). */
@@ -71,6 +69,16 @@ export class WeaponManager {
   private loadout: WeaponLoadout | null = null;
   /** Снимок флота купленных дронов (для DroneWeapon). */
   private droneFleet: DroneFleetSpec | undefined = undefined;
+
+  /** Текущий шанс попадания орудий игрока (для систем дронов). */
+  getHitChance(): number {
+    return this.hitChance;
+  }
+
+  /** Текущий множитель темпа стрельбы (для систем дронов). */
+  getFireRateMult(): number {
+    return this.fireRateMult;
+  }
 
   constructor(
     world: WeaponWorld,
@@ -208,7 +216,6 @@ export class WeaponManager {
       addAllyDrone: (drone) => this.world.addAllyDrone(drone),
       beams: this.world.getBeams?.() ?? [],
       addBeam: (beam) => this.world.addBeam?.(beam),
-      removeBeam: (beam) => this.world.removeBeam?.(beam),
       zone: this.world.getZone?.() ?? null,
       onFired: (id) => this.onWeaponFired(id),
       killEnemy: (enemy) => this.world.killEnemy?.(enemy),

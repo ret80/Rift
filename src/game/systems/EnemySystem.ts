@@ -1,11 +1,12 @@
 /**
  * EnemySystem — ECS-система AI, движения и состояния врагов.
  *
- * Враги зарегистрированы как ECS-сущности с компонентом EnemyComponent
- * (обёртка над живым объектом `Enemy`). Система фильтрует сущности по
- * аспекту, обновляет AI-стратегии, интегрирует скорость (если физика не
- * делает это сама), обрабатывает спавн дронов носителем и мягкое
- * избегание столкновений. Стрельба вынесена в EnemyShootingSystem.
+ * Враги — ECS-сущности с компонентом EnemyComponent, который является
+ * ЕДИНСТВЕННЫМ источником правды (позиция/скорость/здоровье/радиус/вид и
+ * всё AI-состояние). Система фильтрует сущности по аспекту, обновляет
+ * AI-стратегии, интегрирует скорость (если физика не делает это сама),
+ * обрабатывает спавн дронов носителем и мягкое избегание столкновений.
+ * Стрельба вынесена в EnemyShootingSystem.
  *
  * Порядок определяется приоритетом системы: движение (0) раньше стрельбы.
  */
@@ -89,14 +90,14 @@ export class EnemySystem extends System {
       wave: this.wave,
     });
 
-    // AI movement via strategy pattern (стратегии мутируют view-объект Enemy)
-    const enemyList = entities.map((e) => e.view);
-    this.context.enemies = enemyList;
-    this.ai.updateAI(enemyList, this.context, dt);
+    // AI movement via strategy pattern (стратегии мутируют компоненты).
+    const enemyList = entities.map((e) => e.c);
+    this.context.enemies = enemyList as unknown as Enemy[];
+    this.ai.updateAI(enemyList as unknown as Enemy[], this.context, dt);
 
     // Apply velocity and update state
     for (let i = 0; i < entities.length; i++) {
-      const { view: e } = entities[i];
+      const e = entities[i].c;
       if (e.dead) continue;
 
       e.flash = Math.max(0, e.flash - dt * 5);
@@ -119,7 +120,7 @@ export class EnemySystem extends System {
       const droneDef = this.getEnemyDef(EnemyKind.Drone);
       const drone = this.createEnemy(EnemyKind.Drone, spawn.x, spawn.y, droneDef, playerPos, null);
       // Set parent to carrier for proper tracking
-      const carrier = this.findCarrierForDrone(enemyList, spawn);
+      const carrier = this.findCarrierForDrone(enemyList as Enemy[], spawn);
       if (carrier) {
         drone.parentId = carrier.ecsId ?? null;
         // Дрон начинается на орбите вокруг Carrier
@@ -131,22 +132,16 @@ export class EnemySystem extends System {
     }
 
     // Simple collision avoidance between all enemies
-    this.applyAvoidance(enemyList);
-
-    // После AI/движения вернуть мутированное состояние view в компоненты сущности.
-    for (const { entity } of entities) {
-      this.ecs.syncEnemyEntity(entity);
-    }
+    this.applyAvoidance(enemyList as Enemy[]);
   }
 
-  /** Собрать пары (ECS-сущность, стабильное представление Enemy) с EnemyComponent. */
-  private collectEnemyEntities(): Array<{ entity: GameEntity; view: Enemy }> {
+  /** Собрать сущности с EnemyComponent. */
+  private collectEnemyEntities(): Array<{ entity: GameEntity; c: EnemyComponent }> {
     if (!this.aspect) return [];
-    const result: Array<{ entity: GameEntity; view: Enemy }> = [];
+    const result: Array<{ entity: GameEntity; c: EnemyComponent }> = [];
     for (const entity of [...this.aspect.entities] as GameEntity[]) {
-      if (!entity.components.get(EnemyComponent)) continue;
-      const view = this.ecs.enemyView(entity);
-      if (view) result.push({ entity, view });
+      const c = entity.components.get(EnemyComponent);
+      if (c) result.push({ entity, c });
     }
     return result;
   }
@@ -182,6 +177,8 @@ export class EnemySystem extends System {
     }
 
     return {
+      ecsId: "", // присваивается в addEnemy (entity.id)
+      parentId: parent?.ecsId ?? null,
       kind, x, y, vx: 0, vy: 0, angle,
       hp: def.hp, maxHp: def.hp, r: def.r, speed: def.speed,
       contact: def.contact, score: def.score, boltDmg: def.bolt,
@@ -189,7 +186,7 @@ export class EnemySystem extends System {
       strafeDir: Math.random() < 0.5 ? -1 : 1,
       seed: Math.random() * 100, spawnCd: rand(1, 2),
       flash: 0, hitCd: 0, dead: false,
-      ecsId: null, parentId: parent?.ecsId ?? null, mass,
+      mass,
       dodgeWeight,
       tCd1: rand(0.3, 0.8) + tStagger,
       tCd2: rand(0.3, 0.8) - tStagger,

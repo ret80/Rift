@@ -124,7 +124,6 @@ export class LaserWeapon implements Weapon {
   }
 
   update(dt: number, ctx: WeaponContext): void {
-    this.ageBeams(dt, ctx);
     if (!this.active && !this.owned) return;
 
     // Забег по времени: лазер из пикапа ограничен, купленный — постоянный.
@@ -181,14 +180,6 @@ export class LaserWeapon implements Weapon {
     if (mods.reloadMult != null) this.reloadMult = mods.reloadMult;
     if (mods.damageMult != null) this.damageMult = mods.damageMult;
     if (mods.accuracy != null) this.personalAccuracy = mods.accuracy;
-  }
-
-  /** Убрать истёкшие лучи из пула. */
-  private ageBeams(dt: number, ctx: WeaponContext): void {
-    for (let i = ctx.beams.length - 1; i >= 0; i--) {
-      ctx.beams[i].life -= dt;
-      if (ctx.beams[i].life <= 0) ctx.removeBeam(ctx.beams[i]);
-    }
   }
 
   /** Ближайший живой враг, не занятый другим лучом. */

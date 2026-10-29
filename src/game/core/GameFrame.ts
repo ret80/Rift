@@ -91,7 +91,6 @@ export class GameFrame {
         playerY: world.player.y,
       });
     }
-    ctx.riftField.update(dt);
     ctx.fx.update(dt, dt); // Обновляем частицы и тряску экрана
 
     // Zone updates (always run, damage handled inside)
