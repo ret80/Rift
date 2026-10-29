@@ -198,7 +198,7 @@ export class LaserWeapon implements Weapon {
 
     for (const e of ctx.enemies) {
       if (e.dead) continue;
-      if (ctx.beams.some((b) => b.target === e)) continue;
+      if (e.ecsId !== null && ctx.beams.some((b) => b.targetId === e.ecsId)) continue;
       const dist = Math.hypot(e.x - ctx.player.x, e.y - ctx.player.y);
       if (dist < nearestDist) {
         nearestDist = dist;
@@ -266,7 +266,7 @@ export class LaserWeapon implements Weapon {
       maxLife: LASER_BEAM_LIFE,
       seed: Math.random() * 100,
       // Не занята ли цель, видно по живым лучам: своя цель — «занята».
-      target,
+      targetId: target.ecsId ?? null,
     });
 
     ctx.onFired(this.id);

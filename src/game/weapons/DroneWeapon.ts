@@ -160,12 +160,14 @@ export class DroneWeapon implements Weapon {
 
     // Выбор цели.
     drone.retargetT -= dt;
-    if (!drone.target || drone.retargetT <= 0 || drone.target.dead) {
-      drone.target = this.findTarget(drone.x, drone.y, ctx.enemies);
+    const currentTarget = drone.targetId ? this.enemyById(ctx.enemies, drone.targetId) : null;
+    if (!currentTarget || drone.retargetT <= 0 || currentTarget.dead) {
+      const next = this.findTarget(drone.x, drone.y, ctx.enemies);
+      drone.targetId = next ? next.ecsId ?? null : null;
       drone.retargetT = DRONE_RETARGET_INTERVAL;
     }
 
-    const target = drone.target;
+    const target = currentTarget ?? (drone.targetId ? this.enemyById(ctx.enemies, drone.targetId) : null);
     if (!target) return false;
 
     const dx = target.x - drone.x;
@@ -199,6 +201,14 @@ export class DroneWeapon implements Weapon {
     });
 
     return true;
+  }
+
+  /** Найти живого врага по EntityRef (ecsId) из списка целей. */
+  private enemyById(enemies: readonly Enemy[], id: number | string): Enemy | null {
+    for (const e of enemies) {
+      if (e.ecsId === id) return e;
+    }
+    return null;
   }
 
   /** Ближайший живой враг в зоне захвата дрона. */
@@ -237,7 +247,7 @@ export class DroneWeapon implements Weapon {
       phase,
       hp,
       maxHp: hp,
-      target: null,
+      targetId: null,
       retargetT: 0,
       flash: 0,
       permanent,

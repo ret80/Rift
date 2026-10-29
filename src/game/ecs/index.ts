@@ -33,3 +33,5 @@ export { RingComponent } from "./components/RingComponent";
 export { RiftComponent } from "./components/RiftComponent";
 export { PickupMovementSystem } from "./systems/PickupMovementSystem";
 export { PickupCollectionSystem } from "./systems/PickupCollectionSystem";
+export { ParticleSystem } from "./systems/ParticleSystem";
+export { RingSystem } from "./systems/RingSystem";

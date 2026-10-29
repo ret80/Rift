@@ -1,20 +1,30 @@
 /**
- * RingComponent — ECS-компонент расширяющегося кольца эффекта (взрывная волна).
+ * RingComponent — данные-компонент расширяющегося кольца эффекта (взрывная волна).
  *
- * Кольцо — визуальный элемент: радиус растёт со скоростью vr, а время
- * жизни ограничено `life`. Компонент хранит ссылку на живой мутируемый
- * объект `Ring`; симуляция обновляется ECS-системой.
+ * Это чистые данные, НЕ обёртка над живым объектом `Ring`. Позиция/жизнь
+ * хранятся в базовых компонентах (PositionComponent, LifeComponent), а здесь —
+ * цвет и скорость расширения радиуса. Симуляция (рост + затухание) обновляется
+ * ECS-системой; `EcsWorld` предоставляет стабильный cached-view объекта `Ring`
+ * для рендера.
  */
 
 import type { Component } from "@trixt0r/ecs";
-import type { Ring } from "../../types";
+import type { RGBA } from "../../render/index";
 
 export class RingComponent implements Component {
   readonly type = "Ring";
   readonly id = "Ring";
 
-  constructor(
-    /** Живая ссылка на мутируемый объект кольца. */
-    public ring: Ring,
-  ) {}
+  /** Текущий радиус кольца, px. */
+  public r: number;
+  /** Скорость расширения радиуса, px/сек. */
+  public vr: number;
+  /** Цвет кольца (RGBA). */
+  public c: RGBA;
+
+  constructor(r: number, vr: number, c: RGBA) {
+    this.r = r;
+    this.vr = vr;
+    this.c = c;
+  }
 }

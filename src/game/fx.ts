@@ -71,31 +71,13 @@ export class Fx {
 
   /** `dt` drives particles (game time, freezes on pause),
       `shakeDt` drives the shake decay (real time, always runs).
-      Частицы/кольца симулируются здесь (движение + затухание), но хранятся
-      и удаляются через ECS-мир. */
+      Симуляция частиц/колец делегирована ECS-системам (ParticleSystem,
+      RingSystem), которые двигают компоненты и удаляют просроченные.
+      Здесь обновляется только тряска экрана. */
   update(dt: number, shakeDt: number) {
     this.mag = Math.max(0, this.mag - shakeDt * 40);
     this.shakeX = (Math.random() - 0.5) * 2 * this.mag;
     this.shakeY = (Math.random() - 0.5) * 2 * this.mag;
-
-    if (dt > 0) {
-      for (const p of this.ecs.particles()) {
-        p.life -= dt;
-        if (p.life <= 0) {
-          this.ecs.removeParticle(p);
-          continue;
-        }
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-        p.vx *= Math.exp(-2.5 * dt);
-        p.vy *= Math.exp(-2.5 * dt);
-      }
-      for (const r of this.ecs.rings()) {
-        r.life -= dt;
-        r.r += r.vr * dt;
-        if (r.life <= 0) this.ecs.removeRing(r);
-      }
-    }
   }
 
   draw(R: IRenderer) {

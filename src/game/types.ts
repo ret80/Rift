@@ -128,8 +128,8 @@ export interface LaserBeam {
   maxLife: number;
   /** Случайная фаза мерцания — чтобы контуры не совпадали между кадрами. */
   seed: number;
-  /** Цель, занятая лучом — другие залпы не стреляют в неё повторно. */
-  target?: Enemy | null;
+  /** EntityRef: id ECS-сущности цели, занятой лучом (или null). */
+  targetId?: number | string | null;
 }
 
 export interface Pickup {
@@ -146,7 +146,8 @@ export interface AllyDrone {
   angle: number;
   fireCd: number; phase: number;
   hp: number; maxHp: number;
-  target: Enemy | null;
+  /** EntityRef: id ECS-сущности текущей цели (или null). Вместо живой ссылки. */
+  targetId: number | string | null;
   retargetT: number; flash: number;
   /** Постоянная единица флота — восстанавливается после гибели. */
   permanent: boolean;

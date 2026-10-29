@@ -20,6 +20,8 @@ import { RadiusComponent } from "./components/RadiusComponent";
 import { LifeComponent } from "./components/LifeComponent";
 import { HealthComponent } from "./components/HealthComponent";
 import { HomingRef } from "./components/HomingRef";
+import { ParticleComponent } from "./components/ParticleComponent";
+import { RingComponent } from "./components/RingComponent";
 import { BulletSweepComponent } from "./components/BulletSweepComponent";
 import { EnemyComponent } from "./components/EnemyComponent";
 import { BulletComponent } from "./components/BulletComponent";
@@ -27,12 +29,12 @@ import { EnemyBulletComponent } from "./components/EnemyBulletComponent";
 import { AllyDroneComponent } from "./components/AllyDroneComponent";
 import { LaserBeamComponent } from "./components/LaserBeamComponent";
 import { PlayerComponent } from "./components/PlayerComponent";
-import { ParticleComponent } from "./components/ParticleComponent";
-import { RingComponent } from "./components/RingComponent";
 import { RiftComponent } from "./components/RiftComponent";
 import { GameEntity } from "./GameEntity";
 import { PickupMovementSystem } from "./systems/PickupMovementSystem";
 import { PickupCollectionSystem } from "./systems/PickupCollectionSystem";
+import { ParticleSystem } from "./systems/ParticleSystem";
+import { RingSystem } from "./systems/RingSystem";
 import { BulletSystem } from "../systems/BulletSystem";
 import {
   EnemySystem,
@@ -91,6 +93,10 @@ export class EcsWorld {
     // Пикапы: движение раньше сбора.
     this.engine.systems.add(new PickupMovementSystem(getPlayer));
     this.engine.systems.add(new PickupCollectionSystem(eventBus, getPlayer));
+
+    // FX: частицы/кольца симулируются по компонентам-данным.
+    this.engine.systems.add(new ParticleSystem());
+    this.engine.systems.add(new RingSystem());
 
     // Снаряды: движение/самонаведение/жизнь.
     this.bulletSystem = new BulletSystem();
@@ -556,32 +562,58 @@ export class EcsWorld {
 
   // ===== Fx API (particles / rings) =====
 
-  /** Зарегистрировать частицу как ECS-сущность. */
+  /** Стабильные объекты-представления частиц (те же ссылки между кадрами). */
+  private readonly particleViews = new WeakMap<GameEntity, Particle>();
+  /** Стабильные объекты-представления колец (те же ссылки между кадрами). */
+  private readonly ringViews = new WeakMap<GameEntity, Ring>();
+
+  /** Зарегистрировать частицу как ECS-сущность из чистых данных-компонентов. */
   addParticle(particle: Particle): void {
     const entity = new GameEntity();
-    entity.components.add(new ParticleComponent(particle));
+    entity.components.add(new ParticleComponent(particle.c, particle.size));
+    entity.components.add(new PositionComponent(particle.x, particle.y));
+    entity.components.add(new VelocityComponent(particle.vx, particle.vy));
+    entity.components.add(new LifeComponent(particle.life, particle.maxLife));
     this.engine.entities.add(entity);
+    this.particleViews.set(entity, particle);
   }
 
-  /** Производное чтиво: список частиц. */
+  /** Производное чтиво: список частиц (стабильные представления). */
   particles(): Particle[] {
     const result: Particle[] = [];
     for (const entity of this.engine.entities.elements as GameEntity[]) {
-      const component = entity.components.get(ParticleComponent);
-      if (component) result.push(component.particle);
+      const particle = entity.components.get(ParticleComponent);
+      if (!particle) continue;
+      const view = this.particleViews.get(entity);
+      if (!view) continue;
+      const position = entity.components.get(PositionComponent);
+      const velocity = entity.components.get(VelocityComponent);
+      const life = entity.components.get(LifeComponent);
+      if (position) { view.x = position.x; view.y = position.y; }
+      if (velocity) { view.vx = velocity.vx; view.vy = velocity.vy; }
+      if (life) { view.life = life.remaining; view.maxLife = life.max; }
+      view.c = particle.c;
+      view.size = particle.size;
+      result.push(view);
     }
     return result;
   }
 
   /** Удалить конкретную частицу из ECS. */
   removeParticle(particle: Particle): void {
-    for (const entity of this.engine.entities.elements as GameEntity[]) {
-      const component = entity.components.get(ParticleComponent);
-      if (component && component.particle === particle) {
-        this.engine.entities.remove(entity);
-        return;
-      }
+    const entity = this.particleEntity(particle);
+    if (entity) {
+      this.particleViews.delete(entity);
+      this.engine.entities.remove(entity);
     }
+  }
+
+  /** Найти сущность частицы по её стабильному представлению. */
+  private particleEntity(particle: Particle): GameEntity | null {
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      if (this.particleViews.get(entity) === particle) return entity;
+    }
+    return null;
   }
 
   /** Удалить все частицы. */
@@ -590,35 +622,57 @@ export class EcsWorld {
     for (const entity of this.engine.entities.elements as GameEntity[]) {
       if (entity.components.get(ParticleComponent)) toRemove.push(entity);
     }
-    for (const entity of toRemove) this.engine.entities.remove(entity);
+    for (const entity of toRemove) {
+      this.particleViews.delete(entity);
+      this.engine.entities.remove(entity);
+    }
   }
 
-  /** Зарегистрировать кольцо как ECS-сущность. */
+  /** Зарегистрировать кольцо как ECS-сущность из чистых данных-компонентов. */
   addRing(ring: Ring): void {
     const entity = new GameEntity();
-    entity.components.add(new RingComponent(ring));
+    entity.components.add(new RingComponent(ring.r, ring.vr, ring.c));
+    entity.components.add(new PositionComponent(ring.x, ring.y));
+    entity.components.add(new LifeComponent(ring.life, ring.maxLife));
     this.engine.entities.add(entity);
+    this.ringViews.set(entity, ring);
   }
 
-  /** Производное чтиво: список колец. */
+  /** Производное чтиво: список колец (стабильные представления). */
   rings(): Ring[] {
     const result: Ring[] = [];
     for (const entity of this.engine.entities.elements as GameEntity[]) {
-      const component = entity.components.get(RingComponent);
-      if (component) result.push(component.ring);
+      const ring = entity.components.get(RingComponent);
+      if (!ring) continue;
+      const view = this.ringViews.get(entity);
+      if (!view) continue;
+      const position = entity.components.get(PositionComponent);
+      const life = entity.components.get(LifeComponent);
+      if (position) { view.x = position.x; view.y = position.y; }
+      if (life) { view.life = life.remaining; view.maxLife = life.max; }
+      view.r = ring.r;
+      view.vr = ring.vr;
+      view.c = ring.c;
+      result.push(view);
     }
     return result;
   }
 
   /** Удалить конкретное кольцо из ECS. */
   removeRing(ring: Ring): void {
-    for (const entity of this.engine.entities.elements as GameEntity[]) {
-      const component = entity.components.get(RingComponent);
-      if (component && component.ring === ring) {
-        this.engine.entities.remove(entity);
-        return;
-      }
+    const entity = this.ringEntity(ring);
+    if (entity) {
+      this.ringViews.delete(entity);
+      this.engine.entities.remove(entity);
     }
+  }
+
+  /** Найти сущность кольца по её стабильному представлению. */
+  private ringEntity(ring: Ring): GameEntity | null {
+    for (const entity of this.engine.entities.elements as GameEntity[]) {
+      if (this.ringViews.get(entity) === ring) return entity;
+    }
+    return null;
   }
 
   /** Удалить все кольца. */
@@ -627,7 +681,10 @@ export class EcsWorld {
     for (const entity of this.engine.entities.elements as GameEntity[]) {
       if (entity.components.get(RingComponent)) toRemove.push(entity);
     }
-    for (const entity of toRemove) this.engine.entities.remove(entity);
+    for (const entity of toRemove) {
+      this.ringViews.delete(entity);
+      this.engine.entities.remove(entity);
+    }
   }
 
   // ===== Rift API =====
