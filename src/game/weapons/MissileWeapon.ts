@@ -20,6 +20,7 @@ import type {
   WeaponModifiers,
   WeaponSlotState,
 } from "./Weapon";
+import { WEAPON_CATALOG } from "./WeaponCatalog";
 
 /** Скорость ракеты. */
 const MISSILE_SPEED = 280;
@@ -40,12 +41,7 @@ const MISSILE_LOCK_RANGE = 600;
 
 export class MissileWeapon implements Weapon {
   readonly id: WeaponId = "missile";
-  readonly meta: WeaponMeta = {
-    icon: "weapon-missile",
-    color: "#9dffe8",
-    labelKey: "hud.loadout.missile",
-    order: 1,
-  };
+  readonly meta: WeaponMeta = WEAPON_CATALOG.missile;
   readonly countUpgrade = null;
   readonly usesPersonalAccuracy = false;
   readonly baseDamage = MISSILE_DMG;

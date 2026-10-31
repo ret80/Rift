@@ -66,10 +66,7 @@ export class GameStateMachine<TContext = unknown> {
   /** Выполнить переход */
   fire(trigger: string, ctx?: TContext): boolean {
     const context = ctx ?? this.initialContext;
-    if (!context) {
-      console.log('[FSM] fire blocked: no context');
-      return false;
-    }
+    if (!context) return false;
 
     const allowed = this.transitions.filter(
       t =>

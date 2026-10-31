@@ -8,16 +8,17 @@
  * не мутируя состояние ECS здесь.
  */
 
-import { System, Aspect, type Engine } from "@trixt0r/ecs";
+import { Aspect, type Engine } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "../SystemSchedule";
 import { LifeComponent } from "../components/LifeComponent";
 import { LaserBeamComponent } from "../components/LaserBeamComponent";
 import { GameEntity } from "../GameEntity";
 
-export class BeamSystem extends System {
+export class BeamSystem extends PhasedSystem {
   private aspect: Aspect | null = null;
 
   constructor() {
-    super(2); // после пуль и врагов — визуал затухает в конце цикла
+    super(Phase.Projectiles);
   }
 
   onAddedToEngine(engine: Engine): void {
@@ -30,7 +31,7 @@ export class BeamSystem extends System {
 
     const toRemove: GameEntity[] = [];
 
-    for (const entity of [...aspect.entities] as GameEntity[]) {
+    for (const entity of [...aspect.entities]) {
       const life = entity.components.get(LifeComponent);
       if (!life) continue;
 

@@ -13,32 +13,30 @@
  * ВАЖНО (порядок кадра): позиции врагов в обоих физических бэкендах
  * (planck/custom) интегрирует сам физический слой — PhysicsSystem.update
  * пишет результат обратно в сущность через applyResult. Поэтому система
- * вызывается ЯВНО ПОСЛЕ шага физики из GameFrame (см. EcsWorld.
- * clampEnemiesToZone): если бы кламп выполнялся до интеграции, враг
- * «протекал» бы за границу на v*dt в каждом кадре. По этой причине система
- * не регистрируется в engine.systems и исполняется вне общего ECS-тика,
- * сохраняя порядок кадра.
+ * зарегистрирована в engine.systems с приоритетом 11: PhysicsSystem (6)
+ * и CollisionSystem (7) уже отработали, и кламп не даёт врагам «протекать»
+ * за границу на v*dt в каждом кадре.
  */
 
-import { System, Aspect } from "@trixt0r/ecs";
+import { Aspect } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "../SystemSchedule";
 import { EnemyComponent } from "../components/EnemyComponent";
 import { PositionComponent } from "../components/PositionComponent";
 import { VelocityComponent } from "../components/VelocityComponent";
 import { RadiusComponent } from "../components/RadiusComponent";
-import { GameEntity } from "../GameEntity";
-import type { EcsWorld } from "../EcsWorld";
+import type { EcsEngine } from "../EcsEngine";
 
 /** Источник активного состояния игровой зоны. */
 export type ZoneProvider = () => { active: boolean; x: number; y: number; radius: number };
 
-export class ZoneClampSystem extends System {
+export class ZoneClampSystem extends PhasedSystem {
   private aspect: Aspect | null = null;
 
   constructor(
-    private readonly ecs: EcsWorld,
+    private readonly ecs: EcsEngine,
     private readonly getZone: ZoneProvider,
   ) {
-    super(11); // финальный кламп — после waveFlow (9)/zoneSystem (10)
+    super(Phase.ZoneClamp);
   }
 
   process(_dt: number): void {
@@ -47,7 +45,7 @@ export class ZoneClampSystem extends System {
 
     if (!this.aspect) this.aspect = Aspect.for(this.ecs.engine).all(EnemyComponent);
 
-    for (const entity of [...this.aspect.entities] as GameEntity[]) {
+    for (const entity of [...this.aspect.entities]) {
       const marker = entity.components.get(EnemyComponent);
       if (!marker || marker.dead) continue;
       const position = entity.components.get(PositionComponent);

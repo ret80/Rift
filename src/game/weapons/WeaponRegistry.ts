@@ -11,13 +11,21 @@ import { DroneWeapon } from "./DroneWeapon";
 import { LaserWeapon } from "./LaserWeapon";
 import { MissileWeapon } from "./MissileWeapon";
 import type { Weapon, WeaponId } from "./Weapon";
+import { WEAPON_IDS } from "./WeaponCatalog";
 
-/** Создать свежий набор экземпляров всех видов оружия. */
+/** Фабрики видов оружия: ключи обязаны покрывать весь `WeaponId`. */
+const WEAPON_FACTORIES: Record<WeaponId, () => Weapon> = {
+  cannon: () => new CannonWeapon(),
+  missile: () => new MissileWeapon(),
+  drone: () => new DroneWeapon(),
+  laser: () => new LaserWeapon(),
+};
+
+/** Создать свежий набор экземпляров всех видов оружия из каталога. */
 export function createWeaponRegistry(): Record<WeaponId, Weapon> {
-  return {
-    cannon: new CannonWeapon(),
-    missile: new MissileWeapon(),
-    drone: new DroneWeapon(),
-    laser: new LaserWeapon(),
-  };
+  const registry = {} as Record<WeaponId, Weapon>;
+  for (const id of WEAPON_IDS) {
+    registry[id] = WEAPON_FACTORIES[id]();
+  }
+  return registry;
 }

@@ -13,7 +13,7 @@
  *   5. собирает контакты и обогащает их ролями тел для игровых систем.
  */
 
-import { System } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import type {
   IPhysics,
   PhysicsBodyDef,
@@ -22,10 +22,10 @@ import type {
   PhysicsEntity,
 } from "./IPhysics.ts";
 
-/** Источник тел текущего кадра (EcsWorld.physicsBodies + астероиды). */
+/** Источник тел текущего кадра (collectPhysicsBodies + астероиды). */
 export type PhysicsEntitySource = () => PhysicsEntity[];
 
-export class PhysicsSystem extends System {
+export class PhysicsSystem extends PhasedSystem {
   /** Реестр зарегистрированных сущностей (userData -> адаптер и ключ дефа). */
   private registered = new Map<unknown, { entity: PhysicsEntity; defKey: string }>();
 
@@ -33,7 +33,7 @@ export class PhysicsSystem extends System {
     private backend: IPhysics,
     private readonly entitySource: PhysicsEntitySource,
   ) {
-    super(6); // после оружия (5): пули успевают в мир до шага физики
+    super(Phase.Physics);
   }
 
   /** Тик физики внутри engine.run(dt): собрать тела, зарегистрировать, шагнуть. */

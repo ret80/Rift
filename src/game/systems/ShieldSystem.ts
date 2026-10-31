@@ -12,7 +12,7 @@
  * а полоски щита не рисуются.
  */
 
-import { System } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import {
   SHIELD_DRAIN_PER_DAMAGE,
   SHIELD_ENERGY_MAX,
@@ -47,7 +47,7 @@ export interface ShieldSnapshot {
   flash: number;
 }
 
-export class ShieldSystem extends System {
+export class ShieldSystem extends PhasedSystem {
   /** Щит куплен в меню прокачки. Пока не куплен — система полностью бездействует. */
   private owned = false;
   /** Уровень линии «процент щита». */
@@ -63,7 +63,7 @@ export class ShieldSystem extends System {
   private flashT = 0;
 
   constructor() {
-    super(-12); // восстановление щита — до игровых систем
+    super(Phase.Upkeep);
   }
 
   /* ======================== Upgrade hooks ======================== */

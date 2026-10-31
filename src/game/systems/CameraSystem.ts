@@ -34,7 +34,7 @@ export class CameraSystem {
   }
 
   /** Обновляет камеру — плавно следует за targetPos */
-  update(targetPos: { x: number; y: number }, dt: number): void {
+  update(targetPos: { x: number; y: number }, _dt: number): void {
     const factor = Math.min(1, CAMERA_SMOOTHING * FPS_SMOOTHING_FACTOR);
     const dx = targetPos.x - this.camX;
     const dy = targetPos.y - this.camY;

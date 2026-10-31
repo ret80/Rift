@@ -10,6 +10,7 @@ import {
 } from "../game/audio/tracks";
 import type { PhysicsEngineId } from "../game/physics";
 import { normalizePhysicsEngine } from "../game/physics";
+import { STORAGE_KEYS } from "../game/core/storageKeys";
 import { usePersistedState } from "./usePersistedState";
 
 /** Персистентные настройки отладки/звука/врагов-пикапов. */
@@ -39,17 +40,17 @@ export interface PersistentSettings {
 /** Хук: все персистентные настройки в одном контракте. */
 export function usePersistentSettings(): PersistentSettings {
   const [vols, setVols] = usePersistedState(
-    "rift9_volumes",
+    STORAGE_KEYS.volumes,
     { master: 0.8, sfx: 0.8, music: 0.55 }
   );
   // Выбранные треки (меню/бой). Значения из localStorage могут быть битыми —
   // нормализуем через каталог.
   const [menuTrackRaw, setMenuTrackRaw] = usePersistedState<string>(
-    "rift9_menu_track",
+    STORAGE_KEYS.menuTrack,
     DEFAULT_MENU_TRACK
   );
   const [combatTrackRaw, setCombatTrackRaw] = usePersistedState<string>(
-    "rift9_combat_track",
+    STORAGE_KEYS.combatTrack,
     DEFAULT_COMBAT_TRACK
   );
   const menuTrack = normalizeMenuTrack(menuTrackRaw);
@@ -60,22 +61,22 @@ export function usePersistentSettings(): PersistentSettings {
   // Выбранный физический движок (значение из localStorage может быть битым —
   // нормализуем через реестр).
   const [physicsEngineRaw, setPhysicsEngineRaw] = usePersistedState<string>(
-    "rift9_physics_engine",
+    STORAGE_KEYS.physicsEngine,
     "planck"
   );
   const physicsEngine = normalizePhysicsEngine(physicsEngineRaw);
   const setPhysicsEngine = (v: PhysicsEngineId) => setPhysicsEngineRaw(v);
 
-  const [debugFps, setDebugFps] = usePersistedState("rift9_debug_fps", false);
-  const [debugGod, setDebugGod] = usePersistedState("rift9_debug_god", false);
-  const [debugWave, setDebugWave] = usePersistedState("rift9_debug_wave", 1);
-  const [debugDetails, setDebugDetails] = usePersistedState("rift9_debug_details", false);
+  const [debugFps, setDebugFps] = usePersistedState(STORAGE_KEYS.debugFps, false);
+  const [debugGod, setDebugGod] = usePersistedState(STORAGE_KEYS.debugGod, false);
+  const [debugWave, setDebugWave] = usePersistedState(STORAGE_KEYS.debugWave, 1);
+  const [debugDetails, setDebugDetails] = usePersistedState(STORAGE_KEYS.debugDetails, false);
   const [enabledEnemies, setEnabledEnemies] = usePersistedState<EnemyKind[]>(
-    "rift9_debug_enemies",
+    STORAGE_KEYS.debugEnemies,
     [EnemyKind.Drone, EnemyKind.Hunter, EnemyKind.Fighter, EnemyKind.Cruiser, EnemyKind.Carrier]
   );
   const [enabledPickups, setEnabledPickups] = usePersistedState<PickupKind[]>(
-    "rift9_debug_pickups",
+    STORAGE_KEYS.debugPickups,
     [...ALL_PICKUP_KINDS]
   );
 

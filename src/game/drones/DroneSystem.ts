@@ -12,6 +12,7 @@
  */
 
 import type { PersistencePort } from "../core/PersistencePort";
+import { STORAGE_KEYS } from "../core/storageKeys";
 import {
   BASE_DRONE_MODEL,
   DRONE_CATALOG,
@@ -25,7 +26,7 @@ import {
 } from "./Drone";
 import type { DroneFleetSpec } from "./Drone";
 
-const LS_KEY = "rift9_drone_loadout";
+const LS_KEY = STORAGE_KEYS.droneLoadout;
 
 /** Пустая запись ангара (дрон не куплен, всё на нуле). */
 function emptyEntry(): DroneLoadoutEntry {

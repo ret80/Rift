@@ -34,7 +34,12 @@ export class ErrorBoundary extends Component<Props, State> {
               </h2>
               <div className="mb-4 text-[13px] leading-5 text-[#9db4d6]">
                 <p className="mb-2">A critical error occurred in the application.</p>
-                <code className="block w-full overflow-x-auto rounded bg-[#0a0408] p-3 text-left font-mono text-[11px] text-[#ff5c54]">
+                <code
+                  className={
+                    "block w-full overflow-x-auto rounded bg-[#0a0408] p-3 " +
+                    "text-left font-mono text-[11px] text-[#ff5c54]"
+                  }
+                >
                   {this.state.error.message}
                 </code>
               </div>
@@ -44,7 +49,12 @@ export class ErrorBoundary extends Component<Props, State> {
                   <div className="hud-label mb-2 text-[10px] tracking-[0.2em] text-[#ff5c54]">
                     STACK TRACE
                   </div>
-                  <pre className="max-h-40 overflow-y-auto rounded bg-[#0a0408] p-3 font-mono text-[10px] leading-4 text-[#7dff9e]/70">
+                  <pre
+                    className={
+                      "max-h-40 overflow-y-auto rounded bg-[#0a0408] p-3 " +
+                      "font-mono text-[10px] leading-4 text-[#7dff9e]/70"
+                    }
+                  >
                     {this.state.error.stack}
                   </pre>
                 </div>

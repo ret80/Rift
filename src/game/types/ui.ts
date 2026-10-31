@@ -1,6 +1,6 @@
 /**
  * UI-типы — данные, передаваемые из игрового движка в React-UI.
- * Единый источник правды — дубли в game.ts, CountdownSystem.ts, useHudUpdater.ts удалены.
+ * Единый источник правды — дубли в game.ts и CountdownSystem.ts удалены.
  */
 
 import type { LoadoutSlotData } from "../loadout/LoadoutTypes";

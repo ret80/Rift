@@ -18,6 +18,7 @@ import type {
   WeaponMeta,
   WeaponSlotState,
 } from "./Weapon";
+import { WEAPON_CATALOG } from "./WeaponCatalog";
 
 /** Базовый урон лазера. */
 const LASER_DMG = 20;
@@ -78,12 +79,7 @@ function rayCircleEntryDistanceZone(
 
 export class LaserWeapon implements Weapon {
   readonly id: WeaponId = "laser";
-  readonly meta: WeaponMeta = {
-    icon: "weapon-laser",
-    color: "#ff4d6d",
-    labelKey: "hud.loadout.laser",
-    order: 4,
-  };
+  readonly meta: WeaponMeta = WEAPON_CATALOG.laser;
   readonly countUpgrade = null;
   readonly usesPersonalAccuracy = true;
   readonly baseDamage = LASER_DMG;
@@ -189,7 +185,7 @@ export class LaserWeapon implements Weapon {
 
     for (const e of ctx.enemies) {
       if (e.marker.dead) continue;
-      if (e.marker.ecsId !== null && ctx.beams.some((b) => b.targetId === e.marker.ecsId)) continue;
+      if (e.marker.ecsId !== null && ctx.beams.some((b) => b.beam.targetId === e.marker.ecsId)) continue;
       const dist = Math.hypot(e.position.x - ctx.player.x, e.position.y - ctx.player.y);
       if (dist < nearestDist) {
         nearestDist = dist;
@@ -253,7 +249,7 @@ export class LaserWeapon implements Weapon {
       hitEnemy = e;
     }
 
-    if (hitEnemy) this.damageEnemy(ctx, hitEnemy, LASER_DMG * this.damageMult);
+    if (hitEnemy) ctx.damageEnemy(hitEnemy, LASER_DMG * this.damageMult);
 
     ctx.addBeam({
       x1: muzzleX,
@@ -268,10 +264,5 @@ export class LaserWeapon implements Weapon {
     });
 
     ctx.onFired(this.id);
-  }
-
-  /** Нанести урон цели через единый путь гибели (дроп, счёт, волна). */
-  private damageEnemy(ctx: WeaponContext, enemy: EnemyRef, dmg: number): void {
-    ctx.damageEnemy?.(enemy, dmg);
   }
 }

@@ -3,7 +3,6 @@
  * Убирает дублирование логики из RendererSystem (drawMenuScene + drawMenuRift).
  */
 
-import { C } from "../../balance";
 import type { IRenderer } from "../../render/index";
 import { clamp, easeOutCubic } from "../../math";
 import { RiftField } from "../../rifts";
@@ -32,7 +31,7 @@ export interface RiftDrawParams {
 export function calcRiftAnim(
   state: RiftPhase,
   timer: number,
-  cycleTime?: number
+  _cycleTime?: number
 ): { lenP: number; widP: number; alpha: number; snake: number } {
   let lenP = 1;
   let widP = 1;

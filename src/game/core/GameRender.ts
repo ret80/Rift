@@ -4,60 +4,45 @@
  * контекста. Сюда же делегированы debug-оверлей и меню.
  */
 
+import type { GameStateId } from "./GameFSM";
 import type { RenderScene } from "../types/render";
 import type { GameContext } from "./GameContext";
+import type { WorldFrame } from "./WorldFrame";
 
 export class GameRender {
   constructor(private readonly ctx: GameContext) {}
 
   /** Отрисовать кадр игры/меню по текущему состоянию FSM. */
-  renderScene(dt: number): void {
+  renderScene(dt: number, world: WorldFrame): void {
     const ctx = this.ctx;
     const playerState = ctx.playerSystem.getPosition();
 
     // Smooth camera follow (delegated to CameraSystem)
     ctx.cameraSystem.update(playerState, dt);
     const pos = ctx.cameraSystem.getPosition();
-    const zoneState = ctx.waveOrchestrator.zoneState;
 
     const scene: RenderScene = {
-      state: ctx.fsm.state as string,
+      renderer: ctx.renderer,
+      state: ctx.fsm.state as GameStateId,
       time: ctx.loopTime,
       wave: ctx.waveOrchestrator.wave,
       score: ctx.scoringSystem.score,
-      player: ctx.getPlayerWorld(),
+      player: world.player,
       aim: ctx.weaponManager.getAimAngle(),
       guns: ctx.weaponManager.getInstanceCount("cannon"),
       shield: ctx.shieldSystem.getSnapshot(),
-      enemies: ctx.ecs.enemies(),
-      bullets: ctx.ecs.bullets(),
-      enemyBullets: ctx.ecs.enemyBullets(),
-      pickups: ctx.ecs.pickups(),
-      allyDrones: ctx.ecs.allyDrones(),
-      beams: ctx.ecs.beams(),
-      zone: zoneState.active
-        ? {
-            active: zoneState.active,
-            x: zoneState.x,
-            y: zoneState.y,
-            radius: zoneState.radius,
-            targetRadius: zoneState.targetRadius,
-            alpha: zoneState.alpha,
-          }
-        : null,
+      enemies: world.enemies,
+      bullets: world.bullets,
+      enemyBullets: world.enemyBullets,
+      pickups: world.pickups,
+      allyDrones: world.allyDrones,
+      beams: world.beams,
+      zone: world.zone,
       camera: { x: pos.x, y: pos.y, zoom: pos.zoom },
-      view: { width: window.innerWidth, height: window.innerHeight },
+      view: ctx.viewport,
     };
 
-    ctx.rendererSystem.render(ctx.renderer, scene);
-  }
-
-  /** Кадр меню: фон, астероиды, разломы, враги. */
-  updateMenu(dt: number): void {
-    const ctx = this.ctx;
-    ctx.menuScene.update(dt);
-    ctx.fx.update(dt, dt); // Обновляем частицы и тряску экрана
-    ctx.menuScene.render(ctx.renderer);
+    ctx.rendererSystem.render(scene);
   }
 
   /** Отправить HUD-данные в UI. */

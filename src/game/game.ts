@@ -66,6 +66,11 @@ export class Game {
     return this.ctx.fps();
   }
 
+  /** Текущий рекорд (из персистентного скоринга). */
+  getBest(): number {
+    return this.ctx.scoringSystem.best;
+  }
+
   /** Get persistent player upgrades */
   getPlayerUpgrades(): PlayerUpgrades {
     return this.ctx.upgrades.get();

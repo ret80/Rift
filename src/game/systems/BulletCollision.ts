@@ -4,8 +4,7 @@
  */
 
 import type { EventBus } from '../core/EventBus';
-import type { Bullet, EBullet } from '../types';
-import type { AsteroidRef, DroneRef, EnemyRef } from '../ecs';
+import type { AsteroidRef, BulletRef, DroneRef, EnemyBulletRef, EnemyRef } from '../ecs';
 import {
   segmentGrazesHitbox,
   segmentHitsHitbox,
@@ -51,7 +50,7 @@ export interface BulletEnemyHit {
 }
 
 export function checkBulletCollisions(
-  bullets: Bullet[],
+  bullets: BulletRef[],
   enemies: EnemyRef[],
   asteroids: AsteroidRef[],
   damageAsteroidFn: (index: number, dmg: number, vx: number, vy: number, x: number, y: number) => void
@@ -66,7 +65,7 @@ export function checkBulletCollisions(
     for (const e of enemies) {
       if (e.marker.dead) continue;
 
-      if (bulletHits(b.x, b.y, { x: e.position.x, y: e.position.y, r: e.radius.r })) {
+      if (bulletHits(b.position.x, b.position.y, { x: e.position.x, y: e.position.y, r: e.radius.r })) {
         hits.push({ bulletIndex: i, enemyId: e.marker.ecsId ?? null });
         bulletHit = true;
         break;
@@ -78,10 +77,10 @@ export function checkBulletCollisions(
       for (let ai = 0; ai < asteroids.length; ai++) {
         const a = asteroids[ai];
         if (a.marker.dead) continue;
-        if (bulletHits(b.x, b.y, { x: a.position.x, y: a.position.y, r: a.radius.r })) {
+        if (bulletHits(b.position.x, b.position.y, { x: a.position.x, y: a.position.y, r: a.radius.r })) {
           bulletHit = true;
           hits.push({ bulletIndex: i, enemyId: null });
-          damageAsteroidFn(ai, b.dmg, b.vx, b.vy, a.position.x, a.position.y);
+          damageAsteroidFn(ai, b.bullet.dmg, b.velocity.vx, b.velocity.vy, a.position.x, a.position.y);
           break;
         }
       }
@@ -100,7 +99,7 @@ export function checkBulletCollisions(
  */
 export function checkEnemyBulletVsPlayer(
   eventBus: EventBus,
-  enemyBullets: EBullet[],
+  enemyBullets: EnemyBulletRef[],
   hitbox: PlayerHitbox,
   playerInvuln: number,
   playerHp: number,
@@ -112,18 +111,19 @@ export function checkEnemyBulletVsPlayer(
   for (let i = enemyBullets.length - 1; i >= 0; i--) {
     const b = enemyBullets[i];
     if (!b) continue;
-    const hit = segmentHitsHitbox(hitbox, b.px, b.py, b.x, b.y);
+    const { px, py } = b.sweep;
+    const hit = segmentHitsHitbox(hitbox, px, py, b.position.x, b.position.y);
     if (hit) {
       // За кадр игрок получает не больше одного урона: первое попадание
       // засчитывается, остальные снаряды просто поглощаются.
       if (playerInvuln <= 0 && result.hitIndex < 0) {
-        eventBus.publish('player_damaged', { dmg: b.dmg });
+        eventBus.publish('player_damaged', { dmg: b.bullet.dmg });
         result.hitIndex = i;
       }
       continue;
     }
-    if (!b.grazed && segmentGrazesHitbox(hitbox, b.px, b.py, b.x, b.y, grazeBand)) {
-      b.grazed = true;
+    if (!b.sweep.grazed && segmentGrazesHitbox(hitbox, px, py, b.position.x, b.position.y, grazeBand)) {
+      b.sweep.grazed = true;
       result.grazeIndices.push(i);
     }
   }
@@ -136,7 +136,7 @@ export function checkEnemyBulletVsPlayer(
  * Returns the list of hits; the caller removes bullets and dead drones.
  */
 export function checkEnemyBulletVsDrones(
-  enemyBullets: EBullet[],
+  enemyBullets: EnemyBulletRef[],
   drones: DroneRef[]
 ): DroneHit[] {
   const hits: DroneHit[] = [];
@@ -146,7 +146,7 @@ export function checkEnemyBulletVsDrones(
     if (!b) continue;
     for (let j = drones.length - 1; j >= 0; j--) {
       const d = drones[j];
-      if (!bulletHits(b.x, b.y, { x: d.position.x, y: d.position.y, r: d.radius.r })) continue;
+      if (!bulletHits(b.position.x, b.position.y, { x: d.position.x, y: d.position.y, r: d.radius.r })) continue;
 
       hits.push({ bulletIndex: i, droneIndex: j });
       break;

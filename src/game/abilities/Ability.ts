@@ -14,6 +14,7 @@
 
 import type { LoadoutSlotMeta } from "../loadout/LoadoutTypes";
 import type { EnemyRef } from "../ecs";
+import type { EnemyDamagePort } from "../ecs/EnemyLifecycle";
 import type { Fx } from "../fx";
 
 /** Идентификаторы активных способностей. */
@@ -23,7 +24,7 @@ export type AbilityId = "quantum_swap";
 export type AbilityMeta = LoadoutSlotMeta;
 
 /** Всё, что доступно способности в момент активации. */
-export interface AbilityContext {
+export interface AbilityContext extends EnemyDamagePort {
   /** Текущая позиция корабля. */
   playerX: number;
   playerY: number;
@@ -31,10 +32,6 @@ export interface AbilityContext {
   enemies: readonly EnemyRef[];
   /** Переместить корабль в точку (со сбросом скорости). */
   movePlayerTo(x: number, y: number): void;
-  /** Убить врага — начислить очки и выбросить дроп. */
-  killEnemy(enemy: EnemyRef): void;
-  /** Нанести урон врагу через единый канонический путь (ECS damageEnemy). */
-  damageEnemy(enemy: EnemyRef, dmg: number): void;
   /** Система эффектов — искры, вспышки. */
   fx: Fx;
 }

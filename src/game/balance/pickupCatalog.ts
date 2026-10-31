@@ -6,6 +6,8 @@
 
 import type { PickupKind } from "./drops";
 import { C } from "./player";
+import type { WeaponPickupDisplay, WeaponPickupId } from "../weapons/WeaponCatalog";
+import { WEAPON_CATALOG } from "../weapons/WeaponCatalog";
 
 /** Канонический ключ отображения (группа пикапа). */
 export type PickupDisplay =
@@ -13,9 +15,7 @@ export type PickupDisplay =
   | "rate"
   | "gun"
   | "shield"
-  | "drone"
-  | "missile"
-  | "laser"
+  | WeaponPickupDisplay
   | "quantum_swap";
 
 /** Вид эффекта подбора пикапа. */
@@ -23,7 +23,7 @@ export type PickupEffect =
   | { type: "heal" }
   | { type: "bonus" }
   | { type: "shield"; amount: number }
-  | { type: "weapon"; id: "cannon" | "missile" | "drone" | "laser" }
+  | { type: "weapon"; id: WeaponPickupId }
   | { type: "ability"; id: "quantum_swap" };
 
 /** Описание пикапа: эффект и канонический ключ отображения. */
@@ -36,6 +36,13 @@ export interface PickupDefinition {
   effect: PickupEffect;
 }
 
+/** Запись пикапа, выдающего оружие, из общего каталога оружия. */
+function weaponPickup(id: WeaponPickupId): PickupDefinition {
+  const def = WEAPON_CATALOG[id].pickup;
+  if (!def) throw new Error(`Оружие без пикапа: ${id}`);
+  return { display: def.display, color: def.color, effect: { type: "weapon", id } };
+}
+
 /** Каталог всех пикапов. */
 export const PICKUP_CATALOG: Record<PickupKind, PickupDefinition> = {
   heal: { display: "heal", color: C.heal, effect: { type: "heal" } },
@@ -45,9 +52,9 @@ export const PICKUP_CATALOG: Record<PickupKind, PickupDefinition> = {
   rate: { display: "rate", color: C.fighter, effect: { type: "bonus" } },
   gun: { display: "gun", color: C.player, effect: { type: "bonus" } },
   shield: { display: "shield", color: C.shield, effect: { type: "shield", amount: 40 } },
-  drone: { display: "drone", color: C.mint, effect: { type: "weapon", id: "drone" } },
-  missile: { display: "missile", color: C.bullet, effect: { type: "weapon", id: "missile" } },
-  laser: { display: "laser", color: "#ff4d6d", effect: { type: "weapon", id: "laser" } },
+  drone: weaponPickup("drone"),
+  missile: weaponPickup("missile"),
+  laser: weaponPickup("laser"),
   quantum_swap: { display: "quantum_swap", color: "#7cf3ff", effect: { type: "ability", id: "quantum_swap" } },
 };
 

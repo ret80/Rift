@@ -11,7 +11,7 @@
  * в строке короткое время после подбора.
  */
 
-import { System } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import type { PickupKind } from "../balance";
 import type { EventBus } from "../core/EventBus";
 import type { BonusKind } from "./bonuses/Bonus";
@@ -34,13 +34,13 @@ export interface LoadoutSources {
   getSystemSlots: () => LoadoutSlotData[];
 }
 
-export class LoadoutSystem extends System {
+export class LoadoutSystem extends PhasedSystem {
   private sources: LoadoutSources;
   private flashes = new Map<BonusKind, number>();
   private slots: LoadoutSlotData[] = [];
 
   constructor(sources: LoadoutSources, eventBus: EventBus) {
-    super(12); // пересборка HUD-слотов — после всех игровых систем (0..11)
+    super(Phase.Loadout);
     this.sources = sources;
 
     eventBus.subscribe("pickup_collected", (event) => {

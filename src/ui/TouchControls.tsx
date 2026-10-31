@@ -77,7 +77,10 @@ export default function TouchControls({ onVector, onPause }: TouchControlsProps)
       >
         <div
           ref={baseRef}
-          className="pointer-events-none absolute h-32 w-32 -translate-x-1/2 -translate-y-1/2 opacity-0 transition-opacity duration-150"
+          className={
+            "pointer-events-none absolute h-32 w-32 -translate-x-1/2 -translate-y-1/2 " +
+            "opacity-0 transition-opacity duration-150"
+          }
         >
           <svg viewBox="0 0 128 128" className="h-full w-full" fill="none">
             <circle
@@ -93,20 +96,34 @@ export default function TouchControls({ onVector, onPause }: TouchControlsProps)
         </div>
         <div
           ref={knobRef}
-          className="pointer-events-none absolute h-14 w-14 -translate-x-1/2 -translate-y-1/2 opacity-0 transition-opacity duration-150"
+          className={
+            "pointer-events-none absolute h-14 w-14 -translate-x-1/2 -translate-y-1/2 " +
+            "opacity-0 transition-opacity duration-150"
+          }
         >
-          <div className="h-full w-full rotate-45 border-2 border-[#5ef2ff] bg-[#5ef2ff]/10 shadow-[0_0_18px_rgba(94,242,255,0.45)]" />
+          <div
+            className={
+              "h-full w-full rotate-45 border-2 border-[#5ef2ff] bg-[#5ef2ff]/10 " +
+              "shadow-[0_0_18px_rgba(94,242,255,0.45)]"
+            }
+          />
         </div>
         <div
           ref={hintRef}
-          className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-[8px] tracking-[0.22em] whitespace-nowrap text-[#6f86a8]/75 transition-opacity"
+          className={
+            "pointer-events-none absolute left-1/2 -translate-x-1/2 text-[8px] " +
+            "tracking-[0.22em] whitespace-nowrap text-[#6f86a8]/75 transition-opacity"
+          }
           style={{ bottom: "calc(env(safe-area-inset-bottom) + 58px)" }}
         >
           {t("help.touch")}
         </div>
       </div>
       <button
-        className="absolute z-[35] flex h-11 w-11 items-center justify-center border border-[#5ef2ff]/30 bg-[#050b16]/65 text-[#9df1ff] active:bg-[#5ef2ff]/20"
+        className={
+          "absolute z-[35] flex h-11 w-11 items-center justify-center " +
+          "border border-[#5ef2ff]/30 bg-[#050b16]/65 text-[#9df1ff] active:bg-[#5ef2ff]/20"
+        }
         style={{
           right: "calc(env(safe-area-inset-right) + 12px)",
           bottom: "calc(env(safe-area-inset-bottom) + 12px)",

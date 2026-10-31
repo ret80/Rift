@@ -1,68 +1,31 @@
-import React, { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "react";
-import type { LoadoutSlotData, LoadoutSlotKind } from "../../game/loadout/LoadoutTypes";
+import React from "react";
+import type { LoadoutSlotData } from "../../game/loadout/LoadoutTypes";
 import { useT } from "../../i18n";
 import { Icon } from "./Icon";
 
 /* ============================================================
-   LoadoutBar — row of weapon / bonus icons under the top HUD bar.
+   LoadoutBar — строка оружия и бонусов под верхней панелью HUD.
 
-   Each slot is an icon wrapped in a ring:
-     • weapon  → the ring fills up as the weapon recharges
-     • bonus   → the ring drains as the bonus lifetime runs out
-     • instant → no timer, the icon flashes briefly and disappears
+   Каждый слот — иконка в кольце:
+     • оружие  → кольцо заполняется по мере перезарядки;
+     • бонус   → кольцо убывает вместе с остатком времени;
+     • мгновенный бонус → без таймера, короткая вспышка.
 
-   The appearance of a slot (icon, colour, tooltip) comes from the
-   game module — the bar only draws what it is given.
-
-   The row is updated imperatively (once per frame) so the HUD never
-   re-renders React state at 60 fps.
+   Внешний вид слота (иконка, цвет, подпись) приходит из игрового модуля —
+   строка только рисует то, что ей передали.
    ============================================================ */
 
-/** Ring radius — must match `.loadout-ring` in index.css. */
+/** Радиус кольца — должен совпадать с `.loadout-ring` в index.css. */
 const RING_R = 12;
-/** Ring circumference, used for the stroke-dasharray trick. */
+/** Длина окружности кольца для stroke-dasharray. */
 const RING_C = 2 * Math.PI * RING_R;
 
-export interface LoadoutBarHandle {
-  /** Push the current slots. Called once per frame by the HUD updater. */
-  update(slots: LoadoutSlotData[]): void;
-}
-
-export const LoadoutBar = forwardRef<LoadoutBarHandle>(function LoadoutBar(_props, ref) {
+export function LoadoutBar(props: { slots: LoadoutSlotData[] }) {
   const t = useT();
-  const [slots, setSlots] = useState<LoadoutSlotData[]>([]);
-  const arcs = useRef(new Map<LoadoutSlotKind, SVGCircleElement>());
-  const signature = useRef("");
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      update(next: LoadoutSlotData[]) {
-        // React only re-renders when the set of visible slots changes.
-        const sig = next.map((s) => s.kind).join("|");
-        if (sig !== signature.current) {
-          signature.current = sig;
-          setSlots(next);
-        }
-        // Ring fill is written straight to the DOM every frame.
-        for (const s of next) {
-          const arc = arcs.current.get(s.kind);
-          if (!arc) continue;
-          arc.style.strokeDashoffset = String(RING_C * (1 - s.progress));
-        }
-      },
-    }),
-    [],
-  );
-
-  const registerArc = useCallback((kind: LoadoutSlotKind, el: SVGCircleElement | null) => {
-    if (el) arcs.current.set(kind, el);
-    else arcs.current.delete(kind);
-  }, []);
 
   return (
     <div className="loadout-bar">
-      {slots.map((slot) => (
+      {props.slots.map((slot) => (
         <div
           key={slot.kind}
           className="loadout-slot"
@@ -72,7 +35,6 @@ export const LoadoutBar = forwardRef<LoadoutBarHandle>(function LoadoutBar(_prop
           <svg className="loadout-ring" width="30" height="30" viewBox="0 0 30 30" aria-hidden="true">
             <circle className="loadout-track" cx="15" cy="15" r={RING_R} />
             <circle
-              ref={(el) => registerArc(slot.kind, el)}
               className="loadout-arc"
               cx="15"
               cy="15"
@@ -92,4 +54,4 @@ export const LoadoutBar = forwardRef<LoadoutBarHandle>(function LoadoutBar(_prop
       ))}
     </div>
   );
-});
+}

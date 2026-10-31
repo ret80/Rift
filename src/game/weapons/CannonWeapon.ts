@@ -19,6 +19,7 @@ import type {
   WeaponModifiers,
   WeaponSlotState,
 } from "./Weapon";
+import { WEAPON_CATALOG } from "./WeaponCatalog";
 
 /** Скорость снаряда пушки. */
 const CANNON_BULLET_SPEED = 560;
@@ -34,17 +35,10 @@ export const CANNON_MAX_BARRELS = 5;
 export const CANNON_BARREL_OFFSETS = [0, 9, -9, 17, -17];
 /** Разброс ручного прицела — цели нет, упреждение применить не к чему. */
 const CANNON_MANUAL_SPREAD = 0.02;
-/** Дистанция автонаведения пушки. */
-const CANNON_TARGET_RANGE = 420;
 
 export class CannonWeapon implements Weapon {
   readonly id: WeaponId = "cannon";
-  readonly meta: WeaponMeta = {
-    icon: "weapon-cannon",
-    color: "#5ef2ff",
-    labelKey: "hud.loadout.cannon",
-    order: 0,
-  };
+  readonly meta: WeaponMeta = WEAPON_CATALOG.cannon;
   readonly countUpgrade = null;
   readonly usesPersonalAccuracy = true;
   readonly baseDamage = CANNON_BULLET_DMG;

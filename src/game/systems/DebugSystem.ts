@@ -150,7 +150,13 @@ export class DebugSystem {
       // Color coding
       if (line.includes('YES') || line.includes('ON')) ctx.fillStyle = '#ff5d7e';
       else if (line.includes('NO') || line.includes('OFF')) ctx.fillStyle = '#d8ff3e';
-      else if (line.includes('ZONE:') || line.includes('S') || line.includes('PLAYER:') || line.includes('INPUT:') || line.includes('CONTROLS:')) ctx.fillStyle = '#c06bff';
+      else if (
+        line.includes('ZONE:') ||
+        line.includes('S') ||
+        line.includes('PLAYER:') ||
+        line.includes('INPUT:') ||
+        line.includes('CONTROLS:')
+      ) ctx.fillStyle = '#c06bff';
       else ctx.fillStyle = '#eaffff';
 
       ctx.fillText(line, 10, y);

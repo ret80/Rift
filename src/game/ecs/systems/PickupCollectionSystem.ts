@@ -7,7 +7,8 @@
  * по-прежнему обрабатывается подписчиками EventBus.
  */
 
-import { System, Aspect, type Engine } from "@trixt0r/ecs";
+import { Aspect, type Engine } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "../SystemSchedule";
 import type { EventBus } from "../../core/EventBus";
 import { PositionComponent } from "../components/PositionComponent";
 import { RadiusComponent } from "../components/RadiusComponent";
@@ -17,14 +18,14 @@ import { GameEntity } from "../GameEntity";
 /** Хитбокс игрока в игровых координатах. */
 export type PlayerHitboxSource = () => { x: number; y: number; r: number };
 
-export class PickupCollectionSystem extends System {
+export class PickupCollectionSystem extends PhasedSystem {
   private aspect: Aspect | null = null;
 
   constructor(
     private readonly eventBus: EventBus,
     private readonly getPlayer: PlayerHitboxSource,
   ) {
-    super(1); // после движения — бонусы уже в актуальной позиции
+    super(Phase.EnemyActions);
   }
 
   onAddedToEngine(engine: Engine): void {
@@ -39,7 +40,7 @@ export class PickupCollectionSystem extends System {
     const playerR = player.r;
     const toRemove: GameEntity[] = [];
 
-    for (const entity of [...aspect.entities] as GameEntity[]) {
+    for (const entity of [...aspect.entities]) {
       const position = entity.components.get(PositionComponent);
       const radius = entity.components.get(RadiusComponent);
       const kind = entity.components.get(PickupKindComponent);

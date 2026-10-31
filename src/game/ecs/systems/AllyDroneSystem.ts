@@ -10,9 +10,10 @@
  * addAllyDrone; эта система отвечает только за пофреймовое поведение.
  */
 
-import { System, Aspect, type Engine } from "@trixt0r/ecs";
+import { Aspect, type Engine } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "../SystemSchedule";
 import { aimAtTarget } from "../../aiming/AimSolver";
-import type { Bullet } from "../../types";
+import type { BulletSpawn } from "../spawn";
 import type { EnemyRef, PlayerRef } from "../../ecs";
 import { AllyDroneComponent } from "../components/AllyDroneComponent";
 import { LifeComponent } from "../components/LifeComponent";
@@ -43,16 +44,16 @@ export interface AllyDroneHooks {
   /** Живые враги — цели дронов. */
   getEnemies(): readonly EnemyRef[];
   /** Добавить снаряд игрока в ECS-мир. */
-  addBullet(bullet: Bullet): void;
+  addBullet(bullet: BulletSpawn): void;
   /** Колбэк, когда какой-то дрон выстрелил. */
   onDroneFired(): void;
 }
 
-export class AllyDroneSystem extends System {
+export class AllyDroneSystem extends PhasedSystem {
   private aspect: Aspect | null = null;
 
   constructor(private h: AllyDroneHooks) {
-    super(3); // после пуль и лучей
+    super(Phase.Allies);
   }
 
   onAddedToEngine(engine: Engine): void {
@@ -73,7 +74,7 @@ export class AllyDroneSystem extends System {
     const toRemove: GameEntity[] = [];
     let anyFired = false;
 
-    for (const entity of [...aspect.entities] as GameEntity[]) {
+    for (const entity of [...aspect.entities]) {
       const drone = entity.components.get(AllyDroneComponent);
       if (!drone) continue;
       const position = entity.components.get(PositionComponent);

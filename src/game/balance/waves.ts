@@ -4,6 +4,7 @@
    ============================================================ */
 
 import { clamp, ramp01 } from "../math";
+import type { RandomSource } from "../math";
 import { ENEMY_BASES, EnemyKind, massForRadius } from "./enemies";
 
 /* ------------------------------ StarLayer type ------------------------------ */
@@ -152,11 +153,11 @@ export function kindWeightsForEnabled(
   return base.filter(([kind]) => enabledEnemies.includes(kind));
 }
 
-export function pickKindFor(w: number): EnemyKind {
+export function pickKindFor(w: number, random: RandomSource = Math.random): EnemyKind {
   const weights = kindWeights(w);
   let total = 0;
   for (const [, wt] of weights) total += wt;
-  let roll = Math.random() * total;
+  let roll = random() * total;
   for (const [kind, wt] of weights) {
     roll -= wt;
     if (roll <= 0) return kind;
@@ -169,13 +170,14 @@ export function pickKindFor(w: number): EnemyKind {
  */
 export function pickKindForEnabled(
   w: number,
-  enabledEnemies: EnemyKind[] | null
+  enabledEnemies: EnemyKind[] | null,
+  random: RandomSource = Math.random
 ): EnemyKind {
   const weights = kindWeightsForEnabled(w, enabledEnemies);
   let total = 0;
   for (const [, wt] of weights) total += wt;
   if (total <= 0) return EnemyKind.Drone;
-  let roll = Math.random() * total;
+  let roll = random() * total;
   for (const [kind, wt] of weights) {
     roll -= wt;
     if (roll <= 0) return kind;

@@ -3,11 +3,13 @@
  * Handles score, best (localStorage), killed, combo timer/multiplier.
  */
 
-import { System } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import type { EventBus } from '../core/EventBus';
 import type { PersistencePort } from '../core/PersistencePort';
+import { LEGACY_BEST_KEY, STORAGE_KEYS } from '../core/storageKeys';
+import { readNumber, writeNumber } from '../core/storage';
 
-const BEST_KEY = "voxbest";
+const BEST_KEY = STORAGE_KEYS.best;
 const COMBO_TIMEOUT = 3;
 const KILLS_PER_MULTIPLIER = 5;
 const MAX_MULTIPLIER = 10;
@@ -24,7 +26,7 @@ export interface ScoringState {
 
 export interface ScoringHooks {}
 
-export class ScoringSystem extends System {
+export class ScoringSystem extends PhasedSystem {
   private _score = 0;
   private _best = 0;
   private _killed = 0;
@@ -37,10 +39,26 @@ export class ScoringSystem extends System {
   private _killedWave = 0;
 
   constructor(hooks: ScoringHooks = {}, storage: PersistencePort) {
-    super(-20); // комбо/скорость времени — до игровых систем
+    super(Phase.Upkeep);
     this.hooks = hooks;
     this.storage = storage;
-    this._best = Number(storage.get(BEST_KEY)) || 0;
+    this._best = this.loadBest();
+  }
+
+  /**
+   * Прочитать рекорд, перенеся легаси-ключ `voxbest` в общий `rift9_best`.
+   * Старое значение могло быть записано как сырое число — readNumber
+   * понимает оба формата.
+   */
+  private loadBest(): number {
+    if (this.storage.get(BEST_KEY) === null) {
+      const legacy = this.storage.get(LEGACY_BEST_KEY);
+      if (legacy !== null) {
+        writeNumber(this.storage, BEST_KEY, readNumber(this.storage, LEGACY_BEST_KEY, 0));
+      }
+    }
+    this.storage.remove(LEGACY_BEST_KEY);
+    return readNumber(this.storage, BEST_KEY, 0);
   }
 
   /** Обновление комбо-таймера внутри engine.run(dt). */
@@ -119,7 +137,7 @@ export class ScoringSystem extends System {
   checkNewBest(): boolean {
     if (this._score > this._best) {
       this._best = this._score;
-      this.storage.set(BEST_KEY, String(this._best));
+      writeNumber(this.storage, BEST_KEY, this._best);
       return true;
     }
     return false;

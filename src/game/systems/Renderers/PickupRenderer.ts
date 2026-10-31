@@ -7,6 +7,7 @@ import { PICKUP_CATALOG } from "../../balance/pickupCatalog";
 import type { PickupKind } from "../../balance";
 import { rgba } from "../../math";
 import type { IRenderer } from "../../render/index";
+import type { PickupRef } from "../../ecs";
 
 export interface PickupRenderState {
   kind: PickupKind;
@@ -19,12 +20,18 @@ export interface PickupRenderState {
 }
 
 /**
- * Строит render-state из пикапов.
- * PickupRenderState — read-only проекция данных пикапа (компонентов);
- * каст-моста из ECS не требуется.
+ * Строит render-state из живых связок пикапов.
  */
-export function buildPickupState(pickups: PickupRenderState[]): PickupRenderState[] {
-  return pickups;
+export function buildPickupState(pickups: PickupRef[]): PickupRenderState[] {
+  return pickups.map((p) => ({
+    kind: p.kind.kind,
+    x: p.position.x,
+    y: p.position.y,
+    vx: p.velocity.vx,
+    vy: p.velocity.vy,
+    life: p.life.remaining,
+    seed: p.seed,
+  }));
 }
 
 /** Цвет пикапа по его виду — из каталога. */

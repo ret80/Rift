@@ -5,10 +5,10 @@
  *  2. Применение ограничений зоны для астероидов (выталкивание наружу)
  *
  * Кламп/ограничение врагов вынесено в ECS-систему ZoneClampSystem,
- * которая исполняется после шага физики (см. EcsWorld.clampEnemiesToZone).
+ * которая исполняется с приоритетом 11 — после шага физики.
  */
 
-import { System } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import { ZONE_ASTEROID_PUSH_FORCE } from "../balance";
 import type { ZoneData } from "../core/ZoneTypes";
 import type { AsteroidRef, PlayerRef } from "../ecs";
@@ -26,18 +26,18 @@ export interface ZoneSystemConfig {
 
 /* ============================== ZoneSystem ============================== */
 
-export class ZoneSystem extends System {
+export class ZoneSystem extends PhasedSystem {
   private config: ZoneSystemConfig;
 
   constructor(config: ZoneSystemConfig) {
-    super(10); // после waveFlow (9), до ZoneClamp (11)
+    super(Phase.Wave);
     this.config = config;
   }
 
   /**
    * Обновить аспекты зоны, относящиеся к игроку и астероидам.
-   * Кламп врагов вынесен в ECS-систему ZoneClampSystem (см. EcsWorld.
-   * clampEnemiesToZone) — он исполняется после шага физики.
+   * Кламп врагов вынесен в ECS-систему ZoneClampSystem (приоритет 11,
+   * после шага физики).
    */
   process(dt: number): void {
     this.update(dt);

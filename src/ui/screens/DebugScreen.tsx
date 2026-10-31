@@ -40,7 +40,11 @@ function EnemyToggle(props: EnemyToggleProps) {
       type="button"
       aria-pressed={props.enabled}
       onClick={() => props.onToggle(props.kind)}
-      className="group flex w-full cursor-pointer items-center gap-3 border border-[#7dff9e]/10 bg-[#07130c]/50 px-4 py-2.5 text-left transition-colors hover:border-[#7dff9e]/40 hover:bg-[#0a1c11]/60"
+      className={
+        "group flex w-full cursor-pointer items-center gap-3 border border-[#7dff9e]/10 " +
+        "bg-[#07130c]/50 px-4 py-2.5 text-left transition-colors " +
+        "hover:border-[#7dff9e]/40 hover:bg-[#0a1c11]/60"
+      }
     >
       <span
         className="h-3 w-3 shrink-0 rounded-sm transition-all"
@@ -132,7 +136,11 @@ function PickupToggle(props: PickupToggleProps) {
       type="button"
       aria-pressed={props.enabled}
       onClick={() => props.onToggle(props.kind)}
-      className="group flex w-full cursor-pointer items-center gap-3 border border-[#7dff9e]/10 bg-[#07130c]/50 px-4 py-2.5 text-left transition-colors hover:border-[#7dff9e]/40 hover:bg-[#0a1c11]/60"
+      className={
+        "group flex w-full cursor-pointer items-center gap-3 border border-[#7dff9e]/10 " +
+        "bg-[#07130c]/50 px-4 py-2.5 text-left transition-colors " +
+        "hover:border-[#7dff9e]/40 hover:bg-[#0a1c11]/60"
+      }
     >
       <span
         className="h-3 w-3 shrink-0 rounded-sm transition-all"
@@ -215,7 +223,11 @@ function DevToggle(props: {
       type="button"
       aria-pressed={props.on}
       onClick={props.onClick}
-      className="group flex w-full cursor-pointer items-center gap-3 border border-[#7dff9e]/15 bg-[#07130c]/70 px-4 py-3 text-left transition-colors hover:border-[#7dff9e]/50 hover:bg-[#0a1c11]/80"
+      className={
+        "group flex w-full cursor-pointer items-center gap-3 border border-[#7dff9e]/15 " +
+        "bg-[#07130c]/70 px-4 py-3 text-left transition-colors " +
+        "hover:border-[#7dff9e]/50 hover:bg-[#0a1c11]/80"
+      }
     >
       <span
         className="h-3 w-3 shrink-0 transition-all"
@@ -264,8 +276,18 @@ export default function DebugScreen(props: {
   const t = useT();
   const pct = ((props.startWave - 1) / 49) * 100;
   return (
-    <div className="anim-overlay absolute inset-0 z-20 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <div className="flex h-[min(90vh,560px)] w-[min(420px,94vw)] flex-col overflow-hidden border border-[#7dff9e]/30 bg-[#050d08]/95 shadow-[0_0_30px_rgba(125,255,158,0.08)]">
+    <div
+      className="anim-overlay absolute inset-0 z-20 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className={
+          "flex h-[min(90vh,560px)] w-[min(420px,94vw)] flex-col overflow-hidden " +
+          "border border-[#7dff9e]/30 bg-[#050d08]/95 " +
+          "shadow-[0_0_30px_rgba(125,255,158,0.08)]"
+        }
+      >
         {/* Header — fixed */}
         <div className="flex shrink-0 items-center gap-2 border-b border-[#7dff9e]/30 bg-[#07130c] px-4 py-2">
           <span className="h-2 w-2 bg-[#ff5c54]" />

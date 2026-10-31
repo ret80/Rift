@@ -11,17 +11,14 @@
  * в контексте (WeaponContext) на каждый вызов.
  */
 
-import type { LoadoutSlotMeta } from "../loadout/LoadoutTypes";
 import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
 import type { DroneFleetSpec } from "../drones/Drone";
-import type { Bullet, LaserBeam } from "../types";
-import type { DroneRef, EnemyRef, AllyDroneSpawn } from "../ecs";
+import type { BeamSpawn, BulletSpawn } from "../ecs/spawn";
+import type { DroneRef, EnemyRef, AllyDroneSpawn, BeamRef } from "../ecs";
+import type { EnemyDamagePort } from "../ecs/EnemyLifecycle";
+import type { WeaponId, WeaponMeta } from "./WeaponCatalog";
 
-/** Идентификаторы видов оружия. */
-export type WeaponId = "cannon" | "missile" | "drone" | "laser";
-
-/** Оформление слота оружия в строке снаряжения. */
-export type WeaponMeta = LoadoutSlotMeta;
+export type { WeaponId, WeaponMeta } from "./WeaponCatalog";
 
 /** Снимок состояния игрока, доступный оружию. */
 export interface PlayerSnapshot {
@@ -57,7 +54,7 @@ export interface ZoneSnapshot {
 }
 
 /** Всё, что доступно оружию во время работы. */
-export interface WeaponContext {
+export interface WeaponContext extends EnemyDamagePort {
   /** Положение и состояние игрока. */
   readonly player: PlayerSnapshot;
   /** Текущие бонусы игрока. */
@@ -66,26 +63,20 @@ export interface WeaponContext {
   readonly aim: AimState;
   /** Враги — цели для наведения. */
   readonly enemies: readonly EnemyRef[];
-  /** Пул снарядов игрока. */
-  readonly bullets: Bullet[];
   /** Зарегистрировать новый снаряд игрока в ECS-мире. */
-  addBullet(bullet: Bullet): void;
+  addBullet(bullet: BulletSpawn): void;
   /** Пул дронов-компаньонов (живые связки компонентов). */
   readonly drones: DroneRef[];
   /** Зарегистрировать новый дрон-компаньон в ECS-мире. */
   addAllyDrone(drone: AllyDroneSpawn): void;
   /** Пул лучей лазера — визуальная трасса выстрела. */
-  readonly beams: LaserBeam[];
+  readonly beams: BeamRef[];
   /** Зарегистрировать новый визуальный луч лазера в ECS-мире. */
-  addBeam(beam: LaserBeam): void;
+  addBeam(beam: BeamSpawn): void;
   /** Граница игровой зоны (null — зона не задана). */
   readonly zone: ZoneSnapshot | null;
   /** Колбэк выстрела — проигрывание звука. */
   onFired(id: WeaponId): void;
-  /** Колбэк гибели врага — единый путь enemy_killed (дроп, счёт, волна). */
-  killEnemy?(enemy: EnemyRef): void;
-  /** Нанести урон врагу через единый канонический путь (ECS damageEnemy). */
-  damageEnemy?(enemy: EnemyRef, dmg: number): void;
 }
 
 /** Снимок слота оружия для строки снаряжения. */

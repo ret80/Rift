@@ -2,6 +2,9 @@
 
 import type { RGBA } from "./render/index";
 
+/** Источник случайности в диапазоне [0, 1); по умолчанию — Math.random. */
+export type RandomSource = () => number;
+
 export const TAU = Math.PI * 2;
 
 export function rand(a: number, b: number) {

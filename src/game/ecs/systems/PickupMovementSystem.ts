@@ -7,7 +7,8 @@
  * компонентам через Aspect, без ссылок на внешний объект Pickup.
  */
 
-import { System, Aspect, type Engine } from "@trixt0r/ecs";
+import { Aspect, type Engine } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "../SystemSchedule";
 import { ZONE_PICKUP_MAGNET } from "../../balance";
 import { PositionComponent } from "../components/PositionComponent";
 import { VelocityComponent } from "../components/VelocityComponent";
@@ -18,11 +19,11 @@ import { GameEntity } from "../GameEntity";
 /** Источник позиции игрока для магнита. */
 export type PlayerPositionSource = () => { x: number; y: number };
 
-export class PickupMovementSystem extends System {
+export class PickupMovementSystem extends PhasedSystem {
   private aspect: Aspect | null = null;
 
   constructor(private readonly getPlayer: PlayerPositionSource) {
-    super(0); // выполняем до сбора (позиция должна обновиться первой)
+    super(Phase.Enemies);
   }
 
   onAddedToEngine(engine: Engine): void {
@@ -36,7 +37,7 @@ export class PickupMovementSystem extends System {
     const player = this.getPlayer();
     const toRemove: GameEntity[] = [];
 
-    for (const entity of [...aspect.entities] as GameEntity[]) {
+    for (const entity of [...aspect.entities]) {
       const position = entity.components.get(PositionComponent);
       const velocity = entity.components.get(VelocityComponent);
       const life = entity.components.get(LifeComponent);

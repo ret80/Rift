@@ -20,7 +20,12 @@ export default function MainMenu(props: {
         <h1 className="font-display anim-title text-6xl leading-none text-[#eaffff] sm:text-8xl">
           {t("app.title")}
         </h1>
-        <div className="mx-auto mt-3 h-[2px] w-44 bg-gradient-to-r from-transparent via-[#5ef2ff] to-transparent sm:w-72" />
+        <div
+          className={
+            "mx-auto mt-3 h-[2px] w-44 bg-gradient-to-r " +
+            "from-transparent via-[#5ef2ff] to-transparent sm:w-72"
+          }
+        />
         {props.best > 0 && (
           <div className="mt-3 text-[11px] tracking-[0.3em] text-[#ffb84d]">
             {t("hud.best", { v: props.best })}
@@ -43,7 +48,11 @@ export default function MainMenu(props: {
       {props.showDebug && (
         <button
           onClick={props.onDebug}
-          className="mt-6 cursor-pointer border border-dashed border-[#7dff9e]/30 bg-transparent px-4 py-1 font-mono text-[10px] tracking-[0.3em] text-[#7dff9e]/60 transition-colors hover:border-[#7dff9e]/70 hover:text-[#7dff9e]"
+          className={
+            "mt-6 cursor-pointer border border-dashed border-[#7dff9e]/30 " +
+            "bg-transparent px-4 py-1 font-mono text-[10px] tracking-[0.3em] " +
+            "text-[#7dff9e]/60 transition-colors hover:border-[#7dff9e]/70 hover:text-[#7dff9e]"
+          }
           style={{ animationDelay: "0.2s" }}
         >
           &gt; {t("menu.debug")}

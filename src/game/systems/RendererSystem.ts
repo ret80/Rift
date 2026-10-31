@@ -12,26 +12,24 @@
  *
  * Управляет lifecycle: beginFrame, camera, finish.
  * Каждый рендерер сам строит свой render-state через buildState.
+ * Кадр передаётся одним объектом (RenderScene → RenderFrame), а не
+ * пачкой позиционных аргументов.
  */
 
 import type { AsteroidField } from "../asteroids";
-import { EnemyKind } from "../balance";
 import type { Fx } from "../fx";
-import type { RenderScene } from "../types/render";import type { IRenderer } from "../render/index";
+import type { RenderFrame, RenderScene } from "../types/render";
+import type { IRenderer } from "../render/index";
+import type { BeamRef } from "../ecs";
 import { RiftField } from "../rifts";
 import type { Starfield } from "../starfield";
-import { renderPickups, buildPickupState, type PickupRenderState as PRS } from "./Renderers/PickupRenderer";
-import { renderEnemies, buildEnemyState, type EnemyRenderState as ERS } from "./Renderers/EnemyRenderer";
-import { renderPlayer, buildPlayerState, type PlayerRenderState } from "./Renderers/PlayerRenderer";
-import { renderAllyDrones, buildDroneState, type AllyDroneRenderState } from "./Renderers/DroneRenderer";
-import {
-  renderBullets,
-  buildBulletState,
-  buildEBulletState,
-  type BulletRenderState,
-  type EBulletRenderState,
-} from "./Renderers/BulletRenderer";
-import { renderZone, buildZoneState, type ZoneRenderState } from "./Renderers/ZoneRenderer";
+import type { MenuEnemy, MenuFrame, MenuRift } from "../presentation/menu/types";
+import { renderPickups, buildPickupState } from "./Renderers/PickupRenderer";
+import { renderEnemies, buildEnemyState } from "./Renderers/EnemyRenderer";
+import { renderPlayer, buildPlayerState } from "./Renderers/PlayerRenderer";
+import { renderAllyDrones, buildDroneState } from "./Renderers/DroneRenderer";
+import { renderBullets, buildBulletState, buildEBulletState } from "./Renderers/BulletRenderer";
+import { renderZone, buildZoneState } from "./Renderers/ZoneRenderer";
 import { calcRiftAnim, drawRift } from "./Renderers/RiftAnimation";
 import { calcMenuRiftAnim } from "./Renderers/RiftAnimation";
 import { drawShipPoly } from "./Renderers/ShipRenderer";
@@ -62,11 +60,9 @@ export class RendererSystem {
    * Отрисовать игровой кадр по DTO.
    * Каждый рендерер сам строит свой state через buildState.
    */
-  render(
-    R: IRenderer,
-    scene: RenderScene
-  ) {
+  render(scene: RenderScene): void {
     const {
+      renderer: R,
       state, time,
       player, aim, guns, shield,
       enemies, bullets, enemyBullets: ebullets, pickups, allyDrones: drones, beams,
@@ -83,89 +79,65 @@ export class RendererSystem {
         )
       : null;
 
-    const enemyRender = buildEnemyState(enemies);
-    const bulletRender = buildBulletState(bullets);
-    const ebulletRender = buildEBulletState(ebullets);
-    const pickupRender = buildPickupState(pickups);
-    const droneRender = buildDroneState(drones);
-    const zoneRender = zoneState ? buildZoneState(
-      zoneState.active, zoneState.x, zoneState.y,
-      zoneState.radius, zoneState.targetRadius, zoneState.alpha
-    ) : null;
-
-    this.draw(
-      R,
+    const frame: RenderFrame = {
+      renderer: R,
+      state,
       time,
-      camera.x,
-      camera.y,
-      camera.zoom,
-      state as "menu" | "playing" | "active" | "dying" | "over",
-      playerRender,
-      enemyRender,
-      bulletRender,
-      ebulletRender,
-      pickupRender,
-      droneRender,
-      zoneRender,
-      view.width,
-      view.height,
-      beams as Array<{ x1: number; y1: number; x2: number; y2: number; life: number; maxLife: number; seed: number }>
-    );
+      camera,
+      view,
+      player: playerRender,
+      enemies: buildEnemyState(enemies),
+      bullets: buildBulletState(bullets),
+      enemyBullets: buildEBulletState(ebullets),
+      pickups: buildPickupState(pickups),
+      allyDrones: buildDroneState(drones),
+      zone: zoneState ? buildZoneState(
+        zoneState.active, zoneState.x, zoneState.y,
+        zoneState.radius, zoneState.targetRadius, zoneState.alpha
+      ) : null,
+      beams,
+    };
+
+    this.draw(frame);
   }
 
-  renderMenu(
-    R: IRenderer,
-    starfield: Starfield,
-    asteroidField: AsteroidField,
-    riftField: RiftField,
-    menuRifts: Array<{
-      x: number; y: number; t: number; state: "opening" | "spawning" | "closing";
-      queue: EnemyKind[]; timer: number; seed: number; rot: number; size: number;
-      nextSpawnT: number;
-    }>,
-    menuEnemies: Array<{
-      x: number; y: number; vx: number; vy: number;
-      kind: EnemyKind; angle: number; seed: number;
-    }>,
-    cssWidth: number,
-    cssHeight: number
-  ) {
-    R.resize(cssWidth, cssHeight);
+  renderMenu(frame: MenuFrame): void {
+    const { renderer: R, view } = frame;
+    R.resize(view.width, view.height);
     R.beginFrame();
     R.setMode("world");
     R.setCamera(0, 0, 1, 0, 0);
-    starfield.draw(R, 0, 0, 1, 0);
-    asteroidField.draw(R, 0);
+    frame.starfield.draw(R, 0, 0, 1, 0);
+    frame.asteroidField.draw(R, 0);
     this.drawMenuScene(R, 0);
-    this.drawMenuRifts(R, menuRifts, 0);
-    this.drawMenuEnemies(R, menuEnemies, 0);
+    this.drawMenuRifts(R, frame.rifts);
+    this.drawMenuEnemies(R, frame.enemies, 0);
     R.finish(0);
   }
 
-  draw(
-    R: IRenderer,
-    time: number,
-    camX: number,
-    camY: number,
-    zoom: number,
-    state: "menu" | "playing" | "active" | "dying" | "over",
-    player: PlayerRenderState | null,
-    enemies: ERS[],
-    bullets: BulletRenderState[],
-    ebullets: EBulletRenderState[],
-    pickups: PRS[],
-    allyDrones: AllyDroneRenderState[],
-    zone: ZoneRenderState | null,
-    viewW: number,
-    viewH: number,
-    beams: Array<{ x1: number; y1: number; x2: number; y2: number; life: number; maxLife: number; seed: number }> = []
-  ) {
-    R.resize(viewW, viewH);
+  draw(frame: RenderFrame): void {
+    const {
+      renderer: R,
+      time,
+      camera,
+      view,
+      state,
+      player,
+      enemies,
+      bullets,
+      enemyBullets: ebullets,
+      pickups,
+      allyDrones,
+      zone,
+      beams,
+    } = frame;
+
+    R.resize(view.width, view.height);
     R.beginFrame();
     R.setMode("world");
-    R.setCamera(camX, camY, zoom, this.config.fx.shakeX, this.config.fx.shakeY);
+    R.setCamera(camera.x, camera.y, camera.zoom, this.config.fx.shakeX, this.config.fx.shakeY);
 
-    this.config.starfield.draw(R, camX, camY, zoom, time);
+    this.config.starfield.draw(R, camera.x, camera.y, camera.zoom, time);
     this.config.asteroidField.draw(R, time);
 
     if (state === "menu") {
@@ -191,16 +163,16 @@ export class RendererSystem {
 
   private drawBeams(
     R: IRenderer,
-    beams: Array<{ x1: number; y1: number; x2: number; y2: number; life: number; maxLife: number; seed: number }>,
+    beams: BeamRef[],
     _time: number
   ): void {
     for (const b of beams) {
-      const t = b.maxLife > 0 ? Math.max(0, b.life / b.maxLife) : 0;
+      const t = b.life.max > 0 ? Math.max(0, b.life.remaining / b.life.max) : 0;
       const a = t;
       if (a <= 0) continue;
-      R.pushBeam(b.x1, b.y1, b.x2, b.y2, 5, rgba("#ff2d55", a), b.seed);
+      R.pushBeam(b.beam.x1, b.beam.y1, b.beam.x2, b.beam.y2, 5, rgba("#ff2d55", a), b.beam.seed);
       // Внутреннее яркое ядро — оно даёт «белый» центр луча.
-      R.pushBeam(b.x1, b.y1, b.x2, b.y2, 1.6, rgba("#ffd9e0", a), b.seed + 1);
+      R.pushBeam(b.beam.x1, b.beam.y1, b.beam.x2, b.beam.y2, 1.6, rgba("#ffd9e0", a), b.beam.seed + 1);
     }
   }
 
@@ -229,38 +201,20 @@ export class RendererSystem {
     }
   }
 
-  private drawMenuRifts(
-    R: IRenderer,
-    rifts: Array<{
-      x: number; y: number; t: number; state: "opening" | "spawning" | "closing";
-      seed: number; rot: number; size: number;
-    }>,
-    time: number
-  ) {
+  private drawMenuRifts(R: IRenderer, rifts: MenuRift[]): void {
     for (const rf of rifts) {
       const { lenP, widP, alpha, snake } = calcRiftAnim(rf.state, rf.t);
-      drawRift(R, { x: rf.x, y: rf.y, size: rf.size, seed: rf.seed, rot: rf.rot, time }, lenP, widP, alpha, snake);
+      drawRift(R, { x: rf.x, y: rf.y, size: rf.size, seed: rf.seed, rot: rf.rot, time: 0 }, lenP, widP, alpha, snake);
     }
   }
 
-  private drawMenuEnemies(
-    R: IRenderer,
-    enemies: Array<{
-      x: number; y: number; vx: number; vy: number;
-      kind: EnemyKind; angle: number; seed: number;
-    }>,
-    time: number
-  ) {
+  private drawMenuEnemies(R: IRenderer, enemies: MenuEnemy[], time: number): void {
     for (const e of enemies) {
       this.drawMenuEnemy(R, e, time);
     }
   }
 
-  private drawMenuEnemy(
-    R: IRenderer,
-    e: { x: number; y: number; vx: number; vy: number; kind: EnemyKind; angle: number; seed: number },
-    time: number
-  ) {
+  private drawMenuEnemy(R: IRenderer, e: MenuEnemy, time: number): void {
     drawShipPoly(R, e.x, e.y, e.angle, [[12, 0], [-6, 6], [-3, 0], [-6, -6]], rgba(C.drone, 0.7));
 
     const pulse = 0.7 + 0.3 * Math.sin(time * 4 + e.seed);

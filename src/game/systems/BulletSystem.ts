@@ -9,7 +9,8 @@
  * по id, EntityRef), а не живая ссылка на объект.
  */
 
-import { System, Aspect, type Engine } from "@trixt0r/ecs";
+import { Aspect, type Engine } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import { BulletComponent } from "../ecs/components/BulletComponent";
 import { EnemyBulletComponent } from "../ecs/components/EnemyBulletComponent";
 import { EnemyComponent } from "../ecs/components/EnemyComponent";
@@ -28,13 +29,13 @@ interface EnemyTarget {
   dead: boolean;
 }
 
-export class BulletSystem extends System {
+export class BulletSystem extends PhasedSystem {
   private bulletAspect: Aspect | null = null;
   private enemyBulletAspect: Aspect | null = null;
   private enemyAspect: Aspect | null = null;
 
   constructor() {
-    super(2); // после движения врагов (0) и стрельбы (1), до физики
+    super(Phase.Projectiles);
   }
 
   onAddedToEngine(engine: Engine): void {
@@ -55,7 +56,7 @@ export class BulletSystem extends System {
 
     if (bulletAspect) {
       const toRemove: GameEntity[] = [];
-      for (const entity of [...bulletAspect.entities] as GameEntity[]) {
+      for (const entity of [...bulletAspect.entities]) {
         const position = entity.components.get(PositionComponent);
         const velocity = entity.components.get(VelocityComponent);
         const life = entity.components.get(LifeComponent);
@@ -73,7 +74,7 @@ export class BulletSystem extends System {
 
     if (enemyBulletAspect) {
       const toRemove: GameEntity[] = [];
-      for (const entity of [...enemyBulletAspect.entities] as GameEntity[]) {
+      for (const entity of [...enemyBulletAspect.entities]) {
         const position = entity.components.get(PositionComponent);
         const velocity = entity.components.get(VelocityComponent);
         const life = entity.components.get(LifeComponent);
@@ -155,7 +156,7 @@ export class BulletSystem extends System {
   private collectEnemyTargets(): EnemyTarget[] {
     const result: EnemyTarget[] = [];
     if (!this.enemyAspect) return result;
-    for (const entity of this.enemyAspect.entities as GameEntity[]) {
+    for (const entity of this.enemyAspect.entities) {
       const target = this.enemyFromEntity(entity);
       if (target) result.push(target);
     }

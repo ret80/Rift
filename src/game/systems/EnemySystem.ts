@@ -11,7 +11,8 @@
  * Порядок определяется приоритетом системы: движение (0) раньше стрельбы.
  */
 
-import { System, Aspect, type Engine } from "@trixt0r/ecs";
+import { Aspect, type Engine } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import { EnemyAI } from "../ai/EnemyAI";
 import { GameContext } from "../ai/GameContext";
 import type { EnemyDef } from "../balance";
@@ -23,10 +24,16 @@ import {
   massForRadius,
 } from "../balance";
 import { TAU, rand } from "../math";
-import type { Enemy } from "../types";
-import type { EcsWorld, EnemyRef } from "../ecs";
+import type { EnemySpawn } from "../ecs/spawn";
+import type { EnemyRef } from "../ecs";
 import { EnemyComponent } from "../ecs/components/EnemyComponent";
 import { GameEntity } from "../ecs/GameEntity";
+
+/** Узкий порт домена врагов: только спавн и чтение живой связки. */
+export interface EnemySpawnPort {
+  addEnemy(enemy: EnemySpawn): void;
+  enemyRefByEntity(entity: GameEntity): EnemyRef | null;
+}
 
 /** Источник состояния игрока для AI (мировые координаты + скорость). */
 export type EnemyPlayerSource = () => { x: number; y: number; vx?: number; vy?: number };
@@ -35,7 +42,7 @@ export type ZoneBoundsSource = () => { x: number; y: number; radius: number; act
 /** Флаг: должна ли система сама интегрировать скорость (true в custom-режиме). */
 export type IntegrateSource = () => boolean;
 
-export class EnemySystem extends System {
+export class EnemySystem extends PhasedSystem {
   private aspect: Aspect | null = null;
   private ai: EnemyAI;
   private context: GameContext;
@@ -43,12 +50,12 @@ export class EnemySystem extends System {
   private wave = 1;
 
   constructor(
-    private readonly ecs: EcsWorld,
+    private readonly ecs: EnemySpawnPort,
     private readonly getPlayer: EnemyPlayerSource,
     private readonly getZoneBounds: ZoneBoundsSource,
     private readonly getIntegrate: IntegrateSource,
   ) {
-    super(0); // движение/состояние — до стрельбы (priority 1)
+    super(Phase.Enemies);
     this.ai = new EnemyAI();
     this.context = new GameContext();
   }
@@ -140,7 +147,7 @@ export class EnemySystem extends System {
   private collectEnemyEntities(): Array<{ entity: GameEntity; ref: EnemyRef }> {
     if (!this.aspect) return [];
     const result: Array<{ entity: GameEntity; ref: EnemyRef }> = [];
-    for (const entity of [...this.aspect.entities] as GameEntity[]) {
+    for (const entity of [...this.aspect.entities]) {
       const ref = this.ecs.enemyRefByEntity(entity);
       if (ref) result.push({ entity, ref });
     }
@@ -152,7 +159,7 @@ export class EnemySystem extends System {
     kind: EnemyKind, x: number, y: number, def: EnemyDef,
     playerPos?: { x: number; y: number },
     parent: EnemyRef | null = null
-  ): Enemy {
+  ): EnemySpawn {
     const angle = kind === EnemyKind.Drone && playerPos
       ? Math.atan2(playerPos.y - y, playerPos.x - x)
       : rand(0, TAU);
@@ -178,7 +185,6 @@ export class EnemySystem extends System {
     }
 
     return {
-      ecsId: "", // присваивается в addEnemy (entity.id)
       parentId: parent?.marker.ecsId ?? null,
       kind, x, y, vx: 0, vy: 0, angle,
       hp: def.hp, maxHp: def.hp, r: def.r, speed: def.speed,

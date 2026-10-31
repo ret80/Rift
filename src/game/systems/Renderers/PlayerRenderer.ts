@@ -5,7 +5,7 @@
 
 import { C } from "../../balance";
 import { clamp, rgba } from "../../math";
-import type { IRenderer, RGBA } from "../../render/index";
+import type { IRenderer } from "../../render/index";
 import { CANNON_BARREL_OFFSETS } from "../../weapons/CannonWeapon";
 import { drawShipPoly } from "./ShipRenderer";
 

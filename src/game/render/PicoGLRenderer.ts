@@ -4,6 +4,7 @@
 import PicoGL from "picogl";
 import type { App, DrawCall, Framebuffer, Program, Texture, VertexArray, VertexBuffer } from "picogl";
 import type { IRenderer, RenderMode, RGBA } from "./IRenderer";
+import { backingSize, cameraOffset, watchContextLoss } from "./shared";
 
 const LINE_VERT = `
 attribute vec2 aPos;
@@ -213,20 +214,17 @@ export class PicoGLRenderer implements IRenderer {
   }
 
   private installContextListeners(): void {
-    this.onContextLost = (e: Event) => {
-      e.preventDefault();
-      this.contextLost = true;
-    };
-    this.onContextRestored = () => {
-      this.contextLost = false;
+    const handlers = watchContextLoss(
+      this.canvas,
+      (lost) => { this.contextLost = lost; },
       // Контекст восстановлен — все прежние GPU-объекты (программы, буферы,
       // текстуры, VAO) аннулированы, их нужно создать заново. Следующий
       // кадр вызовет resize(), который из-за сброшенных размеров заново
       // создаст offscreen-таргеты.
-      this.initGL();
-    };
-    this.canvas.addEventListener("webglcontextlost", this.onContextLost, false);
-    this.canvas.addEventListener("webglcontextrestored", this.onContextRestored, false);
+      () => this.initGL(),
+    );
+    this.onContextLost = handlers.onLost;
+    this.onContextRestored = handlers.onRestored;
   }
 
   private initGL(): void {
@@ -346,9 +344,8 @@ export class PicoGLRenderer implements IRenderer {
 
   resize(cssW: number, cssH: number) {
     if (this.contextLost) return;
-    this.dpr = Math.min(window.devicePixelRatio || 1, 1.75);
-    const w = Math.max(2, Math.floor(cssW * this.dpr));
-    const h = Math.max(2, Math.floor(cssH * this.dpr));
+    const { dpr, width: w, height: h } = backingSize(cssW, cssH);
+    this.dpr = dpr;
     if (w === this.width && h === this.height) return;
     this.width = w;
     this.height = h;
@@ -402,8 +399,12 @@ export class PicoGLRenderer implements IRenderer {
 
   setCamera(camX: number, camY: number, zoom: number, shakeX: number, shakeY: number) {
     this.zoom = zoom;
-    this.offX = this.width / 2 - camX * zoom + shakeX * this.dpr;
-    this.offY = this.height / 2 - camY * zoom + shakeY * this.dpr;
+    const offset = cameraOffset(
+      this.width, this.height, this.dpr,
+      camX, camY, zoom, shakeX, shakeY,
+    );
+    this.offX = offset.offX;
+    this.offY = offset.offY;
   }
 
   pushLine(x1: number, y1: number, x2: number, y2: number, c: RGBA) {

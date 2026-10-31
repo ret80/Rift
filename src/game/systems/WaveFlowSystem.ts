@@ -8,15 +8,12 @@
  *   • применение множителя скорости
  *
  * Все системы остаются независимыми, WaveFlowSystem — только координатор.
+ * Зависимости описаны узкими портами: системе не нужны целые классы.
  */
 
-import { System } from "@trixt0r/ecs";
-import type { EventBus } from "../core/EventBus";
-import type { ScoringSystem } from "./ScoringSystem";
-import type { SpawnSystem } from "./SpawnSystem";
+import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
+import type { AppliedUpgrades } from "../upgrades";
 import type { WaveOrchestrator } from "./WaveOrchestrator";
-import type { UpgradeSystem } from "./UpgradeSystem";
-import type { CountdownSystem } from "./CountdownSystem";
 
 /** Состояние игрока для проверки зоны. */
 export interface PlayerPosition {
@@ -24,23 +21,43 @@ export interface PlayerPosition {
   y: number;
 }
 
+/** Порт подсчёта времени/убийств. */
+export interface ScoringPort {
+  addRunTime(dt: number): void;
+  readonly killedWave: number;
+}
+
+/** Порт счётчика заспавненных врагов. */
+export interface SpawnPort {
+  readonly allocated: number;
+}
+
+/** Порт применённых улучшений. */
+export interface UpgradePort {
+  getApplied<T extends keyof AppliedUpgrades>(key: T): AppliedUpgrades[T];
+}
+
+/** Порт отсчёта перед волной. */
+export interface CountdownPort {
+  isCountdownActive(): boolean;
+}
+
 /** Зависимости для WaveFlowSystem. */
 export interface WaveFlowDeps {
-  eventBus: EventBus;
   orchestrator: WaveOrchestrator;
-  scoringSystem: ScoringSystem;
-  spawnSystem: SpawnSystem;
-  upgradeSystem: UpgradeSystem;
-  countdownSystem: CountdownSystem;
+  scoringSystem: ScoringPort;
+  spawnSystem: SpawnPort;
+  upgradeSystem: UpgradePort;
+  countdownSystem: CountdownPort;
   getEnemyList: () => Array<{ marker: { dead: boolean } }>;
   getPlayerPosition: () => PlayerPosition;
 }
 
-export class WaveFlowSystem extends System {
+export class WaveFlowSystem extends PhasedSystem {
   private deps: WaveFlowDeps;
 
   constructor(deps: WaveFlowDeps) {
-    super(9); // после спавна (8) и коллизий (7); до zoneSystem (10) и ZoneClamp (11)
+    super(Phase.Wave);
     this.deps = deps;
   }
 

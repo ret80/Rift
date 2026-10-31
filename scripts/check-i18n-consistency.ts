@@ -1,78 +1,69 @@
 #!/usr/bin/env node
 /**
  * check-i18n-consistency.ts
- * Compares RU and EN dictionaries to ensure all keys match.
- * Usage: node scripts/check-i18n-consistency.ts
+ *
+ * Рекурсивно обходит доменные словари RU/EN и проверяет, что:
+ *   • наборы ключей совпадают;
+ *   • в английской локали нет кириллицы (забытый русский суффикс).
+ *
+ * Запуск: node scripts/check-i18n-consistency.ts
  */
 
-import { readFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { enNested, ruNested } from "../src/i18n/dicts/index.ts";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const srcRoot = resolve(__dirname, "..", "src");
+type Nested = { [key: string]: unknown };
 
-// Parse dictionaries from i18n.ts
-function parseDict(content: string, lang: "ru" | "en"): Set<string> {
-  // Match "key": "value" patterns within the appropriate dictionary block
-  // We look for lines like:   "app.title": "РАЗЛОМ",
-  const regex = /"([^"]+)":\s*"([^"]*)"/g;
-  const keys = new Set<string>();
-  let match;
-  while ((match = regex.exec(content)) !== null) {
-    keys.add(match[1]);
+/** Собрать плоские ключи и значения из вложенного словаря. */
+function collectLeaves(
+  source: Nested,
+  prefix = "",
+  out = new Map<string, string>(),
+): Map<string, string> {
+  for (const [key, value] of Object.entries(source)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (typeof value === "string") {
+      out.set(path, value);
+    } else if (value !== null && typeof value === "object") {
+      collectLeaves(value as Nested, path, out);
+    }
   }
-  return keys;
+  return out;
 }
 
 function main() {
-  const i18nPath = resolve(srcRoot, "i18n.ts");
-  const content = readFileSync(i18nPath, "utf-8");
+  const ru = collectLeaves(ruNested);
+  const en = collectLeaves(enNested);
 
-  // Split content into ru and en sections (literal objects)
-  const ruMatch = content.match(/const ru = \{[\s\S]*?\};/);
-  const enMatch = content.match(/const en: Dict = \{[\s\S]*?\};/);
-
-  if (!ruMatch || !enMatch) {
-    console.error("ERROR: Could not parse RU/EN dictionaries from i18n.ts");
-    process.exit(1);
-  }
-
-  const ruKeys = parseDict(ruMatch[0], "ru");
-  const enKeys = parseDict(enMatch[0], "en");
-
-  const missingInEn = [...ruKeys].filter((k) => !enKeys.has(k));
-  const missingInRu = [...enKeys].filter((k) => !ruKeys.has(k));
+  const missingInEn = [...ru.keys()].filter((k) => !en.has(k));
+  const missingInRu = [...en.keys()].filter((k) => !ru.has(k));
+  const cyrillicInEn = [...en.entries()].filter(([, value]) => /[А-Яа-яЁё]/.test(value));
 
   let hasErrors = false;
 
   if (missingInEn.length > 0) {
-    console.error(
-      `\n❌ Keys missing in EN dictionary (${missingInEn.length}):`
-    );
-    for (const k of missingInEn) {
-      console.error(`  - "${k}"`);
-    }
+    console.error(`\n❌ Ключи, отсутствующие в EN (${missingInEn.length}):`);
+    for (const k of missingInEn) console.error(`  - "${k}"`);
     hasErrors = true;
   }
 
   if (missingInRu.length > 0) {
-    console.error(
-      `\n❌ Keys missing in RU dictionary (${missingInRu.length}):`
-    );
-    for (const k of missingInRu) {
-      console.error(`  - "${k}"`);
-    }
+    console.error(`\n❌ Ключи, отсутствующие в RU (${missingInRu.length}):`);
+    for (const k of missingInRu) console.error(`  - "${k}"`);
     hasErrors = true;
   }
 
-  if (!hasErrors) {
-    console.log(`✅ i18n dictionaries are consistent (${ruKeys.size} keys each).`);
-    process.exit(0);
+  if (cyrillicInEn.length > 0) {
+    console.error(`\n❌ Кириллица в EN-локали (${cyrillicInEn.length}):`);
+    for (const [k, value] of cyrillicInEn) console.error(`  - "${k}": ${value}`);
+    hasErrors = true;
   }
 
-  console.error("\n❌ i18n dictionaries are OUT OF SYNC.");
-  process.exit(1);
+  if (hasErrors) {
+    console.error("\n❌ Словари локализации рассинхронизированы.");
+    process.exit(1);
+  }
+
+  console.log(`✅ Словари локализации согласованы (${ru.size} ключей в каждом).`);
 }
 
 main();

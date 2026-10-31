@@ -15,7 +15,8 @@
  * thrusting/mass). Система читает и мутирует их через живую связку PlayerRef.
  */
 
-import { System, Aspect, type Engine } from "@trixt0r/ecs";
+import { Aspect, type Engine } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import { PLAYER_HIT_INVULN } from '../balance/player';
 import type { EventBus } from '../core/EventBus';
 import type { Fx } from '../fx';
@@ -31,7 +32,7 @@ export type PlayerIntegrateSource = () => boolean;
 /** Источник живой связки компонентов игрока (EntityRef-идентичность). */
 export type PlayerRefSource = () => PlayerRef | null;
 
-export class PlayerSystem extends System {
+export class PlayerSystem extends PhasedSystem {
   private aspect: Aspect | null = null;
   private eventBus: EventBus;
   private input: InputManager;
@@ -51,7 +52,7 @@ export class PlayerSystem extends System {
     playerRefSource: PlayerRefSource,
     private readonly getIntegrate: PlayerIntegrateSource,
   ) {
-    super(-1); // движение игрока — до врагов/пикапов (их системы читают позицию)
+    super(Phase.Player);
     this.eventBus = eventBus;
     this.input = input;
     this.fx = fx;

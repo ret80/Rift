@@ -4,7 +4,8 @@
    crack; closing plays the exact reverse. Each rift keeps a random
    orientation and a size matched to its biggest passenger. */
 
-import { System, Aspect, type Engine } from "@trixt0r/ecs";
+import { Aspect, type Engine } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "./ecs/SystemSchedule";
 import type { IRenderer } from "./render/index";
 import type { AudioManager } from "./systems/AudioManager";
 import type { Fx } from "./fx";
@@ -33,7 +34,7 @@ export interface RiftHooks {
   audio: AudioManager;
 }
 
-export class RiftField extends System {
+export class RiftField extends PhasedSystem {
   private aspect: Aspect | null = null;
   private readonly ecs: EcsWorld;
 
@@ -43,7 +44,7 @@ export class RiftField extends System {
   }
 
   constructor(private h: RiftHooks, ecs: EcsWorld) {
-    super(3); // после пуль и лучей — спавн врагов рифта следующим кадром
+    super(Phase.Allies);
     this.ecs = ecs;
   }
 
@@ -147,7 +148,7 @@ export class RiftField extends System {
 
     const toRemove: GameEntity[] = [];
 
-    for (const entity of [...aspect.entities] as GameEntity[]) {
+    for (const entity of [...aspect.entities]) {
       const rf = entity.components.get(RiftComponent);
       if (!rf) continue;
 

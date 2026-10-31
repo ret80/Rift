@@ -3,6 +3,10 @@
 > Статус: **этапы 0–8 выполнены** (см. `STATUS.md`). Прогресс
 > по шагам — в `tasks/ecs-migration/00-prep.md` … `tasks/ecs-migration/07-cleanup-accept.md`
 > и сводке `tasks/ecs-migration/STATUS.md`.
+> Перевод на ECS завершён **структурно**. Оставшийся encapsulation-долг (God facade
+> `EcsWorld`, два пути смерти врага, три формата персистентности, i18n-монолит,
+> дублирование каталога оружия) закрыт планом `tasks/refactoring-plan-2026-10-30.md`
+> (фазы 0–9): `typecheck` 0, `lint` 0/0, `check:i18n` 206/206, `build` ok.
 > Диагностика основана на аудите всех файлов `src/game/`, `src/game/ecs/`,
 > `src/game/physics/`, `src/game/core/` и сверительных чтениях ключевых модулей.
 > Поведение и баланс считаем неизменяемыми: миграция не должна менять геймплей.

@@ -9,6 +9,13 @@ import { CombatMusic } from "./CombatMusic";
 import type { MenuTrackId, CombatTrackId } from "./tracks";
 import { MENU_TRACK_IDS, DEFAULT_MENU_TRACK, DEFAULT_COMBAT_TRACK } from "./tracks";
 
+declare global {
+  /** Safari до 14.1 выставляет конструктор только под префиксом. */
+  interface Window {
+    webkitAudioContext?: typeof AudioContext;
+  }
+}
+
 /** Уровни громкости (0..1) — источник правды в React-настройках (App). */
 export interface Volumes {
   master: number;
@@ -41,9 +48,7 @@ export class AudioEngine {
       if (this.ctx.state === "suspended") void this.ctx.resume();
       return;
     }
-    const AC: typeof AudioContext =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const AC = window.AudioContext ?? window.webkitAudioContext;
     if (!AC) return;
     const ctx = new AC();
     this.ctx = ctx;

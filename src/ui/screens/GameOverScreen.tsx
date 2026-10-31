@@ -24,7 +24,12 @@ export default function GameOverScreen(props: {
           <div className="hud-label anim-red-pulse mb-1 !text-[#ff5c54]">
             {t("over.sub")}
           </div>
-          <h2 className="font-display text-[26px] tracking-[0.1em] text-[#ff3b52] text-glow-red sm:text-4xl sm:tracking-[0.18em]">
+          <h2
+            className={
+              "font-display text-[26px] tracking-[0.1em] text-[#ff3b52] text-glow-red " +
+              "sm:text-4xl sm:tracking-[0.18em]"
+            }
+          >
             {t("over.title")}
           </h2>
           {s.isBest && (

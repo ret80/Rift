@@ -1,11 +1,22 @@
 /**
  * WorldFrame — сечение мира игры за один кадр.
- * Владелец — Game; системы читают и мутируют только свои пулы,
- * а не получают 9–18 позиционных аргументов.
+ *
+ * Владелец — GameContext: объект создаётся один раз, а массивы пулов
+ * переиспользуются через out-параметры доменов. Все поля — живые связки
+ * компонентов ECS, поэтому рендер, коллизии и HUD читают актуальные
+ * значения без копирования DTO каждый кадр.
  */
 
-import type { Bullet, EBullet, Pickup, LaserBeam } from "../types";
-import type { AsteroidRef, DroneRef, EnemyRef, PlayerRef } from "../ecs";
+import type {
+  AsteroidRef,
+  BeamRef,
+  BulletRef,
+  DroneRef,
+  EnemyBulletRef,
+  EnemyRef,
+  PickupRef,
+  PlayerRef,
+} from "../ecs";
 
 /** Состояние зоны арены. */
 export interface ZoneWorld {
@@ -30,15 +41,15 @@ export interface ViewWorld {
   height: number;
 }
 
-/** Мир кадра: ссылки на пулы сущностей. */
+/** Мир кадра: живые связки компонентов всех пулов и состояние зоны. */
 export interface WorldFrame {
   player: PlayerRef;
   enemies: EnemyRef[];
-  bullets: Bullet[];
-  enemyBullets: EBullet[];
-  pickups: Pickup[];
+  bullets: BulletRef[];
+  enemyBullets: EnemyBulletRef[];
+  pickups: PickupRef[];
   allyDrones: DroneRef[];
-  beams: LaserBeam[];
+  beams: BeamRef[];
   asteroids: AsteroidRef[];
-  zone?: ZoneWorld | null;
+  zone: ZoneWorld | null;
 }

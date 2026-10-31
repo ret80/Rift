@@ -7,6 +7,7 @@
 import { AudioEngine, type Volumes } from "../audio";
 import type { MenuTrackId, CombatTrackId } from "../audio/tracks";
 import { PickupKind, PICKUP_CATALOG } from "../balance";
+import { WEAPON_CATALOG } from "../weapons/WeaponCatalog";
 
 export class AudioManager {
   readonly engine: AudioEngine;
@@ -41,7 +42,8 @@ export class AudioManager {
 
   /** Воспроизвести звук подбора предмета */
   playPickupSound(kind: PickupKind): void {
-    switch (PICKUP_CATALOG[kind].display) {
+    const display = PICKUP_CATALOG[kind].display;
+    switch (display) {
       // Heal pickups → heal sound
       case "heal":
         this.engine.pickupHeal();
@@ -52,16 +54,20 @@ export class AudioManager {
         this.engine.pickupRate();
         break;
 
-      // Gun / missile / laser pickups → gun sound
+      // Gun pickup → gun sound
       case "gun":
-      case "missile":
-      case "laser":
         this.engine.pickupGun();
         break;
 
-      // Drone pickup → drone sound
+      // Drone pickup → sound from the weapon catalog
       case "drone":
-        this.engine.pickupDrone();
+      case "missile":
+      case "laser":
+        if (WEAPON_CATALOG[display].pickup?.sound === "drone") {
+          this.engine.pickupDrone();
+        } else {
+          this.engine.pickupGun();
+        }
         break;
 
       // Shield pickup → shield sound

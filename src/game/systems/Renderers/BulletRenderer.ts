@@ -5,7 +5,8 @@
 
 import { C } from "../../balance";
 import { rgba } from "../../math";
-import type { IRenderer, RGBA } from "../../render/index";
+import type { IRenderer } from "../../render/index";
+import type { BulletRef, EnemyBulletRef } from "../../ecs";
 
 export interface BulletRenderState {
   x: number;
@@ -31,18 +32,34 @@ export interface EBulletRenderState {
 }
 
 /**
- * Строит render-state из raw-массива пуль.
- * BulletRenderState структурно идентичен Bullet.
+ * Строит render-state из живых связок снарядов игрока.
  */
-export function buildBulletState(bullets: unknown[]): BulletRenderState[] {
-  return bullets as unknown as BulletRenderState[];
+export function buildBulletState(bullets: BulletRef[]): BulletRenderState[] {
+  return bullets.map((b) => ({
+    x: b.position.x,
+    y: b.position.y,
+    vx: b.velocity.vx,
+    vy: b.velocity.vy,
+    life: b.life.remaining,
+    dmg: b.bullet.dmg,
+    homing: b.homing,
+  }));
 }
 
 /**
- * Строит render-state из raw-массива вражеских пуль.
+ * Строит render-state из живых связок вражеских снарядов.
  */
-export function buildEBulletState(bullets: unknown[]): EBulletRenderState[] {
-  return bullets as unknown as EBulletRenderState[];
+export function buildEBulletState(bullets: EnemyBulletRef[]): EBulletRenderState[] {
+  return bullets.map((b) => ({
+    x: b.position.x,
+    y: b.position.y,
+    vx: b.velocity.vx,
+    vy: b.velocity.vy,
+    life: b.life.remaining,
+    dmg: b.bullet.dmg,
+    heavy: b.bullet.heavy,
+    cruiser: b.bullet.cruiser,
+  }));
 }
 
 /**

@@ -8,7 +8,8 @@
  * снапшот (DTO на лету) для рендера, не мутируя его здесь.
  */
 
-import { System, Aspect, type Engine } from "@trixt0r/ecs";
+import { Aspect, type Engine } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "../SystemSchedule";
 import { PositionComponent } from "../components/PositionComponent";
 import { VelocityComponent } from "../components/VelocityComponent";
 import { LifeComponent } from "../components/LifeComponent";
@@ -18,11 +19,11 @@ import { GameEntity } from "../GameEntity";
 /** Коэффициент вязкого затухания скорости частицы. */
 const DRAG = 2.5;
 
-export class ParticleSystem extends System {
+export class ParticleSystem extends PhasedSystem {
   private aspect: Aspect | null = null;
 
   constructor() {
-    super(0);
+    super(Phase.Enemies);
   }
 
   onAddedToEngine(engine: Engine): void {
@@ -35,7 +36,7 @@ export class ParticleSystem extends System {
 
     const toRemove: GameEntity[] = [];
 
-    for (const entity of [...aspect.entities] as GameEntity[]) {
+    for (const entity of [...aspect.entities]) {
       const position = entity.components.get(PositionComponent);
       const velocity = entity.components.get(VelocityComponent);
       const life = entity.components.get(LifeComponent);

@@ -8,17 +8,18 @@
  * для рендера, не мутируя его здесь.
  */
 
-import { System, Aspect, type Engine } from "@trixt0r/ecs";
+import { Aspect, type Engine } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "../SystemSchedule";
 import { PositionComponent } from "../components/PositionComponent";
 import { LifeComponent } from "../components/LifeComponent";
 import { RingComponent } from "../components/RingComponent";
 import { GameEntity } from "../GameEntity";
 
-export class RingSystem extends System {
+export class RingSystem extends PhasedSystem {
   private aspect: Aspect | null = null;
 
   constructor() {
-    super(0);
+    super(Phase.Enemies);
   }
 
   onAddedToEngine(engine: Engine): void {
@@ -31,7 +32,7 @@ export class RingSystem extends System {
 
     const toRemove: GameEntity[] = [];
 
-    for (const entity of [...aspect.entities] as GameEntity[]) {
+    for (const entity of [...aspect.entities]) {
       const ring = entity.components.get(RingComponent);
       const position = entity.components.get(PositionComponent);
       const life = entity.components.get(LifeComponent);

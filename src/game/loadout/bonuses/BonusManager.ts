@@ -12,7 +12,7 @@
  * не хранятся — их применяет ApplyPickupSystem, а HUD мигает по событиям.
  */
 
-import { System } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "../../ecs/SystemSchedule";
 import type { PickupKind } from "../../balance";
 import type { LoadoutSlotData } from "../LoadoutTypes";
 import type { PlayerBonuses } from "./Bonus";
@@ -22,11 +22,11 @@ import {
   type BonusRegistryData,
 } from "./BonusRegistry";
 
-export class BonusManager extends System {
+export class BonusManager extends PhasedSystem {
   private bonuses: BonusRegistryData;
 
   constructor() {
-    super(-15); // тик временных бонусов — до игровых систем
+    super(Phase.Upkeep);
     this.bonuses = createBonusRegistry();
   }
 

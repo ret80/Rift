@@ -4,6 +4,8 @@
  * угла прицеливания, чтобы Game не работался с raw DOM напрямую.
  */
 
+import { getViewport } from "../core/env";
+
 export interface InputSystemHooks {
   /** Вызывается при изменении позиции мыши (screen-space coordinates + window dimensions). */
   onAimUpdate(mouseX: number, mouseY: number, winW: number, winH: number): void;
@@ -18,17 +20,13 @@ export class InputSystem {
 
   private onMouseMove = (e: MouseEvent) => {
     const rect = this.canvas.getBoundingClientRect();
+    const { width, height } = getViewport();
     this.mouseX = e.clientX - rect.left;
     this.mouseY = e.clientY - rect.top;
-    this.hooks.onAimUpdate(
-      this.mouseX,
-      this.mouseY,
-      window.innerWidth,
-      window.innerHeight
-    );
+    this.hooks.onAimUpdate(this.mouseX, this.mouseY, width, height);
   };
 
-  private onMouseDown = (e: MouseEvent) => {
+  private onMouseDown = (_e: MouseEvent) => {
     this.mouseDown = true;
     this.hooks.onFiringChanged(true);
   };
@@ -43,7 +41,7 @@ export class InputSystem {
     this.hooks.onFiringChanged(false);
   };
 
-  private onTouchStart = (e: TouchEvent) => {
+  private onTouchStart = (_e: TouchEvent) => {
     this.mouseDown = true;
     this.hooks.onFiringChanged(true);
   };

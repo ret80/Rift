@@ -16,38 +16,14 @@ import {
   MENU_ENEMY_MAX_SPEED,
   MENU_EDGE_MARGIN as MENU_EDGE_MARGIN_PX,
   massForRadius,
-} from "../balance";
-import { type Starfield } from "../starfield";
-import { type AsteroidField } from "../asteroids";
-import { type RiftField } from "../rifts";
-import { type RendererSystem } from "./RendererSystem";
-import type { IRenderer } from "../render/index";
-import type { Enemy } from "../types";
-
-/* ===== Menu types ===== */
-
-interface MenuRift {
-  x: number;
-  y: number;
-  t: number;
-  state: "opening" | "spawning" | "closing";
-  queue: EnemyKind[];
-  timer: number;
-  seed: number;
-  rot: number;
-  size: number;
-  nextSpawnT: number;
-}
-
-interface MenuEnemy {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  kind: EnemyKind;
-  angle: number;
-  seed: number;
-}
+} from "../../balance";
+import { type Starfield } from "../../starfield";
+import { type AsteroidField } from "../../asteroids";
+import { type RiftField } from "../../rifts";
+import { type RendererSystem } from "../../systems/RendererSystem";
+import type { IRenderer } from "../../render/index";
+import type { AsteroidEnv } from "../../asteroids";
+import type { MenuEnemy, MenuFrame, MenuRift } from "./types";
 
 /* ===== MenuScene ===== */
 
@@ -73,13 +49,14 @@ export class MenuScene {
   /** Update menu scene for one frame */
   update(dt: number) {
     this.starfield.update(dt, 0, 0, 1, 0, this.renderer.width, this.renderer.height);
-    this.asteroidField.update(dt, {
+    const env: AsteroidEnv = {
       camX: 0,
       camY: 0,
       viewW: this.camera.webGLWidth / this.camera.dpr,
       viewH: this.camera.webGLHeight / this.camera.dpr,
       zone: null,
-    } as any);
+    };
+    this.asteroidField.update(dt, env);
 
     // Ensure initial asteroids are spawned near the menu screen center
     if (this.asteroidField.asteroidList.length < MENU_ASTEROID_COUNT) {
@@ -91,17 +68,20 @@ export class MenuScene {
   }
 
   /** Render the menu scene */
-  render(renderer: IRenderer) {
-    this.rendererSystem.renderMenu(
-      renderer,
-      this.starfield,
-      this.asteroidField,
-      this.riftField,
-      this.menuRifts,
-      this.menuEnemies,
-      this.camera.webGLWidth / this.camera.dpr,
-      this.camera.webGLHeight / this.camera.dpr,
-    );
+  render(): void {
+    const frame: MenuFrame = {
+      renderer: this.renderer,
+      starfield: this.starfield,
+      asteroidField: this.asteroidField,
+      riftField: this.riftField,
+      rifts: this.menuRifts,
+      enemies: this.menuEnemies,
+      view: {
+        width: this.camera.webGLWidth / this.camera.dpr,
+        height: this.camera.webGLHeight / this.camera.dpr,
+      },
+    };
+    this.rendererSystem.renderMenu(frame);
   }
 
   /** Reset all menu state */
@@ -122,7 +102,9 @@ export class MenuScene {
       if (this.menuNextRiftTimer <= 0) {
         this.spawnMenuRift();
         // Next rift only after 8-14 seconds
-        this.menuNextRiftTimer = MENU_RIFT_MIN_INTERVAL + Math.random() * (MENU_RIFT_MAX_INTERVAL - MENU_RIFT_MIN_INTERVAL);
+        this.menuNextRiftTimer =
+          MENU_RIFT_MIN_INTERVAL +
+          Math.random() * (MENU_RIFT_MAX_INTERVAL - MENU_RIFT_MIN_INTERVAL);
       }
     }
 

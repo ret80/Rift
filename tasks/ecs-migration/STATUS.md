@@ -340,9 +340,39 @@
 - `npm run check:i18n` и перепроверка обоих физических движков/рендеров — финальная приёмка.
 - 39 pre-existing lint-ошибок (max-len/no-unused-vars/any) — вне scope ECS-миграции.
 
+> **Закрыто планом `tasks/refactoring-plan-2026-10-30.md` (2026-10-31):** `check:i18n` —
+> 206/206 ключей, `lint` — 0 errors / 0 warnings, `typecheck` — 0, `build` — ok
+> (основной чанк 320 kB, вендоры вынесены в `manualChunks`).
+
 ## Ещё не покрыто (в рамках этапа 1)
 
 - Обратный каст в презентации `EnemyRenderer.buildEnemyState`
   (`as unknown as EnemyRenderState`) — **устранён на этапе 7** (снапшот из компонентов).
 - `EcsWorld.query()` пока используется как вспомогательный запрос; полноценный переход
   `CollisionSystem`/`SpawnSystem`/`ZoneSystem` на компонентные запросы — часть доменной модели.
+
+## Финальное состояние после рефакторинга 2026-10-30 ✅
+
+ECS-миграция завершена **структурно**; encapsulation-долг, оставшийся после неё, закрыт
+планом `tasks/refactoring-plan-2026-10-30.md` (фазы 0–9). Что изменилось поверх ECS:
+
+| Область | Итог |
+|---|---|
+| Смерть врага | Один путь `EnemyLifecycle`; `enemy_killed` публикуется ровно один раз. |
+| `EcsWorld` | Тонкий фасад **149 строк**: только сборка доменов/систем и делегирование, без спавна по доменам и без публичного `engine`. |
+| Персистентность | Единый JSON-формат через `STORAGE_KEYS`/`storage.ts`; миграции `voxbest → rift9_best`, `"1"/"0" → true/false`; прямое чтение `localStorage` осталось только в `PersistencePort`. |
+| Кадр | `SystemSchedule`/`Phase` вместо `super(n)`; 24 системы на явных фазах; `WorldFrame` — только refs. |
+| Волны | `WaveComposition`/`RiftPlacement`/`WaveAnnouncements` + `RandomSource`; `WaveFlowSystem` на узких портах. |
+| Презентация | `MenuScene` в `presentation/menu`; `RendererSystem.render(scene)`/`renderMenu(frame)`; DTO сущностей заменены спавн-спецификациями. |
+| UI | `HudStore` + `useSyncExternalStore` (~15 Гц), `ScreenRouter`/`GameOverlays`, `ui/upgrade/*`; `App.tsx` — 122 строки. |
+| i18n | Доменные словари `src/i18n/dicts/*`, `TKey = FlattenKeys`, 206 ключей, EN без кириллицы. |
+| Каталоги | `WEAPON_CATALOG`/`WEAPON_IDS` — единый источник `WeaponId`, иконок, цветов, звуков и оружейных пикапов. |
+
+Финальные гейты (2026-10-31): `typecheck` 0, `lint` 0 errors / 0 warnings, `check:i18n`
+206/206, `build` ok; `as any`/`as unknown as` — 0; файлов >400 строк — только рендер-бэкенды
+с шейдерами, аудио-секвенсоры и композиционный корень `GameContext` (осознанное исключение).
+
+Финальный smoke (2026-10-31): меню → бой (пушка/ракета/лазер + бонус темпа) → волны 1→10 →
+пауза/настройки → смерть/Game Over/новый рекорд 3122 → прокачка → меню → reload (рекорд,
+язык, громкость, физика, треки сохранились); `?debug=1&wave=10`, god mode/FPS, `?renderer=null`,
+`?renderer=webgl`, `?physics=p2` — console errors 0. Пользовательские localStorage восстановлены.

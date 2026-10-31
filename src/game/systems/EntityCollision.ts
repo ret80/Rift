@@ -14,7 +14,7 @@ import { MAX_VELOCITY } from './CollisionConstants';
 export function softResolveCollision(
   ax: number, ay: number, am: number, avx: number, avy: number,
   bx: number, by: number, bm: number, bvx: number, bvy: number,
-  impulse: number
+  _impulse: number
 ): { na: { vx: number; vy: number }; nb: { vx: number; vy: number } } {
   // Vector from A to B
   const dx = bx - ax;
@@ -31,7 +31,6 @@ export function softResolveCollision(
   // If bodies are separating — do nothing
   if (dvn <= 0) return { na: { vx: avx, vy: avy }, nb: { vx: bvx, vy: bvy } };
 
-  const totalMass = am + bm;
   // Impulse proportional to relative velocity and weighted by masses
   // coefficient_of_restitution = 0.15 — very soft collisions
   const e = 0.15;

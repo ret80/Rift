@@ -10,15 +10,16 @@
  * он получает через WeaponWorld — набор провайдеров живых данных.
  */
 
-import { System } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import { PLAYER_AIM_BASE_CHANCE } from "../balance";
 import { weaponDamageMult, weaponReloadMult, weaponHitChance } from "../upgrades";
 import type { LoadoutSlotData } from "../loadout/LoadoutTypes";
 import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
-import type { Bullet, LaserBeam } from "../types";
+import type { BeamSpawn, BulletSpawn } from "../ecs/spawn";
 import { Targeting, DEFAULT_TARGET_RANGE } from "./Targeting";
 import type { DroneFleetSpec } from "../drones/Drone";
-import type { AllyDroneSpawn, DroneRef, EnemyRef } from "../ecs";
+import type { AllyDroneSpawn, BeamRef, DroneRef, EnemyRef } from "../ecs";
+import type { EnemyDamagePort } from "../ecs/EnemyLifecycle";
 import type {
   AimState,
   PlayerSnapshot,
@@ -33,15 +34,13 @@ import type {
 import { createWeaponRegistry } from "./WeaponRegistry";
 
 /** Провайдеры живых данных игрового мира для оружия. */
-export interface WeaponWorld {
+export interface WeaponWorld extends EnemyDamagePort {
   /** Текущее состояние игрока. */
   getPlayer(): PlayerSnapshot;
   /** Враги — цели для наведения. */
   getEnemies(): readonly EnemyRef[];
-  /** Пул снарядов игрока. */
-  getBullets(): Bullet[];
   /** Зарегистрировать новый снаряд игрока в ECS-мире. */
-  addBullet(bullet: Bullet): void;
+  addBullet(bullet: BulletSpawn): void;
   /** Пул дронов-компаньонов (живые связки компонентов). */
   getDrones(): DroneRef[];
   /** Зарегистрировать новый дрон-компаньон в ECS-мире. */
@@ -49,18 +48,14 @@ export interface WeaponWorld {
   /** Текущие временные бонусы игрока. */
   getBonuses(): PlayerBonuses;
   /** Пул лучей лазера — визуальная трасса выстрела. */
-  getBeams?(): LaserBeam[];
+  getBeams?(): BeamRef[];
   /** Зарегистрировать новый визуальный луч лазера в ECS-мире. */
-  addBeam?(beam: LaserBeam): void;
+  addBeam?(beam: BeamSpawn): void;
   /** Граница игровой зоны (null — зона не задана). */
   getZone?(): ZoneSnapshot | null;
-  /** Убить врага через единый путь (дроп, счёт, волна). */
-  killEnemy?(enemy: EnemyRef): void;
-  /** Нанести урон врагу через единый канонический путь (ECS damageEnemy). */
-  damageEnemy?(enemy: EnemyRef, dmg: number): void;
 }
 
-export class WeaponManager extends System {
+export class WeaponManager extends PhasedSystem {
   private weapons: Record<WeaponId, Weapon>;
   private targeting: Targeting;
   private world: WeaponWorld;
@@ -89,7 +84,7 @@ export class WeaponManager extends System {
     onWeaponFired: (id: WeaponId) => void,
     targetRange: number = DEFAULT_TARGET_RANGE
   ) {
-    super(5); // после движения/стрельбы/пуль (0..4), до физики (6)
+    super(Phase.Weapons);
     this.world = world;
     this.onWeaponFired = onWeaponFired;
     this.weapons = createWeaponRegistry();
@@ -215,7 +210,6 @@ export class WeaponManager extends System {
       },
       aim,
       enemies: this.world.getEnemies(),
-      bullets: this.world.getBullets(),
       addBullet: (bullet) => this.world.addBullet(bullet),
       drones: this.world.getDrones(),
       addAllyDrone: (drone) => this.world.addAllyDrone(drone),
@@ -223,8 +217,7 @@ export class WeaponManager extends System {
       addBeam: (beam) => this.world.addBeam?.(beam),
       zone: this.world.getZone?.() ?? null,
       onFired: (id) => this.onWeaponFired(id),
-      killEnemy: (enemy) => this.world.killEnemy?.(enemy),
-      damageEnemy: (enemy, dmg) => this.world.damageEnemy?.(enemy, dmg),
+      damageEnemy: (enemy, dmg) => this.world.damageEnemy(enemy, dmg),
     };
   }
 }

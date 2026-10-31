@@ -7,7 +7,27 @@
  */
 
 export { EcsWorld } from "./EcsWorld";
-export type { PlayerSource, AsteroidRef, AsteroidSpawn, DroneRef, AllyDroneSpawn, PlayerRef, EnemyRef } from "./EcsWorld";
+export { EcsEngine } from "./EcsEngine";
+export type { EnemySystemDeps } from "./domains/EnemyDomain";
+export type {
+  EnemySpawn,
+  BulletSpawn,
+  EnemyBulletSpawn,
+  BeamSpawn,
+} from "./spawn";
+export type {
+  PlayerSource,
+  AsteroidRef,
+  AsteroidSpawn,
+  BeamRef,
+  BulletRef,
+  DroneRef,
+  EnemyBulletRef,
+  AllyDroneSpawn,
+  PickupRef,
+  PlayerRef,
+  EnemyRef,
+} from "./refs";
 export { GameEntity } from "./GameEntity";
 
 // Базовые компоненты-данные и механика EntityRef.

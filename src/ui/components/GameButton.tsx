@@ -10,7 +10,13 @@ export default function GameButton(props: {
 }) {
   const baseCls =
     "clip-btn " +
-    (props.variant === "red" ? "btn-red " : props.variant === "amber" ? "btn-amber " : props.variant === "cyan" ? "btn-cyan " : "") +
+    (props.variant === "red"
+      ? "btn-red "
+      : props.variant === "amber"
+        ? "btn-amber "
+        : props.variant === "cyan"
+          ? "btn-cyan "
+          : "") +
     (props.small ? "btn-small px-5 py-2 text-[11px] " : "px-8 py-3 text-sm ");
   const cls = props.className ? baseCls + props.className : baseCls;
   return (

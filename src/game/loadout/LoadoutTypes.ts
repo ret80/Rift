@@ -10,14 +10,12 @@
  */
 
 import type { TKey } from "../../i18n";
+import type { WeaponIcon, WeaponId } from "../weapons/WeaponCatalog";
 
 /** Иконки, доступные строке снаряжения. */
 export type LoadoutIcon =
   /* оружие */
-  | "weapon-cannon"
-  | "weapon-missile"
-  | "pickup-drone"
-  | "weapon-laser"
+  | WeaponIcon
   /* бонусы */
   | "pickup-rate"
   | "pickup-gun"
@@ -29,10 +27,7 @@ export type LoadoutIcon =
 /** Виды слотов строки снаряжения: оружие, бонусы и способности. */
 export type LoadoutSlotKind =
   /* оружие */
-  | "cannon"
-  | "missile"
-  | "drone"
-  | "laser"
+  | WeaponId
   /* постоянная система */
   | "shield_energy"
   /* временные бонусы */

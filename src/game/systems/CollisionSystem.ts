@@ -9,7 +9,7 @@
  * Сбор пикапов вынесен в ECS (PickupCollectionSystem).
  */
 
-import { System } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import { massForRadius, dmgScale } from '../balance';
 import {
   GRAZE_BAND,
@@ -34,7 +34,7 @@ export type WorldSource = () => WorldFrame;
 /** Источник текущего номера волны. */
 export type WaveSource = () => number;
 
-export class CollisionSystem extends System {
+export class CollisionSystem extends PhasedSystem {
   private eventBus: EventBus;
   private physics: PhysicsSystem;
   private ecs: EcsWorld;
@@ -48,7 +48,7 @@ export class CollisionSystem extends System {
     getWorld: WorldSource,
     getWave: WaveSource,
   ) {
-    super(7); // после физики (6): контакты уже собраны; до zone/spawn
+    super(Phase.Collisions);
     this.eventBus = eventBus;
     this.physics = physics;
     this.ecs = ecs;
@@ -84,7 +84,7 @@ export class CollisionSystem extends System {
       bulletToRemove.add(hit.bulletIndex);
       if (hit.enemyId !== null) {
         const b = bullets[hit.bulletIndex];
-        if (b) this.ecs.damageEnemy(hit.enemyId, b.dmg);
+        if (b) this.ecs.damageEnemy(hit.enemyId, b.bullet.dmg);
       }
     }
     // Удаляем снаряды по объектной идентичности через ECS-мир.
@@ -106,12 +106,8 @@ export class CollisionSystem extends System {
       this.ecs.removeEnemyBullet(enemyBullets[bulletCheck.hitIndex]);
     }
     if (bulletCheck.grazeIndices.length > 0) {
-      // Обновляем метку grazed в компоненте, чтобы один и тот же снаряд не
-      // считался касанием повторно (источник правды — BulletSweepComponent).
-      for (const idx of bulletCheck.grazeIndices) {
-        const eb = enemyBullets[idx];
-        if (eb) this.ecs.markEnemyBulletGrazed(eb.entityId);
-      }
+      // Метку grazed уже выставил checkEnemyBulletVsPlayer в BulletSweepComponent —
+      // здесь остаётся только событие для звука/визуала.
       this.eventBus.publish('bullet_grazed', {
         count: bulletCheck.grazeIndices.length,
         x: player.position.x,
@@ -130,7 +126,7 @@ export class CollisionSystem extends System {
     const bulletToRemoveNow = new Set<number>();
     for (const hit of droneHits) {
       const b = enemyBullets[hit.bulletIndex];
-      const dead = this.ecs.damageAllyDrone(drones[hit.droneIndex].marker.entityId, b.dmg);
+      const dead = this.ecs.damageAllyDrone(drones[hit.droneIndex].marker.entityId, b.bullet.dmg);
       if (dead) dronesToRemove.add(hit.droneIndex);
       bulletToRemoveNow.add(hit.bulletIndex);
     }
@@ -148,7 +144,7 @@ export class CollisionSystem extends System {
       this.eventBus.publish("drone_hit", {
         x: d.position.x,
         y: d.position.y,
-        dmg: b ? b.dmg : 0,
+        dmg: b ? b.bullet.dmg : 0,
         dead: dronesToRemove.has(hit.droneIndex),
       });
     }
@@ -200,7 +196,7 @@ export class CollisionSystem extends System {
 
         // Каждый врезавшийся враг гибнет сразу, даже если их несколько.
         if (!e.marker.dead && enemies.includes(e)) {
-          this.ecs.damageEnemy(e.marker.ecsId ?? "", e.life.remaining);
+          this.ecs.forceKillEnemy(e);
         }
       }
 

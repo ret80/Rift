@@ -11,9 +11,10 @@
  * через AbilityWorld — набор провайдеров и колбэков.
  */
 
-import { System } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import type { LoadoutSlotData } from "../loadout/LoadoutTypes";
 import type { EnemyRef } from "../ecs";
+import type { EnemyDamagePort } from "../ecs/EnemyLifecycle";
 import type { AbilityContext, AbilityId } from "./Ability";
 import { createAbilityRegistry, type AbilityRegistryData } from "./AbilityRegistry";
 import type { InputManager } from "../input";
@@ -22,7 +23,7 @@ import type { InputManager } from "../input";
 const ABILITY_KEY = "Space";
 
 /** Провайдеры живых данных игрового мира для способностей. */
-export interface AbilityWorld {
+export interface AbilityWorld extends EnemyDamagePort {
   /** Текущая позиция корабля. */
   getPlayerX(): number;
   getPlayerY(): number;
@@ -30,13 +31,9 @@ export interface AbilityWorld {
   movePlayerTo(x: number, y: number): void;
   /** Живые враги. */
   getEnemies(): readonly EnemyRef[];
-  /** Убить врага — начислить очки и выбросить дроп. */
-  killEnemy(enemy: EnemyRef): void;
-  /** Нанести урон врагу через единый канонический путь (ECS damageEnemy). */
-  damageEnemy(enemy: EnemyRef, dmg: number): void;
 }
 
-export class AbilitySystem extends System {
+export class AbilitySystem extends PhasedSystem {
   private abilities: AbilityRegistryData;
   private world: AbilityWorld;
   private input: InputManager;
@@ -48,7 +45,7 @@ export class AbilitySystem extends System {
     world: AbilityWorld,
     fx: AbilityContext["fx"]
   ) {
-    super(-8); // кулдауны способностей — до игровых систем (как shield/bonus)
+    super(Phase.Upkeep);
     this.input = input;
     this.world = world;
     this.fx = fx;
@@ -102,7 +99,6 @@ export class AbilitySystem extends System {
       playerY: this.world.getPlayerY(),
       enemies: this.world.getEnemies(),
       movePlayerTo: (x, y) => this.world.movePlayerTo(x, y),
-      killEnemy: (e) => this.world.killEnemy(e),
       damageEnemy: (e, dmg) => this.world.damageEnemy(e, dmg),
       fx: this.fx,
     };

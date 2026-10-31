@@ -10,6 +10,7 @@
  */
 
 import type { IRenderer, RenderMode, RGBA } from "./IRenderer";
+import { getDpr } from "./config";
 
 /** Метрики отрисованных примитивов за один кадр. */
 export interface FrameStats {
@@ -52,7 +53,7 @@ export class NullRenderer implements IRenderer {
   }
 
   resize(cssW: number, cssH: number) {
-    this.dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+    this.dpr = getDpr();
     const w = Math.max(1, Math.floor(cssW * this.dpr));
     const h = Math.max(1, Math.floor(cssH * this.dpr));
     if (w === this.width && h === this.height) return;

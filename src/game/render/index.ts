@@ -6,6 +6,7 @@
  */
 
 export type { IRenderer, RenderMode, RGBA } from "./IRenderer";
+export { MAX_DPR, getDpr } from "./config";
 export { BaseRenderer } from "./BaseRenderer";
 export { PicoGLRenderer } from "./PicoGLRenderer";
 export { NullRenderer } from "./NullRenderer";

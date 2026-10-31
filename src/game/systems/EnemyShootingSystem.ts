@@ -12,7 +12,8 @@
  * Движение и AI остаются в EnemySystem.
  */
 
-import { System, Aspect, type Engine } from "@trixt0r/ecs";
+import { Aspect, type Engine } from "@trixt0r/ecs";
+import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import { aimAtTarget } from "../aiming/AimSolver";
 import {
   CRUISER_BOLT_LIFE,
@@ -30,7 +31,6 @@ import { rand } from "../math";
 import type { AudioManager } from "./AudioManager";
 import { EnemyComponent } from "../ecs/components/EnemyComponent";
 import { PositionComponent } from "../ecs/components/PositionComponent";
-import { GameEntity } from "../ecs/GameEntity";
 
 /** Локальная связка «маркер + позиция» врага для стрельбы (без radius/life). */
 interface EnemyShotRef {
@@ -81,12 +81,12 @@ export interface EnemyBoltShot {
 }
 
 /**
- * Спавн болта врага напрямую в ECS-мир. Передаётся из EcsWorld:
+ * Спавн болта врага напрямую в ECS-мир. Передаётся доменом врагов:
  * система стрельбы не публикует событие и не знает про чужие сущности.
  */
 export type SpawnBoltSource = (shot: EnemyBoltShot) => void;
 
-export class EnemyShootingSystem extends System {
+export class EnemyShootingSystem extends PhasedSystem {
   private aspect: Aspect | null = null;
   private audio: AudioManager;
   private wave = 1;
@@ -97,7 +97,7 @@ export class EnemyShootingSystem extends System {
     private readonly isCombatActive: CombatActiveSource,
     private readonly spawnBolt: SpawnBoltSource,
   ) {
-    super(1); // после движения врагов (priority 0)
+    super(Phase.EnemyActions);
     this.audio = audio;
   }
 
@@ -148,7 +148,7 @@ export class EnemyShootingSystem extends System {
   private collectEnemyShots(): EnemyShotRef[] {
     if (!this.aspect) return [];
     const result: EnemyShotRef[] = [];
-    for (const entity of [...this.aspect.entities] as GameEntity[]) {
+    for (const entity of [...this.aspect.entities]) {
       const marker = entity.components.get(EnemyComponent);
       if (!marker) continue;
       const position = entity.components.get(PositionComponent);

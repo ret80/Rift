@@ -1,31 +1,23 @@
 /**
- * WaveOrchestrator - wave and zone orchestrator.
- * Manages wave lifecycle, zone behavior,
- * and zone edge damage.
+ * WaveOrchestrator — координатор волны и зоны.
  *
- * FSM States:
- *   inactive → active → cleared → (next wave)
+ * Собирает три независимых модели:
+ *   • WaveStateMachine — номер волны, счётчики и переход cleared;
+ *   • ZoneModel — геометрия и расширение зоны;
+ *   • ZoneEdgeDamage — урон и предупреждение за краем.
+ *
+ * Здесь остаются только жизненный цикл волны и связка моделей с хуками.
  */
 
 import { t } from "../../i18n";
 import {
-    ZONE_CLEAR_BANNER_DELAY,
-    ZONE_CLEAR_EXPAND_DURATION,
-    ZONE_CLEAR_EXPAND_MULTIPLIER,
-    ZONE_CLEAR_EXPAND_START,
-    ZONE_CLEAR_NEXT_WAVE,
-    ZONE_EARLY_DAMAGE_THRESHOLD,
-    ZONE_EDGE_DAMAGE_AMOUNT,
-    ZONE_EDGE_DAMAGE_INTERVAL,
-    ZONE_EDGE_MARGIN,
-    ZONE_EDGE_SHAKE_STRENGTH,
-    ZONE_EDGE_WARNING_DELAY,
-    ZONE_INITIAL_RADIUS,
-    zoneExpandSpeed,
+  ZONE_CLEAR_BANNER_DELAY,
+  ZONE_CLEAR_NEXT_WAVE,
 } from "../balance";
 import type { ZoneData } from "../core/ZoneTypes";
-import { ZONE_NOT_COLLAPSING } from "../core/ZoneTypes";
-import { clamp, easeOutCubic } from "../math";
+import { ZoneEdgeDamage, type PlayerPosition } from "../waves/ZoneEdgeDamage";
+import { ZoneModel } from "../waves/ZoneModel";
+import { WaveStateMachine, type WaveStateId } from "../waves/WaveStateMachine";
 
 export interface WaveOrchestratorHooks {
   onBanner: (title: string, sub?: string, color?: string) => void;
@@ -40,127 +32,65 @@ export interface WaveOrchestratorConfig {
   playerMaxSpeed: number;
 }
 
-// Re-export for backward compatibility
+/** Снимок зоны для рендера/систем. */
 export type ZoneState = ZoneData;
+export type { WaveStateId };
 
-export interface AsteroidLike {
-  x: number;
-  y: number;
-  r: number;
-  vx: number;
-  vy: number;
-}
-
-export interface PlayerPosition {
-  x: number;
-  y: number;
-}
-
-// ============================== Wave State Types ==============================
-
-export type WaveStateId = "inactive" | "active" | "cleared";
-
-// ============================== Internal Timing Constants ==============================
-
-/** Duration for clearing short toast notifications (seconds, frame-based) */
-const TOAST_CLEAR_SHORT = 1.5;
-/** Duration for clearing banner toast notifications (seconds, frame-based) */
+/** Длительность очистки длинного тоста (секунды). */
 const TOAST_CLEAR_LONG = 2.0;
 
 export class WaveOrchestrator {
-  private hooks: WaveOrchestratorHooks;
-  private playerMaxSpeed: number;
-  private zone: ZoneData;
-  private speedMult: number = 1.0;
+  private readonly hooks: WaveOrchestratorHooks;
+  private readonly playerMaxSpeed: number;
+  private readonly waves = new WaveStateMachine();
+  private readonly zone = new ZoneModel();
+  private readonly edge = new ZoneEdgeDamage();
+  private speedMult = 1.0;
 
-  // Wave tracking
-  private _wave: number = 1;
-  private _waveTotal: number = 0;
-  private clearT: number = 0;
-  private waveClearSent: boolean = false;
-
-  // Wave state (replaced FSM with simple state for clarity)
-  private _waveState: WaveStateId = "active";
-
-  // Edge danger tracking
-  private edgeOutT: number = 0;
-  private edgeTickT: number = 0;
-  private edgeWarned: boolean = false;
-
-  // Toast clear timer — frame-based, cleared on reset to prevent leaks
-  private toastClearTimer: number = 0;
+  /** Баннер «волна зачищена» уже показан. */
+  private waveClearSent = false;
+  /** Таймер очистки тоста; тикает только в cleared-состоянии. */
+  private toastClearTimer = 0;
 
   constructor(config: WaveOrchestratorConfig) {
     this.hooks = config.hooks;
     this.playerMaxSpeed = config.playerMaxSpeed;
-    this.zone = {
-      active: false,
-      x: 0,
-      y: 0,
-      radius: 0,
-      targetRadius: 0,
-      alpha: 0,
-      collapseT: -1,
-    };
-
-    this._waveState = "active";
   }
 
   // ============================== Public API ==============================
 
   get zoneState(): ZoneState {
-    return this.zone;
+    return this.zone.state;
   }
 
   get waveState(): WaveStateId {
-    return this._waveState;
+    return this.waves.state;
   }
 
   /** Текущий номер волны (источник правды). */
   get wave(): number {
-    return this._wave;
+    return this.waves.wave;
   }
 
   /** Общее число врагов на текущей волне (источник правды). */
   get waveTotal(): number {
-    return this._waveTotal;
+    return this.waves.total;
   }
 
   initWave(
     playerX: number,
     playerY: number,
     wave: number,
-    waveTotal: number
+    waveTotal: number,
   ): void {
-    this._wave = wave;
-    this._waveTotal = waveTotal;
-    this.clearT = 0;
+    this.waves.init(wave, waveTotal);
+    this.zone.prepare(playerX, playerY);
+    this.edge.reset();
     this.waveClearSent = false;
-    this.edgeOutT = 0;
-    this.edgeTickT = 0;
-    this.edgeWarned = false;
-
-    // Reset wave state
-    this._waveState = "active";
-
-    // Zone not active yet — will be initialized after countdown
-    this.zone.active = false;
-    this.zone.x = playerX;
-    this.zone.y = playerY;
-    this.zone.radius = 0;
-    this.zone.targetRadius = 0;
-    this.zone.alpha = 0;
-    this.zone.collapseT = -1;
   }
 
   activateZone(playerX: number, playerY: number): void {
-    this.zone.x = playerX;
-    this.zone.y = playerY;
-    this.zone.targetRadius = Math.max(400, 200 + this._wave * 50);
-    this.zone.radius = ZONE_INITIAL_RADIUS;
-    this.zone.alpha = 0;
-    this.zone.collapseT = -1;
-    this.zone.active = true;
+    this.zone.activate(playerX, playerY, this.waves.wave);
   }
 
   setSpeedMult(mult: number): void {
@@ -168,110 +98,70 @@ export class WaveOrchestrator {
   }
 
   advanceWave(): void {
-    this._wave++;
-    this.clearT = 0;
-    // Transition from cleared back to active
-    this._waveState = "active";
-    // Zone will be reactivated after next countdown
-    this.zone.active = false;
-    // Notify Game to start countdown
-    this.hooks.onWaveAdvanced(this._wave);
+    const wave = this.waves.advance();
+    // Зона будет активирована после следующего отсчёта.
+    this.zone.hide();
+    this.hooks.onWaveAdvanced(wave);
   }
 
   tryCheckWaveClear(allSpawned: boolean, allKilled: boolean): void {
-    if (this._waveState !== "active") return;
-
-    if (allSpawned && allKilled) {
-      this._waveState = "cleared";
-      this.clearT = 0;
+    if (this.waves.tryClear(allSpawned, allKilled)) {
       this.waveClearSent = false;
     }
   }
 
   /**
-   * Update zone expansion and wave transitions.
-   * Called every frame during active/cleared states.
-   * Zone constraints are handled by ZoneSystem.
-   * @param countdownActive — true during countdown; zone is NOT activated.
+   * Обновить зону и переходы волны.
+   * @param countdownActive — во время отсчёта зона не активируется.
    */
   update(
     dt: number,
     playerPos: PlayerPosition,
-    countdownActive: boolean
+    countdownActive: boolean,
   ): void {
-    const currentState = this._waveState;
-    if (currentState !== "active" && currentState !== "cleared") {
-      return;
-    }
+    const state = this.waves.state;
+    if (state !== "active" && state !== "cleared") return;
 
-    // Initialize zone when countdown ends
-    if (!this.zone.active && currentState === "active" && !countdownActive) {
+    // Активируем зону, когда отсчёт закончился.
+    if (!this.zone.state.active && state === "active" && !countdownActive) {
       this.activateZone(playerPos.x, playerPos.y);
     }
 
-    // Expand zone or handle clear transition
-    if (currentState === "active") {
-      this.updateZoneExpansion(dt);
-      this.updateEdgeDanger(dt, playerPos);
-    } else if (currentState === "cleared") {
+    if (state === "active") {
+      this.zone.expand(dt, this.speedMult, this.playerMaxSpeed);
+      this.edge.update(dt, this.zone.state, playerPos, this.hooks, (seconds) => {
+        this.toastClearTimer = seconds;
+      });
+    } else {
       this.updateClearTransition(dt);
     }
   }
 
-  /** Сбросить состояние волн. targetWave — волна, с которой начинается игра */
+  /** Сбросить состояние волн. targetWave — волна, с которой начинается игра. */
   reset(targetWave: number = 1): void {
-    this.zone = {
-      active: false,
-      x: 0,
-      y: 0,
-      radius: 0,
-      targetRadius: 0,
-      alpha: 0,
-      collapseT: ZONE_NOT_COLLAPSING,
-    };
-    this._wave = targetWave;
-    this._waveTotal = 0;
-    this.clearT = 0;
+    this.zone.reset();
+    this.waves.reset(targetWave);
+    this.edge.reset();
     this.waveClearSent = false;
-    this.edgeOutT = 0;
-    this.edgeTickT = 0;
-    this.edgeWarned = false;
-
-    // Reset wave state
-    this._waveState = "active";
-
-    // Сбросить таймер очистки toast
     this.toastClearTimer = 0;
   }
 
   // ============================== Private methods ==============================
 
-  private updateZoneExpansion(dt: number): void {
-    if (this.zone.radius < this.zone.targetRadius) {
-      const expandSpeed = zoneExpandSpeed(this.speedMult, this.playerMaxSpeed);
-      this.zone.radius = Math.min(
-        this.zone.targetRadius,
-        this.zone.radius + expandSpeed * dt
-      );
-      this.zone.alpha = Math.min(0.5, this.zone.alpha + dt * 1.2);
-    }
-  }
-
   private updateClearTransition(dt: number): void {
-    this.clearT += dt;
+    const clearT = this.waves.addClearTime(dt);
 
-    if (this.clearT >= ZONE_CLEAR_BANNER_DELAY && !this.waveClearSent) {
+    if (clearT >= ZONE_CLEAR_BANNER_DELAY && !this.waveClearSent) {
       this.waveClearSent = true;
       this.hooks.onBanner(
         t("game.waveCleared"),
-        t("game.nextWave", { wave: this._wave + 1 }),
-        "#6f6"
+        t("game.nextWave", { wave: this.waves.wave + 1 }),
+        "#6f6",
       );
-      // Запускаем frame-based таймер очистки toast
+      // Запускаем frame-based таймер очистки toast.
       this.toastClearTimer = TOAST_CLEAR_LONG;
     }
 
-    // Обновляем таймер очистки toast
     if (this.toastClearTimer > 0) {
       this.toastClearTimer -= dt;
       if (this.toastClearTimer <= 0) {
@@ -280,58 +170,11 @@ export class WaveOrchestrator {
       }
     }
 
-    // Smoothly expand zone and reduce alpha before disappearing
-    if (this.clearT >= ZONE_CLEAR_EXPAND_START) {
-      const expandProgress = clamp(
-        (this.clearT - ZONE_CLEAR_EXPAND_START) / ZONE_CLEAR_EXPAND_DURATION,
-        0,
-        1
-      );
-      const eased = easeOutCubic(expandProgress);
-      // Zone expands to 1.5x target
-      this.zone.radius =
-        this.zone.targetRadius * (1 + ZONE_CLEAR_EXPAND_MULTIPLIER * eased);
-      // Alpha decreases from 0.5 to 0
-      this.zone.alpha = 0.5 * (1 - eased);
-    }
+    this.zone.applyClearExpansion(clearT);
 
-    // Advance to next wave only after zone fully disappears
-    if (this.clearT >= ZONE_CLEAR_NEXT_WAVE) {
+    // Переходим к следующей волне только после полного исчезновения зоны.
+    if (clearT >= ZONE_CLEAR_NEXT_WAVE) {
       this.advanceWave();
     }
   }
-
-  private updateEdgeDanger(dt: number, playerPos: PlayerPosition): void {
-    if (!this.zone.active) return;
-
-    const dx = playerPos.x - this.zone.x;
-    const dy = playerPos.y - this.zone.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    // Don't deal damage while zone hasn't expanded at least halfway
-    if (
-      this.zone.radius < this.zone.targetRadius * ZONE_EARLY_DAMAGE_THRESHOLD
-    )
-      return;
-
-    if (dist > this.zone.radius - ZONE_EDGE_MARGIN) {
-      this.edgeOutT += dt;
-      if (!this.edgeWarned && this.edgeOutT > ZONE_EDGE_WARNING_DELAY) {
-        this.edgeWarned = true;
-        this.hooks.onToast(t("game.zoneWarning"), "#fa5");
-        // Запускаем frame-based таймер очистки toast
-        this.toastClearTimer = TOAST_CLEAR_SHORT;
-      }
-      if (this.edgeTickT > ZONE_EDGE_DAMAGE_INTERVAL) {
-        this.edgeTickT = 0;
-        this.hooks.hitPlayer(ZONE_EDGE_DAMAGE_AMOUNT);
-        this.hooks.shakeScreen(ZONE_EDGE_SHAKE_STRENGTH, 0.2);
-      }
-    } else {
-      this.edgeOutT = 0;
-      this.edgeTickT = 0;
-      this.edgeWarned = false;
-    }
-  }
-
 }

@@ -26,6 +26,7 @@ import type {
     WeaponModifiers,
     WeaponSlotState,
 } from "./Weapon";
+import { WEAPON_CATALOG } from "./WeaponCatalog";
 
 /** Радиус орбиты дронов вокруг корабля. */
 export const DRONE_ORBIT_RADIUS = 58;
@@ -34,12 +35,7 @@ export const MAX_ALLY_DRONES = 8;
 
 export class DroneWeapon implements Weapon {
   readonly id: WeaponId = "drone";
-  readonly meta: WeaponMeta = {
-    icon: "pickup-drone",
-    color: "#ff9de0",
-    labelKey: "hud.loadout.drone",
-    order: 2,
-  };
+  readonly meta: WeaponMeta = WEAPON_CATALOG.drone;
   readonly countUpgrade = "drones" as const;
   readonly usesPersonalAccuracy = false;
   readonly baseDamage = 8;

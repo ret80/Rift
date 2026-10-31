@@ -15,12 +15,14 @@ import {
 } from "./weapons/Weapon";
 import type { TKey } from "../i18n";
 import type { PersistencePort } from "./core/PersistencePort";
+import { STORAGE_KEYS } from "./core/storageKeys";
+import { readNumber, writeNumber } from "./core/storage";
 
 /* ======================== Storage keys ======================== */
 
-const LS_KEY = "rift9_upgrades";
-const LS_BEST_WAVE = "rift9_best_wave";
-const LS_WEAPON_LOADOUT = "rift9_weapon_loadout";
+const LS_KEY = STORAGE_KEYS.upgrades;
+const LS_BEST_WAVE = STORAGE_KEYS.bestWave;
+const LS_WEAPON_LOADOUT = STORAGE_KEYS.weaponLoadout;
 
 /* ======================== Types ======================== */
 
@@ -322,24 +324,16 @@ export function resetUpgrades(storage: PersistencePort): PlayerUpgrades {
 
 /** Загрузить лучший результат по волнам */
 export function loadBestWave(storage: PersistencePort): number {
-  try {
-    const raw = storage.get(LS_BEST_WAVE);
-    if (raw) {
-      const n = parseInt(raw, 10);
-      if (!isNaN(n) && n > 0) return n;
-    }
-  } catch { /* ignore */ }
-  return 1;
+  const n = readNumber(storage, LS_BEST_WAVE, 1);
+  return n > 0 ? Math.floor(n) : 1;
 }
 
 /** Сохранить лучший результат по волнам */
 export function saveBestWave(wave: number, storage: PersistencePort): void {
-  try {
-    const current = loadBestWave(storage);
-    if (wave > current) {
-      storage.set(LS_BEST_WAVE, String(wave));
-    }
-  } catch { /* ignore */ }
+  const current = loadBestWave(storage);
+  if (wave > current) {
+    writeNumber(storage, LS_BEST_WAVE, wave);
+  }
 }
 
 /* ======================== Apply upgrades to game values ======================== */
