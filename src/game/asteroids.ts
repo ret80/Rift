@@ -6,7 +6,11 @@
    AsteroidComponent (маркер). Пояс (этот класс) генерирует чанки-затравки и спавнит
    астероиды в engine; физика, коллизии, зона и рендер читают/пишут компоненты через
    AsteroidRef. Позицию астероида может интегрировать физический движок (Planck) —
-   тогда игровой код не двигает её. */
+   тогда игровой код не двигает её.
+
+   После первичного заполнения новые камни не появляются в видимом кадре: затравка
+   ждёт снаружи, а удалённые по дистанции камни возвращаются с того места, где
+   покинули пояс, а не из исходной точки чанка (иначе они «мигали» бы в кадре). */
 
 import type { IRenderer } from "./render/index";
 import type { AudioManager } from "./systems/AudioManager";
@@ -60,6 +64,10 @@ interface AstSeed {
 const CHUNK = 1000;
 const CAP = 220;
 const CULL_DIST = 2800;
+/** Запас вокруг кадра: ближе к границе новые камни не появляются. */
+const SPAWN_CLEARANCE = 120;
+/** Насколько дальше кадра камень должен уйти, чтобы его можно было убрать. */
+const CULL_MARGIN = 400;
 
 function astDef(kind: AsteroidKind) {
   switch (kind) {
@@ -110,9 +118,13 @@ export class AsteroidField {
   }
 
   private chunks = new Map<string, AstSeed[]>();
+  /** Затравки загруженных чанков по ключу астероида. */
+  private seedByKey = new Map<string, AstSeed>();
   private gone = new Set<string>();
   private boundsKey = "";
   private fragSeq = 0;
+  /** Первичное заполнение выполнено: дальше спавн в кадре запрещён. */
+  private primed = false;
 
   constructor(private h: AsteroidHooks, eventBus?: EventBus) {
     if (eventBus) {
@@ -139,6 +151,44 @@ export class AsteroidField {
     return out;
   }
 
+  /** Точка (с учётом радиуса и запаса) попадает в видимый кадр. */
+  private inView(x: number, y: number, r: number, env: AsteroidEnv, margin: number): boolean {
+    return (
+      Math.abs(x - env.camX) <= env.viewW / 2 + margin + r &&
+      Math.abs(y - env.camY) <= env.viewH / 2 + margin + r
+    );
+  }
+
+  /**
+   * Запомнить последнее состояние камня в его затравке.
+   *
+   * Нужно перед удалением по дистанции: затравка статична, и без этого камень
+   * вернулся бы в исходную точку чанка, которая может оказаться прямо в кадре.
+   * Вместо этого он возвращается оттуда, где покинул пояс.
+   */
+  private parkSeed(a: AsteroidRef, env: AsteroidEnv, cullDist: number): void {
+    const seed = this.seedByKey.get(a.marker.key);
+    if (!seed) return;
+    seed.x = a.position.x;
+    seed.y = a.position.y;
+    seed.vx = a.velocity.vx;
+    seed.vy = a.velocity.vy;
+    seed.angle = a.marker.angle;
+    seed.hp = a.life.remaining;
+    seed.maxHp = a.life.max;
+
+    // Держим затравку чуть внутри радиуса удаления, иначе она будет
+    // спавниться и сразу удаляться каждый кадр.
+    const dx = seed.x - env.camX;
+    const dy = seed.y - env.camY;
+    const d = Math.hypot(dx, dy);
+    const limit = cullDist * 0.98;
+    if (d > limit) {
+      seed.x = env.camX + (dx / d) * limit;
+      seed.y = env.camY + (dy / d) * limit;
+    }
+  }
+
   update(dt: number, env: AsteroidEnv) {
     const x0 = Math.floor((env.camX - env.viewW / 2) / CHUNK) - 1;
     const x1 = Math.floor((env.camX + env.viewW / 2) / CHUNK) + 1;
@@ -153,12 +203,19 @@ export class AsteroidField {
         for (let cy = y0; cy <= y1; cy++) {
           const k = `${cx},${cy}`;
           keep.add(k);
-          if (!this.chunks.has(k)) this.chunks.set(k, this.genChunk(cx, cy));
+          if (!this.chunks.has(k)) {
+            const chunk = this.genChunk(cx, cy);
+            this.chunks.set(k, chunk);
+            for (const seedAst of chunk) this.seedByKey.set(seedAst.key, seedAst);
+          }
         }
       }
       for (const k of Array.from(this.chunks.keys())) {
         if (!keep.has(k)) {
           this.chunks.delete(k);
+          for (const sk of Array.from(this.seedByKey.keys())) {
+            if (sk.startsWith(k + ":")) this.seedByKey.delete(sk);
+          }
           // forget destroyed asteroids in evicted chunks so the field regrows
           for (const g of Array.from(this.gone)) if (g.startsWith(k + ":")) this.gone.delete(g);
         }
@@ -170,31 +227,42 @@ export class AsteroidField {
     for (const a of this.asteroidList) alive.set(a.marker.key, a);
     for (const chunk of this.chunks.values()) {
       for (const seedAst of chunk) {
-        if (!alive.has(seedAst.key) && !this.gone.has(seedAst.key)) {
-          this.h.ecs.spawnAsteroid({
-            key: seedAst.key,
-            kind: seedAst.kind,
-            x: seedAst.x,
-            y: seedAst.y,
-            vx: seedAst.vx,
-            vy: seedAst.vy,
-            r: seedAst.r,
-            angle: seedAst.angle,
-            spin: seedAst.spin,
-            verts: seedAst.verts,
-            hp: seedAst.hp,
-            maxHp: seedAst.maxHp,
-            mass: seedAst.mass,
-            dead: false,
-          });
-          alive.set(seedAst.key, this.asteroidByKey(seedAst.key));
+        if (alive.has(seedAst.key) || this.gone.has(seedAst.key)) continue;
+        // После первичного заполнения камень не появляется в кадре: он ждёт,
+        // пока камера отлетит, и входит в поле зрения снаружи.
+        if (this.primed && this.inView(seedAst.x, seedAst.y, seedAst.r, env, SPAWN_CLEARANCE)) {
+          continue;
         }
+        this.h.ecs.spawnAsteroid({
+          key: seedAst.key,
+          kind: seedAst.kind,
+          x: seedAst.x,
+          y: seedAst.y,
+          vx: seedAst.vx,
+          vy: seedAst.vy,
+          r: seedAst.r,
+          angle: seedAst.angle,
+          spin: seedAst.spin,
+          verts: seedAst.verts,
+          hp: seedAst.hp,
+          maxHp: seedAst.maxHp,
+          mass: seedAst.mass,
+          dead: false,
+        });
+        alive.set(seedAst.key, this.asteroidByKey(seedAst.key));
       }
     }
+    this.primed = true;
+
+    // Чем больше кадр, тем дальше должен быть радиус удаления, иначе камни
+    // будут исчезать/возвращаться прямо в поле зрения.
+    const viewRadius = Math.hypot(env.viewW, env.viewH) / 2;
+    const cullDist = Math.max(CULL_DIST, viewRadius + CULL_MARGIN);
 
     // integrate pos if custom physics; cull far rocks; shove out of the zone
-    for (let i = this.asteroidList.length - 1; i >= 0; i--) {
-      const a = this.asteroidList[i];
+    const asteroids = this.asteroidList;
+    for (let i = asteroids.length - 1; i >= 0; i--) {
+      const a = asteroids[i];
       const { marker, position, velocity, radius } = a;
       // В режиме Planck позицию астероида интегрирует физический движок.
       if (env.physicsIntegrates !== false) {
@@ -218,8 +286,13 @@ export class AsteroidField {
         }
       }
 
-      // cull anything far behind the camera
-      if (Math.hypot(position.x - env.camX, position.y - env.camY) > CULL_DIST) {
+      // Убираем далёкие камни, но никогда — видимые: исчезновение в кадре
+      // выглядит так же неестественно, как и появление.
+      if (
+        Math.hypot(position.x - env.camX, position.y - env.camY) > cullDist &&
+        !this.inView(position.x, position.y, radius.r, env, 0)
+      ) {
+        this.parkSeed(a, env, cullDist);
         this.removeByKey(marker.key);
       }
     }
@@ -254,7 +327,23 @@ export class AsteroidField {
       }
     }
     if (astList.length > CAP) {
-      for (let i = CAP; i < astList.length; i++) this.removeByKey(astList[i].marker.key);
+      // Убираем только камни вне кадра. Если все оставшиеся видимы — терпим
+      // превышение: резкое исчезновение на глазах игрока тоже выглядит плохо.
+      const removable = astList
+        .filter((a) => !this.inView(a.position.x, a.position.y, a.radius.r, env, 0))
+        .sort(
+          (a, b) =>
+            Math.hypot(b.position.x - env.camX, b.position.y - env.camY) -
+            Math.hypot(a.position.x - env.camX, a.position.y - env.camY)
+        );
+      const excess = astList.length - CAP;
+      for (let i = 0; i < excess && i < removable.length; i++) {
+        const key = removable[i].marker.key;
+        // Гасим затравку до выгрузки чанка, иначе камень вернётся на
+        // следующем кадре и CAP будет срабатывать каждый кадр.
+        if (this.seedByKey.has(key)) this.gone.add(key);
+        this.removeByKey(key);
+      }
     }
   }
 
@@ -373,14 +462,17 @@ export class AsteroidField {
   /** Soft reset (back to menu): the belt regrows from its chunks. */
   reset() {
     this.h.ecs.clearAsteroids();
+    this.primed = false;
   }
 
   /** Hard reset (new run): wipe chunks and the destroyed ledger too. */
   hardReset() {
     this.h.ecs.clearAsteroids();
     this.chunks.clear();
+    this.seedByKey.clear();
     this.gone.clear();
     this.boundsKey = "";
     this.fragSeq = 0;
+    this.primed = false;
   }
 }
