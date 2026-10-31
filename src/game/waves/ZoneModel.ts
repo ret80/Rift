@@ -7,15 +7,13 @@
  */
 
 import {
-  ZONE_CLEAR_EXPAND_DURATION,
-  ZONE_CLEAR_EXPAND_MULTIPLIER,
-  ZONE_CLEAR_EXPAND_START,
+  ZONE_CLEAR_FADE_TIME,
   ZONE_INITIAL_RADIUS,
   zoneExpandSpeed,
 } from "../balance";
 import type { ZoneData } from "../core/ZoneTypes";
 import { ZONE_NOT_COLLAPSING } from "../core/ZoneTypes";
-import { clamp, easeOutCubic } from "../math";
+import { clamp } from "../math";
 
 export class ZoneModel {
   private readonly zone: ZoneData = {
@@ -27,6 +25,9 @@ export class ZoneModel {
     alpha: 0,
     collapseT: ZONE_NOT_COLLAPSING,
   };
+
+  /** Альфа в момент начала зачистки волны — от неё гасим зону. */
+  private clearFromAlpha = 0;
 
   /** Живое состояние зоны (единственный источник правды). */
   get state(): ZoneData {
@@ -60,6 +61,11 @@ export class ZoneModel {
     this.zone.active = false;
   }
 
+  /** Волна зачищена: запомнить текущую альфу для плавного гашения. */
+  beginClear(): void {
+    this.clearFromAlpha = this.zone.alpha;
+  }
+
   /** Активировать зону вокруг игрока с радиусом по номеру волны. */
   activate(playerX: number, playerY: number, wave: number): void {
     this.zone.x = playerX;
@@ -82,17 +88,27 @@ export class ZoneModel {
     this.zone.alpha = Math.min(0.5, this.zone.alpha + dt * 1.2);
   }
 
-  /** Расширение и затухание зоны после зачистки волны. */
-  applyClearExpansion(clearTime: number): void {
-    if (clearTime < ZONE_CLEAR_EXPAND_START) return;
-    const progress = clamp(
-      (clearTime - ZONE_CLEAR_EXPAND_START) / ZONE_CLEAR_EXPAND_DURATION,
-      0,
-      1,
-    );
-    const eased = easeOutCubic(progress);
-    // Зона расширяется до 1.5x целевого радиуса и гаснет.
-    this.zone.radius = this.zone.targetRadius * (1 + ZONE_CLEAR_EXPAND_MULTIPLIER * eased);
-    this.zone.alpha = 0.5 * (1 - eased);
+  /**
+   * Исчезновение зоны после зачистки волны: край уходит со скоростью
+   * расширения (×1.3 текущей скорости игрока), альфа гаснет до 0 за
+   * ZONE_CLEAR_FADE_TIME. После этого зона считается исчезнувшей.
+   */
+  applyClearExpansion(
+    dt: number,
+    clearTime: number,
+    speedMult: number,
+    playerMaxSpeed: number,
+  ): void {
+    if (!this.zone.active) return;
+
+    this.zone.radius += zoneExpandSpeed(speedMult, playerMaxSpeed) * dt;
+
+    const fade = clamp(clearTime / ZONE_CLEAR_FADE_TIME, 0, 1);
+    this.zone.alpha = this.clearFromAlpha * (1 - fade);
+
+    if (clearTime >= ZONE_CLEAR_FADE_TIME) {
+      this.zone.alpha = 0;
+      this.zone.active = false;
+    }
   }
 }

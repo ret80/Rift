@@ -3,21 +3,22 @@
    gun range, menu animations.
    ============================================================ */
 
+import { ZONE_EXPAND_SPEED_MULT } from "./player";
+
 /* ------------------------- zone constants ------------------------- */
 
 export const ZONE_INITIAL_RADIUS = 26; // 2 × PLAYER_RADIUS (13)
 export const ZONE_EDGE_MARGIN = 40;
 export const ZONE_EDGE_WARNING_DELAY = 0.3; // seconds before warning
-export const ZONE_EDGE_DAMAGE_INTERVAL = 0.5; // seconds between damage ticks
-export const ZONE_EDGE_DAMAGE_AMOUNT = 10; // damage per tick
+export const ZONE_EDGE_DAMAGE_INTERVAL = 0.5; // seconds between shake pulses
+export const ZONE_EDGE_DAMAGE_FRACTION_PER_SEC = 0.1; // 10% of max HP per second
 export const ZONE_EDGE_SHAKE_STRENGTH = 4; // shake intensity
 export const ZONE_EARLY_DAMAGE_THRESHOLD = 0.3; // don't damage before zone reaches 30% target
 
 export const ZONE_CLEAR_BANNER_DELAY = 1.5; // seconds before showing wave clear banner
-export const ZONE_CLEAR_EXPAND_START = 2.0; // seconds before starting zone expansion
 export const ZONE_CLEAR_NEXT_WAVE = 3.0; // seconds before next wave
-export const ZONE_CLEAR_EXPAND_DURATION = 1.0; // seconds for zone to expand during clear
-export const ZONE_CLEAR_EXPAND_MULTIPLIER = 1.5; // zone expands to 1.5x target
+/** Секунды, за которые зона гаснет в альфу 0 после зачистки волны. */
+export const ZONE_CLEAR_FADE_TIME = 0.5;
 
 export const ZONE_WALL_OVERDRIVE = 56;
 export const ZONE_EDGE_HYSTERESIS = 26;
@@ -37,8 +38,8 @@ export const ZONE_ENEMY_PUSH_FORCE_MAX = 200; // max push force for enemies
  * @returns zone expansion speed in units/s
  */
 export function zoneExpandSpeed(speedMult: number, currentMaxSpeed: number, accelBonus: number = 0): number {
-  // Зона должна расширяться быстрее игрока: player_speed * 1.2
-  return currentMaxSpeed * speedMult * 1.2 * (1 + accelBonus);
+  // Зона расширяется быстрее игрока: player_speed * 1.3
+  return currentMaxSpeed * speedMult * ZONE_EXPAND_SPEED_MULT * (1 + accelBonus);
 }
 
 /* ------------------------------ menu animation ------------------------------ */

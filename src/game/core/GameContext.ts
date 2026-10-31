@@ -209,6 +209,7 @@ export class GameContext {
         },
       },
       playerMaxSpeed: PLAYER_MAX_SPEED,
+      getPlayerMaxHp: () => this.playerSystem.getMaxHp(),
     });
 
     this.zoneSystem = new ZoneSystem({

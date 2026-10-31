@@ -30,6 +30,8 @@ export interface WaveOrchestratorHooks {
 export interface WaveOrchestratorConfig {
   hooks: WaveOrchestratorHooks;
   playerMaxSpeed: number;
+  /** Текущее максимальное здоровье игрока (для урона у края зоны). */
+  getPlayerMaxHp: () => number;
 }
 
 /** Снимок зоны для рендера/систем. */
@@ -42,6 +44,7 @@ const TOAST_CLEAR_LONG = 2.0;
 export class WaveOrchestrator {
   private readonly hooks: WaveOrchestratorHooks;
   private readonly playerMaxSpeed: number;
+  private readonly getPlayerMaxHp: () => number;
   private readonly waves = new WaveStateMachine();
   private readonly zone = new ZoneModel();
   private readonly edge = new ZoneEdgeDamage();
@@ -55,6 +58,7 @@ export class WaveOrchestrator {
   constructor(config: WaveOrchestratorConfig) {
     this.hooks = config.hooks;
     this.playerMaxSpeed = config.playerMaxSpeed;
+    this.getPlayerMaxHp = config.getPlayerMaxHp;
   }
 
   // ============================== Public API ==============================
@@ -107,6 +111,8 @@ export class WaveOrchestrator {
   tryCheckWaveClear(allSpawned: boolean, allKilled: boolean): void {
     if (this.waves.tryClear(allSpawned, allKilled)) {
       this.waveClearSent = false;
+      // Волна зачищена: зона начинает гаснуть сразу, от текущей альфы.
+      this.zone.beginClear();
     }
   }
 
@@ -129,9 +135,16 @@ export class WaveOrchestrator {
 
     if (state === "active") {
       this.zone.expand(dt, this.speedMult, this.playerMaxSpeed);
-      this.edge.update(dt, this.zone.state, playerPos, this.hooks, (seconds) => {
-        this.toastClearTimer = seconds;
-      });
+      this.edge.update(
+        dt,
+        this.zone.state,
+        playerPos,
+        this.getPlayerMaxHp(),
+        this.hooks,
+        (seconds) => {
+          this.toastClearTimer = seconds;
+        },
+      );
     } else {
       this.updateClearTransition(dt);
     }
@@ -170,7 +183,7 @@ export class WaveOrchestrator {
       }
     }
 
-    this.zone.applyClearExpansion(clearT);
+    this.zone.applyClearExpansion(dt, clearT, this.speedMult, this.playerMaxSpeed);
 
     // Переходим к следующей волне только после полного исчезновения зоны.
     if (clearT >= ZONE_CLEAR_NEXT_WAVE) {

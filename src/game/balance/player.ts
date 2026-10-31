@@ -51,8 +51,8 @@ export const CRUISER_BASE_SPEED = PLAYER_MAX_SPEED * 0.5;
 export const CARRIER_BASE_SPEED = PLAYER_MAX_SPEED * 0.3;
 /** Thrust applied per second while the player holds a direction. */
 export const PLAYER_ACCEL = 1500;
-/** Zone expansion multiplier × PLAYER_MAX_SPEED — player can never catch it. */
-export const ZONE_EXPAND_SPEED_MULT = 1.7;
+/** Zone expansion multiplier × текущая максимальная скорость игрока — игрок не может её догнать. */
+export const ZONE_EXPAND_SPEED_MULT = 1.3;
 
 /* ------------------------- player turret ------------------------- */
 

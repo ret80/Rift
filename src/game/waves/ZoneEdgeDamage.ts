@@ -1,15 +1,17 @@
 /**
  * ZoneEdgeDamage — урон и предупреждение за краем зоны.
  *
- * Держит таймеры «вне зоны» и раз в интервал наносит урон. Тост-таймер
- * остаётся у WaveOrchestrator: он же чистит тост при зачистке волны,
- * поэтому наружу отдаётся только запрос длительности.
+ * Держит таймер «вне зоны»: через короткую задержку показывает
+ * предупреждение, а всё время нахождения у края наносит непрерывный
+ * урон долей от максимального здоровья игрока. Тост-таймер остаётся у
+ * WaveOrchestrator: он же чистит тост при зачистке волны, поэтому наружу
+ * отдаётся только запрос длительности.
  */
 
 import { t } from "../../i18n";
 import {
   ZONE_EARLY_DAMAGE_THRESHOLD,
-  ZONE_EDGE_DAMAGE_AMOUNT,
+  ZONE_EDGE_DAMAGE_FRACTION_PER_SEC,
   ZONE_EDGE_DAMAGE_INTERVAL,
   ZONE_EDGE_MARGIN,
   ZONE_EDGE_SHAKE_STRENGTH,
@@ -45,12 +47,14 @@ export class ZoneEdgeDamage {
 
   /**
    * Тик урона за краем зоны.
+   * @param playerMaxHp — максимальное здоровье игрока (база для 10%/с).
    * @param keepToast — запросить очистку тоста через N секунд.
    */
   update(
     dt: number,
     zone: ZoneData,
     playerPos: PlayerPosition,
+    playerMaxHp: number,
     hooks: ZoneEdgeHooks,
     keepToast: (seconds: number) => void,
   ): void {
@@ -70,9 +74,12 @@ export class ZoneEdgeDamage {
         hooks.onToast(t("game.zoneWarning"), "#fa5");
         keepToast(TOAST_CLEAR_SHORT);
       }
-      if (this.tickTime > ZONE_EDGE_DAMAGE_INTERVAL) {
+      // Непрерывный урон: 10% максимального здоровья в секунду.
+      hooks.hitPlayer(playerMaxHp * ZONE_EDGE_DAMAGE_FRACTION_PER_SEC * dt);
+      // Встряска — не каждый кадр, а пульсами, чтобы не залить экран.
+      this.tickTime += dt;
+      if (this.tickTime >= ZONE_EDGE_DAMAGE_INTERVAL) {
         this.tickTime = 0;
-        hooks.hitPlayer(ZONE_EDGE_DAMAGE_AMOUNT);
         hooks.shakeScreen(ZONE_EDGE_SHAKE_STRENGTH, 0.2);
       }
     } else {
