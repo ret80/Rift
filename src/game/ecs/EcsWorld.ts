@@ -9,43 +9,43 @@
 
 import type { System } from "@trixt0r/ecs";
 import type { EnemyKind, PickupKind } from "../balance";
-import type { PhasedSystem } from "./SystemSchedule";
 import type { EventBus } from "../core/EventBus";
-import type { Particle, Ring, Rift } from "../types";
-import type { BeamSpawn, BulletSpawn, EnemySpawn } from "./spawn";
-import type { PlayerState } from "../systems/PlayerState";
 import type { PhysicsEntity } from "../physics/IPhysics";
-import type {
-  AllyDroneSpawn,
-  AsteroidRef,
-  AsteroidSpawn,
-  BeamRef,
-  BulletRef,
-  DroneRef,
-  EnemyBulletRef,
-  EnemyRef,
-  PickupRef,
-  PlayerRef,
-  PlayerSource,
-} from "./refs";
+import { BulletSystem } from "../systems/BulletSystem";
+import type { PlayerState } from "../systems/PlayerState";
+import type { Particle, Rift, Ring } from "../types";
+import { AsteroidDomain } from "./domains/AsteroidDomain";
+import { BeamDomain } from "./domains/BeamDomain";
+import { BulletDomain } from "./domains/BulletDomain";
+import { DroneDomain } from "./domains/DroneDomain";
+import { EffectDomain } from "./domains/EffectDomain";
+import { EnemyDomain, type EnemySystemDeps } from "./domains/EnemyDomain";
+import { PickupDomain } from "./domains/PickupDomain";
+import { PlayerDomain } from "./domains/PlayerDomain";
+import { RiftDomain } from "./domains/RiftDomain";
 import { EcsEngine } from "./EcsEngine";
 import { collectPhysicsBodies } from "./physicsBodies";
-import { PlayerDomain } from "./domains/PlayerDomain";
-import { EnemyDomain, type EnemySystemDeps } from "./domains/EnemyDomain";
-import { BulletDomain } from "./domains/BulletDomain";
-import { PickupDomain } from "./domains/PickupDomain";
-import { AsteroidDomain } from "./domains/AsteroidDomain";
-import { DroneDomain } from "./domains/DroneDomain";
-import { BeamDomain } from "./domains/BeamDomain";
-import { EffectDomain } from "./domains/EffectDomain";
-import { RiftDomain } from "./domains/RiftDomain";
-import { PickupMovementSystem } from "./systems/PickupMovementSystem";
-import { PickupCollectionSystem } from "./systems/PickupCollectionSystem";
-import { ParticleSystem } from "./systems/ParticleSystem";
-import { RingSystem } from "./systems/RingSystem";
+import type {
+    AllyDroneSpawn,
+    AsteroidRef,
+    AsteroidSpawn,
+    BeamRef,
+    BulletRef,
+    DroneRef,
+    EnemyBulletRef,
+    EnemyRef,
+    PickupRef,
+    PlayerRef,
+    PlayerSource,
+} from "./refs";
+import type { BeamSpawn, BulletSpawn, EnemySpawn } from "./spawn";
 import { BeamSystem } from "./systems/BeamSystem";
-import { BulletSystem } from "../systems/BulletSystem";
+import { ParticleSystem } from "./systems/ParticleSystem";
+import { PickupCollectionSystem } from "./systems/PickupCollectionSystem";
+import { PickupMovementSystem } from "./systems/PickupMovementSystem";
+import { RingSystem } from "./systems/RingSystem";
 import { ZoneClampSystem } from "./systems/ZoneClampSystem";
+import type { PhasedSystem } from "./SystemSchedule";
 
 export class EcsWorld {
   private readonly core = new EcsEngine();
@@ -73,7 +73,7 @@ export class EcsWorld {
       new ParticleSystem(),
       new RingSystem(),
       new BeamSystem(),
-      new BulletSystem(),
+      new BulletSystem(deps.getZoneBounds),
       ...this.enemyDomain.systems,
       new ZoneClampSystem(this.core, deps.getZoneBounds),
     ];

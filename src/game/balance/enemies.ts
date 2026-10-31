@@ -24,16 +24,39 @@ export const ENEMY_KIND_COUNT = Object.keys(EnemyKind).length;
 
 /* Cruiser tuning */
 export const CRUISER_FIRE_RANGE = 760; // range at which cruiser starts shooting (2× base)
-export const CRUISER_BULLET_SPEED = 364; // 260 × 1.4 — 40% faster heavy bolts
+export const CRUISER_BULLET_SPEED = 436.8; // 260 × 1.68 — тяжёлые болты на 20% быстрее прежних 364
+
+/**
+ * Точка упреждения крейсера: расстояние, отложенное от игрока вдоль его
+ * вектора движения. Крейсер летит в эту точку и ведёт огонь из неё.
+ */
+export const CRUISER_LEAD_DISTANCE = 300;
+/**
+ * Дальше этой дистанции до игрока крейсер не перестраивается в точку
+ * упреждения — только держит позицию и ведёт прицельный огонь.
+ */
+export const CRUISER_MANEUVER_RANGE = 520;
+/** Carrier считается «рядом» (эскорт), если не дальше этой дистанции. */
+export const CRUISER_ESCORT_RANGE = 520;
+/** Угловой сдвиг крейсера от линии «носитель—игрок», радианы: два эскорта не слипаются в точку. */
+export const CRUISER_ESCORT_ARC_OFFSET = 0.3;
+/** Отступ точки манёвра от края зоны, в радиусах крейсера (1.5 корпуса). */
+export const CRUISER_ZONE_EDGE_MARGIN_RADII = 1.5;
 
 /* --------------------------- enemy bolts --------------------------- */
 
 /** Скорость болта файтера и дрононосца. */
 export const ENEMY_BOLT_SPEED = 300;
-/** Время жизни болта файтера и дрононосца — ограничивает дальность поражения. */
-export const ENEMY_BOLT_LIFE = 1.35;
-/** Время жизни тяжёлого болта крейсера. */
-export const CRUISER_BOLT_LIFE = 1.8;
+/**
+ * Горизонт упреждения прицела болтов файтера и дрононосца, секунды.
+ * Это НЕ время жизни: болт летит без запаса и обрывается о край зоны.
+ */
+export const ENEMY_BOLT_LEAD_TIME = 1.35;
+/** Горизонт упреждения прицела тяжёлого болта крейсера, секунды. */
+export const CRUISER_BOLT_LEAD_TIME = 1.8;
+
+/** Высота орбиты дронов над корпусом Carrier — общая для носителя, дронов и эскорта. */
+export const CARRIER_DRONE_ORBIT_GAP = 80;
 
 /**
  * EnemyDef — static base stats for each enemy kind.

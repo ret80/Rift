@@ -17,11 +17,11 @@
  * - Carrier очищает счётчики и начинает цикл заново (возврат к ФАЗЕ 1).
  */
 
+import { CARRIER_DRONE_ORBIT_GAP, ENEMY_MAX_DRONES } from '../../balance';
 import type { EnemyRef } from '../../ecs';
+import { lerpAngle, smoothVelocity } from '../../math';
 import type { GameContext } from '../GameContext';
 import type { IEnemyStrategy } from '../IEnemyStrategy';
-import { ENEMY_MAX_DRONES } from '../../balance';
-import { lerpAngle, smoothVelocity } from '../../math';
 
 export class CarrierStrategy implements IEnemyStrategy {
   update(enemy: EnemyRef, context: GameContext, dt: number): void {
@@ -81,7 +81,7 @@ export class CarrierStrategy implements IEnemyStrategy {
       marker.orbitTimer -= dt;
       if (marker.orbitTimer <= 0 && marker.carrierChildren < maxDrones) {
         const angle = Math.random() * Math.PI * 2;
-        const offset = enemy.radius.r + 80;
+        const offset = enemy.radius.r + CARRIER_DRONE_ORBIT_GAP;
         context.carrierSpawns.push({
           x: pos.x + Math.cos(angle) * offset,
           y: pos.y + Math.sin(angle) * offset,

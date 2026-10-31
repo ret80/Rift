@@ -8,23 +8,30 @@
  *
  * Число стволов складывается из постоянного слотового апгрейда
  * и временного бонуса «доп. стволы».
+ *
+ * У снаряда пушки нет времени жизни: он летит до края игровой зоны, где
+ * и уничтожается. CANNON_LEAD_TIME задаёт лишь горизонт упреждения прицела.
  */
 
 import { aimAtTarget } from "../aiming/AimSolver";
 import type {
-  Weapon,
-  WeaponContext,
-  WeaponId,
-  WeaponMeta,
-  WeaponModifiers,
-  WeaponSlotState,
+    Weapon,
+    WeaponContext,
+    WeaponId,
+    WeaponMeta,
+    WeaponModifiers,
+    WeaponSlotState,
 } from "./Weapon";
 import { WEAPON_CATALOG } from "./WeaponCatalog";
 
 /** Скорость снаряда пушки. */
 const CANNON_BULLET_SPEED = 560;
-/** Время жизни снаряда пушки. */
-const CANNON_BULLET_LIFE = 0.85;
+/**
+ * Горизонт упреждения прицела, секунды. Это НЕ время жизни снаряда:
+ * выстрел пушки его не имеет и летит до края игровой зоны. Параметр
+ * ограничивает лишь дальность, на которую имеет смысл брать упреждение.
+ */
+const CANNON_LEAD_TIME = 0.85;
 /** Базовый урон снаряда пушки. */
 const CANNON_BULLET_DMG = 14;
 /** Интервал между выстрелами в секундах. */
@@ -129,14 +136,17 @@ export class CannonWeapon implements Weapon {
           r: target.radius.r,
         },
         bulletSpeed: CANNON_BULLET_SPEED,
-        maxFlightTime: CANNON_BULLET_LIFE,
+        maxFlightTime: CANNON_LEAD_TIME,
       },
       this.getHitChance(ctx),
       target.radius.r
     );
   }
 
-  /** Выстрел: по одному снаряду из каждого ствола, у каждого свой разброс. */
+  /**
+   * Выстрел: по одному снаряду из каждого ствола, у каждого свой разброс.
+   * Снаряд летит без времени жизни — его дальность обрывает край зоны.
+   */
   private fire(ctx: WeaponContext): void {
     const barrels = this.getInstanceCount(ctx);
     const turret = this.turretAngle(ctx);
@@ -151,7 +161,6 @@ export class CannonWeapon implements Weapon {
         y: ctx.player.y + Math.sin(turret) * 14 + Math.cos(turret) * offset,
         vx: Math.cos(barrelAngle) * CANNON_BULLET_SPEED,
         vy: Math.sin(barrelAngle) * CANNON_BULLET_SPEED,
-        life: CANNON_BULLET_LIFE,
         dmg: CANNON_BULLET_DMG * this.damageMult,
       });
     }

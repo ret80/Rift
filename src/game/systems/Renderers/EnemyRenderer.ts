@@ -4,9 +4,9 @@
  */
 
 import { C, EnemyKind } from "../../balance";
+import type { EnemyRef } from "../../ecs";
 import { clamp, rgba } from "../../math";
 import type { IRenderer, RGBA } from "../../render/index";
-import type { EnemyRef } from "../../ecs";
 import { drawShipPoly } from "./ShipRenderer";
 
 export interface EnemyRenderState {
@@ -16,6 +16,8 @@ export interface EnemyRenderState {
   vx: number;
   vy: number;
   angle: number;
+  /** Угол орудийной турели (Cruiser): стволы наведены отдельно от корпуса. */
+  turretAngle: number;
   hp: number;
   maxHp: number;
   r: number;
@@ -49,6 +51,7 @@ export function buildEnemyState(enemies: EnemyRef[]): EnemyRenderState[] {
     vx: e.velocity.vx,
     vy: e.velocity.vy,
     angle: e.marker.angle,
+    turretAngle: e.marker.turretAngle,
     hp: e.life.remaining,
     maxHp: e.life.max,
     r: e.radius.r,
@@ -126,6 +129,20 @@ export function renderEnemies(
       case EnemyKind.Cruiser: {
         drawShipPoly(R, e.x, e.y, e.angle, [[22, 0], [8, 14], [-18, 12], [-18, -12], [8, -14]], col);
         R.circle(e.x, e.y, 8, rgba(base, 0.5), 16);
+        // Орудийная турель: корпус смотрит по курсу, стволы наведены на цель.
+        const fx = Math.cos(e.turretAngle);
+        const fy = Math.sin(e.turretAngle);
+        const gx = -fy * 8;
+        const gy = fx * 8;
+        for (const side of [1, -1]) {
+          R.pushLine(
+            e.x + fx * 4 + gx * side,
+            e.y + fy * 4 + gy * side,
+            e.x + fx * 22 + gx * side,
+            e.y + fy * 22 + gy * side,
+            rgba(base, 0.95)
+          );
+        }
         break;
       }
       case EnemyKind.Carrier: {

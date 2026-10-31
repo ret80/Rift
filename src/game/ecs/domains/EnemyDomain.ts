@@ -7,31 +7,31 @@
  * типам сущностей.
  */
 
-import type { PhasedSystem } from "../SystemSchedule";
+import type { EnemyKind } from "../../balance";
 import type { EventBus } from "../../core/EventBus";
 import type { AudioManager } from "../../systems/AudioManager";
-import type { EnemyKind } from "../../balance";
-import type { EnemySpawn } from "../spawn";
+import {
+    EnemyShootingSystem,
+    type CombatActiveSource,
+    type PlayerMotionSource,
+} from "../../systems/EnemyShootingSystem";
+import {
+    EnemySystem,
+    type EnemyPlayerSource,
+    type IntegrateSource,
+    type ZoneBoundsSource,
+} from "../../systems/EnemySystem";
 import type { EcsEngine } from "../EcsEngine";
 import { EnemyLifecycle } from "../EnemyLifecycle";
 import { GameEntity } from "../GameEntity";
+import type { PhasedSystem } from "../SystemSchedule";
 import { EnemyComponent } from "../components/EnemyComponent";
 import { LifeComponent } from "../components/LifeComponent";
 import { PositionComponent } from "../components/PositionComponent";
 import { RadiusComponent } from "../components/RadiusComponent";
 import { VelocityComponent } from "../components/VelocityComponent";
-import {
-  EnemySystem,
-  type EnemyPlayerSource,
-  type IntegrateSource,
-  type ZoneBoundsSource,
-} from "../../systems/EnemySystem";
-import {
-  EnemyShootingSystem,
-  type CombatActiveSource,
-  type PlayerMotionSource,
-} from "../../systems/EnemyShootingSystem";
 import type { EnemyRef } from "../refs";
+import type { EnemySpawn } from "../spawn";
 
 /** Колбэк спавна вражеского снаряда (реализуется доменом пуль). */
 export type EnemyShotSink = (
@@ -39,7 +39,6 @@ export type EnemyShotSink = (
   y: number,
   vx: number,
   vy: number,
-  life: number,
   dmg: number,
   heavy: boolean,
   cruiser: boolean,
@@ -80,7 +79,6 @@ export class EnemyDomain {
         shot.sy + Math.sin(shot.angle) * 14,
         Math.cos(shot.angle) * shot.boltSpeed,
         Math.sin(shot.angle) * shot.boltSpeed,
-        shot.boltLife,
         shot.boltDmg,
         shot.heavy,
         shot.cruiser,
@@ -101,6 +99,7 @@ export class EnemyDomain {
       parentId: enemy.parentId ?? null,
       kind: enemy.kind,
       angle: enemy.angle,
+      turretAngle: enemy.turretAngle,
       speed: enemy.speed,
       contact: enemy.contact,
       score: enemy.score,

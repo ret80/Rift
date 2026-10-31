@@ -4,9 +4,12 @@
  * Владеет спавном из спецификаций, чтением живых связок и удалением по
  * сущности. DTO для чтения нет: рендер и коллизии работают с `BulletRef`
  * и `EnemyBulletRef`.
+ *
+ * Орудийные выстрелы времени жизни не имеют — LifeComponent на них не
+ * создаётся, снаряд летит до края игровой зоны. Компонент добавляют только
+ * снарядам с ограниченным запасом (ракеты).
  */
 
-import type { BulletSpawn, EnemyBulletSpawn } from "../spawn";
 import type { EcsEngine } from "../EcsEngine";
 import { GameEntity } from "../GameEntity";
 import { BulletComponent } from "../components/BulletComponent";
@@ -18,6 +21,7 @@ import { PositionComponent } from "../components/PositionComponent";
 import { RadiusComponent } from "../components/RadiusComponent";
 import { VelocityComponent } from "../components/VelocityComponent";
 import type { BulletRef, EnemyBulletRef, EnemyRef } from "../refs";
+import type { BulletSpawn, EnemyBulletSpawn } from "../spawn";
 
 export class BulletDomain {
   private readonly bulletRefs = new WeakMap<GameEntity, BulletRef>();
@@ -31,7 +35,11 @@ export class BulletDomain {
     entity.components.add(new BulletComponent(bullet.dmg));
     entity.components.add(new PositionComponent(bullet.x, bullet.y));
     entity.components.add(new VelocityComponent(bullet.vx, bullet.vy));
-    entity.components.add(new LifeComponent(bullet.life, bullet.life));
+    // Время жизни — только у снарядов с ограниченным запасом (ракеты).
+    // Орудийный выстрел компонента Life не имеет и летит до края зоны.
+    if (bullet.life !== undefined && bullet.life > 0) {
+      entity.components.add(new LifeComponent(bullet.life, bullet.life));
+    }
     if (bullet.homing) {
       entity.components.add(new HomingRef(
         this.entityIdForEnemy(bullet.homing.target),
@@ -48,7 +56,6 @@ export class BulletDomain {
     entity.components.add(new EnemyBulletComponent(bullet.dmg, bullet.heavy, bullet.cruiser));
     entity.components.add(new PositionComponent(bullet.x, bullet.y));
     entity.components.add(new VelocityComponent(bullet.vx, bullet.vy));
-    entity.components.add(new LifeComponent(bullet.life, bullet.life));
     entity.components.add(new RadiusComponent(bullet.r));
     entity.components.add(new BulletSweepComponent(bullet.px, bullet.py, bullet.grazed));
     this.ecs.add(entity);
@@ -63,13 +70,12 @@ export class BulletDomain {
     y: number,
     vx: number,
     vy: number,
-    life: number,
     dmg: number,
     heavy: boolean,
     cruiser: boolean,
   ): void {
     this.addEnemyBullet({
-      x, y, vx, vy, life, dmg, heavy, cruiser,
+      x, y, vx, vy, dmg, heavy, cruiser,
       r: cruiser ? 5.5 : heavy ? 3.4 : 2.5,
       px: x, py: y,
       grazed: false,
@@ -126,8 +132,8 @@ export class BulletDomain {
     const bullet = entity.components.get(BulletComponent);
     const position = entity.components.get(PositionComponent);
     const velocity = entity.components.get(VelocityComponent);
-    const life = entity.components.get(LifeComponent);
-    if (!bullet || !position || !velocity || !life) return null;
+    if (!bullet || !position || !velocity) return null;
+    const life = entity.components.get(LifeComponent) ?? undefined;
     const homing = entity.components.get(HomingRef) ?? undefined;
     const ref: BulletRef = { entity, bullet, position, velocity, life, homing };
     this.bulletRefs.set(entity, ref);
@@ -140,11 +146,10 @@ export class BulletDomain {
     const bullet = entity.components.get(EnemyBulletComponent);
     const position = entity.components.get(PositionComponent);
     const velocity = entity.components.get(VelocityComponent);
-    const life = entity.components.get(LifeComponent);
     const radius = entity.components.get(RadiusComponent);
     const sweep = entity.components.get(BulletSweepComponent);
-    if (!bullet || !position || !velocity || !life || !radius || !sweep) return null;
-    const ref: EnemyBulletRef = { entity, bullet, position, velocity, life, radius, sweep };
+    if (!bullet || !position || !velocity || !radius || !sweep) return null;
+    const ref: EnemyBulletRef = { entity, bullet, position, velocity, radius, sweep };
     this.enemyBulletRefs.set(entity, ref);
     return ref;
   }

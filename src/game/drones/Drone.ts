@@ -64,8 +64,11 @@ export interface DroneSpec {
   reload: number;
   /** Скорость снаряда дрона. */
   bulletSpeed: number;
-  /** Время жизни снаряда дрона, секунды. */
-  bulletLife: number;
+  /**
+   * Горизонт упреждения прицела, секунды. Не время жизни: снаряд дрона
+   * летит без запаса и обрывается о край игровой зоны.
+   */
+  leadTime: number;
   /** Доля корпуса игрока, получаемая дроном. */
   hpRatio: number;
   /** Радиус дрона. */
@@ -85,7 +88,7 @@ export const DRONE_CATALOG: readonly DroneSpec[] = [
     baseDamage: 8,
     reload: 0.5,
     bulletSpeed: 500,
-    bulletLife: 0.7,
+    leadTime: 0.7,
     hpRatio: 0.25,
     radius: 10,
   },
@@ -99,7 +102,7 @@ export const DRONE_CATALOG: readonly DroneSpec[] = [
     baseDamage: 15,
     reload: 0.68,
     bulletSpeed: 540,
-    bulletLife: 0.8,
+    leadTime: 0.8,
     hpRatio: 0.3,
     radius: 11,
   },
@@ -113,7 +116,7 @@ export const DRONE_CATALOG: readonly DroneSpec[] = [
     baseDamage: 6,
     reload: 0.38,
     bulletSpeed: 480,
-    bulletLife: 0.65,
+    leadTime: 0.65,
     hpRatio: 0.45,
     radius: 12,
   },
@@ -185,8 +188,11 @@ export interface DroneCombatSpec {
   damage: number;
   /** Скорость снаряда. */
   bulletSpeed: number;
-  /** Время жизни снаряда, секунды. */
-  bulletLife: number;
+  /**
+   * Горизонт упреждения прицела, секунды. Не время жизни: снаряд дрона
+   * летит без запаса и обрывается о край игровой зоны.
+   */
+  leadTime: number;
   /** Доля корпуса игрока, получаемая дроном. */
   hpRatio: number;
   /** Радиус дрона. */
@@ -209,7 +215,7 @@ export function buildDroneCombatSpec(
     reloadTime: spec.reload * reloadMult,
     damage: spec.baseDamage * damageMult,
     bulletSpeed: spec.bulletSpeed,
-    bulletLife: spec.bulletLife,
+    leadTime: spec.leadTime,
     hpRatio: spec.hpRatio,
     radius: spec.radius,
   };

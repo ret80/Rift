@@ -17,6 +17,11 @@ export interface EnemySpawn {
   vx: number;
   vy: number;
   angle: number;
+  /**
+   * Угол орудийной турели (Cruiser): корпуса смотрит по курсу, а стволы
+   * доворачиваются к цели независимо. Для остальных видов равен angle.
+   */
+  turretAngle: number;
   hp: number;
   maxHp: number;
   r: number;
@@ -62,7 +67,12 @@ export interface BulletSpawn {
   y: number;
   vx: number;
   vy: number;
-  life: number;
+  /**
+   * Время жизни, секунды. Задаётся только снарядам с ограниченным запасом
+   * (ракеты). Орудийные выстрелы времени жизни не имеют: они летят до края
+   * игровой зоны, где и уничтожаются, — LifeComponent на них не вешается.
+   */
+  life?: number;
   dmg: number;
   /** Самонаведение: цель — живая ссылка на врага. */
   homing?: { target: EnemyRef | null; turnRate: number; lockRange: number };
@@ -74,7 +84,6 @@ export interface EnemyBulletSpawn {
   y: number;
   vx: number;
   vy: number;
-  life: number;
   dmg: number;
   heavy: boolean;
   cruiser: boolean;

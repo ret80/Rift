@@ -1,25 +1,40 @@
 /**
- * BulletSystem — ECS-система движения и самонаведения снарядов.
+ * BulletSystem — ECS-система движения, самонаведения и дальности снарядов.
  *
- * Снаряды игрока и врагов — чистые данные (Position + Velocity + Life,
- * плюс BulletComponent / EnemyBulletComponent, BulletSweepComponent и
- * HomingRef). Система фильтрует сущности по аспектам, интегрирует
- * движение/самонаведение, обновляет время жизни и удаляет просроченные
- * снаряды. Цель самонаведения — HomingRef.targetId (ссылка на сущность
- * по id, EntityRef), а не живая ссылка на объект.
+ * Снаряды игрока и врагов — чистые данные (Position + Velocity, плюс
+ * BulletComponent / EnemyBulletComponent, BulletSweepComponent и HomingRef).
+ * Система фильтрует сущности по аспектам, интегрирует движение/самонаведение
+ * и удаляет снаряд, долетевший до края игровой зоны — дальность орудия
+ * ограничена именно границей поля боя, а не временем полёта.
+ *
+ * Времени жизни у орудийных выстрелов нет. LifeComponent носят только
+ * снаряды с ограниченным запасом (ракеты): если компонент на сущности есть,
+ * система тикает его и удаляет снаряд по истечении.
+ *
+ * Цель самонаведения — HomingRef.targetId (ссылка на сущность по id,
+ * EntityRef), а не живая ссылка на объект.
  */
 
 import { Aspect, type Engine } from "@trixt0r/ecs";
-import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import { BulletComponent } from "../ecs/components/BulletComponent";
+import { BulletSweepComponent } from "../ecs/components/BulletSweepComponent";
 import { EnemyBulletComponent } from "../ecs/components/EnemyBulletComponent";
 import { EnemyComponent } from "../ecs/components/EnemyComponent";
 import { HomingRef } from "../ecs/components/HomingRef";
-import { PositionComponent } from "../ecs/components/PositionComponent";
-import { VelocityComponent } from "../ecs/components/VelocityComponent";
 import { LifeComponent } from "../ecs/components/LifeComponent";
-import { BulletSweepComponent } from "../ecs/components/BulletSweepComponent";
+import { PositionComponent } from "../ecs/components/PositionComponent";
+import { RadiusComponent } from "../ecs/components/RadiusComponent";
+import { VelocityComponent } from "../ecs/components/VelocityComponent";
 import { GameEntity } from "../ecs/GameEntity";
+import { Phase, PhasedSystem } from "../ecs/SystemSchedule";
+
+/** Границы активной зоны: снаряд, пересёкший край, уничтожается. */
+export type BulletZoneSource = () => {
+  x: number;
+  y: number;
+  radius: number;
+  active: boolean;
+};
 
 /** Позиция (и признак живости) врага как цель самонаведения. */
 interface EnemyTarget {
@@ -34,40 +49,47 @@ export class BulletSystem extends PhasedSystem {
   private enemyBulletAspect: Aspect | null = null;
   private enemyAspect: Aspect | null = null;
 
-  constructor() {
+  constructor(private readonly getZone: BulletZoneSource) {
     super(Phase.Projectiles);
   }
 
   onAddedToEngine(engine: Engine): void {
+    // LifeComponent в аспект не входит: у орудийных снарядов его нет.
     this.bulletAspect = Aspect.for(engine).all(
-      BulletComponent, PositionComponent, VelocityComponent, LifeComponent,
+      BulletComponent, PositionComponent, VelocityComponent,
     );
     this.enemyBulletAspect = Aspect.for(engine).all(
-      EnemyBulletComponent, PositionComponent, VelocityComponent, LifeComponent,
+      EnemyBulletComponent, PositionComponent, VelocityComponent,
       BulletSweepComponent,
     );
     this.enemyAspect = Aspect.for(engine).all(EnemyComponent);
   }
 
-  /** Обновить все снаряды (движение + самонаведение + очистка по времени жизни). */
+  /** Обновить все снаряды (движение + самонаведение + срез по краю зоны). */
   process(dt: number): void {
     const bulletAspect = this.bulletAspect;
     const enemyBulletAspect = this.enemyBulletAspect;
+    if (!bulletAspect && !enemyBulletAspect) return;
+
+    const zone = this.getZone();
+    const edge = zone.active && zone.radius > 0
+      ? { x: zone.x, y: zone.y, radius: zone.radius }
+      : null;
 
     if (bulletAspect) {
       const toRemove: GameEntity[] = [];
       for (const entity of [...bulletAspect.entities]) {
         const position = entity.components.get(PositionComponent);
         const velocity = entity.components.get(VelocityComponent);
-        const life = entity.components.get(LifeComponent);
         const bullet = entity.components.get(BulletComponent);
-        if (!position || !velocity || !life || !bullet) continue;
+        if (!position || !velocity || !bullet) continue;
 
         this.steer(entity, dt);
         position.x += velocity.vx * dt;
         position.y += velocity.vy * dt;
-        life.remaining -= dt;
-        if (life.remaining <= 0) toRemove.push(entity);
+        if (this.tickLife(entity, dt) || this.crossedEdge(entity, position, velocity, edge)) {
+          toRemove.push(entity);
+        }
       }
       for (const entity of toRemove) this.engine?.entities.remove(entity);
     }
@@ -77,20 +99,55 @@ export class BulletSystem extends PhasedSystem {
       for (const entity of [...enemyBulletAspect.entities]) {
         const position = entity.components.get(PositionComponent);
         const velocity = entity.components.get(VelocityComponent);
-        const life = entity.components.get(LifeComponent);
         const sweep = entity.components.get(BulletSweepComponent);
-        if (!position || !velocity || !life || !sweep) continue;
+        if (!position || !velocity || !sweep) continue;
 
         // Предыдущая позиция нужна для swept-проверки пролёта мимо корабля.
         sweep.px = position.x;
         sweep.py = position.y;
         position.x += velocity.vx * dt;
         position.y += velocity.vy * dt;
-        life.remaining -= dt;
-        if (life.remaining <= 0) toRemove.push(entity);
+        if (this.tickLife(entity, dt) || this.crossedEdge(entity, position, velocity, edge)) {
+          toRemove.push(entity);
+        }
       }
       for (const entity of toRemove) this.engine?.entities.remove(entity);
     }
+  }
+
+  /**
+   * Снять кадр времени жизни, если снаряд его имеет (ракеты).
+   * true — запас исчерпан, снаряд пора удалить.
+   */
+  private tickLife(entity: GameEntity, dt: number): boolean {
+    const life = entity.components.get(LifeComponent);
+    if (!life) return false;
+    life.remaining -= dt;
+    return life.remaining <= 0;
+  }
+
+  /**
+   * Снаряд покинул игровую зону (касанием корпуса) и уходит наружу.
+   * Вне активной зоны проверка бессмысленна — снаряд летит дальше.
+   *
+   * Направление важно: точка выстрела у самой стены может оказаться за
+   * пределом лимита, а снаряд при этом летит внутрь арены — такой снаряд
+   * обязан жить и долететь до цели.
+   */
+  private crossedEdge(
+    entity: GameEntity,
+    position: PositionComponent,
+    velocity: VelocityComponent,
+    edge: { x: number; y: number; radius: number } | null,
+  ): boolean {
+    if (!edge) return false;
+    const radius = entity.components.get(RadiusComponent);
+    const limit = edge.radius - (radius ? radius.r : 0);
+    const dx = position.x - edge.x;
+    const dy = position.y - edge.y;
+    if (dx * dx + dy * dy <= limit * limit) return false;
+    // Наружу — удаляем, внутрь — летит дальше.
+    return dx * velocity.vx + dy * velocity.vy > 0;
   }
 
   /**

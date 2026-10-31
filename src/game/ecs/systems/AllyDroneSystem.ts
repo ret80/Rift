@@ -11,14 +11,14 @@
  */
 
 import { Aspect, type Engine } from "@trixt0r/ecs";
-import { PhasedSystem, Phase } from "../SystemSchedule";
 import { aimAtTarget } from "../../aiming/AimSolver";
-import type { BulletSpawn } from "../spawn";
 import type { EnemyRef, PlayerRef } from "../../ecs";
 import { AllyDroneComponent } from "../components/AllyDroneComponent";
 import { LifeComponent } from "../components/LifeComponent";
-import { GameEntity } from "../GameEntity";
 import { PositionComponent } from "../components/PositionComponent";
+import { GameEntity } from "../GameEntity";
+import type { BulletSpawn } from "../spawn";
+import { Phase, PhasedSystem } from "../SystemSchedule";
 
 /** Радиус орбиты дронов вокруг корабля. */
 export const DRONE_ORBIT_RADIUS = 58;
@@ -131,7 +131,7 @@ export class AllyDroneSystem extends PhasedSystem {
             r: target.radius.r,
           },
           bulletSpeed: combat.bulletSpeed,
-          maxFlightTime: combat.bulletLife,
+          maxFlightTime: combat.leadTime,
         },
         this.h.getHitChance(),
         target.radius.r
@@ -146,7 +146,6 @@ export class AllyDroneSystem extends PhasedSystem {
         y: position.y,
         vx: Math.cos(angle) * combat.bulletSpeed,
         vy: Math.sin(angle) * combat.bulletSpeed,
-        life: combat.bulletLife,
         dmg: combat.damage,
       });
       anyFired = true;

@@ -10,27 +10,31 @@
  * и обновляет таймеры орудий прямо в компонентах. Никакой публикации
  * события 'enemy_fired' нет — вражеская пуля создаётся в том же домене.
  * Движение и AI остаются в EnemySystem.
+ *
+ * У болтов нет времени жизни: снаряд летит до края игровой зоны, где его
+ * уничтожает BulletSystem. leadTime в вооружении — только горизонт
+ * упреждения прицела, дальше которого цель берётся по текущей позиции.
  */
 
 import { Aspect, type Engine } from "@trixt0r/ecs";
-import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import { aimAtTarget } from "../aiming/AimSolver";
 import {
-  CRUISER_BOLT_LIFE,
-  CRUISER_BULLET_SPEED,
-  CRUISER_FIRE_RANGE,
-  ENEMY_BOLT_LIFE,
-  ENEMY_BOLT_SPEED,
-  ENEMY_SHOOT_RANGE,
-  enemyHitChance,
-  EnemyKind,
-  PLAYER_BULLET_HIT_OFFSET,
-  PLAYER_HITBOX_RADIUS,
+    CRUISER_BOLT_LEAD_TIME,
+    CRUISER_BULLET_SPEED,
+    CRUISER_FIRE_RANGE,
+    ENEMY_BOLT_LEAD_TIME,
+    ENEMY_BOLT_SPEED,
+    ENEMY_SHOOT_RANGE,
+    enemyHitChance,
+    EnemyKind,
+    PLAYER_BULLET_HIT_OFFSET,
+    PLAYER_HITBOX_RADIUS
 } from "../balance";
-import { rand } from "../math";
-import type { AudioManager } from "./AudioManager";
 import { EnemyComponent } from "../ecs/components/EnemyComponent";
 import { PositionComponent } from "../ecs/components/PositionComponent";
+import { Phase, PhasedSystem } from "../ecs/SystemSchedule";
+import { lerpAngle, rand } from "../math";
+import type { AudioManager } from "./AudioManager";
 
 /** Локальная связка «маркер + позиция» врага для стрельбы (без radius/life). */
 interface EnemyShotRef {
@@ -49,18 +53,19 @@ export interface PlayerMotion {
   vy: number;
 }
 
-/** Вооружение врага: скорость болта, время жизни и тип снаряда. */
+/** Вооружение врага: скорость болта, горизонт упреждения и тип снаряда. */
 interface EnemyWeapon {
   boltSpeed: number;
-  boltLife: number;
+  /** Горизонт упреждения прицела; НЕ время жизни — болт летит до края зоны. */
+  leadTime: number;
   heavy: boolean;
 }
 
 /** Тактика стрельбы по классам. */
 const TURRETS: Partial<Record<EnemyKind, EnemyWeapon>> = {
-  [EnemyKind.Fighter]: { boltSpeed: ENEMY_BOLT_SPEED, boltLife: ENEMY_BOLT_LIFE, heavy: false },
-  [EnemyKind.Cruiser]: { boltSpeed: CRUISER_BULLET_SPEED, boltLife: CRUISER_BOLT_LIFE, heavy: true },
-  [EnemyKind.Carrier]: { boltSpeed: ENEMY_BOLT_SPEED, boltLife: ENEMY_BOLT_LIFE, heavy: true },
+  [EnemyKind.Fighter]: { boltSpeed: ENEMY_BOLT_SPEED, leadTime: ENEMY_BOLT_LEAD_TIME, heavy: false },
+  [EnemyKind.Cruiser]: { boltSpeed: CRUISER_BULLET_SPEED, leadTime: CRUISER_BOLT_LEAD_TIME, heavy: true },
+  [EnemyKind.Carrier]: { boltSpeed: ENEMY_BOLT_SPEED, leadTime: ENEMY_BOLT_LEAD_TIME, heavy: true },
 };
 
 /** Источник состояния игрока для прицеливания. */
@@ -77,7 +82,6 @@ export interface EnemyBoltShot {
   heavy: boolean;
   cruiser: boolean;
   boltSpeed: number;
-  boltLife: number;
 }
 
 /**
@@ -127,6 +131,10 @@ export class EnemyShootingSystem extends PhasedSystem {
       const { marker, position } = shot;
       if (marker.dead) continue;
 
+      // Орудия крейсера — отдельная турель: стволы следят за игроком даже
+      // вне дистанции огня, иначе к моменту выстрела они смотрели бы в сторону.
+      if (marker.kind === EnemyKind.Cruiser) this.aimTurret(marker, position, player, dt);
+
       const weapon = TURRETS[marker.kind];
       if (!weapon) continue;
 
@@ -170,25 +178,46 @@ export class EnemyShootingSystem extends PhasedSystem {
     const rate =
       CRUISER_TURRET_RATE / (3 + this.wave * CRUISER_RATE_WAVE_STEP);
 
-    // Левая турель
+    // Дульные срезы разнесены поперёк наведения турели, а не курса корпуса.
+    const fx = Math.cos(e.turretAngle) * CRUISER_MUZZLE_FORWARD;
+    const fy = Math.sin(e.turretAngle) * CRUISER_MUZZLE_FORWARD;
+    const gx = -Math.sin(e.turretAngle) * CRUISER_MUZZLE_GAP;
+    const gy = Math.cos(e.turretAngle) * CRUISER_MUZZLE_GAP;
+
+    // Левый ствол
     e.tCd1! -= dt;
     if (e.tCd1! <= 0) {
       e.tCd1! = rate + rand(-CRUISER_RATE_JITTER, CRUISER_RATE_JITTER);
-      const sx = position.x - Math.sin(e.angle) * 14;
-      const sy = position.y + Math.cos(e.angle) * 14;
-      this.fire(e, sx, sy, player, weapon, hitChance);
+      this.fire(e, position.x + fx + gx, position.y + fy + gy, player, weapon, hitChance);
       this.audio.playHeavyShoot();
     }
 
-    // Правая турель
+    // Правый ствол
     e.tCd2! -= dt;
     if (e.tCd2! <= 0) {
       e.tCd2! = rate + rand(-CRUISER_RATE_JITTER, CRUISER_RATE_JITTER);
-      const sx = position.x + Math.sin(e.angle) * 14;
-      const sy = position.y - Math.cos(e.angle) * 14;
-      this.fire(e, sx, sy, player, weapon, hitChance);
+      this.fire(e, position.x + fx - gx, position.y + fy - gy, player, weapon, hitChance);
       this.audio.playHeavyShoot();
     }
+  }
+
+  /**
+   * Наведение орудий крейсера: стволы доворачиваются к игроку с ограниченной
+   * скоростью. Корпус при этом смотрит по курсу — его ведёт CruiserStrategy,
+   * турель живёт отдельным углом marker.turretAngle.
+   */
+  private aimTurret(
+    e: EnemyComponent,
+    position: PositionComponent,
+    player: PlayerMotion,
+    dt: number,
+  ): void {
+    const desired = Math.atan2(player.y - position.y, player.x - position.x);
+    e.turretAngle = lerpAngle(
+      e.turretAngle,
+      desired,
+      1 - Math.exp(-CRUISER_TURRET_TURN_RATE * dt),
+    );
   }
 
   /** Одиночная турель: Fighter и Carrier */
@@ -232,7 +261,7 @@ export class EnemyShootingSystem extends PhasedSystem {
         // угловой размер цели для рассеивания.
         target: { x: player.x, y: player.y, vx: player.vx, vy: player.vy, r: PLAYER_HIT_RADIUS },
         bulletSpeed: weapon.boltSpeed,
-        maxFlightTime: weapon.boltLife,
+        maxFlightTime: weapon.leadTime,
       },
       hitChance,
       PLAYER_HIT_RADIUS
@@ -246,7 +275,6 @@ export class EnemyShootingSystem extends PhasedSystem {
       heavy: weapon.heavy,
       cruiser: e.kind === EnemyKind.Cruiser,
       boltSpeed: weapon.boltSpeed,
-      boltLife: weapon.boltLife,
     });
   }
 }
@@ -256,6 +284,12 @@ export class EnemyShootingSystem extends PhasedSystem {
 const CRUISER_TURRET_RATE = 1.5;
 const CRUISER_RATE_WAVE_STEP = 0.08;
 const CRUISER_RATE_JITTER = 0.15;
+/** Скорость доворота орудийной турели крейсера к цели, рад/с. */
+const CRUISER_TURRET_TURN_RATE = 3.2;
+/** Вынос дульного среза вдоль оси наведения турели. */
+const CRUISER_MUZZLE_FORWARD = 20;
+/** Полуразнесение стволов поперёк оси наведения турели. */
+const CRUISER_MUZZLE_GAP = 8;
 const SINGLE_TURRET_RATE = 0.8;
 const CARRIER_TURRET_RATE = 1.5;
 const SINGLE_RATE_WAVE_BOOST = 0.08;

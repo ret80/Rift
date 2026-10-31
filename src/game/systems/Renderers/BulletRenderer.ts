@@ -4,16 +4,15 @@
  */
 
 import { C } from "../../balance";
+import type { BulletRef, EnemyBulletRef } from "../../ecs";
 import { rgba } from "../../math";
 import type { IRenderer } from "../../render/index";
-import type { BulletRef, EnemyBulletRef } from "../../ecs";
 
 export interface BulletRenderState {
   x: number;
   y: number;
   vx: number;
   vy: number;
-  life: number;
   dmg: number;
   r?: number;
   /** Самонаводящийся снаряд (ракета) — рисуется крупным корпусом с носом. */
@@ -25,7 +24,6 @@ export interface EBulletRenderState {
   y: number;
   vx: number;
   vy: number;
-  life: number;
   dmg: number;
   heavy: boolean;
   cruiser: boolean;
@@ -40,7 +38,6 @@ export function buildBulletState(bullets: BulletRef[]): BulletRenderState[] {
     y: b.position.y,
     vx: b.velocity.vx,
     vy: b.velocity.vy,
-    life: b.life.remaining,
     dmg: b.bullet.dmg,
     homing: b.homing,
   }));
@@ -55,7 +52,6 @@ export function buildEBulletState(bullets: EnemyBulletRef[]): EBulletRenderState
     y: b.position.y,
     vx: b.velocity.vx,
     vy: b.velocity.vy,
-    life: b.life.remaining,
     dmg: b.bullet.dmg,
     heavy: b.bullet.heavy,
     cruiser: b.bullet.cruiser,

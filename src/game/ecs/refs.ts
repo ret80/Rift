@@ -8,20 +8,20 @@
  */
 
 import type { GameEntity } from "./GameEntity";
-import type { AsteroidComponent } from "./components/AsteroidComponent";
 import type { AllyDroneComponent } from "./components/AllyDroneComponent";
+import type { AsteroidComponent } from "./components/AsteroidComponent";
 import type { BulletComponent } from "./components/BulletComponent";
 import type { BulletSweepComponent } from "./components/BulletSweepComponent";
 import type { EnemyBulletComponent } from "./components/EnemyBulletComponent";
 import type { EnemyComponent } from "./components/EnemyComponent";
 import type { HomingRef } from "./components/HomingRef";
 import type { LaserBeamComponent } from "./components/LaserBeamComponent";
+import type { LifeComponent } from "./components/LifeComponent";
 import type { PickupKindComponent } from "./components/PickupKindComponent";
 import type { PlayerComponent } from "./components/PlayerComponent";
 import type { PositionComponent } from "./components/PositionComponent";
 import type { RadiusComponent } from "./components/RadiusComponent";
 import type { VelocityComponent } from "./components/VelocityComponent";
-import type { LifeComponent } from "./components/LifeComponent";
 
 /** Источник позиции игрока (хитбокс) для систем пикапов. */
 export type PlayerSource = () => { x: number; y: number; r: number };
@@ -71,7 +71,11 @@ export interface BulletRef {
   bullet: BulletComponent;
   position: PositionComponent;
   velocity: VelocityComponent;
-  life: LifeComponent;
+  /**
+   * Время жизни — только у снарядов с ограниченным запасом (ракеты).
+   * Орудийный выстрел летит без компонента до края игровой зоны.
+   */
+  life?: LifeComponent;
   /** Компонент самонаведения (только у ракет). */
   homing?: HomingRef;
 }
@@ -82,7 +86,6 @@ export interface EnemyBulletRef {
   bullet: EnemyBulletComponent;
   position: PositionComponent;
   velocity: VelocityComponent;
-  life: LifeComponent;
   radius: RadiusComponent;
   sweep: BulletSweepComponent;
 }
