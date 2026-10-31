@@ -17,7 +17,6 @@
 
 import { Aspect, type Engine } from "@trixt0r/ecs";
 import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
-import { PLAYER_HIT_INVULN } from '../balance/player';
 import type { EventBus } from '../core/EventBus';
 import type { Fx } from '../fx';
 import type { InputManager } from '../input';
@@ -185,12 +184,9 @@ export class PlayerSystem extends PhasedSystem {
   hit(dmg: number): void {
     const ref = this.playerRefSource();
     if (!ref) return;
-    if (ref.marker.invuln > 0) return;
     // Щит гасит часть урона и тратит на это энергию.
     const incoming = this.shield ? this.shield.absorb(dmg) : dmg;
     ref.life.remaining -= incoming;
-    // Кадры неуязвимости после попадания: спасают от залпа в упор.
-    ref.marker.invuln = PLAYER_HIT_INVULN;
     if (ref.life.remaining <= 0) {
       ref.life.remaining = 0;
       this.eventBus.publish('game_over', {});
