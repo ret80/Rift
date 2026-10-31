@@ -36,8 +36,13 @@ export const PLAYER_RADIUS = 13;
 export const PLAYER_MAX_SPEED = 600;
 /** Drone base speed = 1.9 × player max speed. */
 export const DRONE_BASE_SPEED = PLAYER_MAX_SPEED * 0.85;
-/** Hunter speed = 1.1 × player max speed. */
-export const HUNTER_SPEED = PLAYER_MAX_SPEED * 0.8;
+/**
+ * Hunter speed = 1.1 × player max speed.
+ * Таран обязан быть быстрее игрока: иначе уравнение встречи
+ * |P + Vp·t − H| = Vs·t не имеет решения при отходе по прямой, и перехват
+ * вырождается в обычное догоняющее преследование (поведение дрона).
+ */
+export const HUNTER_SPEED = PLAYER_MAX_SPEED * 1.1;
 /** Fighter base speed = 0.9 × player max speed. */
 export const FIGHTER_BASE_SPEED = PLAYER_MAX_SPEED * 0.8;
 /** Cruiser speed = 0.5 × player max speed. */

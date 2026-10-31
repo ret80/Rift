@@ -3,8 +3,8 @@
    class weight functions, and pick logic.
    ============================================================ */
 
-import { clamp, ramp01 } from "../math";
 import type { RandomSource } from "../math";
+import { clamp, ramp01 } from "../math";
 import { ENEMY_BASES, EnemyKind, massForRadius } from "./enemies";
 
 /* ------------------------------ StarLayer type ------------------------------ */
@@ -72,8 +72,10 @@ export function enemyDefFor(kind: EnemyKind, w: number): import("./enemies").Ene
       return {
         r: base.r,
         hp: base.hpBase * hpS,
-        speed: base.speed,
-        contact: base.contactBase,
+        // Таран должен оставаться быстрее игрока и на поздних волнах,
+        // когда скорость поднята апгрейдами (до +40%).
+        speed: base.speed + w * 2,
+        contact: base.contactBase * dmgS,
         score: base.score,
         bolt: base.boltBase,
         mass: massForRadius(base.r),
@@ -133,7 +135,10 @@ export function zoneRadiusFor(w: number): number {
 export function kindWeights(w: number): Array<[EnemyKind, number]> {
   return [
     [EnemyKind.Drone, 1],
-    [EnemyKind.Hunter, 0.15 * ramp01(w, 3, 18)],
+    // Ищейка — редкий таран: впервые выходит ровно на 3-й волне (0.06 —
+    // сразу ненулевая доля) и к 16-й дорастает до 0.15. В составе это
+    // держится ~5–7%: угроза, а не массовый враг.
+    [EnemyKind.Hunter, w < 3 ? 0 : 0.06 + 0.09 * ramp01(w, 3, 16)],
     [EnemyKind.Fighter, 0.55 * ramp01(w, 1, 12)],
     [EnemyKind.Cruiser, 0.45 * ramp01(w, 4, 15)],
     [EnemyKind.Carrier, 0.25 * ramp01(w, 8, 16)],
