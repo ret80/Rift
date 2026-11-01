@@ -32,6 +32,7 @@ import {
     enemyHitChance,
     EnemyKind,
     FIGHTER_BOLT_SPEED,
+    FIGHTER_BURST_INTERVAL,
     FIGHTER_CIRCLE_OMEGA,
     PLAYER_BULLET_HIT_OFFSET,
     PLAYER_HITBOX_RADIUS
@@ -69,11 +70,11 @@ interface EnemyWeapon {
   heavy: boolean;
 }
 
-/** Тактика стрельбы по классам. */
+/** Тактика стрельбы по классам.
+ * Носитель (Carrier) не стреляет: его угроза — рой и масса, а не болты. */
 const TURRETS: Partial<Record<EnemyKind, EnemyWeapon>> = {
   [EnemyKind.Fighter]: { boltSpeed: FIGHTER_BOLT_SPEED, leadTime: ENEMY_BOLT_LEAD_TIME, heavy: false },
   [EnemyKind.Cruiser]: { boltSpeed: CRUISER_BULLET_SPEED, leadTime: CRUISER_BOLT_LEAD_TIME, heavy: true },
-  [EnemyKind.Carrier]: { boltSpeed: ENEMY_BOLT_SPEED, leadTime: ENEMY_BOLT_LEAD_TIME, heavy: true },
 };
 
 /** Источник состояния игрока для прицеливания. */
@@ -256,9 +257,25 @@ export class EnemyShootingSystem extends PhasedSystem {
 
     if (e.fireCd > 0) return;
 
-    // Истребитель ждёт заявки AI: он стреляет только в подтверждённое окно,
-    // а не по истечении перезарядки.
+    // Истребитель: очередь болтов (burst) или одиночный выстрел.
     if (e.kind === EnemyKind.Fighter) {
+      // Если есть очередь — добиваем её по burstTimer
+      if (e.burstLeft > 0) {
+        e.burstTimer -= dt;
+        if (e.burstTimer <= 0) {
+          e.burstTimer = FIGHTER_BURST_INTERVAL;
+          e.burstLeft--;
+          this.fire(e, position.x, position.y, player, weapon, hitChance);
+          this.audio.playEnemyShoot();
+          // Если очередь не закончена — остаёмся в FIRE
+          if (e.burstLeft > 0) return;
+          // Очередь закончена — сбрасываем
+          e.fireGate = false;
+          e.burstLeft = 0;
+        }
+        return;
+      }
+      // Иначе ждёт заявки AI: он стреляет только в подтверждённое окно.
       if (!e.fireGate) return;
       e.fireGate = false;
     }

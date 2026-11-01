@@ -28,6 +28,7 @@ import {
 } from './BulletCollision';
 import type { PlayerHitbox } from './GrazeCollision';
 import type { EcsWorld, AsteroidRef, EnemyRef } from '../ecs';
+import { EnemyKind } from '../balance/enemies';
 
 /** Источник мирового сечения (buildWorld из GameContext). */
 export type WorldSource = () => WorldFrame;
@@ -185,9 +186,11 @@ export class CollisionSystem extends PhasedSystem {
         const e = enemy as EnemyRef;
 
         // Урон игроку — не более одного раза за кадр и только не в неуязвимости.
-        // По формуле урон = масса врага × dmgScale(wave).
+        // Урон = контакт (настраиваемый по роли) × dmgScale(wave).
+        // Масса остаётся для физики, contact определяет боевой характер врага.
         if (!playerHit && player.marker.invuln <= 0 && player.life.remaining > 0) {
-          const dmg = (e.marker.mass || massForRadius(e.radius.r)) * dmgScale(wave);
+          const contact = e.marker.contact;
+          const dmg = contact * dmgScale(wave);
           this.eventBus.publish('player_damaged', {
             dmg,
           });

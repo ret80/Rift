@@ -43,6 +43,9 @@ import {
   FIGHTER_ATTACK_TIMEOUT,
   FIGHTER_BOLT_SPEED,
   FIGHTER_BREAK_DIST,
+  FIGHTER_BURST_COUNT,
+  FIGHTER_BURST_DISPERSION,
+  FIGHTER_BURST_INTERVAL,
   FIGHTER_CIRCLE_OMEGA,
   FIGHTER_COMMIT_RANGE,
   FIGHTER_COMMIT_TIME,
@@ -62,7 +65,7 @@ import {
   FIGHTER_FREE_DRIFT,
   FIGHTER_PATROL_RING,
   FIGHTER_PATROL_STEP,
-  FIGHTER_STANDOFF,
+  FIGHTER_STANDOFF_R,
   FIGHTER_STANDOFF_BAND,
   PLAYER_BULLET_HIT_OFFSET,
   PLAYER_HITBOX_RADIUS,
@@ -150,7 +153,9 @@ export class FighterStrategy implements IEnemyStrategy {
       case SEARCH: {
         // Держим кольцо вокруг игрока: далеко — сближаемся, близко — отходим,
         // в пределах полосы — облетаем по касательной и ждём момент.
-        const err = dist - FIGHTER_STANDOFF;
+        // Дистанция удержания — доля от радиуса зоны, чтобы не прилипать к краю.
+        const standoff = zoneRadius * FIGHTER_STANDOFF_R;
+        const err = dist - standoff;
         const mix = clamp(Math.abs(err) / FIGHTER_STANDOFF_BAND, 0, 1);
         const radial = angleToPlayer + (err > 0 ? 0 : Math.PI);
         const tangent = angleToPlayer + (Math.PI / 2) * marker.strafeDir;
@@ -161,29 +166,15 @@ export class FighterStrategy implements IEnemyStrategy {
       }
 
       case CUT: {
-        // Внутреннее кольцо орбиты игрока, точка — впереди по вращению.
-        // Радиус орбиты: |v|/|ω|, центр — P − (vy/ω, −vx/ω).
-        const w = context.playerTurnRate;
-        const cx = playerX - context.playerVy / w;
-        const cy = playerY + context.playerVx / w;
-        const orbit = clamp(Math.hypot(playerX - cx, playerY - cy), 60, 2000);
+        // Внутреннее кольцо: доля от радиуса зоны, чтобы не прилипать к краю.
         const ring = Math.max(
           enemy.radius.r * 2.5,
-          Math.min(orbit * FIGHTER_CUT_RADIUS, orbit - 60)
+          Math.min(zoneRadius * FIGHTER_CUT_RADIUS, zoneRadius - 60)
         );
-        const bearing = Math.atan2(playerY - cy, playerX - cx);
-        // Опережение: на тугой орбите базовый угол даёт точку почти в упор —
-        // тогда отодвигаем её вперёд по дуге до FIGHTER_CUT_DIST.
-        let lead = FIGHTER_CUT_LEAD;
-        const cosLead =
-          (ring * ring + orbit * orbit - FIGHTER_CUT_DIST * FIGHTER_CUT_DIST) /
-          (2 * ring * orbit);
-        if (Math.abs(cosLead) <= 1) {
-          lead = Math.max(lead, Math.acos(cosLead));
-        }
-        const a = bearing + lead * Math.sign(w);
-        let tx = cx + Math.cos(a) * ring;
-        let ty = cy + Math.sin(a) * ring;
+        // Позиция — впереди игрока по дуге облёта.
+        const bearing = angleToPlayer + FIGHTER_CUT_LEAD * Math.sign(marker.strafeDir);
+        let tx = playerX + Math.cos(bearing) * ring;
+        let ty = playerY + Math.sin(bearing) * ring;
 
         // Точка среза обязана быть внутри зоны: у края срезать нечего.
         if (hasZone) {
@@ -371,12 +362,14 @@ export class FighterStrategy implements IEnemyStrategy {
   }
 
   /**
-   * Заявка на выстрел: если окно открыто — ставим fireGate и уходим в FIRE.
-   * Саму стрельбу выполнит EnemyShootingSystem в фазе EnemyActions.
+   * Заявка на выстрел: если окно открыто — открываем очередь болтов
+   * и уходим в FIRE. Саму стрельбу выполнит EnemyShootingSystem.
    */
   private tryFire(enemy: EnemyRef, context: GameContext): boolean {
     if (!this.fireWindow(enemy, context)) return false;
     enemy.marker.mode = FIRE;
+    enemy.marker.burstLeft = FIGHTER_BURST_COUNT;
+    enemy.marker.burstTimer = 0;
     enemy.marker.fireGate = true;
     return true;
   }

@@ -131,17 +131,26 @@ export function zoneRadiusFor(w: number): number {
 /**
  * Weighted class mix; each class ramps in over its own window.
  * Returns array of [kind, weight] tuples for probabilistic selection.
+ *
+ * После дифференциации ролей:
+ *   Дрон — рой (массовый, основа волны)
+ *   Хантер — редкая угроза (камикадзе)
+ *   Файтер — «перчик» (дуэлянт, средняя частота)
+ *   Крейсер — событие волны (тяжеловес, таран)
+ *   Носитель — редкое событие (матка, управляет полем)
  */
 export function kindWeights(w: number): Array<[EnemyKind, number]> {
   return [
-    [EnemyKind.Drone, 1],
-    // Ищейка — редкий таран: впервые выходит ровно на 3-й волне (0.06 —
-    // сразу ненулевая доля) и к 16-й дорастает до 0.15. В составе это
-    // держится ~5–7%: угроза, а не массовый враг.
-    [EnemyKind.Hunter, w < 3 ? 0 : 0.06 + 0.09 * ramp01(w, 3, 16)],
-    [EnemyKind.Fighter, 0.55 * ramp01(w, 1, 12)],
-    [EnemyKind.Cruiser, 0.45 * ramp01(w, 4, 15)],
-    [EnemyKind.Carrier, 0.25 * ramp01(w, 8, 16)],
+    // Дрон — основа роя: высокая доля всегда
+    [EnemyKind.Drone, 1.0],
+    // Хантер — редкий камикадзе: 3–16 волна, ~5%
+    [EnemyKind.Hunter, w < 3 ? 0 : 0.05 + 0.05 * ramp01(w, 3, 16)],
+    // Файтер — «перчик» (дуэлянт): появляется с 5-й, пик к 15-й
+    [EnemyKind.Fighter, 0.6 * ramp01(w, 5, 15)],
+    // Крейсер — тяжёловес (событие волны): 8–20 волна
+    [EnemyKind.Cruiser, 0.35 * ramp01(w, 8, 20)],
+    // Носитель — матка (редкое событие): 12–25 волна
+    [EnemyKind.Carrier, 0.15 * ramp01(w, 12, 25)],
   ];
 }
 

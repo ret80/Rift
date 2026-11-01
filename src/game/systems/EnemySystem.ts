@@ -229,7 +229,9 @@ export class EnemySystem extends PhasedSystem {
     };
   }
 
-  /** Мягко раздвигает врагов, которые слишком близко друг к другу */
+  /** Мягко раздвигает врагов, которые слишком близко друг к другу.
+   *  Толчок обратно пропорционален массе: тяжёлые (крейсер, носитель)
+   *  «пропахивают» рой, а лёгкие (дрон) разлетаются. */
   private applyAvoidance(enemyList: EnemyRef[]): void {
     const minDistSq = AI_MIN_DIST * AI_MIN_DIST;
 
@@ -260,8 +262,16 @@ export class EnemySystem extends PhasedSystem {
           const pushX = (dx / dist) * push;
           const pushY = (dy / dist) * push;
 
-          const aMult = a.marker.dodgeWeight || 1.0;
-          const bMult = b.marker.dodgeWeight || 1.0;
+          // Распределение импульса обратно пропорционально массе.
+          // Базовая масса — дрон (~6), тяжёлые (носитель ~105) получают
+          // в разы меньший толчок. dodgeWeight — дополнительный множитель.
+          const aMass = Math.max(a.marker.mass || 1, 1);
+          const bMass = Math.max(b.marker.mass || 1, 1);
+          const totalMass = aMass + bMass;
+          const aFactor = bMass / totalMass; // лёгкий получает больше
+          const bFactor = aMass / totalMass; // тяжёлый получает меньше
+          const aMult = (a.marker.dodgeWeight || 1.0) * aFactor;
+          const bMult = (b.marker.dodgeWeight || 1.0) * bFactor;
 
           a.velocity.vx += pushX * aMult;
           a.velocity.vy += pushY * aMult;

@@ -34,6 +34,12 @@ import { VelocityComponent } from "../components/VelocityComponent";
 import { RadiusComponent } from "../components/RadiusComponent";
 import type { EcsEngine } from "../EcsEngine";
 
+/**
+ * Базовая масса для нормализации тяги зоны.
+ * Лёгкие враги (дрон ~6) тянутся сильнее, тяжёлые (носитель ~105) — слабее.
+ */
+const REF_MASS = 10;
+
 /** Источник активного состояния игровой зоны. */
 export type ZoneProvider = () => { active: boolean; x: number; y: number; radius: number };
 
@@ -77,10 +83,17 @@ export class ZoneEnemyPullSystem extends PhasedSystem {
       const radial = velocity.vx * nx + velocity.vy * ny;
       const tangent = -velocity.vx * ny + velocity.vy * nx;
 
+      // Тяга зоны с учётом массы: лёгкие (дрон) возвращаются резко,
+      // тяжёлые (крейсер, носитель) — плавно, без рывка выше своей скорости.
+      const mass = marker.mass || REF_MASS;
+      const massFactor = Math.max(0.3, 1 - (mass - REF_MASS) / (REF_MASS * 10));
+      const effectiveAccel = ZONE_ENEMY_PULL_ACCEL * massFactor;
+      const effectiveMaxSpeed = ZONE_ENEMY_PULL_MAX_SPEED * massFactor;
+
       // Наружу (radial > 0) — ускорение к центру + демпфирование;
       // внутрь (radial < 0) — только ускорение, чтобы не разгонять чрезмерно.
       const radialAccel =
-        -ZONE_ENEMY_PULL_ACCEL * strength -
+        -effectiveAccel * strength -
         ZONE_ENEMY_PULL_DAMPING * Math.max(radial, 0);
       const tangentAccel = -ZONE_ENEMY_PULL_TANGENT_DAMPING * tangent;
 
@@ -89,8 +102,8 @@ export class ZoneEnemyPullSystem extends PhasedSystem {
 
       // Предохранитель: притяжение не должно разгонять врага до абсурда.
       const speed = Math.hypot(velocity.vx, velocity.vy);
-      if (speed > ZONE_ENEMY_PULL_MAX_SPEED) {
-        const k = ZONE_ENEMY_PULL_MAX_SPEED / speed;
+      if (speed > effectiveMaxSpeed) {
+        const k = effectiveMaxSpeed / speed;
         velocity.vx *= k;
         velocity.vy *= k;
       }

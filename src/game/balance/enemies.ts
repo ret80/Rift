@@ -36,8 +36,16 @@ export const CRUISER_LEAD_DISTANCE = 300;
  * упреждения — только держит позицию и ведёт прицельный огонь.
  */
 export const CRUISER_MANEUVER_RANGE = 520;
+/** Доля радиуса зоны для линии огня крейсера: min(520, 1.1R). */
+export const CRUISER_FIRE_RANGE_R = 1.1;
 /** Carrier считается «рядом» (эскорт), если не дальше этой дистанции. */
 export const CRUISER_ESCORT_RANGE = 520;
+/** Доля радиуса зоны, на которой носитель удерживает дистанцию. */
+export const CARRIER_HOLD_R = 0.8;
+/** Доля радиуса зоны: если игрок дальше — носитель медленно сближается. */
+export const CARRIER_ADVANCE_R = 1.1;
+/** Доля радиуса зоны: если игрок ближе — носитель отходит. */
+export const CARRIER_RETREAT_R = 0.5;
 /** Угловой сдвиг крейсера от линии «носитель—игрок», радианы: два эскорта не слипаются в точку. */
 export const CRUISER_ESCORT_ARC_OFFSET = 0.3;
 /** Отступ точки манёвра от края зоны, в радиусах крейсера (1.5 корпуса). */
@@ -164,8 +172,8 @@ export const FIGHTER_COMMIT_RANGE = 620;
  * Дольше — значит игрок уходит, и заход превращается в погоню за кормой.
  */
 export const FIGHTER_COMMIT_TIME = 2.5;
-/** Дистанция удержания при поиске цели, px. */
-export const FIGHTER_STANDOFF = 420;
+/** Дистанция удержания при поиске цели, доля от радиуса зоны. */
+export const FIGHTER_STANDOFF_R = 0.7;
 /** Полоса удержания дистанции: внутри неё истребитель облетает игрока. */
 export const FIGHTER_STANDOFF_BAND = 80;
 /** Таймаут захода на цель, секунды: не довернул — уходим на вираж. */
@@ -213,7 +221,7 @@ export const FIGHTER_FIRE_KEEP_DIST = 220;
  */
 export const FIGHTER_CIRCLE_OMEGA = 1.0;
 /**
- * Радиус внутреннего кольца, доля от радиуса орбиты игрока: истребитель
+ * Радиус внутреннего кольца, доля от радиуса зоны: истребитель
  * занимает позицию внутри круга и вращается вместе с игроком, оставаясь
  * впереди по направлению обхода.
  */
@@ -230,3 +238,12 @@ export const FIGHTER_CUT_LEAD = 0.45;
 export const FIGHTER_CUT_DIST = 240;
 /** Отступ внутренней точки от края зоны, px. */
 export const FIGHTER_CUT_ZONE_MARGIN = 60;
+
+/* ----------------------- Fighter: очередь (burst) ----------------------- */
+
+/** Количество болтов в очереди истребителя. */
+export const FIGHTER_BURST_COUNT = 2;
+/** Интервал между болтами в очереди, с. */
+export const FIGHTER_BURST_INTERVAL = 0.09;
+/** Рассеивание болтов в очереди, рад. */
+export const FIGHTER_BURST_DISPERSION = 0.015;
