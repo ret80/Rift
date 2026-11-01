@@ -31,6 +31,9 @@
  *
  * Рассеивание при выстреле остаётся: заявка гарантирует геометрию, а меткость
  * по волнам (balance/accuracy) всё ещё может увести болт в сторону.
+ *
+ * Cooldown между burst: в CUT режиме между открытием fireGate проходит
+ * FIGHTER_BURST_WINDOW (1.5 с) — игрок получает ~0.6 с на манёвр.
  */
 
 import {
@@ -46,6 +49,7 @@ import {
   FIGHTER_BURST_COUNT,
   FIGHTER_BURST_DISPERSION,
   FIGHTER_BURST_INTERVAL,
+  FIGHTER_BURST_WINDOW,
   FIGHTER_CIRCLE_OMEGA,
   FIGHTER_COMMIT_RANGE,
   FIGHTER_COMMIT_TIME,
@@ -305,9 +309,12 @@ export class FighterStrategy implements IEnemyStrategy {
           this.enterSearch(marker);
           break;
         }
-        // Оружие к бою: в срезе окно проверяется каждый кадр, поэтому огонь
-        // идёт с темпом перезарядки, без «захода» между выстрелами.
-        this.tryFire(enemy, context);
+        // Оружие к бою: в срезе окно проверяется каждый кадр, но между
+        // burst есть перезарядка — игрок получает ~0.6 с на манёвр.
+        marker.burstWindowT -= dt;
+        if (marker.burstWindowT <= 0) {
+          this.tryFire(enemy, context);
+        }
         break;
       }
 
@@ -364,6 +371,7 @@ export class FighterStrategy implements IEnemyStrategy {
   /**
    * Заявка на выстрел: если окно открыто — открываем очередь болтов
    * и уходим в FIRE. Саму стрельбу выполнит EnemyShootingSystem.
+   * Ставит cooldown burstWindowT, чтобы в CUT режиме не стрелять непрерывно.
    */
   private tryFire(enemy: EnemyRef, context: GameContext): boolean {
     if (!this.fireWindow(enemy, context)) return false;
@@ -371,6 +379,8 @@ export class FighterStrategy implements IEnemyStrategy {
     enemy.marker.burstLeft = FIGHTER_BURST_COUNT;
     enemy.marker.burstTimer = 0;
     enemy.marker.fireGate = true;
+    // Cooldown между burst: даёт игроку ~0.6 с (40% окна) на реакцию.
+    enemy.marker.burstWindowT = FIGHTER_BURST_WINDOW;
     return true;
   }
 

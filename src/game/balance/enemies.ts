@@ -166,7 +166,7 @@ export const FIGHTER_PATROL_RING = 0.6;
 /** Опережение вдоль патрульного кольца, радианы: цель облёта на дуге. */
 export const FIGHTER_PATROL_STEP = 0.5;
 /** Дистанция, с которой истребитель решается на заход. */
-export const FIGHTER_COMMIT_RANGE = 620;
+export const FIGHTER_COMMIT_RANGE = 400;
 /**
  * Предельное время перехвата при решении на заход, секунды.
  * Дольше — значит игрок уходит, и заход превращается в погоню за кормой.
@@ -181,11 +181,11 @@ export const FIGHTER_ATTACK_TIMEOUT = 1.5;
 /**
  * Окно выстрела по времени полёта болта, секунды.
  * Ближе минимума — выстрел в упор без смысла, дальше максимума — прогноз
- * курса игрока уже врёт. 1.25 с при скорости болта 720 даёт ~900 px, но
+ * курса игрока уже врёт. 0.9 с при скорости болта 720 даёт ~650 px, но
  * реально окно ограничено угловым размером цели (~560 px).
  */
-export const FIGHTER_FIRE_MIN_TIME = 0.12;
-export const FIGHTER_FIRE_MAX_TIME = 1.25;
+export const FIGHTER_FIRE_MIN_TIME = 0.2;
+export const FIGHTER_FIRE_MAX_TIME = 0.9;
 /**
  * Минимальный угловой радиус цели для выстрела, радианы.
  * Цель размером с точку не простреливается «наверняка».
@@ -244,6 +244,12 @@ export const FIGHTER_CUT_ZONE_MARGIN = 60;
 /** Количество болтов в очереди истребителя. */
 export const FIGHTER_BURST_COUNT = 2;
 /** Интервал между болтами в очереди, с. */
-export const FIGHTER_BURST_INTERVAL = 0.09;
+export const FIGHTER_BURST_INTERVAL = 0.12;
 /** Рассеивание болтов в очереди, рад. */
 export const FIGHTER_BURST_DISPERSION = 0.015;
+/**
+ * Минимальный интервал между открытием fireGate в CUT режиме, с.
+ * Prevents continuous firing: cooldown between bursts so the player
+ * has ~0.6 s (40% of window) to read the pattern and maneuver.
+ */
+export const FIGHTER_BURST_WINDOW = 1.5;

@@ -53,11 +53,17 @@ export class EnemyComponent implements Component {
   /**
    * Очередь болтов истребителя: сколько болтов осталось выстрелить.
    * Ставится стратегией при открытии окна огня, EnemyShootingSystem
-   * добивает очередь по burstTimer с интервалом 0.09 с.
+   * добивает очередь по burstTimer с интервалом 0.12 с.
    */
   burstLeft = 0;
-  /** Таймер для очереди болтов: интервал между болтами 0.09 с. */
+  /** Таймер для очереди болтов: интервал между болтами 0.12 с. */
   burstTimer = 0;
+  /**
+   * Cooldown между открытием fireGate в CUT режиме, с.
+   * Prevents continuous firing: fighter can't open a new burst window
+   * until this timer expires.
+   */
+  burstWindowT = 0;
   /**
    * Угол зафиксированного захода хантера (WINDUP/CHARGE).
    * Фиксируется в WINDUP, используется в CHARGE для движения по прямой.
