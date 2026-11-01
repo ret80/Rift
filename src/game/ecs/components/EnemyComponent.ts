@@ -58,6 +58,11 @@ export class EnemyComponent implements Component {
   burstLeft = 0;
   /** Таймер для очереди болтов: интервал между болтами 0.09 с. */
   burstTimer = 0;
+  /**
+   * Угол зафиксированного захода хантера (WINDUP/CHARGE).
+   * Фиксируется в WINDUP, используется в CHARGE для движения по прямой.
+   */
+  lockAngle = 0;
   mode = 0;
   modeT = 0;
   strafeDir = 1;
