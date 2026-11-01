@@ -25,5 +25,11 @@ export class PlayerComponent implements Component {
     public thrusting = false,
     /** Масса корабля (для импульсов при коллизиях). */
     public mass = massForRadius(PLAYER_RADIUS),
+    /**
+     * Угловая скорость курса, рад/с. Положительная — облёт против часовой
+     * стрелки. Оценка нужна прицелу врагов (прогноз по дуге) и истребителю:
+     * по ней он распознаёт облёт и срезает орбиту.
+     */
+    public turnRate = 0,
   ) {}
 }

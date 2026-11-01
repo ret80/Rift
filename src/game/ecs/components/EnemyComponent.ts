@@ -44,6 +44,12 @@ export class EnemyComponent implements Component {
   score = 0;
   boltDmg = 0;
   fireCd = 0;
+  /**
+   * Заявка AI на выстрел: оружие стреляет только при ней. Живёт один кадр —
+   * стратегия ставит её в фазе Enemies, EnemyShootingSystem снимает после
+   * выстрела. Используется истребителем, остальные виды стреляют по таймеру.
+   */
+  fireGate = false;
   mode = 0;
   modeT = 0;
   strafeDir = 1;

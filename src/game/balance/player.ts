@@ -43,8 +43,13 @@ export const DRONE_BASE_SPEED = PLAYER_MAX_SPEED * 0.85;
  * вырождается в обычное догоняющее преследование (поведение дрона).
  */
 export const HUNTER_SPEED = PLAYER_MAX_SPEED * 1.1;
-/** Fighter base speed = 0.9 × player max speed. */
-export const FIGHTER_BASE_SPEED = PLAYER_MAX_SPEED * 0.8;
+/**
+ * Fighter base speed = 0.9 × player max speed.
+ * Истребитель обязан хотя бы приближаться к скорости игрока: иначе срез
+ * орбиты (см. FighterStrategy, режим CUT) физически невозможен — он не
+ * успевает выйти на внутреннее кольцо круга игрока.
+ */
+export const FIGHTER_BASE_SPEED = PLAYER_MAX_SPEED * 0.9;
 /** Cruiser speed = 0.5 × player max speed. */
 export const CRUISER_BASE_SPEED = PLAYER_MAX_SPEED * 0.5;
 /** Carrier speed = 0.3 × player max speed. */

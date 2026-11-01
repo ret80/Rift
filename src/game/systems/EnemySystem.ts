@@ -36,8 +36,17 @@ export interface EnemySpawnPort {
   enemyRefByEntity(entity: GameEntity): EnemyRef | null;
 }
 
-/** Источник состояния игрока для AI (мировые координаты + скорость). */
-export type EnemyPlayerSource = () => { x: number; y: number; vx?: number; vy?: number };
+/**
+ * Источник состояния игрока для AI: мировые координаты, скорость и угловая
+ * скорость курса (для прогноза по дуге).
+ */
+export type EnemyPlayerSource = () => {
+  x: number;
+  y: number;
+  vx?: number;
+  vy?: number;
+  turnRate?: number;
+};
 /** Источник границ игровой зоны. */
 export type ZoneBoundsSource = () => { x: number; y: number; radius: number; active: boolean };
 /** Флаг: должна ли система сама интегрировать скорость (true в custom-режиме). */
@@ -94,6 +103,7 @@ export class EnemySystem extends PhasedSystem {
     // Sync game context for strategies
     this.context.sync({
       playerX, playerY, playerVx, playerVy,
+      playerTurnRate: playerPos.turnRate ?? 0,
       zoneX, zoneY, zoneRadius,
       wave: this.wave,
     });

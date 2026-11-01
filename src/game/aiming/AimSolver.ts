@@ -43,6 +43,24 @@ export interface AimParams {
   bulletSpeed: number;
   /** Предельное время полёта снаряда (дальность поражения). */
   maxFlightTime?: number;
+  /**
+   * Угловая скорость курса цели, рад/с: цель летит по дуге, а не по прямой.
+   * 0 или не задана — обычный прямолинейный прогноз.
+   */
+  turnRate?: number;
+}
+
+/**
+ * Минимальная угловая скорость, с которой прогноз по дуге имеет смысл.
+ * Ниже — курс считается прямым: оценка угловой скорости на пологой дуге
+ * шумит сильнее, чем даёт точности.
+ */
+export const TURN_PREDICT_MIN = 0.3;
+
+/** Угловая скорость для прогноза, либо 0 (прямая). */
+export function effectiveTurnRate(turnRate: number | undefined): number {
+  if (!turnRate || Math.abs(turnRate) < TURN_PREDICT_MIN) return 0;
+  return turnRate;
 }
 
 /** Результат расчёта упреждения. */
@@ -99,6 +117,102 @@ export function solveInterceptTime(
 }
 
 /**
+ * Куда цель придёт через t, если её курс поворачивает с угловой скоростью
+ * turnRate (рад/с, знак — направление вращения).
+ *
+ * Интеграл вращающегося вектора скорости: цель на дуге окружности, а не на
+ * прямой. Именно этим снимается «безопасный облёт»: линейный прогноз уводит
+ * точку за корпус, дуговой попадает в неё.
+ */
+export function predictArc(
+  x: number,
+  y: number,
+  vx: number,
+  vy: number,
+  turnRate: number,
+  t: number
+): { x: number; y: number } {
+  if (Math.abs(turnRate) < 1e-6) {
+    return { x: x + vx * t, y: y + vy * t };
+  }
+  const s = Math.sin(turnRate * t);
+  const c = 1 - Math.cos(turnRate * t);
+  return {
+    x: x + (s * vx - c * vy) / turnRate,
+    y: y + (c * vx + s * vy) / turnRate,
+  };
+}
+
+/**
+ * Время полёта до точки встречи на дуге.
+ *
+ * Точка встречи зависит от времени полёта, поэтому уравнение решается
+ * итерациями простой подстановки (сходится за 3-6 шагов при разумных
+ * скоростях). null — итерация разошлась (цель уходит по дуге быстрее снаряда).
+ */
+export function solveArcInterceptTime(
+  sx: number,
+  sy: number,
+  px: number,
+  py: number,
+  vx: number,
+  vy: number,
+  turnRate: number,
+  speed: number
+): number | null {
+  if (speed <= 0) return null;
+  let t = Math.hypot(px - sx, py - sy) / speed;
+  for (let i = 0; i < 8; i++) {
+    const p = predictArc(px, py, vx, vy, turnRate, t);
+    const next = Math.hypot(p.x - sx, p.y - sy) / speed;
+    if (!Number.isFinite(next) || next > 30) return null;
+    if (Math.abs(next - t) < 1e-3) return next;
+    t = next;
+  }
+  return t;
+}
+
+/**
+ * Оценка угловой скорости курса по двум кадрам (рад/с).
+ *
+ * Берётся векторное произведение v × a / |v|²: поворот курса даёт угловую
+ * скорость, а торможение или разворот «в обратную сторону» — почти нуль
+ * (ускорение тогда параллельно скорости), поэтому оценка не прыгает на π
+ * при резкой смене направления. Результат сглаживается экспонентой: прицелу
+ * нужна не мгновенная реакция, а устойчивый радиус дуги.
+ */
+export function trackTurnRate(
+  previous: number,
+  prevVx: number,
+  prevVy: number,
+  vx: number,
+  vy: number,
+  dt: number
+): number {
+  if (dt <= 0) return previous;
+  const speed2 = vx * vx + vy * vy;
+  // На малой скорости направление курса не определено — оценка гаснет.
+  if (speed2 < TURN_TRACK_MIN_SPEED * TURN_TRACK_MIN_SPEED) {
+    return previous * Math.exp(-TURN_TRACK_DECAY * dt);
+  }
+
+  const ax = (vx - prevVx) / dt;
+  const ay = (vy - prevVy) / dt;
+  const instant = clamp((vx * ay - vy * ax) / speed2, -TURN_TRACK_MAX_RATE, TURN_TRACK_MAX_RATE);
+
+  return previous + (instant - previous) * (1 - Math.exp(-TURN_TRACK_SMOOTH * dt));
+}
+
+/** Ниже этой скорости направление курса считается неопределённым, px/с. */
+const TURN_TRACK_MIN_SPEED = 60;
+/** Скорость сглаживания оценки угловой скорости, 1/с. */
+const TURN_TRACK_SMOOTH = 3.0;
+/** Скорость затухания оценки на малой скорости, 1/с. */
+const TURN_TRACK_DECAY = 4.0;
+/** Потолок модуля угловой скорости, рад/с. */
+const TURN_TRACK_MAX_RATE = 6.0;
+
+/**
  * Рассчитать угол упреждения.
  * null — встречи нет: цель уходит быстрее снаряда либо снаряд не долетит.
  */
@@ -111,14 +225,98 @@ export function solveLead(params: AimParams): LeadResult | null {
   const dx = target.x - sx;
   const dy = target.y - sy;
 
-  const t = solveInterceptTime(dx, dy, target.vx, target.vy, bulletSpeed);
+  const turnRate = effectiveTurnRate(params.turnRate);
+  const t = turnRate
+    ? solveArcInterceptTime(sx, sy, target.x, target.y, target.vx, target.vy, turnRate, bulletSpeed)
+    : solveInterceptTime(dx, dy, target.vx, target.vy, bulletSpeed);
   if (t === null || t > maxTime || t < LEAD_MIN_TIME) return null;
 
-  // Точка встречи: куда цель придёт через t.
-  const leadX = target.x + target.vx * t;
-  const leadY = target.y + target.vy * t;
+  // Точка встречи: куда цель придёт через t (по прямой или по дуге).
+  const lead = predictArc(target.x, target.y, target.vx, target.vy, turnRate, t);
 
-  return { angle: Math.atan2(leadY - sy, leadX - sx), timeOfFlight: t };
+  return { angle: Math.atan2(lead.y - sy, lead.x - sx), timeOfFlight: t };
+}
+
+/** Границы зоны, в которой живёт снаряд: за барьером он гаснет. */
+export interface AimZoneBounds {
+  x: number;
+  y: number;
+  radius: number;
+  /** Отступ точки встречи от края: у самой границы стрелять бессмысленно. */
+  margin: number;
+}
+
+/** Условия, при которых выстрел вообще имеет смысл. */
+export interface FireWindowParams extends AimParams {
+  /** Зона или null, если бой идёт без ограничения. */
+  zone: AimZoneBounds | null;
+  /** Минимальное время полёта снаряда, секунды. */
+  minTime: number;
+  /** Максимальное время полёта снаряда, секунды. */
+  maxTime: number;
+  /** Минимальный угловой радиус цели, радианы. */
+  minAngular: number;
+}
+
+/** Подтверждённое упреждение: выстрел по нему попадёт при текущем курсе цели. */
+export interface FireWindow {
+  /** Угол выстрела на точку встречи. */
+  angle: number;
+  timeOfFlight: number;
+  impactX: number;
+  impactY: number;
+}
+
+/**
+ * Проверить, есть ли сейчас выстрел, который попадёт в цель.
+ *
+ * Это не шанс, а геометрия: снаряд пускается ровно по упреждению, поэтому
+ * при неизменном курсе цели он её настигает. Проверка отбрасывает случаи,
+ * когда попадания не будет независимо от точности:
+ *  - встречи нет (цель уходит быстрее снаряда);
+ *  - время полёта вне окна (в упор или слишком далеко для линейного прогноза);
+ *  - цель слишком «мелкая» на выбранной дистанции;
+ *  - точка встречи лежит у края зоны — болт погаснет о барьер, не долетев.
+ *
+ * Рассеивание сюда не входит: это отдельный слой поверх прицела.
+ */
+export function solveFireWindow(params: FireWindowParams): FireWindow | null {
+  const { sx, sy, target, bulletSpeed, zone } = params;
+  if (bulletSpeed <= 0) return null;
+
+  const dx = target.x - sx;
+  const dy = target.y - sy;
+
+  const turnRate = effectiveTurnRate(params.turnRate);
+  const t = turnRate
+    ? solveArcInterceptTime(sx, sy, target.x, target.y, target.vx, target.vy, turnRate, bulletSpeed)
+    : solveInterceptTime(dx, dy, target.vx, target.vy, bulletSpeed);
+  if (t === null || t < params.minTime || t > params.maxTime) return null;
+
+  // Точка встречи: прямолинейная или на дуге курса цели.
+  const impact = predictArc(target.x, target.y, target.vx, target.vy, turnRate, t);
+  const impactX = impact.x;
+  const impactY = impact.y;
+  const dist = Math.hypot(impactX - sx, impactY - sy) || 1;
+
+  // Угловой размер цели на дистанции выстрела.
+  if (Math.asin(clamp(target.r / dist, 0, 1)) < params.minAngular) return null;
+
+  if (zone) {
+    // Круг выпуклый: если и стрелок, и точка встречи внутри, весь отрезок
+    // траектории тоже внутри — отдельная проверка середины не нужна.
+    const margin = Math.min(zone.margin, zone.radius * 0.5);
+    if (Math.hypot(impactX - zone.x, impactY - zone.y) > zone.radius - margin) {
+      return null;
+    }
+  }
+
+  return {
+    angle: Math.atan2(impactY - sy, impactX - sx),
+    timeOfFlight: t,
+    impactX,
+    impactY,
+  };
 }
 
 /**

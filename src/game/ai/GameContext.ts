@@ -11,6 +11,8 @@ export interface GameContextInput {
   playerY: number;
   playerVx: number;
   playerVy: number;
+  /** Угловая скорость курса игрока, рад/с (0 — летит по прямой). */
+  playerTurnRate?: number;
   zoneX: number;
   zoneY: number;
   zoneRadius: number;
@@ -22,6 +24,11 @@ export class GameContext {
   public playerY = 0;
   public playerVx = 0;
   public playerVy = 0;
+  /**
+   * Угловая скорость курса игрока, рад/с. Ненулевая означает, что игрок
+   * летит по дуге (облёт), и точку перехвата нужно считать по дуге.
+   */
+  public playerTurnRate = 0;
 
   public zoneX = 0;
   public zoneY = 0;
@@ -44,6 +51,7 @@ export class GameContext {
     this.playerY = input.playerY;
     this.playerVx = input.playerVx;
     this.playerVy = input.playerVy;
+    this.playerTurnRate = input.playerTurnRate ?? 0;
     this.zoneX = input.zoneX;
     this.zoneY = input.zoneY;
     this.zoneRadius = input.zoneRadius;

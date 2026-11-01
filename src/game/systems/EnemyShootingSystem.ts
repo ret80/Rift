@@ -11,6 +11,10 @@
  * события 'enemy_fired' нет — вражеская пуля создаётся в том же домене.
  * Движение и AI остаются в EnemySystem.
  *
+ * Истребитель стреляет только по заявке AI (marker.fireGate): её ставит
+ * FighterStrategy, когда расчёт упреждения подтверждает попадание. Крейсер и
+ * дрононосец ведут огонь по таймеру.
+ *
  * У болтов нет времени жизни: снаряд летит до края игровой зоны, где его
  * уничтожает BulletSystem. leadTime в вооружении — только горизонт
  * упреждения прицела, дальше которого цель берётся по текущей позиции.
@@ -27,6 +31,8 @@ import {
     ENEMY_SHOOT_RANGE,
     enemyHitChance,
     EnemyKind,
+    FIGHTER_BOLT_SPEED,
+    FIGHTER_CIRCLE_OMEGA,
     PLAYER_BULLET_HIT_OFFSET,
     PLAYER_HITBOX_RADIUS
 } from "../balance";
@@ -51,6 +57,8 @@ export interface PlayerMotion {
   y: number;
   vx: number;
   vy: number;
+  /** Угловая скорость курса, рад/с: истребитель стреляет по дуге. */
+  turnRate?: number;
 }
 
 /** Вооружение врага: скорость болта, горизонт упреждения и тип снаряда. */
@@ -63,7 +71,7 @@ interface EnemyWeapon {
 
 /** Тактика стрельбы по классам. */
 const TURRETS: Partial<Record<EnemyKind, EnemyWeapon>> = {
-  [EnemyKind.Fighter]: { boltSpeed: ENEMY_BOLT_SPEED, leadTime: ENEMY_BOLT_LEAD_TIME, heavy: false },
+  [EnemyKind.Fighter]: { boltSpeed: FIGHTER_BOLT_SPEED, leadTime: ENEMY_BOLT_LEAD_TIME, heavy: false },
   [EnemyKind.Cruiser]: { boltSpeed: CRUISER_BULLET_SPEED, leadTime: CRUISER_BOLT_LEAD_TIME, heavy: true },
   [EnemyKind.Carrier]: { boltSpeed: ENEMY_BOLT_SPEED, leadTime: ENEMY_BOLT_LEAD_TIME, heavy: true },
 };
@@ -122,7 +130,11 @@ export class EnemyShootingSystem extends PhasedSystem {
    * Вражеская пуля спавнится напрямую в Engine (без события-«моста»).
    */
   process(dt: number): void {
-    if (!this.isCombatActive()) return;
+    if (!this.isCombatActive()) {
+      // Бой остановлен — невыбранная заявка не должна выстрелить при возврате.
+      this.clearFireGates();
+      return;
+    }
     const enemies = this.collectEnemyShots();
     if (!enemies.length) return;
 
@@ -149,6 +161,15 @@ export class EnemyShootingSystem extends PhasedSystem {
       } else {
         this.fireSingleTurret(shot, dt, player, weapon, hitChance);
       }
+    }
+  }
+
+  /** Снять все заявки на выстрел (вне боя они недействительны). */
+  private clearFireGates(): void {
+    if (!this.aspect) return;
+    for (const entity of [...this.aspect.entities]) {
+      const marker = entity.components.get(EnemyComponent);
+      if (marker) marker.fireGate = false;
     }
   }
 
@@ -234,6 +255,14 @@ export class EnemyShootingSystem extends PhasedSystem {
     e.fireCd -= dt * waveBoost;
 
     if (e.fireCd > 0) return;
+
+    // Истребитель ждёт заявки AI: он стреляет только в подтверждённое окно,
+    // а не по истечении перезарядки.
+    if (e.kind === EnemyKind.Fighter) {
+      if (!e.fireGate) return;
+      e.fireGate = false;
+    }
+
     e.fireCd = baseRate;
 
     this.fire(e, position.x, position.y, player, weapon, hitChance);
@@ -262,6 +291,12 @@ export class EnemyShootingSystem extends PhasedSystem {
         target: { x: player.x, y: player.y, vx: player.vx, vy: player.vy, r: PLAYER_HIT_RADIUS },
         bulletSpeed: weapon.boltSpeed,
         maxFlightTime: weapon.leadTime,
+        // Истребитель бьёт по дуге курса в том же режиме, в котором AI
+        // подтверждает окно выстрела: иначе заявка и прицел расходятся.
+        turnRate:
+          e.kind === EnemyKind.Fighter && Math.abs(player.turnRate ?? 0) >= FIGHTER_CIRCLE_OMEGA
+            ? player.turnRate
+            : 0,
       },
       hitChance,
       PLAYER_HIT_RADIUS

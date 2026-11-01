@@ -24,6 +24,7 @@ import type { ShieldSystem } from './ShieldSystem';
 import { updateMovement } from './PlayerMovement';
 import type { PlayerRef } from '../ecs';
 import { PlayerComponent } from '../ecs/components/PlayerComponent';
+import { trackTurnRate } from '../aiming/AimSolver';
 
 /** Флаг: должна ли система сама интегрировать позицию (true в custom-режиме). */
 export type PlayerIntegrateSource = () => boolean;
@@ -43,6 +44,9 @@ export class PlayerSystem extends PhasedSystem {
 
   /** Источник живой связки компонентов игрока. */
   private readonly playerRefSource: PlayerRefSource;
+  /** Скорость игрока на прошлом кадре — для оценки угловой скорости курса. */
+  private prevVx = 0;
+  private prevVy = 0;
 
   constructor(
     eventBus: EventBus,
@@ -103,6 +107,19 @@ export class PlayerSystem extends PhasedSystem {
       this.getIntegrate(),
     );
 
+    // Угловая скорость курса: по ней вражеский прицел строит прогноз по дуге,
+    // а истребитель распознаёт облёт и срезает орбиту.
+    marker.turnRate = trackTurnRate(
+      marker.turnRate,
+      this.prevVx,
+      this.prevVy,
+      velocity.vx,
+      velocity.vy,
+      dt,
+    );
+    this.prevVx = velocity.vx;
+    this.prevVy = velocity.vy;
+
     // Invulnerability timer
     marker.invuln = Math.max(0, marker.invuln - dt);
   }
@@ -115,6 +132,9 @@ export class PlayerSystem extends PhasedSystem {
     ref.marker.angle = -Math.PI / 2;
     ref.marker.invuln = 0;
     ref.marker.thrusting = false;
+    ref.marker.turnRate = 0;
+    this.prevVx = 0;
+    this.prevVy = 0;
   }
 
   // ---- HP (базовый LifeComponent) ----

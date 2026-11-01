@@ -507,11 +507,17 @@ export class GameContext {
   // ===== Presentation helpers =====
 
   /** Позиция игрока для систем (world coordinates + скорость). */
-  getPlayerPosition(): { x: number; y: number; vx: number; vy: number } {
+  getPlayerPosition(): { x: number; y: number; vx: number; vy: number; turnRate: number } {
     const ref = this.ecs.playerRef();
     return ref
-      ? { x: ref.position.x, y: ref.position.y, vx: ref.velocity.vx, vy: ref.velocity.vy }
-      : { x: 0, y: 0, vx: 0, vy: 0 };
+      ? {
+          x: ref.position.x,
+          y: ref.position.y,
+          vx: ref.velocity.vx,
+          vy: ref.velocity.vy,
+          turnRate: ref.marker.turnRate,
+        }
+      : { x: 0, y: 0, vx: 0, vy: 0, turnRate: 0 };
   }
 
   /** Хитбокс игрока в игровых координатах (для систем пикапов). */
