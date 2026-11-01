@@ -57,26 +57,6 @@ function rayCircleEntryDistance(
   return c <= 0 ? 0 : null;
 }
 
-/** Расстояние до пересечения луча с окружностью (null — не пересекает). */
-function rayCircleEntryDistanceZone(
-  ox: number,
-  oy: number,
-  dx: number,
-  dy: number,
-  cx: number,
-  cy: number,
-  r: number
-): number | null {
-  const fx = ox - cx;
-  const fy = oy - cy;
-  const b = fx * dx + fy * dy;
-  const c = fx * fx + fy * fy - r * r;
-  const disc = b * b - c;
-  if (disc < 0) return null;
-  const t = -b - Math.sqrt(disc);
-  return t >= 0 ? t : -b + Math.sqrt(disc);
-}
-
 export class LaserWeapon implements Weapon {
   readonly id: WeaponId = "laser";
   readonly meta: WeaponMeta = WEAPON_CATALOG.laser;
@@ -228,17 +208,9 @@ export class LaserWeapon implements Weapon {
     const muzzleX = ctx.player.x + dx * LASER_MUZZLE_OFFSET;
     const muzzleY = ctx.player.y + dy * LASER_MUZZLE_OFFSET;
 
-    // Ограничитель длины луча: край игровой зоны, иначе максимальный запас.
-    let maxDist = LASER_BEAM_LENGTH;
-    const zone = ctx.zone;
-    if (zone) {
-      const zoneDist = rayCircleEntryDistanceZone(
-        muzzleX, muzzleY, dx, dy, zone.x, zone.y, zone.radius
-      );
-      if (zoneDist != null) maxDist = Math.min(maxDist, zoneDist);
-    }
-
-    // Луч останавливается на ближайшем враге, через которого проходит.
+    // Луч останавливается на ближайшем враге, через которого проходит,
+    // либо на максимальном запасе длины (зона его больше не обрезает).
+    const maxDist = LASER_BEAM_LENGTH;
     let hitEnemy: EnemyRef | null = null;
     let hitDist = maxDist;
     for (const e of ctx.enemies) {

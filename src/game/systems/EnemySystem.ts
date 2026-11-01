@@ -99,12 +99,18 @@ export class EnemySystem extends PhasedSystem {
     const zoneX = zoneBounds?.x ?? 0;
     const zoneY = zoneBounds?.y ?? 0;
     const zoneRadius = zoneBounds?.radius ?? 0;
+    const zoneActive = zoneBounds?.active ?? false;
+    const playerOutsideZone =
+      zoneActive &&
+      zoneRadius > 0 &&
+      Math.hypot(playerX - zoneX, playerY - zoneY) > zoneRadius;
 
     // Sync game context for strategies
     this.context.sync({
       playerX, playerY, playerVx, playerVy,
       playerTurnRate: playerPos.turnRate ?? 0,
       zoneX, zoneY, zoneRadius,
+      playerOutsideZone,
       wave: this.wave,
     });
 

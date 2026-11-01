@@ -9,6 +9,7 @@
 import {
   ZONE_CLEAR_FADE_TIME,
   ZONE_INITIAL_RADIUS,
+  ZONE_MAX_ALPHA,
   zoneExpandSpeed,
 } from "../balance";
 import type { ZoneData } from "../core/ZoneTypes";
@@ -85,7 +86,7 @@ export class ZoneModel {
       this.zone.targetRadius,
       this.zone.radius + expandSpeed * dt,
     );
-    this.zone.alpha = Math.min(0.5, this.zone.alpha + dt * 1.2);
+    this.zone.alpha = Math.min(ZONE_MAX_ALPHA, this.zone.alpha + dt * 1.2);
   }
 
   /**

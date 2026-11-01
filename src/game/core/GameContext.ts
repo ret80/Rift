@@ -8,68 +8,65 @@
  * для корректной работы коллбэков во время инициализации.
  */
 
+import { AbilitySystem } from "../abilities/AbilitySystem";
+import { AsteroidField } from "../asteroids";
 import { EnemyKind, PickupKind, PLAYER_HITBOX_RADIUS, PLAYER_MAX_SPEED } from "../balance";
-import type { PersistencePort } from "./PersistencePort";
-import { getViewport, readUrlParam } from "./env";
+import type { EnemyRef, PlayerRef } from "../ecs";
 import { EcsWorld } from "../ecs";
 import { SystemSchedule } from "../ecs/SystemSchedule";
 import { AllyDroneSystem } from "../ecs/systems/AllyDroneSystem";
-import {
-  BaseRenderer,
-  PicoGLRenderer,
-  NullRenderer,
-  getDpr,
-  type IRenderer,
-} from "../render/index";
-import { PhysicsSystem } from "../physics/index";
-import type { PhysicsEngineId } from "../physics/index";
-import { createPhysicsEngine, normalizePhysicsEngine } from "../physics/index";
-import { DebugSystem } from "../systems/DebugSystem";
-import { MenuScene } from "../presentation/menu/MenuScene";
-import { ScoringSystem } from "../systems/ScoringSystem";
-import { EventBus } from "./EventBus";
-import type { GameFSMContext } from "./GameFSM";
-import { GAME_TRANSITIONS } from "./GameFSM";
-import { GameStateMachine } from "./StateMachine";
-import type { WorldFrame } from "./WorldFrame";
-import type { PlayerRef } from "../ecs";
-import { AsteroidField } from "../asteroids";
 import { Fx } from "../fx";
 import { InputManager } from "../input";
-import { RiftField } from "../rifts";
-import { Starfield } from "../starfield";
-import type { EnemyRef } from "../ecs";
 import { LoadoutSystem } from "../loadout/LoadoutSystem";
 import { BonusManager } from "../loadout/bonuses/BonusManager";
-import type { WeaponId, PlayerSnapshot } from "../weapons/Weapon";
-import { WeaponManager } from "../weapons/WeaponManager";
-import { WEAPON_CATALOG } from "../weapons/WeaponCatalog";
-import { AbilitySystem } from "../abilities/AbilitySystem";
+import type { PhysicsEngineId } from "../physics/index";
+import { createPhysicsEngine, normalizePhysicsEngine, PhysicsSystem } from "../physics/index";
+import { MenuScene } from "../presentation/menu/MenuScene";
+import {
+    getDpr,
+    NullRenderer,
+    PicoGLRenderer,
+    type IRenderer,
+} from "../render/index";
+import { RiftField } from "../rifts";
+import { Starfield } from "../starfield";
 import { ApplyPickupSystem } from "../systems/ApplyPickupSystem";
+import { AudioManager } from "../systems/AudioManager";
 import { CameraSystem } from "../systems/CameraSystem";
 import { CollisionSystem } from "../systems/CollisionSystem";
 import { CountdownSystem } from "../systems/CountdownSystem";
 import type { DeathSystem } from "../systems/DeathSystem";
+import { DebugSystem } from "../systems/DebugSystem";
 import { GrazeSystem } from "../systems/GrazeSystem";
 import { InputSystem } from "../systems/InputSystem";
 import { PickupDropSystem } from "../systems/PickupDropSystem";
 import { PlayerSystem } from "../systems/PlayerSystem";
 import { RendererSystem } from "../systems/RendererSystem";
+import { ScoringSystem } from "../systems/ScoringSystem";
 import { ShieldSystem } from "../systems/ShieldSystem";
 import { SpawnSystem, type SpawnDependencies } from "../systems/SpawnSystem";
 import { UpgradeSystem } from "../systems/UpgradeSystem";
 import { WaveFlowSystem } from "../systems/WaveFlowSystem";
 import { WaveOrchestrator } from "../systems/WaveOrchestrator";
 import { ZoneSystem } from "../systems/ZoneSystem";
-import type { Hooks } from "./GameHooks";
-import { AudioManager } from "../systems/AudioManager";
-import { GameLoop } from "./GameLoop";
+import type { PlayerSnapshot, WeaponId } from "../weapons/Weapon";
+import { WEAPON_CATALOG } from "../weapons/WeaponCatalog";
+import { WeaponManager } from "../weapons/WeaponManager";
+import { EventBus } from "./EventBus";
+import type { GameFSMContext } from "./GameFSM";
+import { GAME_TRANSITIONS } from "./GameFSM";
 import { GameFrame } from "./GameFrame";
-import { GameRender } from "./GameRender";
-import { PresentationFrame } from "./PresentationFrame";
+import type { Hooks } from "./GameHooks";
 import { GameListeners } from "./GameListeners";
+import { GameLoop } from "./GameLoop";
+import { GameRender } from "./GameRender";
 import { GameStart } from "./GameStart";
 import { GameUpgrades } from "./GameUpgrades";
+import type { PersistencePort } from "./PersistencePort";
+import { PresentationFrame } from "./PresentationFrame";
+import { GameStateMachine } from "./StateMachine";
+import type { WorldFrame } from "./WorldFrame";
+import { getViewport, readUrlParam } from "./env";
 
 export class GameContext {
   readonly hooks: Hooks;
@@ -152,17 +149,11 @@ export class GameContext {
     this.hooks = hooks;
     this.storage = storage;
 
-    // Рендер-бэкенд: PicoGL по умолчанию; raw WebGL и NullRenderer — через
-    // URL-параметр (?renderer=webgl | ?renderer=null). NullRenderer рисует на
-    // Canvas 2D и копит debug-метрики — удобен в средах без WebGL.
-    const rendererParam = readUrlParam("renderer");
-    const useNull = rendererParam === "null";
-    const usePicoGL = !useNull && (rendererParam === null || rendererParam === "picogl");
-    this.renderer = useNull
-      ? new NullRenderer(canvas)
-      : usePicoGL
-        ? new PicoGLRenderer(canvas)
-        : new BaseRenderer(canvas);
+    // Рендер-бэкенд: PicoGL; NullRenderer — через URL-параметр ?renderer=null.
+    // NullRenderer рисует на Canvas 2D и копит debug-метрики — удобен в
+    // средах без WebGL.
+    const useNull = readUrlParam("renderer") === "null";
+    this.renderer = useNull ? new NullRenderer(canvas) : new PicoGLRenderer(canvas);
 
     // Физический бэкенд: выбирается через меню настроек (persisted) или
     // URL-параметр ?physics=<id>. По умолчанию — Planck.js.
@@ -200,7 +191,7 @@ export class GameContext {
       hooks: {
         onBanner: (title, sub, color) => hooks.onBanner({ title, sub, color }),
         onToast: (text, color) => hooks.onToast({ text, color }),
-        hitPlayer: (amount) => this.playerSystem.hit(amount),
+        hitPlayerRaw: (amount) => this.playerSystem.hitRaw(amount),
         shakeScreen: (strength) => this.fx.addShake(strength),
         onWaveAdvanced: () => {
           const nextWave = this.waveOrchestrator.wave;
@@ -214,7 +205,6 @@ export class GameContext {
 
     this.zoneSystem = new ZoneSystem({
       getZoneState: () => this.waveOrchestrator.zoneState,
-      getPlayerRef: () => this.ecs.playerRef(),
       getAsteroids: () => this.ecs.asteroids(),
     });
 
@@ -307,7 +297,6 @@ export class GameContext {
         getBonuses: () => this.bonusManager.getBonuses(),
         getBeams: () => this.ecs.beams(),
         addBeam: (b) => this.ecs.addBeam(b),
-        getZone: () => this.getZoneSnapshot(),
         damageEnemy: (enemy, dmg) => this.damageEnemy(enemy, dmg),
       },
       (id) => this.onWeaponFired(id),
@@ -387,7 +376,7 @@ export class GameContext {
       getPlayerPosition: () => this.getPlayerPosition(),
     });
     // Зона и волны — ECS-системы: waveFlow обновляет zoneState, zoneSystem
-    // клампит игрока/астероиды, ZoneClampSystem клампит врагов — всё после
+    // выталкивает астероиды, ZoneEnemyPullSystem тянет врагов — всё после
     // физики/коллизий.
     // Спавн — ECS-система: после коллизий, до волны/зоны.
 
@@ -532,13 +521,6 @@ export class GameContext {
   getZoneBounds(): { x: number; y: number; radius: number; active: boolean } {
     const z = this.waveOrchestrator.zoneState;
     return { x: z.x, y: z.y, radius: z.radius, active: z.active };
-  }
-
-  /** Снимок игровой зоны для оружия (луч лазера упирается в её край). */
-  getZoneSnapshot(): { active: boolean; x: number; y: number; radius: number } | null {
-    const z = this.waveOrchestrator.zoneState;
-    if (!z.active || z.radius <= 0) return null;
-    return { active: z.active, x: z.x, y: z.y, radius: z.radius };
   }
 
   /** Живая связка компонентов игрока (единый вид WorldFrame для кадра и рендера). */

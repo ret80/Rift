@@ -64,7 +64,6 @@ import {
   FIGHTER_PATROL_STEP,
   FIGHTER_STANDOFF,
   FIGHTER_STANDOFF_BAND,
-  FIGHTER_ZONE_MARGIN,
   PLAYER_BULLET_HIT_OFFSET,
   PLAYER_HITBOX_RADIUS,
 } from '../../balance';
@@ -108,7 +107,9 @@ export class FighterStrategy implements IEnemyStrategy {
     const dy = playerY - pos.y;
     const dist = Math.hypot(dx, dy) || 1;
     const angleToPlayer = Math.atan2(dy, dx);
-    const hasZone = zoneRadius > MIN_ZONE_RADIUS;
+    // Пока игрок снаружи, враги не обязаны держаться внутри: их возвращает
+    // только ZoneEnemyPullSystem. Иначе ИИ боролся бы с притяжением.
+    const hasZone = zoneRadius > MIN_ZONE_RADIUS && !context.playerOutsideZone;
 
     // Игрок летит по дуге достаточно круто, чтобы линейный прогноз врал.
     const circling = Math.abs(context.playerTurnRate) >= FIGHTER_CIRCLE_OMEGA;
@@ -389,24 +390,15 @@ export class FighterStrategy implements IEnemyStrategy {
 
   /**
    * Окно выстрела: снаряд по упреждению (по прямой или по дуге курса)
-   * долетит до игрока и не погаснет о край зоны.
+   * долетит до игрока. Зона выстрел больше не обрезает.
    */
   private fireWindow(enemy: EnemyRef, context: GameContext): FireWindow | null {
-    const hasZone = context.zoneRadius > MIN_ZONE_RADIUS;
     return solveFireWindow({
       sx: enemy.position.x,
       sy: enemy.position.y,
       target: this.playerTarget(context),
       bulletSpeed: FIGHTER_BOLT_SPEED,
       turnRate: this.predictTurnRate(context),
-      zone: hasZone
-        ? {
-            x: context.zoneX,
-            y: context.zoneY,
-            radius: context.zoneRadius,
-            margin: FIGHTER_ZONE_MARGIN,
-          }
-        : null,
       minTime: FIGHTER_FIRE_MIN_TIME,
       maxTime: FIGHTER_FIRE_MAX_TIME,
       minAngular: FIGHTER_FIRE_MIN_ANGULAR,
@@ -501,6 +493,7 @@ export class FighterStrategy implements IEnemyStrategy {
     dt: number
   ): number {
     const { zoneX, zoneY, zoneRadius } = context;
+    if (context.playerOutsideZone) return targetMoveAngle;
     if (zoneRadius <= MIN_ZONE_RADIUS) return targetMoveAngle;
 
     const pos = enemy.position;
@@ -558,7 +551,7 @@ export class FighterStrategy implements IEnemyStrategy {
     const { zoneX, zoneY, zoneRadius } = context;
     const pos = enemy.position;
     const marker = enemy.marker;
-    const hasZone = zoneRadius > MIN_ZONE_RADIUS;
+    const hasZone = zoneRadius > MIN_ZONE_RADIUS && !context.playerOutsideZone;
 
     let best = marker.strafeDir;
     let bestScore = -Infinity;

@@ -1,9 +1,9 @@
 /* PicoGLRenderer — реализация IRenderer на библиотеке PicoGL.js.
    Все WebGL-вызовы идут через PicoGL App/DrawCall; внешний код
    работает только через контракт IRenderer. */
-import PicoGL from "picogl";
 import type { App, DrawCall, Framebuffer, Program, Texture, VertexArray, VertexBuffer } from "picogl";
-import type { IRenderer, RenderMode, RGBA } from "./IRenderer";
+import PicoGL from "picogl";
+import type { IRenderer, RenderLayer, RenderMode, RGBA } from "./IRenderer";
 import { backingSize, cameraOffset, watchContextLoss } from "./shared";
 
 const LINE_VERT = `
@@ -99,6 +99,7 @@ void main() {
 const COMPOSITE_FRAG = `
 precision mediump float;
 uniform sampler2D uScene;
+uniform sampler2D uFlat;
 uniform sampler2D uBloom;
 uniform vec2 uRes;
 uniform float uTime;
@@ -111,6 +112,9 @@ float hash(vec2 p) {
 void main() {
   vec3 scene = texture2D(uScene, vUv).rgb;
   vec3 bloom = texture2D(uBloom, vUv).rgb;
+  // Плоский слой читается только по RGB: он накоплен аддитивно, поэтому
+  // его alpha-канал не используется и не может «съесть» фон.
+  vec3 flatLayer = texture2D(uFlat, vUv).rgb;
 
   vec2 uv = vUv;
   vec2 asp = vec2(uRes.x / max(uRes.y, 1.0), 1.0);
@@ -133,7 +137,8 @@ void main() {
   float dist = distance(uv, vec2(0.5));
   bg *= 1.18 - dist * 0.85;
 
-  vec3 col = bg + scene + bloom * 1.35;
+  // Порядок слоёв: фон → плоский слой (зона, без bloom) → объекты сцены + bloom.
+  vec3 col = bg + flatLayer + scene + bloom * 1.35;
   col = 1.0 - exp(-col * 1.9);
 
   float vig = smoothstep(1.15, 0.38, dist * 1.5);
@@ -150,6 +155,8 @@ const MAX_VERTS = 60000;
 const FLOATS_PER_VERT = 6;
 const MAX_BEAM_VERTS = 6000;
 const FLOATS_PER_BEAM_VERT = 9;
+const MAX_RING_VERTS = 4096;
+const FLOATS_PER_RING_VERT = 6;
 
 interface RenderTarget {
   fb: Framebuffer;
@@ -170,16 +177,21 @@ export class PicoGLRenderer implements IRenderer {
   private lineBuf!: VertexBuffer;
   private beamBuf!: VertexBuffer;
   private triBuf!: VertexBuffer;
+  private ringBuf!: VertexBuffer;
   private lineVA!: VertexArray;
   private beamVA!: VertexArray;
   private triVA!: VertexArray;
+  private ringVA!: VertexArray;
 
   private lineCall!: DrawCall;
   private beamCall!: DrawCall;
+  private ringCall!: DrawCall;
   private blurCall!: DrawCall;
   private compCall!: DrawCall;
 
   private scene: RenderTarget | null = null;
+  /** Таргет плоского слоя (зона): не участвует в bloom, композится по альфе. */
+  private flat: RenderTarget | null = null;
   private bloomA: RenderTarget | null = null;
   private bloomB: RenderTarget | null = null;
 
@@ -194,6 +206,8 @@ export class PicoGLRenderer implements IRenderer {
   private count = 0;
   private beamVerts = new Float32Array(MAX_BEAM_VERTS * FLOATS_PER_BEAM_VERT);
   private beamCount = 0;
+  private ringVerts = new Float32Array(MAX_RING_VERTS * FLOATS_PER_RING_VERT);
+  private ringCount = 0;
 
   width = 0;
   height = 0;
@@ -203,6 +217,8 @@ export class PicoGLRenderer implements IRenderer {
   private offX = 0;
   private offY = 0;
   private mode: RenderMode = "world";
+  /** Целевой слой отрисовки для текущего кадра. */
+  private layer: RenderLayer = "scene";
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -276,22 +292,31 @@ export class PicoGLRenderer implements IRenderer {
     this.triBuf = this.app.createVertexBuffer(
       PicoGL.FLOAT, 2, new Float32Array([-1, -1, 3, -1, -1, 3]), PicoGL.STATIC_DRAW
     );
+    this.ringBuf = this.app.createVertexBuffer(
+      PicoGL.FLOAT, FLOATS_PER_RING_VERT,
+      MAX_RING_VERTS * FLOATS_PER_RING_VERT, PicoGL.DYNAMIC_DRAW
+    );
 
     this.lineVA = this.buildLineVA();
     this.beamVA = this.buildBeamVA();
     this.triVA = this.buildTriVA();
+    this.ringVA = this.buildRingVA();
 
     this.lineCall = this.app.createDrawCall(this.lineProg, this.lineVA)
       .primitive(PicoGL.LINES);
     this.beamCall = this.app.createDrawCall(this.beamProg, this.beamVA)
+      .primitive(PicoGL.TRIANGLES);
+    this.ringCall = this.app.createDrawCall(this.lineProg, this.ringVA)
       .primitive(PicoGL.TRIANGLES);
     this.blurCall = this.app.createDrawCall(this.blurProg, this.triVA);
     this.compCall = this.app.createDrawCall(this.compProg, this.triVA);
 
     // Пересоздаём offscreen-таргеты после потери контекста.
     this.scene = null;
+    this.flat = null;
     this.bloomA = null;
     this.bloomB = null;
+    this.layer = "scene";
     // Сброс размеров заставляет следующий resize() пересоздать таргеты
     // (их GPU-объекты аннулированы при потере контекста).
     this.width = 0;
@@ -320,6 +345,13 @@ export class PicoGLRenderer implements IRenderer {
   private buildTriVA(): VertexArray {
     const va = this.app.createVertexArray();
     va.vertexAttributeBuffer(0, this.triBuf, { size: 2, type: PicoGL.FLOAT, stride: 0, offset: 0 });
+    return va;
+  }
+
+  private buildRingVA(): VertexArray {
+    const va = this.app.createVertexArray();
+    va.vertexAttributeBuffer(0, this.ringBuf, { size: 2, type: PicoGL.FLOAT, stride: 24, offset: 0 });
+    va.vertexAttributeBuffer(1, this.ringBuf, { size: 4, type: PicoGL.FLOAT, stride: 24, offset: 8 });
     return va;
   }
 
@@ -354,23 +386,58 @@ export class PicoGLRenderer implements IRenderer {
     // PicoGL отслеживает drawingBuffer; after canvas resize he updates himself.
     this.app.resize(w, h);
     this.deleteTarget(this.scene);
+    this.deleteTarget(this.flat);
     this.deleteTarget(this.bloomA);
     this.deleteTarget(this.bloomB);
     this.scene = this.makeTarget(w, h);
+    this.flat = this.makeTarget(w, h);
     this.bloomA = this.makeTarget(Math.max(2, w >> 1), Math.max(2, h >> 1));
     this.bloomB = this.makeTarget(Math.max(2, w >> 1), Math.max(2, h >> 1));
   }
 
+  /** Таргет активного слоя. */
+  private target(): RenderTarget | null {
+    return this.layer === "flat" ? this.flat : this.scene;
+  }
+
+  /** Привязать запись к активному слою (FBO + viewport + очистка). */
+  private bindTarget(clear: boolean): void {
+    const t = this.target();
+    if (!t) return;
+    this.app.drawFramebuffer(t.fb);
+    this.app.viewport(0, 0, t.w, t.h);
+    if (clear) this.app.clear();
+  }
+
   beginFrame() {
-    if (this.contextLost || !this.scene) return;
-    this.app.drawFramebuffer(this.scene.fb);
-    this.app.viewport(0, 0, this.scene.w, this.scene.h);
-    this.app.clear();
+    if (this.contextLost || !this.scene || !this.flat) return;
+    // Сцена — как раньше, в непрозрачный чёрный (её RGB читается как есть).
+    // Плоский слой — в прозрачный чёрный, чтобы заливка зоны легла на чистый нуль.
+    this.layer = "scene";
+    this.app.clearColor(0, 0, 0, 1);
+    this.bindTarget(true);
+    this.layer = "flat";
+    this.app.clearColor(0, 0, 0, 0);
+    this.bindTarget(true);
+    this.layer = "scene";
+    this.app.clearColor(0, 0, 0, 1);
+    this.bindTarget(false);
     this.app.enable(PicoGL.BLEND);
     this.app.blendFunc(PicoGL.SRC_ALPHA, PicoGL.ONE);
     this.count = 0;
     this.beamCount = 0;
+    this.ringCount = 0;
     this.mode = "world";
+  }
+
+  setLayer(layer: RenderLayer) {
+    if (layer === this.layer) return;
+    // Батчи принадлежат слою: сначала отдаём их в текущий FBO.
+    this.flush();
+    this.flushBeams();
+    this.flushRing();
+    this.layer = layer;
+    this.bindTarget(false);
   }
 
   clear() {
@@ -408,7 +475,7 @@ export class PicoGLRenderer implements IRenderer {
   }
 
   pushLine(x1: number, y1: number, x2: number, y2: number, c: RGBA) {
-    if (!this.scene) return;
+    if (!this.target()) return;
     if (this.count + 2 > MAX_VERTS) this.flush();
     const v = this.verts;
     let i = this.count * FLOATS_PER_VERT;
@@ -431,7 +498,7 @@ export class PicoGLRenderer implements IRenderer {
     x1: number, y1: number, x2: number, y2: number,
     width: number, c: RGBA, seed: number
   ) {
-    if (!this.scene) return;
+    if (!this.target()) return;
     const len = Math.hypot(x2 - x1, y2 - y1);
     if (len <= 0.001) return;
     if (this.beamCount + 6 > MAX_BEAM_VERTS) {
@@ -467,6 +534,78 @@ export class PicoGLRenderer implements IRenderer {
       v[i++] = seed;
     }
     this.beamCount += 6;
+  }
+
+  /**
+   * Заливка кольца треугольниками с градиентом альфы от внутреннего края
+   * к внешнему. Рисуется сразу, обычным alpha-блендингом, поверх уже
+   * накопленных линий сцены.
+   */
+  fillRing(
+    cx: number, cy: number, rInner: number, rOuter: number,
+    cInner: RGBA, cOuter: RGBA, segs = 96
+  ) {
+    if (!this.target() || rOuter <= 0.5 || rOuter <= rInner) return;
+    const n = Math.max(12, Math.min(segs, 360));
+    const inner = Math.max(0, rInner);
+
+    this.flush();
+    this.flushBeams();
+    if (this.ringCount + n * 6 > MAX_RING_VERTS) this.flushRing();
+
+    const twoPi = Math.PI * 2;
+    for (let s = 0; s < n; s++) {
+      const a0 = (s / n) * twoPi;
+      const a1 = ((s + 1) / n) * twoPi;
+      const x0i = cx + Math.cos(a0) * inner;
+      const y0i = cy + Math.sin(a0) * inner;
+      const x1i = cx + Math.cos(a1) * inner;
+      const y1i = cy + Math.sin(a1) * inner;
+      const x0o = cx + Math.cos(a0) * rOuter;
+      const y0o = cy + Math.sin(a0) * rOuter;
+      const x1o = cx + Math.cos(a1) * rOuter;
+      const y1o = cy + Math.sin(a1) * rOuter;
+
+      this.pushRingVert(x0i, y0i, cInner);
+      this.pushRingVert(x0o, y0o, cOuter);
+      this.pushRingVert(x1i, y1i, cInner);
+
+      this.pushRingVert(x0o, y0o, cOuter);
+      this.pushRingVert(x1o, y1o, cOuter);
+      this.pushRingVert(x1i, y1i, cInner);
+    }
+
+    this.flushRing();
+  }
+
+  private pushRingVert(x: number, y: number, c: RGBA) {
+    if (this.ringCount * FLOATS_PER_RING_VERT + FLOATS_PER_RING_VERT > this.ringVerts.length) {
+      this.flushRing();
+    }
+    const i = this.ringCount * FLOATS_PER_RING_VERT;
+    const v = this.ringVerts;
+    v[i] = x;
+    v[i + 1] = y;
+    v[i + 2] = c[0];
+    v[i + 3] = c[1];
+    v[i + 4] = c[2];
+    v[i + 5] = c[3];
+    this.ringCount++;
+  }
+
+  private flushRing() {
+    if (this.contextLost) {
+      this.ringCount = 0;
+      return;
+    }
+    if (this.ringCount === 0 || !this.target()) return;
+    this.ringBuf.data(this.ringVerts.subarray(0, this.ringCount * FLOATS_PER_RING_VERT));
+    this.app.blendFunc(PicoGL.SRC_ALPHA, PicoGL.ONE_MINUS_SRC_ALPHA);
+    this.applyCamera(this.ringCall);
+    this.ringCall.drawRanges([0, this.ringCount]);
+    this.ringCall.draw();
+    this.app.blendFunc(PicoGL.SRC_ALPHA, PicoGL.ONE);
+    this.ringCount = 0;
   }
 
   polyline(pts: Array<[number, number]>, closed: boolean, c: RGBA) {
@@ -561,7 +700,7 @@ export class PicoGLRenderer implements IRenderer {
       this.beamCount = 0;
       return;
     }
-    if (this.beamCount === 0 || !this.scene) return;
+    if (this.beamCount === 0 || !this.target()) return;
     this.beamBuf.data(this.beamVerts.subarray(0, this.beamCount * FLOATS_PER_BEAM_VERT));
     this.applyCamera(this.beamCall);
     this.beamCall.uniform("uTime", time);
@@ -575,7 +714,7 @@ export class PicoGLRenderer implements IRenderer {
       this.count = 0;
       return;
     }
-    if (this.count === 0 || !this.scene) return;
+    if (this.count === 0 || !this.target()) return;
     this.lineBuf.data(this.verts.subarray(0, this.count * FLOATS_PER_VERT));
     this.applyCamera(this.lineCall);
     this.lineCall.drawRanges([0, this.count]);
@@ -584,9 +723,12 @@ export class PicoGLRenderer implements IRenderer {
   }
 
   finish(time: number) {
-    if (this.contextLost || !this.scene || !this.bloomA || !this.bloomB) return;
+    if (this.contextLost || !this.scene || !this.flat || !this.bloomA || !this.bloomB) return;
     this.flush();
     this.flushBeams(time);
+    this.flushRing();
+    // Очередь пуста, запись больше не нужна — возвращаем слой сцены.
+    this.layer = "scene";
     this.app.disable(PicoGL.BLEND);
 
     // Проход блюра 1: сцена → bloomA (горизонтальный).
@@ -603,8 +745,9 @@ export class PicoGLRenderer implements IRenderer {
     this.app.viewport(0, 0, this.bloomB.w, this.bloomB.h);
     this.blurCall.draw();
 
-    // Композиция: сцена + bloom на экран.
+    // Композиция: фон + плоский слой + сцена + bloom на экран.
     this.compCall.texture("uScene", this.scene.tex);
+    this.compCall.texture("uFlat", this.flat.tex);
     this.compCall.texture("uBloom", this.bloomB.tex);
     this.compCall.uniform("uRes", [this.width, this.height]);
     this.compCall.uniform("uTime", time);

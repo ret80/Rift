@@ -5,11 +5,11 @@
  * сущности. DTO для чтения нет: рендер и коллизии работают с `BulletRef`
  * и `EnemyBulletRef`.
  *
- * Орудийные выстрелы времени жизни не имеют — LifeComponent на них не
- * создаётся, снаряд летит до края игровой зоны. Компонент добавляют только
- * снарядам с ограниченным запасом (ракеты).
+ * Дальность выстрела задаётся временем жизни: LifeComponent создаётся из
+ * «дальность / скорость» при спавне. Ракеты приходят со своим life.
  */
 
+import { BULLET_RANGE_ENEMY } from "../../balance";
 import type { EcsEngine } from "../EcsEngine";
 import { GameEntity } from "../GameEntity";
 import { BulletComponent } from "../components/BulletComponent";
@@ -35,8 +35,7 @@ export class BulletDomain {
     entity.components.add(new BulletComponent(bullet.dmg));
     entity.components.add(new PositionComponent(bullet.x, bullet.y));
     entity.components.add(new VelocityComponent(bullet.vx, bullet.vy));
-    // Время жизни — только у снарядов с ограниченным запасом (ракеты).
-    // Орудийный выстрел компонента Life не имеет и летит до края зоны.
+    // Ракеты приходят со своим life; обычные выстрелы — с дальностью.
     if (bullet.life !== undefined && bullet.life > 0) {
       entity.components.add(new LifeComponent(bullet.life, bullet.life));
     }
@@ -58,6 +57,12 @@ export class BulletDomain {
     entity.components.add(new VelocityComponent(bullet.vx, bullet.vy));
     entity.components.add(new RadiusComponent(bullet.r));
     entity.components.add(new BulletSweepComponent(bullet.px, bullet.py, bullet.grazed));
+    // Дальность вражеского болта: без времени жизни он летел бы бесконечно.
+    const speed = Math.hypot(bullet.vx, bullet.vy);
+    if (speed > 1) {
+      const life = BULLET_RANGE_ENEMY / speed;
+      entity.components.add(new LifeComponent(life, life));
+    }
     this.ecs.add(entity);
   }
 

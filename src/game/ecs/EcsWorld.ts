@@ -44,7 +44,7 @@ import { ParticleSystem } from "./systems/ParticleSystem";
 import { PickupCollectionSystem } from "./systems/PickupCollectionSystem";
 import { PickupMovementSystem } from "./systems/PickupMovementSystem";
 import { RingSystem } from "./systems/RingSystem";
-import { ZoneClampSystem } from "./systems/ZoneClampSystem";
+import { ZoneEnemyPullSystem } from "./systems/ZoneEnemyPullSystem";
 import type { PhasedSystem } from "./SystemSchedule";
 
 export class EcsWorld {
@@ -73,9 +73,9 @@ export class EcsWorld {
       new ParticleSystem(),
       new RingSystem(),
       new BeamSystem(),
-      new BulletSystem(deps.getZoneBounds),
+      new BulletSystem(),
       ...this.enemyDomain.systems,
-      new ZoneClampSystem(this.core, deps.getZoneBounds),
+      new ZoneEnemyPullSystem(this.core, deps.getZoneBounds),
     ];
   }
 

@@ -17,24 +17,28 @@
  */
 
 import type { AsteroidField } from "../asteroids";
-import type { Fx } from "../fx";
-import type { RenderFrame, RenderScene } from "../types/render";
-import type { IRenderer } from "../render/index";
+import { C } from "../balance";
 import type { BeamRef } from "../ecs";
+import type { Fx } from "../fx";
+import { rgba } from "../math";
+import type { MenuEnemy, MenuFrame, MenuRift } from "../presentation/menu/types";
+import { getDpr } from "../render/config";
+import type { IRenderer } from "../render/index";
 import { RiftField } from "../rifts";
 import type { Starfield } from "../starfield";
-import type { MenuEnemy, MenuFrame, MenuRift } from "../presentation/menu/types";
-import { renderPickups, buildPickupState } from "./Renderers/PickupRenderer";
-import { renderEnemies, buildEnemyState } from "./Renderers/EnemyRenderer";
-import { renderPlayer, buildPlayerState } from "./Renderers/PlayerRenderer";
-import { renderAllyDrones, buildDroneState } from "./Renderers/DroneRenderer";
-import { renderBullets, buildBulletState, buildEBulletState } from "./Renderers/BulletRenderer";
-import { renderZone, buildZoneState } from "./Renderers/ZoneRenderer";
-import { calcRiftAnim, drawRift } from "./Renderers/RiftAnimation";
-import { calcMenuRiftAnim } from "./Renderers/RiftAnimation";
+import type { RenderFrame, RenderScene } from "../types/render";
+import { buildBulletState, buildEBulletState, renderBullets } from "./Renderers/BulletRenderer";
+import { buildDroneState, renderAllyDrones } from "./Renderers/DroneRenderer";
+import { buildEnemyState, renderEnemies } from "./Renderers/EnemyRenderer";
+import { buildPickupState, renderPickups } from "./Renderers/PickupRenderer";
+import { buildPlayerState, renderPlayer } from "./Renderers/PlayerRenderer";
+import { calcMenuRiftAnim, calcRiftAnim, drawRift } from "./Renderers/RiftAnimation";
 import { drawShipPoly } from "./Renderers/ShipRenderer";
-import { C } from "../balance";
-import { rgba } from "../math";
+import {
+    buildZoneState,
+    renderZone,
+    renderZoneReturnIndicator,
+} from "./Renderers/ZoneRenderer";
 
 /* ============================== config ============================== */
 
@@ -143,7 +147,13 @@ export class RendererSystem {
     if (state === "menu") {
       this.drawMenuScene(R, time);
     } else {
-      if (zone) renderZone(R, zone, time);
+      // Зона — плоский слой: он композится над фоном, но под всеми объектами
+      // сцены (пули, враги, астероиды) и не попадает в bloom.
+      if (zone) {
+        R.setLayer("flat");
+        renderZone(R, zone, time);
+        R.setLayer("scene");
+      }
       this.drawRifts(R, time);
       renderPickups(R, pickups, time);
       renderEnemies(R, enemies, time);
@@ -154,6 +164,16 @@ export class RendererSystem {
       renderBullets(R, bullets, ebullets);
       this.drawBeams(R, beams, time);
       this.config.fx.draw(R);
+    }
+
+    // Указатель на зону, пока игрок снаружи: камера следует за игроком,
+    // и сама зона может быть далеко за экраном.
+    if (zone && player && state !== "dying" && state !== "over") {
+      R.setMode("screen");
+      renderZoneReturnIndicator(
+        R, zone, player.x, player.y,
+        view.width, view.height, getDpr(), time
+      );
     }
 
     R.finish(time);

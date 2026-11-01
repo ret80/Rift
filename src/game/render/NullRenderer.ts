@@ -9,7 +9,7 @@
  * Подключается через URL-параметр ?renderer=null в GameContext.
  */
 
-import type { IRenderer, RenderMode, RGBA } from "./IRenderer";
+import type { IRenderer, RenderLayer, RenderMode, RGBA } from "./IRenderer";
 import { getDpr } from "./config";
 
 /** Метрики отрисованных примитивов за один кадр. */
@@ -20,6 +20,8 @@ export interface FrameStats {
   circles: number;
   dashedCircles: number;
   polygons: number;
+  /** Залитые кольца (fillRing). */
+  fills: number;
 }
 
 export class NullRenderer implements IRenderer {
@@ -35,6 +37,7 @@ export class NullRenderer implements IRenderer {
     circles: 0,
     dashedCircles: 0,
     polygons: 0,
+    fills: 0,
   };
 
   private mode: RenderMode = "world";
@@ -64,7 +67,7 @@ export class NullRenderer implements IRenderer {
   }
 
   beginFrame() {
-    this.stats = { lines: 0, beams: 0, polylines: 0, circles: 0, dashedCircles: 0, polygons: 0 };
+    this.stats = { lines: 0, beams: 0, polylines: 0, circles: 0, dashedCircles: 0, polygons: 0, fills: 0 };
     const ctx = this.ctx;
     if (!ctx) return;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -83,6 +86,15 @@ export class NullRenderer implements IRenderer {
 
   setMode(mode: RenderMode) {
     this.mode = mode;
+  }
+
+  /**
+   * NullRenderer рисует прямо на Canvas 2D без постобработки, поэтому
+   * разделение на слои ему не нужно: порядок вызовов уже задаёт порядок
+   * отрисовки. Метод — заглушка для соответствия IRenderer.
+   */
+  setLayer(_layer: RenderLayer) {
+    // no-op
   }
 
   setCamera(camX: number, camY: number, zoom: number, shakeX: number, shakeY: number) {
@@ -162,6 +174,26 @@ export class NullRenderer implements IRenderer {
     ctx.arc(sx, sy, r * this.zoom, phase, phase + Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
+  }
+
+  fillRing(
+    cx: number, cy: number, rInner: number, rOuter: number,
+    cInner: RGBA, cOuter: RGBA, _segs = 96
+  ) {
+    this.stats.fills++;
+    const ctx = this.ctx;
+    if (!ctx || rOuter <= rInner) return;
+    const [sx, sy] = this.toScreen(cx, cy);
+    const innerR = Math.max(0, rInner * this.zoom);
+    const outerR = rOuter * this.zoom;
+    const grad = ctx.createRadialGradient(sx, sy, innerR, sx, sy, outerR);
+    grad.addColorStop(0, this.rgba(cInner));
+    grad.addColorStop(1, this.rgba(cOuter));
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(sx, sy, outerR, 0, Math.PI * 2);
+    ctx.arc(sx, sy, innerR, 0, Math.PI * 2, true);
+    ctx.fill("evenodd");
   }
 
   drawPolygon(x: number, y: number, angle: number, pts: Array<[number, number]>, c: RGBA, closed = true) {

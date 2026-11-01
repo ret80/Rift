@@ -16,6 +16,8 @@ export interface GameContextInput {
   zoneX: number;
   zoneY: number;
   zoneRadius: number;
+  /** Игрок вне активной зоны: зонные ограничения ИИ можно не применять. */
+  playerOutsideZone?: boolean;
   wave: number;
 }
 
@@ -33,6 +35,8 @@ export class GameContext {
   public zoneX = 0;
   public zoneY = 0;
   public zoneRadius = 0;
+  /** Игрок снаружи зоны: враги могут выходить, их возвращает притяжение. */
+  public playerOutsideZone = false;
 
   public wave = 1;
 
@@ -55,6 +59,7 @@ export class GameContext {
     this.zoneX = input.zoneX;
     this.zoneY = input.zoneY;
     this.zoneRadius = input.zoneRadius;
+    this.playerOutsideZone = input.playerOutsideZone ?? false;
     this.wave = input.wave;
     this.carrierSpawns = [];
   }

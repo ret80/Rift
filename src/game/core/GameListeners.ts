@@ -38,6 +38,9 @@ export class GameListeners {
       bus.subscribe("game_over", (_event) => {
         // Волна окончена — возвращаемся к спокойной музыке.
         this.ctx.audio.setCombat(false);
+        // Системы волны встают вместе с экраном смерти: предупреждение
+        // о выходе из зоны больше некому погасить по таймеру.
+        this.ctx.hooks.onToast(null);
         this.ctx.fsm.fire("player_died");
       }),
     );

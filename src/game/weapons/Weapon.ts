@@ -42,17 +42,6 @@ export interface AimState {
   hitChance: number;
 }
 
-/** Снимок границы игровой зоны для оружия. */
-export interface ZoneSnapshot {
-  /** Зона волны активна. */
-  active: boolean;
-  /** Центр зоны (мировые координаты). */
-  x: number;
-  y: number;
-  /** Радиус зоны. */
-  radius: number;
-}
-
 /** Всё, что доступно оружию во время работы. */
 export interface WeaponContext extends EnemyDamagePort {
   /** Положение и состояние игрока. */
@@ -73,8 +62,6 @@ export interface WeaponContext extends EnemyDamagePort {
   readonly beams: BeamRef[];
   /** Зарегистрировать новый визуальный луч лазера в ECS-мире. */
   addBeam(beam: BeamSpawn): void;
-  /** Граница игровой зоны (null — зона не задана). */
-  readonly zone: ZoneSnapshot | null;
   /** Колбэк выстрела — проигрывание звука. */
   onFired(id: WeaponId): void;
 }

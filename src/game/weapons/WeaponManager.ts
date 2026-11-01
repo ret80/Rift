@@ -29,7 +29,6 @@ import type {
   WeaponLoadout,
   WeaponModifiers,
   WeaponUpgrades,
-  ZoneSnapshot,
 } from "./Weapon";
 import { createWeaponRegistry } from "./WeaponRegistry";
 
@@ -51,8 +50,6 @@ export interface WeaponWorld extends EnemyDamagePort {
   getBeams?(): BeamRef[];
   /** Зарегистрировать новый визуальный луч лазера в ECS-мире. */
   addBeam?(beam: BeamSpawn): void;
-  /** Граница игровой зоны (null — зона не задана). */
-  getZone?(): ZoneSnapshot | null;
 }
 
 export class WeaponManager extends PhasedSystem {
@@ -215,7 +212,6 @@ export class WeaponManager extends PhasedSystem {
       addAllyDrone: (drone) => this.world.addAllyDrone(drone),
       beams: this.world.getBeams?.() ?? [],
       addBeam: (beam) => this.world.addBeam?.(beam),
-      zone: this.world.getZone?.() ?? null,
       onFired: (id) => this.onWeaponFired(id),
       damageEnemy: (enemy, dmg) => this.world.damageEnemy(enemy, dmg),
     };

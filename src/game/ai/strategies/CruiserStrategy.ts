@@ -8,9 +8,9 @@
  *    орбите со стороны игрока, прикрывая носитель.
  * 2. Носителя рядом нет — крейсер действует сам: от позиции игрока вдоль
  *    его вектора движения откладывается CRUISER_LEAD_DISTANCE, и крейсер
- *    летит в полученную точку упреждения, ведя огонь из неё. Точка
- *    вталкивается внутрь зоны с отступом CRUISER_ZONE_EDGE_MARGIN_RADII
- *    радиусов корпуса от края, чтобы не упираться в границу.
+ *    летит в полученную точку упреждения, ведя огонь из неё. Пока игрок
+ *    внутри зоны, точка вталкивается внутрь с отступом
+ *    CRUISER_ZONE_EDGE_MARGIN_RADII радиусов корпуса от края.
  * 3. Игрок дальше CRUISER_MANEUVER_RANGE, но в дистанции огня — лететь в
  *    точку упреждения поздно и незачем: крейсер держит позицию и просто
  *    ведёт по игроку прицельный огонь.
@@ -210,6 +210,9 @@ export class CruiserStrategy implements IEnemyStrategy {
     margin: number,
     context: GameContext,
   ): void {
+    // Игрок снаружи — цель манёвра за зоной разрешена; возвратом занимается
+    // ZoneEnemyPullSystem.
+    if (context.playerOutsideZone) return;
     const { zoneX, zoneY, zoneRadius } = context;
     if (zoneRadius <= 0) return;
     const limit = Math.max(0, zoneRadius - margin);

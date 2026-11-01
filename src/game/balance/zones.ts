@@ -8,25 +8,58 @@ import { ZONE_EXPAND_SPEED_MULT } from "./player";
 /* ------------------------- zone constants ------------------------- */
 
 export const ZONE_INITIAL_RADIUS = 26; // 2 × PLAYER_RADIUS (13)
-export const ZONE_EDGE_MARGIN = 40;
-export const ZONE_EDGE_WARNING_DELAY = 0.3; // seconds before warning
+/** Порог выхода: урон/предупреждение начинаются за реальной границей зоны. */
+export const ZONE_EXIT_EPSILON = 4;
+/** Порог возврата: урон выключается внутри зоны (защита от дребезга на краю). */
+export const ZONE_REENTRY_HYSTERESIS = 26;
 export const ZONE_EDGE_DAMAGE_INTERVAL = 0.5; // seconds between shake pulses
 export const ZONE_EDGE_DAMAGE_FRACTION_PER_SEC = 0.1; // 10% of max HP per second
 export const ZONE_EDGE_SHAKE_STRENGTH = 4; // shake intensity
 export const ZONE_EARLY_DAMAGE_THRESHOLD = 0.3; // don't damage before zone reaches 30% target
+
+/** Ширина красной полосы снаружи зоны (мировые единицы). */
+export const ZONE_WARNING_BAND = 250;
+/** Альфа ровной (без градиента) заливки полосы зоны — «еле заметная» граница. */
+export const ZONE_FILL_ALPHA = 0.122;
+/** Доля ширины полосы у внутреннего края, которая светится слабее. */
+export const ZONE_FILL_INNER_FADE = 0.25;
+/** Множитель альфы внутренней подполосы: на 30% прозрачнее остального кольца. */
+export const ZONE_FILL_INNER_MULT = 0.7;
+/** Альфа линии реальной границы зоны. */
+export const ZONE_EDGE_ALPHA = 0.23;
+/** Альфа линии внешнего края полосы. */
+export const ZONE_OUTER_EDGE_ALPHA = 0.061;
+/** Максимальная альфа зоны (раньше упиралась в 0.5). */
+export const ZONE_MAX_ALPHA = 1.0;
+
+/* ------------------------- притяжение врагов ------------------------- */
+
+/** Ускорение, с которым зона тянет вышедшего врага к центру, ед/с². */
+export const ZONE_ENEMY_PULL_ACCEL = 900;
+/** Проникновение, на котором притяжение выходит на полную силу. */
+export const ZONE_ENEMY_PULL_RAMP = 240;
+/** Гашение радиальной скорости наружу, 1/с. */
+export const ZONE_ENEMY_PULL_DAMPING = 8;
+/** Гашение орбитальной составляющей на краю, 1/с. */
+export const ZONE_ENEMY_PULL_TANGENT_DAMPING = 0.8;
+/** Предохранитель скорости врага после притяжения. */
+export const ZONE_ENEMY_PULL_MAX_SPEED = 700;
 
 export const ZONE_CLEAR_BANNER_DELAY = 1.5; // seconds before showing wave clear banner
 export const ZONE_CLEAR_NEXT_WAVE = 3.0; // seconds before next wave
 /** Секунды, за которые зона гаснет в альфу 0 после зачистки волны. */
 export const ZONE_CLEAR_FADE_TIME = 0.5;
 
-export const ZONE_WALL_OVERDRIVE = 56;
-export const ZONE_EDGE_HYSTERESIS = 26;
 export const ZONE_PICKUP_MAGNET = 150;
 
 export const ZONE_ASTEROID_PUSH_FORCE = 15; // force multiplier for pushing asteroids out
-export const ZONE_ENEMY_PUSH_FORCE_COEFF = 8; // coefficient for enemy push force
-export const ZONE_ENEMY_PUSH_FORCE_MAX = 200; // max push force for enemies
+
+/* --------------------------- дальность снарядов --------------------------- */
+
+/** Дальность снарядов игрока (пушек и дронов), мировые единицы. */
+export const BULLET_RANGE_PLAYER = 2800;
+/** Дальность вражеских болтов, мировые единицы. */
+export const BULLET_RANGE_ENEMY = 1600;
 
 /* ------------------------------ zone expansion speed ------------------------------ */
 

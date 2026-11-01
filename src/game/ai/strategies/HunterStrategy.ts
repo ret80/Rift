@@ -58,7 +58,11 @@ export class HunterStrategy implements IEnemyStrategy {
       context.playerVx, context.playerVy,
       marker.speed
     );
-    this.keepInsideZone(aim, context.zoneX, context.zoneY, context.zoneRadius);
+    // Игрок снаружи — зона больше не удерживает хантера, его вернёт
+    // ZoneEnemyPullSystem; иначе ИИ боролся бы с притяжением.
+    if (!context.playerOutsideZone) {
+      this.keepInsideZone(aim, context.zoneX, context.zoneY, context.zoneRadius);
+    }
 
     const gx = aim.x - pos.x;
     const gy = aim.y - pos.y;
@@ -73,7 +77,7 @@ export class HunterStrategy implements IEnemyStrategy {
     // Целевая скорость в направлении точки перехвата
     smoothVelocity(vel, (gx / gd) * speed, (gy / gd) * speed, turnRate, dt);
 
-    this.avoidWall(enemy, context, dt);
+    if (!context.playerOutsideZone) this.avoidWall(enemy, context, dt);
 
     // Вращение: смотреть по направлению движения
     const hv = Math.hypot(vel.vx, vel.vy);

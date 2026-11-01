@@ -1,25 +1,23 @@
 /**
  * ZoneSystem — централизованное управление зоной.
  * Отвечает за:
- *  1. Clamp игрока к границе зоны (отталкивание обратно)
- *  2. Применение ограничений зоны для астероидов (выталкивание наружу)
+ *  1. Выталкивание астероидов из игровой области (зона для них непроницаема).
+ *  2. Притяжение врагов к центру вынесено в ECS-систему ZoneEnemyPullSystem.
  *
- * Кламп/ограничение врагов вынесено в ECS-систему ZoneClampSystem,
- * которая исполняется с приоритетом 11 — после шага физики.
+ * Игрок зону игнорирует: никакого клампа и отражения скорости нет. За выход
+ * из зоны отвечает ZoneEdgeDamage (урон + предупреждение).
  */
 
 import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import { ZONE_ASTEROID_PUSH_FORCE } from "../balance";
 import type { ZoneData } from "../core/ZoneTypes";
-import type { AsteroidRef, PlayerRef } from "../ecs";
+import type { AsteroidRef } from "../ecs";
 
 /* ============================== Types ============================== */
 
 export interface ZoneSystemConfig {
   /** authoritative zone state from WaveOrchestrator */
   getZoneState: () => ZoneData;
-  /** live player components for clamp (позиция/скорость — базовые компоненты) */
-  getPlayerRef: () => PlayerRef | null;
   /** reference to asteroids for constraints (живые связки базовых компонентов) */
   getAsteroids: () => AsteroidRef[];
 }
@@ -35,16 +33,14 @@ export class ZoneSystem extends PhasedSystem {
   }
 
   /**
-   * Обновить аспекты зоны, относящиеся к игроку и астероидам.
-   * Кламп врагов вынесен в ECS-систему ZoneClampSystem (приоритет 11,
-   * после шага физики).
+   * Обновить аспекты зоны, относящиеся к астероидам.
    */
   process(dt: number): void {
     this.update(dt);
   }
 
   /**
-   * Обновить аспекты зоны, относящиеся к игроку и астероидам.
+   * Обновить аспекты зоны, относящиеся к астероидам.
    */
   update(dt: number): void {
     const zone = this.config.getZoneState();
@@ -52,45 +48,8 @@ export class ZoneSystem extends PhasedSystem {
     // Skip zone logic if not active
     if (!zone.active || zone.radius <= 0) return;
 
-    // Clamp player to zone boundary
-    this.clampPlayer(zone);
-
     // Apply zone constraints (asteroids out)
     this.applyZoneConstraints(dt, zone);
-  }
-
-  // ============================== Clamp ==============================
-
-  /**
-   * Clamp player to zone boundary.
-   * Pushes player back inside if outside, reflects outward velocity.
-   */
-  clampPlayer(zone: ZoneData): void {
-    const playerRef = this.config.getPlayerRef();
-    if (!playerRef) return;
-    const position = playerRef.position;
-    const velocity = playerRef.velocity;
-    const dx = position.x - zone.x;
-    const dy = position.y - zone.y;
-    const dist = Math.hypot(dx, dy);
-    // Player clamp uses full zone radius (no overdrive extension)
-    const limit = zone.radius;
-
-    if (dist > limit) {
-      const angle = Math.atan2(dy, dx);
-      // Hard position reset to boundary
-      position.x = zone.x + Math.cos(angle) * limit;
-      position.y = zone.y + Math.sin(angle) * limit;
-
-      // Reflect velocity: v -= 2 * (v·n) * n
-      const nx = Math.cos(angle);
-      const ny = Math.sin(angle);
-      const dot = velocity.vx * nx + velocity.vy * ny;
-      if (dot > 0) {
-        velocity.vx -= 2 * dot * nx;
-        velocity.vy -= 2 * dot * ny;
-      }
-    }
   }
 
   // ============================== Constraints ==============================
@@ -98,7 +57,7 @@ export class ZoneSystem extends PhasedSystem {
   /**
    * Apply zone constraints:
    *  - Asteroids: push OUT of zone if inside boundary
-   *  - Enemies: handled in ZoneClampSystem (ECS) after physics
+   *  - Enemies: handled in ZoneEnemyPullSystem (ECS) after physics
    */
   applyZoneConstraints(dt: number, zone: ZoneData): void {
     const zoneRadius = zone.radius;

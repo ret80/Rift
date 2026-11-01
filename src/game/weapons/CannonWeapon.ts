@@ -9,10 +9,12 @@
  * Число стволов складывается из постоянного слотового апгрейда
  * и временного бонуса «доп. стволы».
  *
- * У снаряда пушки нет времени жизни: он летит до края игровой зоны, где
- * и уничтожается. CANNON_LEAD_TIME задаёт лишь горизонт упреждения прицела.
+ * Дальность снаряда задаётся временем жизни (BULLET_RANGE_PLAYER / скорость):
+ * зона проницаема, поэтому выстрел не гаснет на её краю. CANNON_LEAD_TIME
+ * задаёт лишь горизонт упреждения прицела.
  */
 
+import { BULLET_RANGE_PLAYER } from "../balance";
 import { aimAtTarget } from "../aiming/AimSolver";
 import type {
     Weapon,
@@ -28,10 +30,12 @@ import { WEAPON_CATALOG } from "./WeaponCatalog";
 const CANNON_BULLET_SPEED = 560;
 /**
  * Горизонт упреждения прицела, секунды. Это НЕ время жизни снаряда:
- * выстрел пушки его не имеет и летит до края игровой зоны. Параметр
- * ограничивает лишь дальность, на которую имеет смысл брать упреждение.
+ * дальность выстрела задаётся BULLET_RANGE_PLAYER. Параметр ограничивает
+ * лишь дальность, на которую имеет смысл брать упреждение.
  */
 const CANNON_LEAD_TIME = 0.85;
+/** Время жизни снаряда: дальность / скорость. */
+const CANNON_BULLET_LIFE = BULLET_RANGE_PLAYER / CANNON_BULLET_SPEED;
 /** Базовый урон снаряда пушки. */
 const CANNON_BULLET_DMG = 14;
 /** Интервал между выстрелами в секундах. */
@@ -145,7 +149,7 @@ export class CannonWeapon implements Weapon {
 
   /**
    * Выстрел: по одному снаряду из каждого ствола, у каждого свой разброс.
-   * Снаряд летит без времени жизни — его дальность обрывает край зоны.
+   * Время жизни ограничивает дальность, а не край зоны.
    */
   private fire(ctx: WeaponContext): void {
     const barrels = this.getInstanceCount(ctx);
@@ -161,6 +165,7 @@ export class CannonWeapon implements Weapon {
         y: ctx.player.y + Math.sin(turret) * 14 + Math.cos(turret) * offset,
         vx: Math.cos(barrelAngle) * CANNON_BULLET_SPEED,
         vy: Math.sin(barrelAngle) * CANNON_BULLET_SPEED,
+        life: CANNON_BULLET_LIFE,
         dmg: CANNON_BULLET_DMG * this.damageMult,
       });
     }

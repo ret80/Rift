@@ -237,19 +237,8 @@ export function solveLead(params: AimParams): LeadResult | null {
   return { angle: Math.atan2(lead.y - sy, lead.x - sx), timeOfFlight: t };
 }
 
-/** Границы зоны, в которой живёт снаряд: за барьером он гаснет. */
-export interface AimZoneBounds {
-  x: number;
-  y: number;
-  radius: number;
-  /** Отступ точки встречи от края: у самой границы стрелять бессмысленно. */
-  margin: number;
-}
-
 /** Условия, при которых выстрел вообще имеет смысл. */
 export interface FireWindowParams extends AimParams {
-  /** Зона или null, если бой идёт без ограничения. */
-  zone: AimZoneBounds | null;
   /** Минимальное время полёта снаряда, секунды. */
   minTime: number;
   /** Максимальное время полёта снаряда, секунды. */
@@ -275,13 +264,12 @@ export interface FireWindow {
  * когда попадания не будет независимо от точности:
  *  - встречи нет (цель уходит быстрее снаряда);
  *  - время полёта вне окна (в упор или слишком далеко для линейного прогноза);
- *  - цель слишком «мелкая» на выбранной дистанции;
- *  - точка встречи лежит у края зоны — болт погаснет о барьер, не долетев.
+ *  - цель слишком «мелкая» на выбранной дистанции.
  *
  * Рассеивание сюда не входит: это отдельный слой поверх прицела.
  */
 export function solveFireWindow(params: FireWindowParams): FireWindow | null {
-  const { sx, sy, target, bulletSpeed, zone } = params;
+  const { sx, sy, target, bulletSpeed } = params;
   if (bulletSpeed <= 0) return null;
 
   const dx = target.x - sx;
@@ -301,15 +289,6 @@ export function solveFireWindow(params: FireWindowParams): FireWindow | null {
 
   // Угловой размер цели на дистанции выстрела.
   if (Math.asin(clamp(target.r / dist, 0, 1)) < params.minAngular) return null;
-
-  if (zone) {
-    // Круг выпуклый: если и стрелок, и точка встречи внутри, весь отрезок
-    // траектории тоже внутри — отдельная проверка середины не нужна.
-    const margin = Math.min(zone.margin, zone.radius * 0.5);
-    if (Math.hypot(impactX - zone.x, impactY - zone.y) > zone.radius - margin) {
-      return null;
-    }
-  }
 
   return {
     angle: Math.atan2(impactY - sy, impactX - sx),

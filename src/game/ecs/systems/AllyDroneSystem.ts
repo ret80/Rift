@@ -11,6 +11,7 @@
  */
 
 import { Aspect, type Engine } from "@trixt0r/ecs";
+import { BULLET_RANGE_PLAYER } from "../../balance";
 import { aimAtTarget } from "../../aiming/AimSolver";
 import type { EnemyRef, PlayerRef } from "../../ecs";
 import { AllyDroneComponent } from "../components/AllyDroneComponent";
@@ -146,6 +147,7 @@ export class AllyDroneSystem extends PhasedSystem {
         y: position.y,
         vx: Math.cos(angle) * combat.bulletSpeed,
         vy: Math.sin(angle) * combat.bulletSpeed,
+        life: BULLET_RANGE_PLAYER / combat.bulletSpeed,
         dmg: combat.damage,
       });
       anyFired = true;

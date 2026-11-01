@@ -22,7 +22,8 @@ import { WaveStateMachine, type WaveStateId } from "../waves/WaveStateMachine";
 export interface WaveOrchestratorHooks {
   onBanner: (title: string, sub?: string, color?: string) => void;
   onToast: (text: string, color?: string) => void;
-  hitPlayer: (amount: number) => void;
+  /** Урон за краем зоны — в обход щита. */
+  hitPlayerRaw: (amount: number) => void;
   shakeScreen: (strength: number, duration: number) => void;
   onWaveAdvanced: (wave: number) => void;
 }
@@ -128,6 +129,10 @@ export class WaveOrchestrator {
     const state = this.waves.state;
     if (state !== "active" && state !== "cleared") return;
 
+    // Тост живёт своё время в любом состоянии волны: предупреждение о выходе
+    // из зоны не должно висеть до конца волны.
+    this.tickToast(dt);
+
     // Активируем зону, когда отсчёт закончился.
     if (!this.zone.state.active && state === "active" && !countdownActive) {
       this.activateZone(playerPos.x, playerPos.y);
@@ -161,6 +166,16 @@ export class WaveOrchestrator {
 
   // ============================== Private methods ==============================
 
+  /** Отсчитать время жизни тоста и погасить его. */
+  private tickToast(dt: number): void {
+    if (this.toastClearTimer <= 0) return;
+    this.toastClearTimer -= dt;
+    if (this.toastClearTimer <= 0) {
+      this.hooks.onToast("", "");
+      this.toastClearTimer = 0;
+    }
+  }
+
   private updateClearTransition(dt: number): void {
     const clearT = this.waves.addClearTime(dt);
 
@@ -171,16 +186,8 @@ export class WaveOrchestrator {
         t("game.nextWave", { wave: this.waves.wave + 1 }),
         "#6f6",
       );
-      // Запускаем frame-based таймер очистки toast.
+      // Баннер зачистки держится дольше обычного тоста.
       this.toastClearTimer = TOAST_CLEAR_LONG;
-    }
-
-    if (this.toastClearTimer > 0) {
-      this.toastClearTimer -= dt;
-      if (this.toastClearTimer <= 0) {
-        this.hooks.onToast("", "");
-        this.toastClearTimer = 0;
-      }
     }
 
     this.zone.applyClearExpansion(dt, clearT, this.speedMult, this.playerMaxSpeed);

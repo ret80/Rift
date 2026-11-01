@@ -206,7 +206,21 @@ export class PlayerSystem extends PhasedSystem {
     if (!ref) return;
     // Щит гасит часть урона и тратит на это энергию.
     const incoming = this.shield ? this.shield.absorb(dmg) : dmg;
-    ref.life.remaining -= incoming;
+    this.applyDamage(ref, incoming);
+  }
+
+  /**
+   * Урон в обход щита. Используется зоной волны: за её краем игрок теряет
+   * ровно заданную долю максимального HP, щит не должен это уменьшать.
+   */
+  hitRaw(dmg: number): void {
+    const ref = this.playerRefSource();
+    if (!ref) return;
+    this.applyDamage(ref, dmg);
+  }
+
+  private applyDamage(ref: PlayerRef, dmg: number): void {
+    ref.life.remaining -= dmg;
     if (ref.life.remaining <= 0) {
       ref.life.remaining = 0;
       this.eventBus.publish('game_over', {});
