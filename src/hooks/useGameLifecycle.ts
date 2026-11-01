@@ -42,6 +42,10 @@ export interface GameLifecycleCallbacks {
   onReady: (game: Game) => void;
   /** URL-параметр `?wave` запустил забег — нужно открыть игровой экран. */
   onAutoStart: () => void;
+  /** Нажатие кнопки подтверждения геймпада (A/Cross). */
+  onGamepadConfirm?: () => void;
+  /** Нажатие кнопки отмены геймпада (B/Circle). */
+  onGamepadCancel?: () => void;
 }
 
 export function useGameLifecycle(
@@ -82,6 +86,8 @@ export function useGameLifecycle(
       onGameOver: () => {
         // Итоги придут через onStats после перехода dying → over.
       },
+      onGamepadConfirm: events.onGamepadConfirm,
+      onGamepadCancel: events.onGamepadCancel,
     }, storage);
 
     game.setVolumes(initial.volumes);

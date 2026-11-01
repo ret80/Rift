@@ -9,6 +9,7 @@ export default function GameOverScreen(props: {
   onRetry: () => void;
   onUpgrade: () => void;
   onMenu: () => void;
+  isGamepad: boolean;
 }) {
   const t = useT();
   const s = props.stats;
@@ -65,13 +66,28 @@ export default function GameOverScreen(props: {
             <div className="flex w-full gap-3">
               <GameButton onClick={props.onRetry} autoFocus className="flex-1">
                 {t("over.retry")}
+                {props.isGamepad && (
+                  <span className="ml-2 inline-block rounded border border-[#5ef2ff]/40 px-1.5 py-0.5 text-[10px] tracking-wider text-[#5ef2ff]">
+                    ✕
+                  </span>
+                )}
               </GameButton>
               <GameButton onClick={props.onMenu} variant="amber" className="flex-1">
                 {t("over.menu")}
+                {props.isGamepad && (
+                  <span className="ml-2 inline-block rounded border border-[#ffb800]/40 px-1.5 py-0.5 text-[10px] tracking-wider text-[#ffb800]">
+                    ○
+                  </span>
+                )}
               </GameButton>
             </div>
             <GameButton onClick={props.onUpgrade} variant="cyan" className="w-full">
               {t("over.upgrade")}
+              {props.isGamepad && (
+                <span className="ml-2 inline-block rounded border border-[#5ef2ff]/40 px-1.5 py-0.5 text-[10px] tracking-wider text-[#5ef2ff]">
+                  ✕
+                </span>
+              )}
             </GameButton>
           </div>
         </div>

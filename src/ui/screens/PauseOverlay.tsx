@@ -6,6 +6,7 @@ export default function PauseOverlay(props: {
   onResume: () => void;
   onSettings: () => void;
   onMenu: () => void;
+  isGamepad: boolean;
 }) {
   const t = useT();
   return (
@@ -23,12 +24,27 @@ export default function PauseOverlay(props: {
           <div className="flex flex-col gap-3">
             <GameButton onClick={props.onResume} autoFocus>
               {t("pause.resume")}
+              {props.isGamepad && (
+                <span className="ml-2 inline-block rounded border border-[#5ef2ff]/40 px-1.5 py-0.5 text-[10px] tracking-wider text-[#5ef2ff]">
+                  ✕
+                </span>
+              )}
             </GameButton>
             <GameButton onClick={props.onSettings} variant="amber">
               {t("pause.settings")}
+              {props.isGamepad && (
+                <span className="ml-2 inline-block rounded border border-[#ffb800]/40 px-1.5 py-0.5 text-[10px] tracking-wider text-[#ffb800]">
+                  ✕
+                </span>
+              )}
             </GameButton>
             <GameButton onClick={props.onMenu} variant="red">
               {t("pause.menu")}
+              {props.isGamepad && (
+                <span className="ml-2 inline-block rounded border border-[#ff3b52]/40 px-1.5 py-0.5 text-[10px] tracking-wider text-[#ff3b52]">
+                  ○
+                </span>
+              )}
             </GameButton>
           </div>
         </div>

@@ -21,6 +21,7 @@ export interface GameOverlaysProps {
   toast: (ToastData & { id: number }) | null;
   countdown: CountData | null;
   isTouch: boolean;
+  isGamepad: boolean;
   debugFps: boolean;
   /** Текущий сглаженный FPS из игры. */
   getFps: () => number;
@@ -49,7 +50,7 @@ export function GameOverlays(props: GameOverlaysProps) {
     return () => window.clearInterval(id);
   }, [props.debugFps]);
 
-  const { screen, paused, stats, banner, toast, countdown } = props;
+  const { screen, paused, stats, banner, toast, countdown, isGamepad } = props;
 
   return (
     <>
@@ -115,6 +116,7 @@ export function GameOverlays(props: GameOverlaysProps) {
           onResume={props.onResume}
           onSettings={props.onSettings}
           onMenu={props.onMenu}
+          isGamepad={isGamepad}
         />
       )}
 
@@ -124,6 +126,7 @@ export function GameOverlays(props: GameOverlaysProps) {
           onRetry={props.onRetry}
           onUpgrade={props.onUpgrade}
           onMenu={props.onMenu}
+          isGamepad={isGamepad}
         />
       )}
 

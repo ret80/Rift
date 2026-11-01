@@ -169,6 +169,11 @@ export class Game {
     this.ctx.toMenu();
   }
 
+  /** Подключён ли геймпад. */
+  get isGamepadConnected(): boolean {
+    return this.ctx.gamepad.isConnected;
+  }
+
   setTouch(active: boolean, x: number, y: number): void {
     this.ctx.input.setTouch(active, x, y);
   }

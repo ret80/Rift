@@ -14,4 +14,8 @@ export interface Hooks {
   onStats: (s: StatsData) => void;
   onPause: (p: boolean) => void;
   onGameOver: () => void;
+  /** Нажатие кнопки подтверждения геймпада (A/Cross). */
+  onGamepadConfirm?: () => void;
+  /** Нажатие кнопки отмены геймпада (B/Circle). */
+  onGamepadCancel?: () => void;
 }

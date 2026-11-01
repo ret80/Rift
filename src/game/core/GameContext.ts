@@ -17,6 +17,7 @@ import { SystemSchedule } from "../ecs/SystemSchedule";
 import { AllyDroneSystem } from "../ecs/systems/AllyDroneSystem";
 import { Fx } from "../fx";
 import { InputManager } from "../input";
+import { GamepadManager, GAMEPAD_CODES, GAMEPAD_DPAD_CODES } from "../gamepad";
 import { LoadoutSystem } from "../loadout/LoadoutSystem";
 import { BonusManager } from "../loadout/bonuses/BonusManager";
 import type { PhysicsEngineId } from "../physics/index";
@@ -87,6 +88,7 @@ export class GameContext {
 
   readonly inputSystem: InputSystem;
   readonly input: InputManager;
+  readonly gamepad: GamepadManager;
   readonly fx: Fx;
   readonly starfield: Starfield;
   readonly asteroidField: AsteroidField;
@@ -217,6 +219,11 @@ export class GameContext {
         }
       },
     });
+
+    // Геймпад: создаём и подключаем к InputManager.
+    this.gamepad = new GamepadManager();
+    this.input.setGamepadSource(this.gamepad);
+    this._setupGamepadListeners();
 
     this.fx = new Fx(this.ecs);
     this.starfield = new Starfield();
@@ -435,7 +442,24 @@ export class GameContext {
     this.loop = new GameLoop((dt) => this.frame.step(dt), () => this.resize());
   }
 
-  // ===== Lifecycle helpers =====
+  // ===== Gamepad listeners =====
+
+  private _setupGamepadListeners(): void {
+    // Слушаем события подключения/отключения геймпада.
+    window.addEventListener("gamepadconnected", this._onGamepadConnected);
+    window.addEventListener("gamepaddisconnected", this._onGamepadDisconnected);
+  }
+
+  private _onGamepadConnected = (e: Event) => {
+    const gp = e as GamepadEvent;
+    console.log(`[Gamepad] подключён: ${gp.gamepad.id.slice(0, 40)}`);
+  };
+
+  private _onGamepadDisconnected = (e: Event) => {
+    const gp = e as GamepadEvent;
+    console.log(`[Gamepad] отключён: ${gp.gamepad.id.slice(0, 40)}`);
+    // GamepadManager автоматически определит отключение при следующем poll().
+  };
 
   get paused(): boolean {
     return this._paused;
@@ -474,7 +498,28 @@ export class GameContext {
 
   // ===== Frame entry =====
 
-  handleDebugKeys(_dt: number): void {
+  handleDebugKeys(dt: number): void {
+    // Опрос геймпада каждый кадр.
+    this.gamepad.poll();
+
+    // Пауза через кнопку Start на геймпаде.
+    if (this.gamepad.isConnected) {
+      if (this.gamepad.consumePress(GAMEPAD_CODES.Start)) {
+        this.togglePause();
+      }
+      // D-pad: вверх — пауза.
+      if (this.gamepad.consumePress(GAMEPAD_DPAD_CODES.Up)) {
+        this.togglePause();
+      }
+      // Кнопки подтверждения/отмены — через хуки к UI.
+      if (this.gamepad.consumePress(GAMEPAD_CODES.A)) {
+        this.hooks.onGamepadConfirm?.();
+      }
+      if (this.gamepad.consumePress(GAMEPAD_CODES.B)) {
+        this.hooks.onGamepadCancel?.();
+      }
+    }
+
     this.debugSystem.handleDebugKeys(
       (key) => this.input.isKey(key),
       this.fsm.is("over"),
@@ -651,6 +696,8 @@ export class GameContext {
     this.loop.destroy();
     this.inputSystem.destroy();
     this.input.destroy();
+    window.removeEventListener("gamepadconnected", this._onGamepadConnected);
+    window.removeEventListener("gamepaddisconnected", this._onGamepadDisconnected);
     this.audio.destroy();
     this.physics.clear();
     this.renderer.destroy?.();

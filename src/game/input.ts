@@ -1,4 +1,4 @@
-/* Centralised input: keyboard + virtual touch joystick.
+/* Centralised input: keyboard + virtual touch joystick + gamepad.
    Exposes a single movement axis so the simulation never touches
    raw DOM events. Pause/blur decisions are delegated to the game
    through callbacks, keeping policy out of this class. */
@@ -18,6 +18,16 @@ export interface MoveAxis {
 
 const TOUCH_DEADZONE = 0.12;
 
+/** Импорты типов для геймпада (отложенные, чтобы избежать циклических зависимостей). */
+type GamepadButtonCode = string;
+type GamepadInputSource = {
+  isButton(code: string): boolean;
+  consumePress(code: string): boolean;
+  get axisX(): number;
+  get axisY(): number;
+  clear(): void;
+};
+
 export class InputManager {
   private keys = new Set<string>();
   /** Клавиши, нажатые с прошлой проверки consumePress(). */
@@ -25,6 +35,8 @@ export class InputManager {
   private touchActive = false;
   private touchX = 0;
   private touchY = 0;
+  /** Источник геймпада (опционально). */
+  private _gamepad: GamepadInputSource | null = null;
 
   private onKeyDown = (e: KeyboardEvent) => {
     if (e.code === "KeyP" || e.code === "Escape") {
@@ -56,8 +68,20 @@ export class InputManager {
     document.addEventListener("visibilitychange", this.onVis);
   }
 
-  /** Combined keyboard + touch movement axis, normalised to a unit circle. */
+  /**
+   * Combined movement axis, normalised to a unit circle.
+   * Приоритет: геймпад > клавиатура + тач.
+   */
   get axis(): MoveAxis {
+    // Геймпад имеет наивысший приоритет.
+    if (this._gamepad !== null) {
+      const gx = this._gamepad.axisX;
+      const gy = this._gamepad.axisY;
+      if (Math.abs(gx) > 0.01 || Math.abs(gy) > 0.01) {
+        return { x: gx, y: gy };
+      }
+    }
+
     let x = 0;
     let y = 0;
     if (this.keys.has("KeyW") || this.keys.has("ArrowUp")) y -= 1;
@@ -97,8 +121,13 @@ export class InputManager {
    * Проверить и погасить одиночное нажатие клавиши.
    * Возвращает true один раз на каждое физическое нажатие —
    * так активируются способности, а не «удержание» клавиши.
+   * Поддерживает виртуальные коды геймпада.
    */
   consumePress(code: string): boolean {
+    // Сначала проверяем геймпад.
+    if (this._gamepad !== null && this._gamepad.consumePress(code)) {
+      return true;
+    }
     if (!this.pressed.has(code)) return false;
     this.pressed.delete(code);
     return true;
@@ -109,6 +138,12 @@ export class InputManager {
     this.keys.clear();
     this.pressed.clear();
     this.touchActive = false;
+    this._gamepad?.clear();
+  }
+
+  /** Подключить источник ввода геймпада (вызывается из GameContext). */
+  setGamepadSource(gp: GamepadInputSource | null): void {
+    this._gamepad = gp;
   }
 
   destroy() {

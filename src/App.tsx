@@ -1,4 +1,4 @@
-import { useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { ENEMY_KIND_COUNT } from "./game/balance/enemies";
 import { createLocalStoragePort } from "./game/core/PersistencePort";
 import type { PersistencePort } from "./game/core/PersistencePort";
@@ -36,6 +36,7 @@ export default function App() {
 
   const settings = usePersistentSettings();
   const [best, setBest] = useState(0);
+  const [isGamepadConnected, setIsGamepadConnected] = useState(false);
 
   /* Touch detection (runtime only, not persisted) */
   const [isTouch] = useState(
@@ -71,8 +72,72 @@ export default function App() {
       onPause: (p) => dispatch({ type: "SET_PAUSED", paused: p }),
       onReady: (game) => setBest(game.getBest()),
       onAutoStart: () => dispatch({ type: "SET_SCREEN", screen: "game" }),
+      // Геймпад: подтверждение/отмена — зависят от текущего экрана.
+      onGamepadConfirm: () => {
+        switch (screen) {
+          case "menu":
+            actions.startGame();
+            break;
+          case "settings":
+          case "help":
+          case "debug":
+          case "upgrade":
+            // Кнопка A на экране подменю — закрывает (аналог ESC).
+            if (screen === "settings") {
+              actions.closeSettings();
+            } else if (screen === "upgrade") {
+              actions.closeUpgrade();
+            } else {
+              actions.openMenu();
+            }
+            break;
+          case "game":
+            if (paused) {
+              // В паузе: A = продолжить.
+              gameRef.current?.togglePause();
+            } else if (stats) {
+              // Game over: A = рестарт.
+              actions.startGame();
+            }
+            break;
+        }
+      },
+      onGamepadCancel: () => {
+        switch (screen) {
+          case "settings":
+          case "help":
+          case "debug":
+          case "upgrade":
+            // Закрыть подменю.
+            if (screen === "settings") {
+              actions.closeSettings();
+            } else if (screen === "upgrade") {
+              actions.closeUpgrade();
+            } else {
+              actions.openMenu();
+            }
+            break;
+          case "game":
+            if (paused) {
+              // В паузе: B = в меню.
+              actions.toMenu();
+            }
+            break;
+        }
+      },
     },
   );
+
+  /* Gamepad connection state */
+  useEffect(() => {
+    const game = gameRef.current;
+    if (!game) return;
+    setIsGamepadConnected(game.isGamepadConnected);
+    const id = window.setInterval(() => {
+      setIsGamepadConnected(game.isGamepadConnected);
+    }, 500);
+    return () => window.clearInterval(id);
+  }, [gameRef]);
 
   const actions = useGameActions({
     screen,
@@ -106,6 +171,7 @@ export default function App() {
         toast={toast}
         countdown={countdown}
         isTouch={isTouch}
+        isGamepad={isGamepadConnected}
         debugFps={settings.debugFps}
         getFps={() => gameRef.current?.fps() ?? 60}
         onResume={() => gameRef.current?.togglePause()}
