@@ -8,15 +8,22 @@
  * Маппинг кнопок (стандартный Gamepad API):
  *   0 — A / Cross (подтвердить)
  *   1 — B / Circle (отмена)
- *   8 — Start / Options (пауза)
+ *   9 — Start / Options (пауза), 8 — Select / Share
  *   12 — D-pad up
  *   13 — D-pad down
  *   14 — D-pad left
  *   15 — D-pad right
  *
+ * Устройства делятся на два профиля:
+ *   - standard — `mapping === "standard"` или неизвестное устройство:
+ *     стандартные индексы кнопок, D-pad кнопками 12-15;
+ *   - 8bitdo_dinput — 8BitDo Lite 2 и совместимые в D-input:
+ *     X/Y = 3/4, L/R = 6/7, Select/Start = 10/11, D-pad — HID hat switch
+ *     на оси 9.
+ *
  * Оси:
  *   0, 1 — левый стик (x, y)
- *   12-15 — D-pad (эмулируется через кнопки)
+ *   9 — hat switch D-pad (только профиль 8bitdo_dinput)
  */
 
 /** Виртуальные коды кнопок геймпада для consumePress(). */
@@ -53,8 +60,8 @@ export const GAMEPAD_BUTTONS = {
   RB: 5,      // R1
   LT: 6,      // L2 (trigger)
   RT: 7,      // R2 (trigger)
-  Start: 8,   // Options / Start
-  Select: 9,  // Share / View
+  Start: 9,   // Options / Start / Plus
+  Select: 8,  // Share / View / Minus
   L3: 10,     // Left stick click
   R3: 11,     // Right stick click
   DpadUp: 12,
@@ -67,6 +74,100 @@ export const GAMEPAD_BUTTONS = {
 const DEFAULT_DEADZONE = 0.15;
 /** Мёртвая зона D-pad (по умолчанию 0.5 — полунажатие). */
 const DEFAULT_BUTTON_DEADZONE = 0.5;
+
+/** Профиль устройства: стандартный или 8BitDo D-input. */
+type GamepadProfile = "standard" | "8bitdo_dinput";
+
+/** Раскладка кнопок, не зависящая от `gamepad.mapping`. */
+interface ButtonLayout {
+  A: number;
+  B: number;
+  X: number;
+  Y: number;
+  LB: number;
+  RB: number;
+  Start: number;
+  Select: number;
+}
+
+/** Стандартная раскладка W3C Gamepad. */
+const STANDARD_BUTTONS: ButtonLayout = {
+  A: 0,
+  B: 1,
+  X: 2,
+  Y: 3,
+  LB: 4,
+  RB: 5,
+  Select: 8,
+  Start: 9,
+};
+
+/**
+ * Раскладка 8BitDo Lite 2 и совместимых в D-input режиме.
+ *
+ * Отличия от стандартной: X/Y сдвинуты (3/4), L/R — 6/7, Select/Start — 10/11.
+ * D-pad приходит как HID hat switch на оси 9, не кнопками 12-15.
+ */
+const DINPUT_8BITDO_BUTTONS: ButtonLayout = {
+  A: 0,
+  B: 1,
+  X: 3,
+  Y: 4,
+  LB: 6,
+  RB: 7,
+  Select: 10,
+  Start: 11,
+};
+
+/**
+ * Определить профиль устройства.
+ *
+ * Ключевое правило: если браузер выставляет `gamepad.mapping === "standard"`,
+ * мы всегда используем стандартный профиль — D-pad кнопками, стандартные индексы.
+ * Только при отсутствии стандартного маппинга мы пробуем угадать D-input профиль.
+ */
+function resolveGamepadProfile(gp: Gamepad): GamepadProfile {
+  if (gp.mapping === "standard") return "standard";
+  if (/8bitdo|2dc8/i.test(gp.id)) return "8bitdo_dinput";
+  // Некоторые D-input устройства имеют 15-16 кнопок и hat-switch на оси 9,
+  // но не сообщают «8BitDo» в id — определяем по числу кнопок и осей.
+  if (
+    gp.buttons.length >= 15 &&
+    gp.buttons.length <= 16 &&
+    gp.axes.length > 9
+  ) {
+    return "8bitdo_dinput";
+  }
+  return "standard";
+}
+
+/** Раскладка кнопок для профиля. */
+function getButtonLayout(profile: GamepadProfile): ButtonLayout {
+  return profile === "8bitdo_dinput" ? DINPUT_8BITDO_BUTTONS : STANDARD_BUTTONS;
+}
+
+/**
+ * Раскодировать HID hat switch (одна ось) в направление D-pad.
+ *
+ * Значения восьми направлений равномерно распределены в [-1..1]:
+ * up = -1, up-right = -0.714, right = -0.429, down-right = -0.143,
+ * down = 0.143, down-left = 0.429, left = 0.714, up-left = 1.
+ * В нейтральном положении ось читается вне диапазона (например, 1.286)
+ * или нулём — такие значения игнорируем.
+ */
+function decodeHat(value: number): { x: number; y: number } {
+  if (!Number.isFinite(value) || value < -1.05 || value > 1.05 || Math.abs(value) < 0.01) {
+    return { x: 0, y: 0 };
+  }
+  const up = (value >= -1 && value < -0.7) || (value >= 0.95 && value <= 1);
+  const right = value >= -0.75 && value < -0.1;
+  const down = value >= -0.2 && value < 0.45;
+  const left = value >= 0.4 && value <= 1;
+  return {
+    x: (right ? 1 : 0) - (left ? 1 : 0),
+    y: (down ? 1 : 0) - (up ? 1 : 0),
+  };
+}
 
 export class GamepadManager {
   /** Индекс подключённого геймпада (-1 если ни одного). */
@@ -334,12 +435,18 @@ export class GamepadManager {
       stickY = gp.axes[1];
     }
 
+    // Раскладка зависит от устройства: стандартный mapping или D-input 8BitDo.
+    const profile = resolveGamepadProfile(gp);
+    const layout = getButtonLayout(profile);
+
     // --- D-pad: кнопки + оси (для нестандартных геймпадов) ---
     let dpadX = 0;
     let dpadY = 0;
 
-    // 1) Пробуем кнопки 12-15 (стандартная раскладка).
-    if (gp.buttons.length > 15) {
+    // 1) Пробуем кнопки 12-15 (только для стандартного профиля).
+    //    В D-input на этих индексах могут быть L3/R3 и другие кнопки,
+    //    поэтому для нестандартного профиля читаем только hat switch.
+    if (profile === "standard" && gp.buttons.length > 15) {
       const dpadUpBtn = gp.buttons[GAMEPAD_BUTTONS.DpadUp]?.value ?? 0;
       const dpadDownBtn = gp.buttons[GAMEPAD_BUTTONS.DpadDown]?.value ?? 0;
       const dpadLeftBtn = gp.buttons[GAMEPAD_BUTTONS.DpadLeft]?.value ?? 0;
@@ -351,9 +458,28 @@ export class GamepadManager {
       if (dpadRightBtn > this.buttonDeadzone) dpadX += 1;
     }
 
-    // 2) Если кнопки не дали результата, пробуем оси (DInput / hat-switch).
-    //    Для большинства DInput-геймпадов (8BitDo и аналоги) D-pad на осях 5/6.
-    if (dpadX === 0 && dpadY === 0) {
+    // 2) 8BitDo D-input: D-pad — hat switch на оси 9.
+    if (
+      profile === "8bitdo_dinput" &&
+      dpadX === 0 &&
+      dpadY === 0 &&
+      gp.axes.length > 9
+    ) {
+      const d = decodeHat(gp.axes[9]);
+      dpadX = d.x;
+      dpadY = d.y;
+    }
+
+    // 3) Неизвестный нестандартный геймпад: легаси D-pad на осях 5/6.
+    //    Не применяем к стандартному mapping и многокоординатным устройствам,
+    //    где оси 4-6 — стик/триггеры.
+    if (
+      profile === "standard" &&
+      gp.mapping !== "standard" &&
+      dpadX === 0 &&
+      dpadY === 0 &&
+      gp.axes.length <= 6
+    ) {
       const hatThreshold = 0.5;
       // Axis 5: vertical (up = -1, down = +1)
       if (gp.axes.length > 5) {
@@ -396,42 +522,42 @@ export class GamepadManager {
 
     // Кнопка A (подтвердить).
     const wasA = this._pressedA;
-    this._pressedA = buttons[GAMEPAD_BUTTONS.A]?.pressed ?? false;
+    this._pressedA = buttons[layout.A]?.pressed ?? false;
     this._justPressedA = this._pressedA && !wasA;
 
     // Кнопка B (отмена).
     const wasB = this._pressedB;
-    this._pressedB = buttons[GAMEPAD_BUTTONS.B]?.pressed ?? false;
+    this._pressedB = buttons[layout.B]?.pressed ?? false;
     this._justPressedB = this._pressedB && !wasB;
 
     // Кнопка X.
     const wasX = this._pressedX;
-    this._pressedX = buttons[GAMEPAD_BUTTONS.X]?.pressed ?? false;
+    this._pressedX = buttons[layout.X]?.pressed ?? false;
     this._justPressedX = this._pressedX && !wasX;
 
     // Кнопка Y.
     const wasY = this._pressedY;
-    this._pressedY = buttons[GAMEPAD_BUTTONS.Y]?.pressed ?? false;
+    this._pressedY = buttons[layout.Y]?.pressed ?? false;
     this._justPressedY = this._pressedY && !wasY;
 
-    // Кнопка LB (L1).
+    // Кнопка LB (L1 / L).
     const wasLB = this._pressedLB;
-    this._pressedLB = buttons[GAMEPAD_BUTTONS.LB]?.pressed ?? false;
+    this._pressedLB = buttons[layout.LB]?.pressed ?? false;
     this._justPressedLB = this._pressedLB && !wasLB;
 
-    // Кнопка RB (R1).
+    // Кнопка RB (R1 / R).
     const wasRB = this._pressedRB;
-    this._pressedRB = buttons[GAMEPAD_BUTTONS.RB]?.pressed ?? false;
+    this._pressedRB = buttons[layout.RB]?.pressed ?? false;
     this._justPressedRB = this._pressedRB && !wasRB;
 
     // Кнопка Start (пауза).
     const wasStart = this._pressedStart;
-    this._pressedStart = buttons[GAMEPAD_BUTTONS.Start]?.pressed ?? false;
+    this._pressedStart = buttons[layout.Start]?.pressed ?? false;
     this._justPressedStart = this._pressedStart && !wasStart;
 
     // Кнопка Select.
     const wasSelect = this._pressedSelect;
-    this._pressedSelect = buttons[GAMEPAD_BUTTONS.Select]?.pressed ?? false;
+    this._pressedSelect = buttons[layout.Select]?.pressed ?? false;
     this._justPressedSelect = this._pressedSelect && !wasSelect;
 
     // D-pad: состояние кнопок + осей для consumePress.

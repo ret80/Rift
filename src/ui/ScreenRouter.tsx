@@ -26,8 +26,17 @@ export interface GamepadNavHandlers {
   down: () => void;
   left: () => void;
   right: () => void;
+  /** Переключение вкладок L (LB/L1). */
+  tabLeft?: () => void;
+  /** Переключение вкладок R (RB/R1). */
+  tabRight?: () => void;
   /** Подтверждение (A). Если null — App использует fallback-логику. */
   confirm: (() => void) | null;
+  /**
+   * Отмена (B). Если задано — экран перехватывает B (например, чтобы
+   * закрыть выпадающий список вместо выхода с экрана).
+   */
+  cancel?: (() => void) | null;
 }
 
 export interface ScreenRouterProps {
@@ -41,8 +50,6 @@ export interface ScreenRouterProps {
   isGamepad: boolean;
   /** Ref для регистрации навигационных обработчиков активного экрана. */
   gamepadNavRef: MutableRefObject<GamepadNavHandlers>;
-  /** Геймпад: отмена (B). */
-  onGamepadCancel: () => void;
 }
 
 export function ScreenRouter(props: ScreenRouterProps) {
@@ -55,7 +62,6 @@ export function ScreenRouter(props: ScreenRouterProps) {
     actions,
     isGamepad,
     gamepadNavRef,
-    onGamepadCancel,
   } = props;
 
   switch (screen) {
@@ -84,19 +90,22 @@ export function ScreenRouter(props: ScreenRouterProps) {
           onMenuTrackChange={actions.changeMenuTrack}
           onCombatTrackChange={actions.changeCombatTrack}
           onPreviewTrack={actions.previewTrack}
-          physicsEngine={settings.physicsEngine}
-          onPhysicsEngineChange={actions.changePhysicsEngine}
           onTest={actions.testSound}
           onReset={actions.resetProgress}
           onBack={actions.closeSettings}
           isGamepad={isGamepad}
           gamepadNavRef={gamepadNavRef}
-          onGamepadCancel={onGamepadCancel}
         />
       );
 
     case "help":
-      return <HelpScreen onBack={actions.openMenu} />;
+      return (
+        <HelpScreen
+          onBack={actions.openMenu}
+          isGamepad={isGamepad}
+          gamepadNavRef={gamepadNavRef}
+        />
+      );
 
     case "debug":
       return (
@@ -105,6 +114,8 @@ export function ScreenRouter(props: ScreenRouterProps) {
           godOn={settings.debugGod}
           startWave={settings.debugWave}
           detailsOn={settings.debugDetails}
+          physicsEngine={settings.physicsEngine}
+          onPhysicsEngineChange={actions.changePhysicsEngine}
           enabledEnemies={settings.enabledEnemies}
           onToggleEnemy={actions.toggleEnemy}
           enabledPickups={settings.enabledPickups}

@@ -4,30 +4,141 @@
  * Контейнер держит только состояние снимка и обработчики покупок; сами
  * вкладки вынесены в `ShipTab`, `ArmoryTab`, `DronesTab` и `BonusesTab`.
  *
- * Gamepad-навигация:
- *   - Кнопки L/R (LB/RB) — переключение вкладок
- *   - D-pad up/down + стик — навигация по кнопкам (в будущем)
+ * Gamepad-навигация централизована здесь: контейнер строит единый список
+ * доступных действий для активной вкладки, ведёт по нему фокус (D-pad
+ * up/down + стик), покупает по A и переключает вкладки по L/R (LB/RB).
+ * Вкладки лишь подсвечивают элемент по переданному `focusedId`.
  */
 
-import { useCallback, useEffect, useState, type MutableRefObject } from "react";
-import type { DroneId, DroneLoadout, DroneStatKey } from "../../game/drones/Drone";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from "react";
+import {
+  DRONE_STAT_MAX_LEVEL,
+  type DroneId,
+  type DroneLoadout,
+  type DroneStatKey,
+} from "../../game/drones/Drone";
 import type { Game } from "../../game/game";
 import {
-    copyDroneLoadout,
-    copyWeaponLoadout,
+  copyDroneLoadout,
+  copyWeaponLoadout,
 } from "../../game/loadout/snapshots";
-import type { PlayerUpgrades, WeaponStatKey } from "../../game/upgrades";
+import {
+  WEAPON_STAT_MAX_LEVEL,
+  type PlayerUpgrades,
+  type WeaponStatKey,
+} from "../../game/upgrades";
 import type { WeaponId, WeaponLoadout } from "../../game/weapons/Weapon";
+import { useGamepadFocus } from "../../hooks/useGamepadFocus";
 import { useT } from "../../i18n";
 import type { GamepadNavHandlers } from "../ScreenRouter";
 import { ArmoryTab } from "./ArmoryTab";
 import { BonusesTab } from "./BonusesTab";
 import { DronesTab } from "./DronesTab";
+import {
+  ARMORY_WEAPONS,
+  DRONE_CATALOG,
+  DRONE_STATS,
+  SHIP_KEYS,
+  UPGRADE_TIERS,
+  WEAPON_STATS,
+} from "./model";
 import { ShipTab } from "./ShipTab";
 import { TabButton } from "./TabButton";
 
 type TabId = "ship" | "armory" | "drones" | "bonuses";
 const TAB_IDS: TabId[] = ["ship", "armory", "drones", "bonuses"];
+
+/** Действие, доступное для покупки на текущей вкладке. */
+type UpgradeAction =
+  | { id: string; kind: "upgrade"; key: keyof Omit<PlayerUpgrades, "parts"> }
+  | { id: string; kind: "weapon"; weaponId: WeaponId }
+  | { id: string; kind: "weaponStat"; weaponId: WeaponId; stat: WeaponStatKey }
+  | { id: string; kind: "drone"; droneId: DroneId }
+  | { id: string; kind: "droneStat"; droneId: DroneId; stat: DroneStatKey };
+
+/** Все доступные покупки на вкладке «Корабль». */
+function shipActions(upgrades: PlayerUpgrades): UpgradeAction[] {
+  const list: UpgradeAction[] = [];
+  for (const key of SHIP_KEYS) {
+    if (upgrades[key] < UPGRADE_TIERS[key].maxLevel) {
+      list.push({ id: `ship:${key}`, kind: "upgrade", key });
+    }
+  }
+  if (upgrades.shield <= 0) {
+    // Щит покупается один раз, после чего открываются его линии.
+    list.push({ id: "ship:shield", kind: "upgrade", key: "shield" });
+  } else {
+    for (const key of ["shieldPercent", "shieldRegen"] as const) {
+      if (upgrades[key] < UPGRADE_TIERS[key].maxLevel) {
+        list.push({ id: `ship:${key}`, kind: "upgrade", key });
+      }
+    }
+  }
+  return list;
+}
+
+/** Все доступные покупки на вкладке «Арсенал». */
+function armoryActions(loadout: WeaponLoadout | null): UpgradeAction[] {
+  const list: UpgradeAction[] = [];
+  for (const weapon of ARMORY_WEAPONS) {
+    const entry = loadout?.[weapon.id];
+    if (!entry?.owned) {
+      list.push({ id: `weapon:${weapon.id}`, kind: "weapon", weaponId: weapon.id });
+      continue;
+    }
+    for (const row of weapon.stats ?? WEAPON_STATS) {
+      if (entry.model[row.stat] < WEAPON_STAT_MAX_LEVEL) {
+        list.push({
+          id: `weapon:${weapon.id}:${row.stat}`,
+          kind: "weaponStat",
+          weaponId: weapon.id,
+          stat: row.stat,
+        });
+      }
+    }
+  }
+  return list;
+}
+
+/** Все доступные покупки на вкладке «Дроны». */
+function droneActions(droneLoadout: DroneLoadout | null): UpgradeAction[] {
+  const list: UpgradeAction[] = [];
+  for (const drone of DRONE_CATALOG) {
+    // Заголовок дрона всегда позволяет докупить ещё один юнит.
+    list.push({ id: `drone:${drone.id}`, kind: "drone", droneId: drone.id });
+    const entry = droneLoadout?.entries[drone.id];
+    if (!entry || entry.count <= 0) continue;
+    for (const row of DRONE_STATS) {
+      if (entry.model[row.stat] < DRONE_STAT_MAX_LEVEL) {
+        list.push({
+          id: `drone:${drone.id}:${row.stat}`,
+          kind: "droneStat",
+          droneId: drone.id,
+          stat: row.stat,
+        });
+      }
+    }
+  }
+  return list;
+}
+
+/** Все доступные покупки на вкладке «Бонусы». */
+function bonusActions(upgrades: PlayerUpgrades): UpgradeAction[] {
+  const list: UpgradeAction[] = [];
+  for (const key of ["fireRate", "rateDuration", "healDuration", "healRate"] as const) {
+    if (upgrades[key] < UPGRADE_TIERS[key].maxLevel) {
+      list.push({ id: `bonus:${key}`, kind: "upgrade", key });
+    }
+  }
+  return list;
+}
 
 export function UpgradeScreen(props: {
   game: Game | null;
@@ -51,8 +162,10 @@ export function UpgradeScreen(props: {
   const [droneSlots, setDroneSlots] = useState(1);
   const [usedDroneSlots, setUsedDroneSlots] = useState(1);
 
+  const screenRef = useRef<HTMLDivElement | null>(null);
+
   /** Снимок состояния: React перерисовывается после покупок. */
-  const refresh = () => {
+  const refresh = useCallback(() => {
     const game = props.game;
     if (!game) return;
     setUpgrades({ ...game.getPlayerUpgrades() });
@@ -62,90 +175,156 @@ export function UpgradeScreen(props: {
     setUsedWeaponSlots(game.getUsedWeaponSlots());
     setDroneSlots(game.getDroneSlots());
     setUsedDroneSlots(game.getUsedDroneSlots());
-  };
+  }, [props.game]);
 
   // Первичный снимок при открытии экрана.
   useEffect(() => {
     refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [refresh]);
 
-  const handlePurchase = (key: keyof Omit<PlayerUpgrades, "parts">) => {
+  const handlePurchase = useCallback((key: keyof Omit<PlayerUpgrades, "parts">) => {
     const game = props.game;
     if (!game) return;
     const success = free
       ? game.purchaseUpgradeNoCost(key)
       : game.purchaseUpgradeCosted(key);
     if (success) refresh();
-  };
+  }, [props.game, free, refresh]);
 
-  const handleBuyWeapon = (id: WeaponId) => {
+  const handleBuyWeapon = useCallback((id: WeaponId) => {
     const game = props.game;
     if (!game) return;
     const success = free
       ? game.purchaseWeaponNoCost(id)
       : game.purchaseWeapon(id);
     if (success) refresh();
-  };
+  }, [props.game, free, refresh]);
 
-  const handleBuyStat = (id: WeaponId, stat: WeaponStatKey) => {
+  const handleBuyStat = useCallback((id: WeaponId, stat: WeaponStatKey) => {
     const game = props.game;
     if (!game) return;
     const success = free
       ? game.upgradeWeaponStatNoCost(id, stat)
       : game.upgradeWeaponStat(id, stat);
     if (success) refresh();
-  };
+  }, [props.game, free, refresh]);
 
-  const handleBuyDrone = (id: DroneId) => {
+  const handleBuyDrone = useCallback((id: DroneId) => {
     const game = props.game;
     if (!game) return;
     const success = free
       ? game.purchaseDroneNoCost(id)
       : game.purchaseDrone(id);
     if (success) refresh();
-  };
+  }, [props.game, free, refresh]);
 
-  const handleBuyDroneStat = (id: DroneId, stat: DroneStatKey) => {
+  const handleBuyDroneStat = useCallback((id: DroneId, stat: DroneStatKey) => {
     const game = props.game;
     if (!game) return;
     const success = free
       ? game.upgradeDroneStatNoCost(id, stat)
       : game.upgradeDroneStat(id, stat);
     if (success) refresh();
-  };
+  }, [props.game, free, refresh]);
 
-  // Переключение вкладок через L/R.
-  const switchTab = useCallback(
-    (direction: "left" | "right") => {
-      const currentIndex = TAB_IDS.indexOf(tab);
-      const newIndex =
-        direction === "left"
-          ? ((currentIndex - 1) % TAB_IDS.length + TAB_IDS.length) % TAB_IDS.length
-          : (currentIndex + 1) % TAB_IDS.length;
-      setTab(TAB_IDS[newIndex]);
-    },
-    [tab],
-  );
+  /** Список покупок активной вкладки — по нему ходит фокус. */
+  const actions = useMemo<UpgradeAction[]>(() => {
+    switch (tab) {
+      case "ship":
+        return shipActions(upgrades);
+      case "armory":
+        return armoryActions(loadout);
+      case "drones":
+        return droneActions(droneLoadout);
+      case "bonuses":
+        return bonusActions(upgrades);
+    }
+  }, [tab, upgrades, loadout, droneLoadout]);
 
-  // Регистрируем навигацию в общий ref: L/R переключают вкладки.
+  const { focusIndex, setFocusIndex, onNavUp, onNavDown } = useGamepadFocus({
+    count: actions.length,
+    initialIndex: 0,
+  });
+
+  const focusedAction = actions[focusIndex];
+  const focusedId = props.isGamepad ? (focusedAction?.id ?? null) : null;
+
+  /** Переключить вкладку и сбросить фокус на первый пункт. */
+  const selectTab = useCallback((id: TabId) => {
+    setTab(id);
+    setFocusIndex(0);
+  }, [setFocusIndex]);
+
+  const switchTab = useCallback((direction: "left" | "right") => {
+    const currentIndex = TAB_IDS.indexOf(tab);
+    const newIndex =
+      direction === "left"
+        ? ((currentIndex - 1) % TAB_IDS.length + TAB_IDS.length) % TAB_IDS.length
+        : (currentIndex + 1) % TAB_IDS.length;
+    selectTab(TAB_IDS[newIndex]);
+  }, [tab, selectTab]);
+
+  /** Купить действие, на котором стоит фокус. */
+  const confirmAction = useCallback(() => {
+    const action = actions[focusIndex];
+    if (!action) return;
+    switch (action.kind) {
+      case "upgrade":
+        handlePurchase(action.key);
+        break;
+      case "weapon":
+        handleBuyWeapon(action.weaponId);
+        break;
+      case "weaponStat":
+        handleBuyStat(action.weaponId, action.stat);
+        break;
+      case "drone":
+        handleBuyDrone(action.droneId);
+        break;
+      case "droneStat":
+        handleBuyDroneStat(action.droneId, action.stat);
+        break;
+    }
+  }, [actions, focusIndex, handlePurchase, handleBuyWeapon, handleBuyStat, handleBuyDrone, handleBuyDroneStat]);
+
+  // Регистрируем навигацию в общий ref: up/down — фокус, L/R и left/right — вкладки.
   useEffect(() => {
     props.gamepadNavRef.current = {
-      up: () => {},
-      down: () => {},
+      up: onNavUp,
+      down: onNavDown,
       left: () => switchTab("left"),
       right: () => switchTab("right"),
-      confirm: null,
+      tabLeft: () => switchTab("left"),
+      tabRight: () => switchTab("right"),
+      confirm: confirmAction,
+      cancel: props.onBack,
     };
     return () => {
       props.gamepadNavRef.current = {
-        up: () => {}, down: () => {}, left: () => {}, right: () => {}, confirm: null,
+        up: () => {}, down: () => {}, left: () => {}, right: () => {},
+        confirm: null, cancel: null,
       };
     };
-  }, [switchTab, props.gamepadNavRef]);
+  }, [
+    onNavUp,
+    onNavDown,
+    switchTab,
+    confirmAction,
+    props.onBack,
+    props.gamepadNavRef,
+  ]);
+
+  // При смене фокуса — прокрутить выделенный пункт в видимую область.
+  useEffect(() => {
+    if (!props.isGamepad) return;
+    screenRef.current
+      ?.querySelector<HTMLElement>('[data-gamepad-focused="true"]')
+      ?.scrollIntoView({ block: "nearest" });
+  }, [focusIndex, tab, props.isGamepad]);
 
   return (
     <div
+      ref={screenRef}
       className="anim-overlay absolute inset-0 z-20 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
@@ -176,7 +355,7 @@ export function UpgradeScreen(props: {
                 active={tab === "ship"}
                 activeClass="border-[#5ef2ff]/80 bg-[#5ef2ff]/25"
                 lineClass="bg-[#5ef2ff] shadow-[0_0_8px_#5ef2ff]"
-                onClick={() => setTab("ship")}
+                onClick={() => selectTab("ship")}
                 gamepadFocused={props.isGamepad && tab === "ship"}
               />
               <TabButton
@@ -184,7 +363,7 @@ export function UpgradeScreen(props: {
                 active={tab === "armory"}
                 activeClass="border-[#5ef2ff]/80 bg-[#5ef2ff]/25"
                 lineClass="bg-[#5ef2ff] shadow-[0_0_8px_#5ef2ff]"
-                onClick={() => setTab("armory")}
+                onClick={() => selectTab("armory")}
                 gamepadFocused={props.isGamepad && tab === "armory"}
               />
               <TabButton
@@ -192,7 +371,7 @@ export function UpgradeScreen(props: {
                 active={tab === "drones"}
                 activeClass="border-[#ff9de0]/80 bg-[#ff9de0]/25"
                 lineClass="bg-[#ff9de0] shadow-[0_0_8px_#ff9de0]"
-                onClick={() => setTab("drones")}
+                onClick={() => selectTab("drones")}
                 gamepadFocused={props.isGamepad && tab === "drones"}
               />
               <TabButton
@@ -200,7 +379,7 @@ export function UpgradeScreen(props: {
                 active={tab === "bonuses"}
                 activeClass="border-[#7dff9e]/80 bg-[#7dff9e]/25"
                 lineClass="bg-[#7dff9e] shadow-[0_0_8px_#7dff9e]"
-                onClick={() => setTab("bonuses")}
+                onClick={() => selectTab("bonuses")}
                 gamepadFocused={props.isGamepad && tab === "bonuses"}
               />
             </div>
@@ -211,6 +390,7 @@ export function UpgradeScreen(props: {
               upgrades={upgrades}
               free={free}
               onPurchase={handlePurchase}
+              focusedId={focusedId}
             />
           )}
 
@@ -223,6 +403,7 @@ export function UpgradeScreen(props: {
               usedWeaponSlots={usedWeaponSlots}
               onBuyWeapon={handleBuyWeapon}
               onBuyStat={handleBuyStat}
+              focusedId={focusedId}
             />
           )}
 
@@ -235,6 +416,7 @@ export function UpgradeScreen(props: {
               usedDroneSlots={usedDroneSlots}
               onBuyDrone={handleBuyDrone}
               onBuyStat={handleBuyDroneStat}
+              focusedId={focusedId}
             />
           )}
 
@@ -243,6 +425,7 @@ export function UpgradeScreen(props: {
               upgrades={upgrades}
               free={free}
               onPurchase={handlePurchase}
+              focusedId={focusedId}
             />
           )}
 

@@ -41,6 +41,18 @@ import {
 } from "../../game/drones/Drone";
 import type { TKey } from "../../i18n";
 import { t } from "../../i18n";
+import type { CSSProperties } from "react";
+
+/** Подсветка кнопки, на которой сейчас фокус геймпада. */
+export function gamepadFocusStyle(focused: boolean): CSSProperties | undefined {
+  if (!focused) return undefined;
+  return {
+    borderColor: "#ffb84d",
+    background: "rgba(255, 184, 77, 0.18)",
+    color: "#fff7e0",
+    filter: "drop-shadow(0 0 7px rgba(255, 184, 77, 0.7))",
+  };
+}
 
 /** Линии корабля во вкладке «Корабль». */
 export const SHIP_KEYS: Array<"hull" | "speed" | "guns" | "drones"> = [

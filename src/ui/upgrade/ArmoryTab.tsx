@@ -16,6 +16,7 @@ import {
   ARMORY_WEAPONS,
   WEAPON_STATS,
   WEAPON_STAT_ROW_CLASS,
+  gamepadFocusStyle,
   weaponStatValue,
 } from "./model";
 
@@ -27,6 +28,7 @@ export function ArmoryTab(props: {
   usedWeaponSlots: number;
   onBuyWeapon: (id: WeaponId) => void;
   onBuyStat: (id: WeaponId, stat: WeaponStatKey) => void;
+  focusedId?: string | null;
 }) {
   const t = useT();
   const { upgrades, loadout, free, weaponSlots, usedWeaponSlots } = props;
@@ -48,6 +50,7 @@ export function ArmoryTab(props: {
           const entry = loadout?.[weapon.id];
           const owned = entry?.owned ?? false;
           const noFreeSlots = usedWeaponSlots >= weaponSlots;
+          const weaponFocused = !owned && props.focusedId === `weapon:${weapon.id}`;
           return (
             <div
               key={weapon.id}
@@ -56,6 +59,8 @@ export function ArmoryTab(props: {
                   ? "border-[#ffb84d]/40 bg-[#ffb84d]/5"
                   : "border-[#3d4f6d]/40 bg-[#0a1020]/60"
               }`}
+              data-gamepad-focused={weaponFocused ? "true" : undefined}
+              style={gamepadFocusStyle(weaponFocused)}
             >
               {/* Weapon header */}
               <div className="flex items-center justify-between gap-3">
@@ -107,10 +112,13 @@ export function ArmoryTab(props: {
                     const maxed = level >= WEAPON_STAT_MAX_LEVEL;
                     const cost = weaponUpgradeCost(level);
                     const affordable = maxed ? false : upgrades.parts >= cost;
+                    const statFocused = !maxed && props.focusedId === `weapon:${weapon.id}:${row.stat}`;
                     return (
                       <div
                         key={row.stat}
                         className={WEAPON_STAT_ROW_CLASS}
+                        data-gamepad-focused={statFocused ? "true" : undefined}
+                        style={gamepadFocusStyle(statFocused)}
                       >
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">

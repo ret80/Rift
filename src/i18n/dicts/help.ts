@@ -7,6 +7,7 @@ export const ru = {
   controls: "УПРАВЛЕНИЕ",
   move: "движение корабля",
   pause: "пауза",
+  tabs: "вкладки прокачки (геймпад L / R)",
   touch: "удерживай и веди палец — движение",
   objective: "ЗАДАЧА",
   item:
@@ -35,6 +36,7 @@ export const en: typeof ru = {
   controls: "CONTROLS",
   move: "move the ship",
   pause: "pause",
+  tabs: "upgrade tabs (gamepad L / R)",
   touch: "hold & drag a finger — movement",
   objective: "OBJECTIVE",
   item:

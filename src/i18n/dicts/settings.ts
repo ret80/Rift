@@ -4,6 +4,9 @@
 
 export const ru = {
   title: "НАСТРОЙКИ",
+  groupAudio: "ЗВУК",
+  groupInterface: "ИНТЕРФЕЙС",
+  groupProgress: "ПРОГРЕСС",
   volume: "ОБЩАЯ ГРОМКОСТЬ",
   sfx: "ЭФФЕКТЫ",
   music: "МУЗЫКА",
@@ -11,7 +14,6 @@ export const ru = {
   listen: "ПРОСЛУШАТЬ",
   test: "ТЕСТ ЗВУКА",
   language: "ЯЗЫК",
-  physicsEngine: "ФИЗИЧЕСКИЙ ДВИЖОК",
   back: "НАЗАД",
   resetProgress: "СБРОСИТЬ ПРОГРЕСС",
   resetConfirm: "Сбросить весь прогресс прокачки? Все детали и улучшения будут удалены.",
@@ -19,6 +21,9 @@ export const ru = {
 
 export const en: typeof ru = {
   title: "SETTINGS",
+  groupAudio: "AUDIO",
+  groupInterface: "INTERFACE",
+  groupProgress: "PROGRESS",
   volume: "MASTER VOLUME",
   sfx: "SFX",
   music: "MUSIC",
@@ -26,7 +31,6 @@ export const en: typeof ru = {
   listen: "LISTEN",
   test: "TEST SOUND",
   language: "LANGUAGE",
-  physicsEngine: "PHYSICS ENGINE",
   back: "BACK",
   resetProgress: "RESET PROGRESS",
   resetConfirm: "Reset all upgrade progress? All parts and improvements will be lost.",

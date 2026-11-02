@@ -81,6 +81,8 @@ export default function App() {
       onGamepadNavDown: () => gamepadNavRef.current.down(),
       onGamepadNavLeft: () => gamepadNavRef.current.left(),
       onGamepadNavRight: () => gamepadNavRef.current.right(),
+      onGamepadTabLeft: () => gamepadNavRef.current.tabLeft?.(),
+      onGamepadTabRight: () => gamepadNavRef.current.tabRight?.(),
     },
   );
 
@@ -146,6 +148,12 @@ export default function App() {
   gamepadConfirmRef.current = gamepadConfirm;
 
   const gamepadCancel = useCallback(() => {
+    // Экран может перехватить B (например, чтобы закрыть выпадающий список).
+    const screenCancel = gamepadNavRef.current.cancel;
+    if (screenCancel) {
+      screenCancel();
+      return;
+    }
     const act = actionsRef.current;
     if (!act) return;
     switch (screen) {
@@ -169,7 +177,7 @@ export default function App() {
         }
         break;
     }
-  }, [screen, paused, gameRef]);
+  }, [screen, paused]);
   gamepadCancelRef.current = gamepadCancel;
 
   /* Gamepad connection state */
@@ -196,7 +204,6 @@ export default function App() {
         actions={actions}
         isGamepad={isGamepadConnected}
         gamepadNavRef={gamepadNavRef}
-        onGamepadCancel={gamepadCancel}
       />
 
       {screen === "game" && <HudLayer store={hudStore} godOn={settings.debugGod} />}

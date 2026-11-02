@@ -5,6 +5,15 @@ import { EnemyKind } from "../../game/balance/enemies";
 import { ALL_PICKUP_KINDS, pickupDisplayKey } from "../../game/balance";
 import type { PickupKind } from "../../game/balance";
 import type { PickupDisplay } from "../../game/balance/pickupCatalog";
+import type { PhysicsEngineId } from "../../game/physics";
+import { PHYSICS_ENGINE_IDS } from "../../game/physics";
+
+/** Отображаемые имена физических движков (не переводятся). */
+const PHYSICS_ENGINE_LABELS: Record<PhysicsEngineId, string> = {
+  planck: "Planck.js",
+  custom: "Custom",
+  p2: "p2-es",
+};
 
 /* Статические маппинги: типизированные ключи вместо шаблонных строк. */
 const ENEMY_LABEL: Record<EnemyKind, TKey> = {
@@ -258,6 +267,47 @@ function DevToggle(props: {
   );
 }
 
+/** Вертикальный выбор физического движка. */
+function PhysicsSelector(props: {
+  value: PhysicsEngineId;
+  onChange: (id: PhysicsEngineId) => void;
+}) {
+  const t = useT();
+  return (
+    <div className="mt-4 border border-[#7dff9e]/15 bg-[#07130c]/70 px-4 py-3">
+      <div className="font-mono text-[13px] font-bold tracking-[0.12em] text-[#d9ffe4]">
+        {t("debug.physicsEngine")}
+      </div>
+      <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-[#5f8f70]">
+        {t("debug.physicsEngineDesc")}
+      </div>
+      <div className="mt-3 flex flex-col gap-1">
+        {PHYSICS_ENGINE_IDS.map((id) => {
+          const selected = id === props.value;
+          return (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => props.onChange(id)}
+              className={
+                "flex w-full items-center justify-between border px-3 py-2 text-left " +
+                "font-mono text-[11px] tracking-[0.1em] transition-colors " +
+                (selected
+                  ? "border-[#7dff9e]/60 bg-[#0a1c11] text-[#d9ffe4]"
+                  : "border-[#7dff9e]/10 bg-[#07130c]/50 text-[#b0d8c0] hover:border-[#7dff9e]/40")
+              }
+            >
+              <span>{PHYSICS_ENGINE_LABELS[id]}</span>
+              {selected && <span className="text-[#7dff9e]">●</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function DebugScreen(props: {
   fpsOn: boolean;
   godOn: boolean;
@@ -267,6 +317,8 @@ export default function DebugScreen(props: {
   onChangeWave: (n: number) => void;
   onToggleDetails: () => void;
   detailsOn: boolean;
+  physicsEngine: PhysicsEngineId;
+  onPhysicsEngineChange: (v: PhysicsEngineId) => void;
   enabledEnemies: EnemyKind[];
   onToggleEnemy: (kind: EnemyKind) => void;
   enabledPickups: PickupKind[];
@@ -360,6 +412,11 @@ export default function DebugScreen(props: {
           <PickupDropdown
             enabledPickups={props.enabledPickups}
             onTogglePickup={props.onTogglePickup}
+          />
+
+          <PhysicsSelector
+            value={props.physicsEngine}
+            onChange={props.onPhysicsEngineChange}
           />
         </div>
 

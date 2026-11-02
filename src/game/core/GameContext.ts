@@ -540,6 +540,14 @@ export class GameContext {
         this.hooks.onGamepadNavRight?.();
       }
 
+      // L/R (LB/RB) — переключение вкладок на экране прокачки.
+      if (this.gamepad.consumePress(GAMEPAD_CODES.LB)) {
+        this.hooks.onGamepadTabLeft?.();
+      }
+      if (this.gamepad.consumePress(GAMEPAD_CODES.RB)) {
+        this.hooks.onGamepadTabRight?.();
+      }
+
       // Навигация левым стиком (edge-triggered: срабатывает при входе в направление).
       const nav = GameContext.STICK_NAV_DEADZONE;
       const ax = this.gamepad.axisX;

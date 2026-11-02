@@ -14,7 +14,7 @@ import {
 import type { PlayerUpgrades } from "../../game/upgrades";
 import { useT } from "../../i18n";
 import { Icon } from "../components/Icon";
-import { DRONE_STATS, WEAPON_STAT_ROW_CLASS, droneStatValue } from "./model";
+import { DRONE_STATS, WEAPON_STAT_ROW_CLASS, droneStatValue, gamepadFocusStyle } from "./model";
 
 export function DronesTab(props: {
   upgrades: PlayerUpgrades;
@@ -24,6 +24,7 @@ export function DronesTab(props: {
   usedDroneSlots: number;
   onBuyDrone: (id: DroneId) => void;
   onBuyStat: (id: DroneId, stat: DroneStatKey) => void;
+  focusedId?: string | null;
 }) {
   const t = useT();
   const { upgrades, droneLoadout, free, droneSlots, usedDroneSlots } = props;
@@ -46,6 +47,7 @@ export function DronesTab(props: {
           const count = entry?.count ?? 0;
           const hasUnit = count > 0;
           const noFreeSlots = usedDroneSlots >= droneSlots;
+          const droneFocused = props.focusedId === `drone:${drone.id}`;
           return (
             <div
               key={drone.id}
@@ -54,6 +56,8 @@ export function DronesTab(props: {
                   ? "border-[#ff9de0]/40 bg-[#ff9de0]/5"
                   : "border-[#3d4f6d]/40 bg-[#0a1020]/60"
               }`}
+              data-gamepad-focused={droneFocused ? "true" : undefined}
+              style={gamepadFocusStyle(droneFocused)}
             >
               {/* Drone header */}
               <div className="flex items-center justify-between gap-3">
@@ -97,8 +101,14 @@ export function DronesTab(props: {
                     const maxed = level >= DRONE_STAT_MAX_LEVEL;
                     const cost = droneUpgradeCost(level);
                     const affordable = maxed ? false : upgrades.parts >= cost;
+                    const statFocused = !maxed && props.focusedId === `drone:${drone.id}:${row.stat}`;
                     return (
-                      <div key={row.stat} className={WEAPON_STAT_ROW_CLASS}>
+                      <div
+                        key={row.stat}
+                        className={WEAPON_STAT_ROW_CLASS}
+                        data-gamepad-focused={statFocused ? "true" : undefined}
+                        style={gamepadFocusStyle(statFocused)}
+                      >
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-[11px] font-bold text-[#eaffff]">

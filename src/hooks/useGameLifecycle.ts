@@ -54,6 +54,10 @@ export interface GameLifecycleCallbacks {
   onGamepadNavLeft?: () => void;
   /** Навигация геймпада: вправо. */
   onGamepadNavRight?: () => void;
+  /** Переключение вкладок влево (LB/L1). */
+  onGamepadTabLeft?: () => void;
+  /** Переключение вкладок вправо (RB/R1). */
+  onGamepadTabRight?: () => void;
 }
 
 export function useGameLifecycle(
@@ -100,6 +104,8 @@ export function useGameLifecycle(
       onGamepadNavDown: events.onGamepadNavDown,
       onGamepadNavLeft: events.onGamepadNavLeft,
       onGamepadNavRight: events.onGamepadNavRight,
+      onGamepadTabLeft: events.onGamepadTabLeft,
+      onGamepadTabRight: events.onGamepadTabRight,
     }, storage);
 
     game.setVolumes(initial.volumes);

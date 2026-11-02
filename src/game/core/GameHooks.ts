@@ -26,4 +26,8 @@ export interface Hooks {
   onGamepadNavLeft?: () => void;
   /** Навигация геймпада: вправо (D-pad right / стик вправо). */
   onGamepadNavRight?: () => void;
+  /** Переключение вкладок влево (LB/L1). */
+  onGamepadTabLeft?: () => void;
+  /** Переключение вкладок вправо (RB/R1). */
+  onGamepadTabRight?: () => void;
 }

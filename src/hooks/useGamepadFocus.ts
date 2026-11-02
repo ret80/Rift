@@ -5,11 +5,13 @@
  * → перемещение фокуса вверх/вниз. D-pad left/right + левый стик x →
  * перемещение фокуса влево/вправо (для вкладок/страниц).
  *
- * Подключает внешние обработчики навигации (из App.tsx через ScreenRouter)
- * к внутреннему перемещению фокуса через connectNav().
+ * Хук не знает о конкретном экране: экран сам решает, что делать при
+ * подтверждении, и регистрирует обработчики в общем `gamepadNavRef`.
  */
 
-import { useState, useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+export type GamepadDirection = "up" | "down" | "left" | "right";
 
 export interface UseGamepadFocusOptions {
   /** Начальный индекс фокуса. */
@@ -18,6 +20,8 @@ export interface UseGamepadFocusOptions {
   count: number;
   /** Глубина списка (для multi-column навигации). По умолчанию 1. */
   depth?: number;
+  /** Зацикливать навигацию. По умолчанию true. */
+  wrap?: boolean;
 }
 
 export interface UseGamepadFocusReturn {
@@ -26,7 +30,7 @@ export interface UseGamepadFocusReturn {
   /** Установить индекс фокуса. */
   setFocusIndex: (index: number) => void;
   /** Направление навигации: "up" | "down" | "left" | "right" | null. */
-  focusDir: "up" | "down" | "left" | "right" | null;
+  focusDir: GamepadDirection | null;
   /** Обработчик навигации вверх. */
   onNavUp: () => void;
   /** Обработчик навигации вниз. */
@@ -35,37 +39,32 @@ export interface UseGamepadFocusReturn {
   onNavLeft: () => void;
   /** Обработчик навигации вправо. */
   onNavRight: () => void;
-  /** Есть ли фокус (true когда геймпад подключён и экран активен). */
+  /** Есть ли элементы для навигации. */
   focused: boolean;
-  /**
-   * Подключить внешние обработчики навигации из App.tsx.
-   * После вызова внешние обработчики будут двигать фокус.
-   */
-  connectNav: (
-    onUp: (() => void) | undefined,
-    onDown: (() => void) | undefined,
-    onLeft: (() => void) | undefined,
-    onRight: (() => void) | undefined,
-  ) => void;
 }
 
 export function useGamepadFocus(
   options: UseGamepadFocusOptions,
 ): UseGamepadFocusReturn {
-  const { initialIndex = 0, count, depth = 1 } = options;
+  const { initialIndex = 0, count, depth = 1, wrap = true } = options;
   const [focusIndex, setFocusIndex] = useState(initialIndex);
-  const [focusDir, setFocusDir] = useState<"up" | "down" | "left" | "right" | null>(null);
+  const [focusDir, setFocusDir] = useState<GamepadDirection | null>(null);
   const dirTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Refs для внешних обработчиков навигации.
-  // connectNav сохраняет внешние функции сюда, а onNavUp/Down/Left/Right
-  // вызывают их через эти refs.
-  const externalNavRef = useRef({
-    up: undefined as (() => void) | undefined,
-    down: undefined as (() => void) | undefined,
-    left: undefined as (() => void) | undefined,
-    right: undefined as (() => void) | undefined,
-  });
+  // Если список изменился (например, после покупки), не выходим за границы.
+  useEffect(() => {
+    setFocusIndex((prev) => {
+      if (count <= 0) return 0;
+      return Math.max(0, Math.min(prev, count - 1));
+    });
+  }, [count]);
+
+  // Сбрасываем таймер визуальной обратной связи при размонтировании.
+  useEffect(() => {
+    return () => {
+      if (dirTimeoutRef.current) clearTimeout(dirTimeoutRef.current);
+    };
+  }, []);
 
   /** Сбросить направление через 300мс (визуальная обратная связь). */
   const clearFocusDir = useCallback(() => {
@@ -81,84 +80,38 @@ export function useGamepadFocus(
   const moveFocus = useCallback(
     (delta: number) => {
       setFocusIndex((prev) => {
-        const next = ((prev + delta) % count + count) % count;
-        return next;
+        if (count <= 0) return 0;
+        const raw = prev + delta;
+        if (wrap) return ((raw % count) + count) % count;
+        return Math.max(0, Math.min(raw, count - 1));
       });
     },
-    [count],
+    [count, wrap],
   );
 
-  // Внутренний обработчик навигации вверх.
-  // Сначала проверяет externalNavRef.up, если есть — вызывает его,
-  // иначе двигает фокус напрямую.
   const onNavUp = useCallback(() => {
-    const ext = externalNavRef.current.up;
-    if (ext) {
-      ext();
-    } else {
-      moveFocus(-1);
-      setFocusDir("up");
-      clearFocusDir();
-    }
+    moveFocus(-1);
+    setFocusDir("up");
+    clearFocusDir();
   }, [moveFocus, clearFocusDir]);
 
-  // Внутренний обработчик навигации вниз.
   const onNavDown = useCallback(() => {
-    const ext = externalNavRef.current.down;
-    if (ext) {
-      ext();
-    } else {
-      moveFocus(1);
-      setFocusDir("down");
-      clearFocusDir();
-    }
+    moveFocus(1);
+    setFocusDir("down");
+    clearFocusDir();
   }, [moveFocus, clearFocusDir]);
 
-  // Внутренний обработчик навигации влево.
   const onNavLeft = useCallback(() => {
-    const ext = externalNavRef.current.left;
-    if (ext) {
-      ext();
-    } else {
-      if (depth > 1) {
-        moveFocus(-depth);
-      }
-      setFocusDir("left");
-      clearFocusDir();
-    }
+    if (depth > 1) moveFocus(-depth);
+    setFocusDir("left");
+    clearFocusDir();
   }, [moveFocus, clearFocusDir, depth]);
 
-  // Внутренний обработчик навигации вправо.
   const onNavRight = useCallback(() => {
-    const ext = externalNavRef.current.right;
-    if (ext) {
-      ext();
-    } else {
-      if (depth > 1) {
-        moveFocus(depth);
-      }
-      setFocusDir("right");
-      clearFocusDir();
-    }
+    if (depth > 1) moveFocus(depth);
+    setFocusDir("right");
+    clearFocusDir();
   }, [moveFocus, clearFocusDir, depth]);
-
-  // Подключаем внешние обработчики навигации.
-  // Сохраняем внешние функции в ref, чтобы onNavUp/Down/Left/Right
-  // могли их вызывать.
-  const connectNav = useCallback(
-    (
-      onUp: (() => void) | undefined,
-      onDown: (() => void) | undefined,
-      onLeft: (() => void) | undefined,
-      onRight: (() => void) | undefined,
-    ) => {
-      externalNavRef.current.up = onUp;
-      externalNavRef.current.down = onDown;
-      externalNavRef.current.left = onLeft;
-      externalNavRef.current.right = onRight;
-    },
-    [],
-  );
 
   return {
     focusIndex,
@@ -169,6 +122,5 @@ export function useGamepadFocus(
     onNavLeft,
     onNavRight,
     focused: count > 0,
-    connectNav,
   };
 }

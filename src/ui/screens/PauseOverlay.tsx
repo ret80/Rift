@@ -1,4 +1,4 @@
-import { useEffect, type MutableRefObject } from "react";
+import { useEffect, useMemo, type MutableRefObject } from "react";
 import { useGamepadFocus } from "../../hooks/useGamepadFocus";
 import { useT } from "../../i18n";
 import GameButton from "../components/GameButton";
@@ -26,7 +26,10 @@ export default function PauseOverlay(props: {
     initialIndex: 0,
   });
 
-  const actions = [props.onResume, props.onSettings, props.onMenu];
+  const actions = useMemo(
+    () => [props.onResume, props.onSettings, props.onMenu],
+    [props.onResume, props.onSettings, props.onMenu],
+  );
 
   // Регистрируем навигацию и confirm в общий ref.
   useEffect(() => {
@@ -37,13 +40,15 @@ export default function PauseOverlay(props: {
       left: onNavLeft,
       right: onNavRight,
       confirm: handler,
+      cancel: props.onMenu,
     };
     return () => {
       props.gamepadNavRef.current = {
-        up: () => {}, down: () => {}, left: () => {}, right: () => {}, confirm: null,
+        up: () => {}, down: () => {}, left: () => {}, right: () => {},
+        confirm: null, cancel: null,
       };
     };
-  }, [onNavUp, onNavDown, onNavLeft, onNavRight, focusIndex, actions, props.gamepadNavRef]);
+  }, [onNavUp, onNavDown, onNavLeft, onNavRight, focusIndex, actions, props.gamepadNavRef, props.onMenu]);
 
   return (
     <div
@@ -64,11 +69,6 @@ export default function PauseOverlay(props: {
               gamepadFocused={props.isGamepad && focusIndex === 0}
             >
               {t("pause.resume")}
-              {props.isGamepad && (
-                <span className="ml-2 inline-block rounded border border-[#5ef2ff]/40 px-1.5 py-0.5 text-[10px] tracking-wider text-[#5ef2ff]">
-                  ✕
-                </span>
-              )}
             </GameButton>
             <GameButton
               onClick={props.onSettings}
@@ -76,11 +76,6 @@ export default function PauseOverlay(props: {
               gamepadFocused={props.isGamepad && focusIndex === 1}
             >
               {t("pause.settings")}
-              {props.isGamepad && (
-                <span className="ml-2 inline-block rounded border border-[#ffb800]/40 px-1.5 py-0.5 text-[10px] tracking-wider text-[#ffb800]">
-                  ✕
-                </span>
-              )}
             </GameButton>
             <GameButton
               onClick={props.onMenu}
@@ -88,11 +83,6 @@ export default function PauseOverlay(props: {
               gamepadFocused={props.isGamepad && focusIndex === 2}
             >
               {t("pause.menu")}
-              {props.isGamepad && (
-                <span className="ml-2 inline-block rounded border border-[#ff3b52]/40 px-1.5 py-0.5 text-[10px] tracking-wider text-[#ff3b52]">
-                  ○
-                </span>
-              )}
             </GameButton>
           </div>
         </div>

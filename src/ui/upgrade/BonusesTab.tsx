@@ -10,7 +10,7 @@ import {
 } from "../../game/upgrades";
 import { useT, type TKey } from "../../i18n";
 import { Icon } from "../components/Icon";
-import { STAT_ROW_CLASS, getUpgradeValue } from "./model";
+import { STAT_ROW_CLASS, gamepadFocusStyle, getUpgradeValue } from "./model";
 
 /** Группа бонуса: несколько прокачиваемых параметров под общим заголовком. */
 function BonusGroup(props: {
@@ -22,9 +22,10 @@ function BonusGroup(props: {
   upgrades: PlayerUpgrades;
   free: boolean;
   onPurchase: (key: keyof Omit<PlayerUpgrades, "parts">) => void;
+  focusedId?: string | null;
 }) {
   const t = useT();
-  const { keys, upgrades, free, onPurchase } = props;
+  const { keys, upgrades, free, onPurchase, focusedId } = props;
 
   return (
     <div className={`rounded border px-4 py-3 ${props.accentClass}`}>
@@ -42,8 +43,14 @@ function BonusGroup(props: {
           const maxed = level >= tier.maxLevel;
           const cost = upgradeCost(key, level);
           const affordable = maxed ? false : free || upgrades.parts >= cost;
+          const rowFocused = !maxed && focusedId === `bonus:${key}`;
           return (
-            <div key={key} className={STAT_ROW_CLASS}>
+            <div
+              key={key}
+              className={STAT_ROW_CLASS}
+              data-gamepad-focused={rowFocused ? "true" : undefined}
+              style={gamepadFocusStyle(rowFocused)}
+            >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-bold text-[#eaffff]">
@@ -91,7 +98,9 @@ export function BonusesTab(props: {
   upgrades: PlayerUpgrades;
   free: boolean;
   onPurchase: (key: keyof Omit<PlayerUpgrades, "parts">) => void;
+  focusedId?: string | null;
 }) {
+  const { focusedId } = props;
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
       <BonusGroup
@@ -103,6 +112,7 @@ export function BonusesTab(props: {
         upgrades={props.upgrades}
         free={props.free}
         onPurchase={props.onPurchase}
+        focusedId={focusedId}
       />
       <BonusGroup
         keys={["healDuration", "healRate"]}
@@ -113,6 +123,7 @@ export function BonusesTab(props: {
         upgrades={props.upgrades}
         free={props.free}
         onPurchase={props.onPurchase}
+        focusedId={focusedId}
       />
     </div>
   );

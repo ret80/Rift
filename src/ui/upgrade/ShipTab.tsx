@@ -14,6 +14,7 @@ import { Icon } from "../components/Icon";
 import {
   SHIP_KEYS,
   STAT_ROW_CLASS,
+  gamepadFocusStyle,
   getEffectText,
   getUpgradeValue,
 } from "./model";
@@ -25,11 +26,12 @@ interface UpgradeRowProps {
   upgrades: PlayerUpgrades;
   onPurchase: (key: keyof Omit<PlayerUpgrades, "parts">) => void;
   free: boolean;
+  focused?: boolean;
 }
 
 function UpgradeRow(props: UpgradeRowProps) {
   const t = useT();
-  const { upgradeKey, upgrades, onPurchase, free } = props;
+  const { upgradeKey, upgrades, onPurchase, free, focused } = props;
 
   const level = upgrades[upgradeKey];
   const tier = UPGRADE_TIERS[upgradeKey];
@@ -50,9 +52,11 @@ function UpgradeRow(props: UpgradeRowProps) {
         maxed
           ? "border-[#5ef2ff]/30 bg-[#5ef2ff]/5"
           : affordable
-          ? "border-[#5ef2ff]/40 bg-[#5ef2ff]/8 hover:bg-[#5ef2ff]/12"
-          : "border-[#3d4f6d]/30 bg-[#0a1020]/50"
+            ? "border-[#5ef2ff]/40 bg-[#5ef2ff]/8 hover:bg-[#5ef2ff]/12"
+            : "border-[#3d4f6d]/30 bg-[#0a1020]/50"
       }`}
+      data-gamepad-focused={focused ? "true" : undefined}
+      style={gamepadFocusStyle(!!focused)}
     >
       {/* Left: icon + info */}
       <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -102,9 +106,10 @@ function ShieldGroup(props: {
   upgrades: PlayerUpgrades;
   free: boolean;
   onPurchase: (key: keyof Omit<PlayerUpgrades, "parts">) => void;
+  focusedId?: string | null;
 }) {
   const t = useT();
-  const { upgrades, free, onPurchase } = props;
+  const { upgrades, free, onPurchase, focusedId } = props;
   const owned = upgrades.shield > 0;
   const buyCost = upgradeCost("shield", upgrades.shield);
   const canBuy = !owned && (free || upgrades.parts >= buyCost);
@@ -117,7 +122,11 @@ function ShieldGroup(props: {
           : "border-[#3d4f6d]/40 bg-[#0a1020]/60"
       }`}
     >
-      <div className="flex items-center justify-between gap-3">
+      <div
+        className="flex items-center justify-between gap-3"
+        data-gamepad-focused={!owned && focusedId === "ship:shield" ? "true" : undefined}
+        style={gamepadFocusStyle(!owned && focusedId === "ship:shield")}
+      >
         <div className="flex min-w-0 items-center gap-3">
           <Icon kind="upgrade-shield" />
           <div className="min-w-0">
@@ -166,8 +175,14 @@ function ShieldGroup(props: {
             const maxed = level >= tier.maxLevel;
             const cost = upgradeCost(key, level);
             const affordable = maxed ? false : free || upgrades.parts >= cost;
+            const rowFocused = !maxed && focusedId === `ship:${key}`;
             return (
-              <div key={key} className={STAT_ROW_CLASS}>
+              <div
+                key={key}
+                className={STAT_ROW_CLASS}
+                data-gamepad-focused={rowFocused ? "true" : undefined}
+                style={gamepadFocusStyle(rowFocused)}
+              >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] font-bold text-[#eaffff]">
@@ -217,6 +232,7 @@ export function ShipTab(props: {
   upgrades: PlayerUpgrades;
   free: boolean;
   onPurchase: (key: keyof Omit<PlayerUpgrades, "parts">) => void;
+  focusedId?: string | null;
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
@@ -227,12 +243,14 @@ export function ShipTab(props: {
           upgradeKey={upgradeKey}
           upgrades={props.upgrades}
           onPurchase={props.onPurchase}
+          focused={props.focusedId === `ship:${upgradeKey}`}
         />
       ))}
       <ShieldGroup
         upgrades={props.upgrades}
         free={props.free}
         onPurchase={props.onPurchase}
+        focusedId={props.focusedId}
       />
     </div>
   );
