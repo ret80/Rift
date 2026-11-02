@@ -3,30 +3,38 @@
  *
  * Контейнер держит только состояние снимка и обработчики покупок; сами
  * вкладки вынесены в `ShipTab`, `ArmoryTab`, `DronesTab` и `BonusesTab`.
+ *
+ * Gamepad-навигация:
+ *   - Кнопки L/R (LB/RB) — переключение вкладок
+ *   - D-pad up/down + стик — навигация по кнопкам (в будущем)
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type MutableRefObject } from "react";
+import type { DroneId, DroneLoadout, DroneStatKey } from "../../game/drones/Drone";
 import type { Game } from "../../game/game";
+import {
+    copyDroneLoadout,
+    copyWeaponLoadout,
+} from "../../game/loadout/snapshots";
 import type { PlayerUpgrades, WeaponStatKey } from "../../game/upgrades";
 import type { WeaponId, WeaponLoadout } from "../../game/weapons/Weapon";
-import type { DroneId, DroneLoadout, DroneStatKey } from "../../game/drones/Drone";
-import {
-  copyDroneLoadout,
-  copyWeaponLoadout,
-} from "../../game/loadout/snapshots";
 import { useT } from "../../i18n";
-import { TabButton } from "./TabButton";
-import { ShipTab } from "./ShipTab";
+import type { GamepadNavHandlers } from "../ScreenRouter";
 import { ArmoryTab } from "./ArmoryTab";
-import { DronesTab } from "./DronesTab";
 import { BonusesTab } from "./BonusesTab";
+import { DronesTab } from "./DronesTab";
+import { ShipTab } from "./ShipTab";
+import { TabButton } from "./TabButton";
 
 type TabId = "ship" | "armory" | "drones" | "bonuses";
+const TAB_IDS: TabId[] = ["ship", "armory", "drones", "bonuses"];
 
 export function UpgradeScreen(props: {
   game: Game | null;
   detailsOn: boolean;
   onBack: () => void;
+  isGamepad: boolean;
+  gamepadNavRef: MutableRefObject<GamepadNavHandlers>;
 }) {
   const t = useT();
   const free = props.detailsOn;
@@ -107,6 +115,35 @@ export function UpgradeScreen(props: {
     if (success) refresh();
   };
 
+  // Переключение вкладок через L/R.
+  const switchTab = useCallback(
+    (direction: "left" | "right") => {
+      const currentIndex = TAB_IDS.indexOf(tab);
+      const newIndex =
+        direction === "left"
+          ? ((currentIndex - 1) % TAB_IDS.length + TAB_IDS.length) % TAB_IDS.length
+          : (currentIndex + 1) % TAB_IDS.length;
+      setTab(TAB_IDS[newIndex]);
+    },
+    [tab],
+  );
+
+  // Регистрируем навигацию в общий ref: L/R переключают вкладки.
+  useEffect(() => {
+    props.gamepadNavRef.current = {
+      up: () => {},
+      down: () => {},
+      left: () => switchTab("left"),
+      right: () => switchTab("right"),
+      confirm: null,
+    };
+    return () => {
+      props.gamepadNavRef.current = {
+        up: () => {}, down: () => {}, left: () => {}, right: () => {}, confirm: null,
+      };
+    };
+  }, [switchTab, props.gamepadNavRef]);
+
   return (
     <div
       className="anim-overlay absolute inset-0 z-20 flex items-center justify-center p-4"
@@ -140,6 +177,7 @@ export function UpgradeScreen(props: {
                 activeClass="border-[#5ef2ff]/80 bg-[#5ef2ff]/25"
                 lineClass="bg-[#5ef2ff] shadow-[0_0_8px_#5ef2ff]"
                 onClick={() => setTab("ship")}
+                gamepadFocused={props.isGamepad && tab === "ship"}
               />
               <TabButton
                 label={t("upgrade.tabArmory")}
@@ -147,6 +185,7 @@ export function UpgradeScreen(props: {
                 activeClass="border-[#5ef2ff]/80 bg-[#5ef2ff]/25"
                 lineClass="bg-[#5ef2ff] shadow-[0_0_8px_#5ef2ff]"
                 onClick={() => setTab("armory")}
+                gamepadFocused={props.isGamepad && tab === "armory"}
               />
               <TabButton
                 label={t("upgrade.tabDrones")}
@@ -154,6 +193,7 @@ export function UpgradeScreen(props: {
                 activeClass="border-[#ff9de0]/80 bg-[#ff9de0]/25"
                 lineClass="bg-[#ff9de0] shadow-[0_0_8px_#ff9de0]"
                 onClick={() => setTab("drones")}
+                gamepadFocused={props.isGamepad && tab === "drones"}
               />
               <TabButton
                 label={t("upgrade.tabBonuses")}
@@ -161,6 +201,7 @@ export function UpgradeScreen(props: {
                 activeClass="border-[#7dff9e]/80 bg-[#7dff9e]/25"
                 lineClass="bg-[#7dff9e] shadow-[0_0_8px_#7dff9e]"
                 onClick={() => setTab("bonuses")}
+                gamepadFocused={props.isGamepad && tab === "bonuses"}
               />
             </div>
           </div>

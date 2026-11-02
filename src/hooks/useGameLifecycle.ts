@@ -46,6 +46,14 @@ export interface GameLifecycleCallbacks {
   onGamepadConfirm?: () => void;
   /** Нажатие кнопки отмены геймпада (B/Circle). */
   onGamepadCancel?: () => void;
+  /** Навигация геймпада: вверх. */
+  onGamepadNavUp?: () => void;
+  /** Навигация геймпада: вниз. */
+  onGamepadNavDown?: () => void;
+  /** Навигация геймпада: влево. */
+  onGamepadNavLeft?: () => void;
+  /** Навигация геймпада: вправо. */
+  onGamepadNavRight?: () => void;
 }
 
 export function useGameLifecycle(
@@ -88,6 +96,10 @@ export function useGameLifecycle(
       },
       onGamepadConfirm: events.onGamepadConfirm,
       onGamepadCancel: events.onGamepadCancel,
+      onGamepadNavUp: events.onGamepadNavUp,
+      onGamepadNavDown: events.onGamepadNavDown,
+      onGamepadNavLeft: events.onGamepadNavLeft,
+      onGamepadNavRight: events.onGamepadNavRight,
     }, storage);
 
     game.setVolumes(initial.volumes);

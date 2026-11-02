@@ -18,4 +18,12 @@ export interface Hooks {
   onGamepadConfirm?: () => void;
   /** Нажатие кнопки отмены геймпада (B/Circle). */
   onGamepadCancel?: () => void;
+  /** Навигация геймпада: вверх (D-pad up / стик вверх). */
+  onGamepadNavUp?: () => void;
+  /** Навигация геймпада: вниз (D-pad down / стик вниз). */
+  onGamepadNavDown?: () => void;
+  /** Навигация геймпада: влево (D-pad left / стик влево). */
+  onGamepadNavLeft?: () => void;
+  /** Навигация геймпада: вправо (D-pad right / стик вправо). */
+  onGamepadNavRight?: () => void;
 }

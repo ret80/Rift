@@ -1,18 +1,54 @@
-import React from "react";
+import { useEffect, type MutableRefObject } from "react";
 import type { StatsData } from "../../game/types/ui";
-import GameButton from "../components/GameButton";
-import { formatTime } from "../utils/formatTime";
+import { useGamepadFocus } from "../../hooks/useGamepadFocus";
 import { useT } from "../../i18n";
+import GameButton from "../components/GameButton";
+import type { GamepadNavHandlers } from "../ScreenRouter";
+import { formatTime } from "../utils/formatTime";
 
+/**
+ * GameOverScreen — экран окончания игры.
+ *
+ * Gamepad-навигация:
+ *   - D-pad up/down + левый стик → перемещение фокуса по кнопкам
+ *   - Кнопка A → подтвердить выбор
+ *   - Кнопка B → в главное меню (заменяет "Назад")
+ */
 export default function GameOverScreen(props: {
   stats: StatsData;
   onRetry: () => void;
   onUpgrade: () => void;
   onMenu: () => void;
   isGamepad: boolean;
+  gamepadNavRef: MutableRefObject<GamepadNavHandlers>;
 }) {
   const t = useT();
   const s = props.stats;
+
+  const { focusIndex, onNavUp, onNavDown, onNavLeft, onNavRight } = useGamepadFocus({
+    count: 3,
+    initialIndex: 0,
+  });
+
+  const actions = [props.onRetry, props.onMenu, props.onUpgrade];
+
+  // Регистрируем навигацию и confirm в общий ref.
+  useEffect(() => {
+    const handler = () => { actions[focusIndex]?.(); };
+    props.gamepadNavRef.current = {
+      up: onNavUp,
+      down: onNavDown,
+      left: onNavLeft,
+      right: onNavRight,
+      confirm: handler,
+    };
+    return () => {
+      props.gamepadNavRef.current = {
+        up: () => {}, down: () => {}, left: () => {}, right: () => {}, confirm: null,
+      };
+    };
+  }, [onNavUp, onNavDown, onNavLeft, onNavRight, focusIndex, actions, props.gamepadNavRef]);
+
   return (
     <div
       className="anim-overlay absolute inset-0 z-30 flex items-center justify-center p-4"
@@ -64,7 +100,12 @@ export default function GameOverScreen(props: {
           </div>
           <div className="mt-5 flex flex-col items-center justify-center gap-2.5 sm:mt-7">
             <div className="flex w-full gap-3">
-              <GameButton onClick={props.onRetry} autoFocus className="flex-1">
+              <GameButton
+                onClick={props.onRetry}
+                autoFocus={!props.isGamepad}
+                gamepadFocused={props.isGamepad && focusIndex === 0}
+                className="flex-1"
+              >
                 {t("over.retry")}
                 {props.isGamepad && (
                   <span className="ml-2 inline-block rounded border border-[#5ef2ff]/40 px-1.5 py-0.5 text-[10px] tracking-wider text-[#5ef2ff]">
@@ -72,7 +113,12 @@ export default function GameOverScreen(props: {
                   </span>
                 )}
               </GameButton>
-              <GameButton onClick={props.onMenu} variant="amber" className="flex-1">
+              <GameButton
+                onClick={props.onMenu}
+                variant="amber"
+                gamepadFocused={props.isGamepad && focusIndex === 1}
+                className="flex-1"
+              >
                 {t("over.menu")}
                 {props.isGamepad && (
                   <span className="ml-2 inline-block rounded border border-[#ffb800]/40 px-1.5 py-0.5 text-[10px] tracking-wider text-[#ffb800]">
@@ -81,7 +127,12 @@ export default function GameOverScreen(props: {
                 )}
               </GameButton>
             </div>
-            <GameButton onClick={props.onUpgrade} variant="cyan" className="w-full">
+            <GameButton
+              onClick={props.onUpgrade}
+              variant="cyan"
+              gamepadFocused={props.isGamepad && focusIndex === 2}
+              className="w-full"
+            >
               {t("over.upgrade")}
               {props.isGamepad && (
                 <span className="ml-2 inline-block rounded border border-[#5ef2ff]/40 px-1.5 py-0.5 text-[10px] tracking-wider text-[#5ef2ff]">

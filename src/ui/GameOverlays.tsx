@@ -5,13 +5,15 @@
  * итоги забега, сенсорное управление, FPS-счётчик и финальные scanlines.
  */
 
+import type { MutableRefObject } from "react";
 import { useEffect, useRef } from "react";
 import type { BannerData, CountData, StatsData, ToastData } from "../game/types/ui";
 import type { Screen } from "./appState";
-import PauseOverlay from "./screens/PauseOverlay";
-import GameOverScreen from "./screens/GameOverScreen";
-import TouchControls from "./TouchControls";
 import ScreenDimmer from "./components/ScreenDimmer";
+import type { GamepadNavHandlers } from "./ScreenRouter";
+import GameOverScreen from "./screens/GameOverScreen";
+import PauseOverlay from "./screens/PauseOverlay";
+import TouchControls from "./TouchControls";
 
 export interface GameOverlaysProps {
   screen: Screen;
@@ -32,6 +34,8 @@ export interface GameOverlaysProps {
   onUpgrade: () => void;
   onVector: (active: boolean, x: number, y: number) => void;
   onPause: () => void;
+  /** Ref для навигации геймпада (общий с ScreenRouter). */
+  gamepadNavRef: MutableRefObject<GamepadNavHandlers>;
 }
 
 export function GameOverlays(props: GameOverlaysProps) {
@@ -117,6 +121,7 @@ export function GameOverlays(props: GameOverlaysProps) {
           onSettings={props.onSettings}
           onMenu={props.onMenu}
           isGamepad={isGamepad}
+          gamepadNavRef={props.gamepadNavRef}
         />
       )}
 
@@ -127,6 +132,7 @@ export function GameOverlays(props: GameOverlaysProps) {
           onUpgrade={props.onUpgrade}
           onMenu={props.onMenu}
           isGamepad={isGamepad}
+          gamepadNavRef={props.gamepadNavRef}
         />
       )}
 

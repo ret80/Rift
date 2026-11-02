@@ -16,8 +16,8 @@ import { EcsWorld } from "../ecs";
 import { SystemSchedule } from "../ecs/SystemSchedule";
 import { AllyDroneSystem } from "../ecs/systems/AllyDroneSystem";
 import { Fx } from "../fx";
+import { GAMEPAD_CODES, GAMEPAD_DPAD_CODES, GamepadManager } from "../gamepad";
 import { InputManager } from "../input";
-import { GamepadManager, GAMEPAD_CODES, GAMEPAD_DPAD_CODES } from "../gamepad";
 import { LoadoutSystem } from "../loadout/LoadoutSystem";
 import { BonusManager } from "../loadout/bonuses/BonusManager";
 import type { PhysicsEngineId } from "../physics/index";
@@ -134,6 +134,17 @@ export class GameContext {
 
   private countId = 0;
   private _paused = false;
+
+  /** Предыдущее направление левого стика для edge-детекции навигации. */
+  private _stickNavDir: "up" | "down" | "left" | "right" | null = null;
+  /** Таймер auto-repeat для навигации стиком (секунды). */
+  private _stickNavRepeatTimer = 0;
+  /** Задержка перед auto-repeat (секунды). */
+  private static readonly STICK_NAV_INITIAL_DELAY = 0.4;
+  /** Интервал auto-repeat (секунды). */
+  private static readonly STICK_NAV_REPEAT_INTERVAL = 0.15;
+  /** Мёртвая зона навигации стиком (выше, чем для движения). */
+  private static readonly STICK_NAV_DEADZONE = 0.3;
 
   /** Размер вьюпорта в CSS-пикселях (обновляется в resize). */
   readonly viewport = { width: 0, height: 0 };
@@ -503,12 +514,9 @@ export class GameContext {
     this.gamepad.poll();
 
     // Пауза через кнопку Start на геймпаде.
+    // Только Start — D-pad не используем для паузы (конфликт с навигацией по меню).
     if (this.gamepad.isConnected) {
       if (this.gamepad.consumePress(GAMEPAD_CODES.Start)) {
-        this.togglePause();
-      }
-      // D-pad: вверх — пауза.
-      if (this.gamepad.consumePress(GAMEPAD_DPAD_CODES.Up)) {
         this.togglePause();
       }
       // Кнопки подтверждения/отмены — через хуки к UI.
@@ -518,6 +526,47 @@ export class GameContext {
       if (this.gamepad.consumePress(GAMEPAD_CODES.B)) {
         this.hooks.onGamepadCancel?.();
       }
+      // Навигация — через хуки к UI.
+      if (this.gamepad.consumePress(GAMEPAD_DPAD_CODES.Up)) {
+        this.hooks.onGamepadNavUp?.();
+      }
+      if (this.gamepad.consumePress(GAMEPAD_DPAD_CODES.Down)) {
+        this.hooks.onGamepadNavDown?.();
+      }
+      if (this.gamepad.consumePress(GAMEPAD_DPAD_CODES.Left)) {
+        this.hooks.onGamepadNavLeft?.();
+      }
+      if (this.gamepad.consumePress(GAMEPAD_DPAD_CODES.Right)) {
+        this.hooks.onGamepadNavRight?.();
+      }
+
+      // Навигация левым стиком (edge-triggered: срабатывает при входе в направление).
+      const nav = GameContext.STICK_NAV_DEADZONE;
+      const ax = this.gamepad.axisX;
+      const ay = this.gamepad.axisY;
+      let dir: "up" | "down" | "left" | "right" | null = null;
+      if (Math.abs(ax) > nav || Math.abs(ay) > nav) {
+        if (Math.abs(ax) >= Math.abs(ay)) {
+          dir = ax > 0 ? "right" : "left";
+        } else {
+          dir = ay > 0 ? "down" : "up";
+        }
+      }
+      if (dir && dir !== this._stickNavDir) {
+        // Смена направления — мгновенный шаг, таймер повтора сбрасывается.
+        this._stickNavRepeatTimer = 0;
+        this._fireStickNav(dir);
+      } else if (dir && dir === this._stickNavDir) {
+        // Удержание стика: задержка, затем авто-повтор.
+        this._stickNavRepeatTimer += dt;
+        if (this._stickNavRepeatTimer >= GameContext.STICK_NAV_REPEAT_INTERVAL) {
+          this._stickNavRepeatTimer = GameContext.STICK_NAV_INITIAL_DELAY;
+          this._fireStickNav(dir);
+        }
+      } else {
+        this._stickNavRepeatTimer = 0;
+      }
+      this._stickNavDir = dir;
     }
 
     this.debugSystem.handleDebugKeys(
@@ -525,6 +574,16 @@ export class GameContext {
       this.fsm.is("over"),
       () => this.fsm.fire("restart"),
     );
+  }
+
+  /** Вызвать навигационный хук по направлению стика. */
+  private _fireStickNav(dir: "up" | "down" | "left" | "right"): void {
+    switch (dir) {
+      case "up": this.hooks.onGamepadNavUp?.(); break;
+      case "down": this.hooks.onGamepadNavDown?.(); break;
+      case "left": this.hooks.onGamepadNavLeft?.(); break;
+      case "right": this.hooks.onGamepadNavRight?.(); break;
+    }
   }
 
   startRun(): void {

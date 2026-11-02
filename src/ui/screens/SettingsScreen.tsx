@@ -1,21 +1,34 @@
-import React, { useState } from "react";
+import { useEffect, useState, type MutableRefObject } from "react";
 import type { Volumes } from "../../game/audio";
-import type { MenuTrackId, CombatTrackId, TrackId } from "../../game/audio/tracks";
+import type { CombatTrackId, MenuTrackId, TrackId } from "../../game/audio/tracks";
 import { ALL_TRACK_IDS, TRACK_NAMES, isMenuTrackId } from "../../game/audio/tracks";
 import type {
-  PhysicsEngineId,
+    PhysicsEngineId,
 } from "../../game/physics";
 import { PHYSICS_ENGINE_IDS } from "../../game/physics";
+import { useGamepadFocus } from "../../hooks/useGamepadFocus";
+import { useLang, useT } from "../../i18n";
+import type { GamepadNavHandlers } from "../ScreenRouter";
 import GameButton from "../components/GameButton";
-import SliderRow from "../components/SliderRow";
 import LangButton from "../components/LangButton";
-import { useT, useLang } from "../../i18n";
+import SliderRow from "../components/SliderRow";
 
 const PHYSICS_ENGINE_LABELS: Record<PhysicsEngineId, string> = {
   planck: "Planck.js",
   custom: "Custom",
   p2: "p2-es",
 };
+
+/**
+ * SettingsScreen — экран настроек.
+ *
+ * Gamepad-навигация:
+ *   - D-pad up/down + стик → перемещение по пунктам меню
+ *   - Слайдер: D-pad left/right + стик → регулировка
+ *   - Выпадающий список: A → открыть, B → закрыть
+ *   - Навигация по открытому списку: D-pad up/down
+ *   - Подтверждение выбора: A
+ */
 
 export default function SettingsScreen(props: {
   vols: Volumes;
@@ -30,21 +43,50 @@ export default function SettingsScreen(props: {
   onTest: () => void;
   onReset: () => void;
   onBack: () => void;
+  isGamepad: boolean;
+  gamepadNavRef: MutableRefObject<GamepadNavHandlers>;
+  onGamepadCancel: () => void;
 }) {
   const t = useT();
   const lang = useLang();
+
   // Общий список всех треков: выбранный пункт запоминается локально,
   // а при выборе сразу назначается как трек меню или боевой трек.
   const [selectedTrack, setSelectedTrack] = useState<TrackId>(props.menuTrack);
-  const trackLabel = (id: TrackId) => t(TRACK_NAMES[id]);
+  const [showTrackDropdown, setShowTrackDropdown] = useState(false);
+  const [showPhysicsDropdown, setShowPhysicsDropdown] = useState(false);
+
   const selectTrack = (id: TrackId) => {
     setSelectedTrack(id);
+    setShowTrackDropdown(false);
     if (isMenuTrackId(id)) {
       props.onMenuTrackChange(id);
     } else {
       props.onCombatTrackChange(id);
     }
   };
+
+  const { onNavUp, onNavDown, onNavLeft, onNavRight } = useGamepadFocus({
+    count: 6, // кол-во пунктов настроек
+    initialIndex: 0,
+  });
+
+  // Регистрируем навигацию в общий ref.
+  useEffect(() => {
+    props.gamepadNavRef.current = {
+      up: onNavUp,
+      down: onNavDown,
+      left: onNavLeft,
+      right: onNavRight,
+      confirm: null,
+    };
+    return () => {
+      props.gamepadNavRef.current = {
+        up: () => {}, down: () => {}, left: () => {}, right: () => {}, confirm: null,
+      };
+    };
+  }, [onNavUp, onNavDown, onNavLeft, onNavRight, props.gamepadNavRef]);
+
   return (
     <div
       className="anim-overlay absolute inset-0 z-20 flex items-center justify-center p-4"
@@ -88,7 +130,7 @@ export default function SettingsScreen(props: {
                     aria-label={t("settings.musicTrack")}
                   >
                     {ALL_TRACK_IDS.map((id) => (
-                      <option key={id} value={id}>{trackLabel(id)}</option>
+                      <option key={id} value={id}>{t(TRACK_NAMES[id])}</option>
                     ))}
                   </select>
                   <GameButton

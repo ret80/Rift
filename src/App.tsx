@@ -1,15 +1,16 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { ENEMY_KIND_COUNT } from "./game/balance/enemies";
-import { createLocalStoragePort } from "./game/core/PersistencePort";
 import type { PersistencePort } from "./game/core/PersistencePort";
+import { createLocalStoragePort } from "./game/core/PersistencePort";
 import { useGameActions } from "./hooks/useGameActions";
 import { useGameLifecycle } from "./hooks/useGameLifecycle";
 import { usePersistentSettings } from "./hooks/usePersistentSettings";
-import { HudLayer } from "./ui/HudLayer";
-import { HudStore } from "./ui/hud/HudStore";
-import { ScreenRouter } from "./ui/ScreenRouter";
-import { GameOverlays } from "./ui/GameOverlays";
 import { appReducer, INITIAL_APP_STATE, parseUrlParams } from "./ui/appState";
+import { GameOverlays } from "./ui/GameOverlays";
+import { HudStore } from "./ui/hud/HudStore";
+import { HudLayer } from "./ui/HudLayer";
+import type { GamepadNavHandlers } from "./ui/ScreenRouter";
+import { ScreenRouter } from "./ui/ScreenRouter";
 
 /**
  * App — композиция UI: состояние экранов, настройки и два независимых
@@ -45,6 +46,8 @@ export default function App() {
 
   const { debug: urlDebug, wave: urlWave } = useMemo(() => parseUrlParams(), []);
 
+  /* Refs для доступа к actions/gameRef из замыканий. */
+  const actionsRef = useRef<any>(null);
   const gameRef = useGameLifecycle(
     canvasRef,
     storage,
@@ -72,61 +75,102 @@ export default function App() {
       onPause: (p) => dispatch({ type: "SET_PAUSED", paused: p }),
       onReady: (game) => setBest(game.getBest()),
       onAutoStart: () => dispatch({ type: "SET_SCREEN", screen: "game" }),
-      // Геймпад: подтверждение/отмена — зависят от текущего экрана.
-      onGamepadConfirm: () => {
-        switch (screen) {
-          case "menu":
-            actions.startGame();
-            break;
-          case "settings":
-          case "help":
-          case "debug":
-          case "upgrade":
-            // Кнопка A на экране подменю — закрывает (аналог ESC).
-            if (screen === "settings") {
-              actions.closeSettings();
-            } else if (screen === "upgrade") {
-              actions.closeUpgrade();
-            } else {
-              actions.openMenu();
-            }
-            break;
-          case "game":
-            if (paused) {
-              // В паузе: A = продолжить.
-              gameRef.current?.togglePause();
-            } else if (stats) {
-              // Game over: A = рестарт.
-              actions.startGame();
-            }
-            break;
-        }
-      },
-      onGamepadCancel: () => {
-        switch (screen) {
-          case "settings":
-          case "help":
-          case "debug":
-          case "upgrade":
-            // Закрыть подменю.
-            if (screen === "settings") {
-              actions.closeSettings();
-            } else if (screen === "upgrade") {
-              actions.closeUpgrade();
-            } else {
-              actions.openMenu();
-            }
-            break;
-          case "game":
-            if (paused) {
-              // В паузе: B = в меню.
-              actions.toMenu();
-            }
-            break;
-        }
-      },
+      onGamepadConfirm: () => gamepadConfirmRef.current(),
+      onGamepadCancel: () => gamepadCancelRef.current(),
+      onGamepadNavUp: () => gamepadNavRef.current.up(),
+      onGamepadNavDown: () => gamepadNavRef.current.down(),
+      onGamepadNavLeft: () => gamepadNavRef.current.left(),
+      onGamepadNavRight: () => gamepadNavRef.current.right(),
     },
   );
+
+  /* Actions создаются после gameRef. */
+  const actions = useGameActions({
+    screen,
+    gameRef,
+    storage,
+    settings,
+    setBest,
+    dispatch,
+  });
+  actionsRef.current = actions;
+
+  /* ===== Gamepad navigation callbacks ===== */
+
+  /** Ref, в который активный экран регистрирует свои навигационные функции. */
+  const gamepadNavRef = useRef<GamepadNavHandlers>({
+    up: () => {},
+    down: () => {},
+    left: () => {},
+    right: () => {},
+    confirm: null,
+  });
+
+  /** Ref для актуального обработчика cancel (избегает stale closure в game engine). */
+  const gamepadCancelRef = useRef<() => void>(() => {});
+  /** Ref для актуального обработчика confirm. */
+  const gamepadConfirmRef = useRef<() => void>(() => {});
+
+  const gamepadConfirm = useCallback(() => {
+    // Если экран зарегистрировал свой confirm — используем его.
+    const screenConfirm = gamepadNavRef.current.confirm;
+    if (screenConfirm) {
+      screenConfirm();
+      return;
+    }
+    // Иначе — fallback-логика по экранам.
+    const act = actionsRef.current;
+    if (!act) return;
+    switch (screen) {
+      case "settings":
+      case "help":
+      case "debug":
+      case "upgrade":
+        if (screen === "settings") {
+          act.closeSettings();
+        } else if (screen === "upgrade") {
+          act.closeUpgrade();
+        } else {
+          act.openMenu();
+        }
+        break;
+      case "game":
+        if (paused) {
+          gameRef.current?.togglePause();
+        } else if (stats) {
+          act.startGame();
+        }
+        break;
+    }
+  }, [screen, paused, stats, gameRef]);
+  gamepadConfirmRef.current = gamepadConfirm;
+
+  const gamepadCancel = useCallback(() => {
+    const act = actionsRef.current;
+    if (!act) return;
+    switch (screen) {
+      case "menu":
+        break;
+      case "settings":
+      case "help":
+      case "debug":
+      case "upgrade":
+        if (screen === "settings") {
+          act.closeSettings();
+        } else if (screen === "upgrade") {
+          act.closeUpgrade();
+        } else {
+          act.openMenu();
+        }
+        break;
+      case "game":
+        if (paused) {
+          act.toMenu();
+        }
+        break;
+    }
+  }, [screen, paused, gameRef]);
+  gamepadCancelRef.current = gamepadCancel;
 
   /* Gamepad connection state */
   useEffect(() => {
@@ -139,15 +183,6 @@ export default function App() {
     return () => window.clearInterval(id);
   }, [gameRef]);
 
-  const actions = useGameActions({
-    screen,
-    gameRef,
-    storage,
-    settings,
-    setBest,
-    dispatch,
-  });
-
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#04070d]">
       <canvas ref={canvasRef} className="game-canvas" aria-label="Game canvas" role="img" />
@@ -159,6 +194,9 @@ export default function App() {
         gameRef={gameRef}
         settings={settings}
         actions={actions}
+        isGamepad={isGamepadConnected}
+        gamepadNavRef={gamepadNavRef}
+        onGamepadCancel={gamepadCancel}
       />
 
       {screen === "game" && <HudLayer store={hudStore} godOn={settings.debugGod} />}
@@ -181,8 +219,8 @@ export default function App() {
         onUpgrade={() => actions.openUpgrade("gameover")}
         onVector={(active, x, y) => gameRef.current?.setTouch(active, x, y)}
         onPause={() => gameRef.current?.togglePause()}
+        gamepadNavRef={gamepadNavRef}
       />
     </div>
   );
 }
-

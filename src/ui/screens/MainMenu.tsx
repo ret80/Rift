@@ -1,6 +1,17 @@
-import { useT } from "../../i18n";
+import { useEffect, type MutableRefObject } from "react";
+import { useGamepadFocus } from "../../hooks/useGamepadFocus";
+import { useT, type TKey } from "../../i18n";
 import GameButton from "../components/GameButton";
+import type { GamepadNavHandlers } from "../ScreenRouter";
 
+/**
+ * MainMenu — главный экран с кнопками навигации.
+ *
+ * Gamepad-навигация:
+ *   - D-pad up/down + левый стик → перемещение фокуса по кнопкам
+ *   - Кнопка A → подтвердить выбор (старт/переход)
+ *   - Кнопка B → не используется (главное меню)
+ */
 export default function MainMenu(props: {
   best: number;
   onPlay: () => void;
@@ -9,8 +20,57 @@ export default function MainMenu(props: {
   onDebug: () => void;
   onUpgrade: () => void;
   showDebug?: boolean;
+  isGamepad: boolean;
+  gamepadNavRef: MutableRefObject<GamepadNavHandlers>;
 }) {
   const t = useT();
+
+  // Список кнопок меню (всегда 4, debug опционально).
+  const buttonCount = props.showDebug ? 5 : 4;
+
+  const { focusIndex, onNavUp, onNavDown, onNavLeft, onNavRight } = useGamepadFocus({
+    count: buttonCount,
+    initialIndex: 0,
+  });
+
+  // Маппинг индекса на действие.
+  const actions = [
+    props.onPlay,
+    props.onUpgrade,
+    props.onSettings,
+    props.onHelp,
+    ...(props.showDebug ? [props.onDebug] : []),
+  ];
+
+  // Регистрируем навигацию и confirm в общий ref для игрового движка.
+  useEffect(() => {
+    const handler = () => {
+      const action = actions[focusIndex];
+      if (action) action();
+    };
+    props.gamepadNavRef.current = {
+      up: onNavUp,
+      down: onNavDown,
+      left: onNavLeft,
+      right: onNavRight,
+      confirm: handler,
+    };
+    return () => {
+      props.gamepadNavRef.current = {
+        up: () => {}, down: () => {}, left: () => {}, right: () => {}, confirm: null,
+      };
+    };
+  }, [onNavUp, onNavDown, onNavLeft, onNavRight, focusIndex, actions, props.gamepadNavRef]);
+
+  // Строгие ключи локализации.
+  const actionKeys: TKey[] = [
+    "menu.play",
+    "menu.upgrade",
+    "menu.settings",
+    "menu.help",
+    "menu.debug",
+  ];
+
   return (
     <div className="anim-overlay absolute inset-0 z-20 flex flex-col items-center justify-center">
       <div>
@@ -37,12 +97,16 @@ export default function MainMenu(props: {
         className="mt-10 flex w-[min(300px,80vw)] flex-col gap-3"
         style={{ animationDelay: "0.12s" }}
       >
-        <GameButton onClick={props.onPlay} autoFocus>
-          {t("menu.play")}
-        </GameButton>
-        <GameButton onClick={props.onUpgrade}>{t("menu.upgrade")}</GameButton>
-        <GameButton onClick={props.onSettings}>{t("menu.settings")}</GameButton>
-        <GameButton onClick={props.onHelp}>{t("menu.help")}</GameButton>
+        {actions.map((action, i) => (
+          <GameButton
+            key={i}
+            onClick={() => action?.()}
+            autoFocus={i === 0 && !props.isGamepad}
+            gamepadFocused={props.isGamepad && focusIndex === i}
+          >
+            {t(actionKeys[i])}
+          </GameButton>
+        ))}
       </div>
 
       {props.showDebug && (

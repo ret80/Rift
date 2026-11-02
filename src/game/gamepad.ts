@@ -23,7 +23,12 @@
 export const GAMEPAD_CODES = {
   A: "GamepadA" as const,
   B: "GamepadB" as const,
+  X: "GamepadX" as const,
+  Y: "GamepadY" as const,
+  LB: "GamepadLB" as const,
+  RB: "GamepadRB" as const,
   Start: "GamepadStart" as const,
+  Select: "GamepadSelect" as const,
 } as const;
 
 /** Виртуальные коды D-pad для consumePress(). */
@@ -76,7 +81,12 @@ export class GamepadManager {
   /** Флаг: зажатая кнопка (для isButton). */
   private _pressedA = false;
   private _pressedB = false;
+  private _pressedX = false;
+  private _pressedY = false;
+  private _pressedLB = false;
+  private _pressedRB = false;
   private _pressedStart = false;
+  private _pressedSelect = false;
   private _pressedDpadUp = false;
   private _pressedDpadDown = false;
   private _pressedDpadLeft = false;
@@ -85,7 +95,12 @@ export class GamepadManager {
   /** Одноразовые нажатия (для consumePress). */
   private _justPressedA = false;
   private _justPressedB = false;
+  private _justPressedX = false;
+  private _justPressedY = false;
+  private _justPressedLB = false;
+  private _justPressedRB = false;
   private _justPressedStart = false;
+  private _justPressedSelect = false;
   private _justPressedDpadUp = false;
   private _justPressedDpadDown = false;
   private _justPressedDpadLeft = false;
@@ -153,8 +168,18 @@ export class GamepadManager {
         return this._pressedA;
       case GAMEPAD_CODES.B:
         return this._pressedB;
+      case GAMEPAD_CODES.X:
+        return this._pressedX;
+      case GAMEPAD_CODES.Y:
+        return this._pressedY;
+      case GAMEPAD_CODES.LB:
+        return this._pressedLB;
+      case GAMEPAD_CODES.RB:
+        return this._pressedRB;
       case GAMEPAD_CODES.Start:
         return this._pressedStart;
+      case GAMEPAD_CODES.Select:
+        return this._pressedSelect;
       case GAMEPAD_DPAD_CODES.Up:
         return this._pressedDpadUp;
       case GAMEPAD_DPAD_CODES.Down:
@@ -184,9 +209,34 @@ export class GamepadManager {
         this._justPressedB = false;
         return true;
       }
+      case GAMEPAD_CODES.X: {
+        if (!this._justPressedX) return false;
+        this._justPressedX = false;
+        return true;
+      }
+      case GAMEPAD_CODES.Y: {
+        if (!this._justPressedY) return false;
+        this._justPressedY = false;
+        return true;
+      }
+      case GAMEPAD_CODES.LB: {
+        if (!this._justPressedLB) return false;
+        this._justPressedLB = false;
+        return true;
+      }
+      case GAMEPAD_CODES.RB: {
+        if (!this._justPressedRB) return false;
+        this._justPressedRB = false;
+        return true;
+      }
       case GAMEPAD_CODES.Start: {
         if (!this._justPressedStart) return false;
         this._justPressedStart = false;
+        return true;
+      }
+      case GAMEPAD_CODES.Select: {
+        if (!this._justPressedSelect) return false;
+        this._justPressedSelect = false;
         return true;
       }
       case GAMEPAD_DPAD_CODES.Up: {
@@ -230,14 +280,24 @@ export class GamepadManager {
     this._axisY = 0;
     this._pressedA = false;
     this._pressedB = false;
+    this._pressedX = false;
+    this._pressedY = false;
+    this._pressedLB = false;
+    this._pressedRB = false;
     this._pressedStart = false;
+    this._pressedSelect = false;
     this._pressedDpadUp = false;
     this._pressedDpadDown = false;
     this._pressedDpadLeft = false;
     this._pressedDpadRight = false;
     this._justPressedA = false;
     this._justPressedB = false;
+    this._justPressedX = false;
+    this._justPressedY = false;
+    this._justPressedLB = false;
+    this._justPressedRB = false;
     this._justPressedStart = false;
+    this._justPressedSelect = false;
     this._justPressedDpadUp = false;
     this._justPressedDpadDown = false;
     this._justPressedDpadLeft = false;
@@ -274,28 +334,48 @@ export class GamepadManager {
       stickY = gp.axes[1];
     }
 
-    // --- D-pad (как оси, если поддерживается) ---
-    // Некоторые геймпады (DualShock, Xbox) эмулируют D-pad через оси.
+    // --- D-pad: кнопки + оси (для нестандартных геймпадов) ---
     let dpadX = 0;
     let dpadY = 0;
 
-    // Проверяем, активен ли стик (выходит за мёртвую зону).
-    const stickActive = Math.abs(stickX) > this.deadzone || Math.abs(stickY) > this.deadzone;
+    // 1) Пробуем кнопки 12-15 (стандартная раскладка).
+    if (gp.buttons.length > 15) {
+      const dpadUpBtn = gp.buttons[GAMEPAD_BUTTONS.DpadUp]?.value ?? 0;
+      const dpadDownBtn = gp.buttons[GAMEPAD_BUTTONS.DpadDown]?.value ?? 0;
+      const dpadLeftBtn = gp.buttons[GAMEPAD_BUTTONS.DpadLeft]?.value ?? 0;
+      const dpadRightBtn = gp.buttons[GAMEPAD_BUTTONS.DpadRight]?.value ?? 0;
 
-    if (!stickActive) {
-      // Если стик в мёртвой зоне — используем кнопки D-pad.
-      if (gp.buttons.length > 15) {
-        const dpadUp = gp.buttons[GAMEPAD_BUTTONS.DpadUp]?.value ?? 0;
-        const dpadDown = gp.buttons[GAMEPAD_BUTTONS.DpadDown]?.value ?? 0;
-        const dpadLeft = gp.buttons[GAMEPAD_BUTTONS.DpadLeft]?.value ?? 0;
-        const dpadRight = gp.buttons[GAMEPAD_BUTTONS.DpadRight]?.value ?? 0;
+      if (dpadUpBtn > this.buttonDeadzone) dpadY -= 1;
+      if (dpadDownBtn > this.buttonDeadzone) dpadY += 1;
+      if (dpadLeftBtn > this.buttonDeadzone) dpadX -= 1;
+      if (dpadRightBtn > this.buttonDeadzone) dpadX += 1;
+    }
 
-        if (dpadUp > this.buttonDeadzone) dpadY -= 1;
-        if (dpadDown > this.buttonDeadzone) dpadY += 1;
-        if (dpadLeft > this.buttonDeadzone) dpadX -= 1;
-        if (dpadRight > this.buttonDeadzone) dpadX += 1;
+    // 2) Если кнопки не дали результата, пробуем оси (DInput / hat-switch).
+    //    Для большинства DInput-геймпадов (8BitDo и аналоги) D-pad на осях 5/6.
+    if (dpadX === 0 && dpadY === 0) {
+      const hatThreshold = 0.5;
+      // Axis 5: vertical (up = -1, down = +1)
+      if (gp.axes.length > 5) {
+        if (gp.axes[5] < -hatThreshold) dpadY -= 1;
+        else if (gp.axes[5] > hatThreshold) dpadY += 1;
+      }
+      // Axis 6: horizontal (left = -1, right = +1)
+      if (gp.axes.length > 6) {
+        if (gp.axes[6] < -hatThreshold) dpadX -= 1;
+        else if (gp.axes[6] > hatThreshold) dpadX += 1;
+      }
+      // Fallback: axes 4/5 (некоторые геймпады)
+      if (dpadX === 0 && dpadY === 0 && gp.axes.length > 5) {
+        if (gp.axes[4] < -hatThreshold) dpadY -= 1;
+        else if (gp.axes[4] > hatThreshold) dpadY += 1;
+        if (gp.axes[5] < -hatThreshold) dpadX -= 1;
+        else if (gp.axes[5] > hatThreshold) dpadX += 1;
       }
     }
+
+    // Проверяем, активен ли стик (выходит за мёртвую зону).
+    const stickActive = Math.abs(stickX) > this.deadzone || Math.abs(stickY) > this.deadzone;
 
     // Мёрджим стик и D-pad (если оба активны — стик имеет приоритет).
     const finalX = stickActive ? stickX : dpadX;
@@ -324,21 +404,47 @@ export class GamepadManager {
     this._pressedB = buttons[GAMEPAD_BUTTONS.B]?.pressed ?? false;
     this._justPressedB = this._pressedB && !wasB;
 
+    // Кнопка X.
+    const wasX = this._pressedX;
+    this._pressedX = buttons[GAMEPAD_BUTTONS.X]?.pressed ?? false;
+    this._justPressedX = this._pressedX && !wasX;
+
+    // Кнопка Y.
+    const wasY = this._pressedY;
+    this._pressedY = buttons[GAMEPAD_BUTTONS.Y]?.pressed ?? false;
+    this._justPressedY = this._pressedY && !wasY;
+
+    // Кнопка LB (L1).
+    const wasLB = this._pressedLB;
+    this._pressedLB = buttons[GAMEPAD_BUTTONS.LB]?.pressed ?? false;
+    this._justPressedLB = this._pressedLB && !wasLB;
+
+    // Кнопка RB (R1).
+    const wasRB = this._pressedRB;
+    this._pressedRB = buttons[GAMEPAD_BUTTONS.RB]?.pressed ?? false;
+    this._justPressedRB = this._pressedRB && !wasRB;
+
     // Кнопка Start (пауза).
     const wasStart = this._pressedStart;
     this._pressedStart = buttons[GAMEPAD_BUTTONS.Start]?.pressed ?? false;
     this._justPressedStart = this._pressedStart && !wasStart;
 
-    // D-pad.
+    // Кнопка Select.
+    const wasSelect = this._pressedSelect;
+    this._pressedSelect = buttons[GAMEPAD_BUTTONS.Select]?.pressed ?? false;
+    this._justPressedSelect = this._pressedSelect && !wasSelect;
+
+    // D-pad: состояние кнопок + осей для consumePress.
     const dpadWasUp = this._pressedDpadUp;
     const dpadWasDown = this._pressedDpadDown;
     const dpadWasLeft = this._pressedDpadLeft;
     const dpadWasRight = this._pressedDpadRight;
 
-    this._pressedDpadUp = buttons[GAMEPAD_BUTTONS.DpadUp]?.pressed ?? false;
-    this._pressedDpadDown = buttons[GAMEPAD_BUTTONS.DpadDown]?.pressed ?? false;
-    this._pressedDpadLeft = buttons[GAMEPAD_BUTTONS.DpadLeft]?.pressed ?? false;
-    this._pressedDpadRight = buttons[GAMEPAD_BUTTONS.DpadRight]?.pressed ?? false;
+    // Объединяем: кнопки ИЛИ оси.
+    this._pressedDpadUp = (buttons[GAMEPAD_BUTTONS.DpadUp]?.pressed ?? false) || dpadY < 0;
+    this._pressedDpadDown = (buttons[GAMEPAD_BUTTONS.DpadDown]?.pressed ?? false) || dpadY > 0;
+    this._pressedDpadLeft = (buttons[GAMEPAD_BUTTONS.DpadLeft]?.pressed ?? false) || dpadX < 0;
+    this._pressedDpadRight = (buttons[GAMEPAD_BUTTONS.DpadRight]?.pressed ?? false) || dpadX > 0;
 
     this._justPressedDpadUp = this._pressedDpadUp && !dpadWasUp;
     this._justPressedDpadDown = this._pressedDpadDown && !dpadWasDown;
