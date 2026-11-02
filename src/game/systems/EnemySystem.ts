@@ -152,6 +152,8 @@ export class EnemySystem extends PhasedSystem {
         drone.droneState = "orbiting";
         drone.orbitRadius = carrier.radius.r + CARRIER_DRONE_ORBIT_GAP;
         drone.orbitAngle = Math.random() * Math.PI * 2;
+        // Половина роя летит по часовой, половина — против часовой.
+        drone.strafeDir = Math.random() < 0.5 ? 1 : -1;
       }
       this.ecs.addEnemy(drone);
     }

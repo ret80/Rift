@@ -2,56 +2,70 @@
  * DroneStrategy — поведение дронов: рой, а не одиночные тараны.
  *
  * Режимы (marker.mode):
- *   APPROACH (0) — подход к кольцу 240–280 px вокруг игрока.
- *                  Угол слота = seed·2π, чтобы стая подходила с разных сторон.
- *   HOLD     (1) — удержание на кольце, касательный стрейф.
- *                  Длительность 0.35–0.9 с (по seed).
- *   DIVE     (2) — фиксированное направление (зафиксировано в APPROACH),
- *                  скорость ×1.15. После прохода — COOLDOWN.
- *   COOLDOWN (3) — пауза 0.8 с, затем снова APPROACH.
+ *   APPROACH (0) — подход к кольцу вокруг игрока. Угол слота = seed·2π,
+ *                  чтобы стая подходила с разных сторон.
+ *   HOLD     (1) — удержание на кольце, касательный стрейф. Направление
+ *                  стрейфа/орбиты у каждого дрона своё (seed задаёт сторону),
+ *                  поэтому часть роя идёт по часовой, часть — против.
+ *   DIVE     (2) — пикирование на упреждённую точку. Лёгкое самонаведение
+ *                  (доворот 2.4 рад/с), скорость ×1.35.
+ *   PURSUE   (3) — короткое прямое преследование игрока (1.2 с, скорость
+ *                  ×1.1). Часть дронов выбирает его вместо пике.
+ *   COOLDOWN (4) — пауза 0.55–0.95 с, затем снова APPROACH.
  *
- * Дроны, выпущенные носителем (droneState === 'attacking'),
- * пропускают HOLD и сразу переходят к APPROACH.
+ * Дроны, выпущенные носителем, первый заход делают сразу, без HOLD.
  *
  * Базовые константы вынесены в balance/enemies.ts.
  */
 
+import { solveInterceptTime } from '../../aiming/AimSolver';
 import type { EnemyRef } from '../../ecs';
 import type { GameContext } from '../GameContext';
 import type { IEnemyStrategy } from '../IEnemyStrategy';
-import { lerpAngle, angleTo, smoothVelocity } from '../../math';
+import { angleTo, clamp, lerpAngle, smoothVelocity } from '../../math';
 
 // === Состояния ===
 const APPROACH = 0;
 const HOLD = 1;
 const DIVE = 2;
-const COOLDOWN = 3;
+const PURSUE = 3;
+const COOLDOWN = 4;
 
 // === Константы роя ===
 /** Радиус кольца вокруг игрока, на котором дроны формируют рой. */
-const DRONE_RING_RADIUS = 260;
+const DRONE_RING_RADIUS = 230;
 /** Минимальное время удержания на кольце, с. */
-const DRONE_HOLD_MIN = 0.35;
+const DRONE_HOLD_MIN = 0.2;
 /** Максимальное время удержания на кольце, с. */
-const DRONE_HOLD_MAX = 0.9;
+const DRONE_HOLD_MAX = 0.55;
 /** Множитель скорости в пикировании. */
-const DRONE_DIVE_MULT = 1.15;
-/** Длительность кулдауна после пикирования, с. */
-const DRONE_COOLDOWN = 0.8;
-/** Скорость доворота в пикировании. */
-const DRIVE_TURN_RATE = 4;
+const DRONE_DIVE_MULT = 1.35;
+/** Длительность пикирования, с. */
+const DRONE_DIVE_DURATION = 0.9;
+/** Множитель скорости в преследовании. */
+const DRONE_PURSUE_MULT = 1.1;
+/** Длительность преследования, с. */
+const DRONE_PURSUE_DURATION = 1.25;
+/** Длительность кулдауна после атаки, с. */
+const DRONE_COOLDOWN = 0.55;
+/** Максимальный горизонт упреждения при пикировании, с. */
+const DRONE_LEAD_MAX = 0.6;
+/** Скорость доворота в пикировании (лёгкое самонаведение). */
+const DRIVE_TURN_RATE = 2.4;
 /** Скорость доворота в подходе. */
 const APPROACH_TURN_RATE = 5;
 /** Скорость доворота при стрейфе. */
-const HOLD_TURN_RATE = 3;
+const HOLD_TURN_RATE = 3.5;
+/** Скорость доворота в преследовании. */
+const PURSUE_TURN_RATE = 5.5;
 /** Скорость доворота в кулдауне. */
-const COOLDOWN_TURN_RATE = 2;
+const COOLDOWN_TURN_RATE = 2.5;
 /** Множитель скорости в подходе. */
 const APPROACH_SPEED_MULT = 1.0;
 /** Скорость стрейфа при удержании (доля от базовой). */
-const HOLD_STRAFE_MULT = 0.4;
-/** Порог дистанции для перехода HOLD → DIVE. */
-const DIVE_DIST_THRESHOLD = 120;
+const HOLD_STRAFE_MULT = 0.5;
+/** Порог дистанции для перехода HOLD → атака. */
+const DIVE_DIST_THRESHOLD = 170;
 
 export class DroneStrategy implements IEnemyStrategy {
   update(enemy: EnemyRef, context: GameContext, dt: number): void {
@@ -75,7 +89,7 @@ export class DroneStrategy implements IEnemyStrategy {
   }
 
   /**
-   * Роевое поведение: APPROACH → HOLD → DIVE → COOLDOWN.
+   * Роевое поведение: APPROACH → HOLD → DIVE/PURSUE → COOLDOWN.
    */
   private updateSwarm(enemy: EnemyRef, context: GameContext, dt: number): void {
     const { playerX, playerY } = context;
@@ -84,89 +98,99 @@ export class DroneStrategy implements IEnemyStrategy {
     const vel = enemy.velocity;
     const dist = Math.hypot(playerX - pos.x, playerY - pos.y) || 1;
     const angleToPlayer = angleTo(pos.x, pos.y, playerX, playerY);
+    // Стабильная «единичная» случайность конкретного дрона.
+    const roll = marker.seed - Math.floor(marker.seed);
 
     // Инициализация состояния при первом входе
     if (marker.mode < APPROACH || marker.mode > COOLDOWN) {
       marker.mode = APPROACH;
       marker.modeT = 0;
+      marker.strafeDir = roll > 0.5 ? 1 : -1;
     }
 
     switch (marker.mode) {
       case APPROACH: {
         // Подход к кольцу: точка на дуге вокруг игрока, угол = seed·2π.
-        const slotAngle = marker.seed * Math.PI * 2;
-        const tx = playerX + Math.cos(slotAngle) * DRONE_RING_RADIUS;
-        const ty = playerY + Math.sin(slotAngle) * DRONE_RING_RADIUS;
+        // Направление обхода задаёт seed/strafeDir: половина роя идёт
+        // по часовой, половина — против.
+        const slot = marker.seed * Math.PI * 2;
+        const tx = playerX + Math.cos(slot) * DRONE_RING_RADIUS;
+        const ty = playerY + Math.sin(slot) * DRONE_RING_RADIUS;
         const targetAngle = Math.atan2(ty - pos.y, tx - pos.x);
 
         const speed = marker.speed * APPROACH_SPEED_MULT;
-        const targetVx = Math.cos(targetAngle) * speed;
-        const targetVy = Math.sin(targetAngle) * speed;
-        smoothVelocity(vel, targetVx, targetVy, APPROACH_TURN_RATE, dt);
+        smoothVelocity(vel, Math.cos(targetAngle) * speed, Math.sin(targetAngle) * speed, APPROACH_TURN_RATE, dt);
 
         // Вращение: смотреть по направлению движения
-        const dsp = Math.hypot(vel.vx, vel.vy);
-        if (dsp > 5) {
-          const movementAngle = Math.atan2(vel.vy, vel.vx);
-          marker.angle = lerpAngle(marker.angle, movementAngle, 1 - Math.exp(-5 * dt));
-        }
+        this.faceVelocity(enemy, 6, dt);
 
         // Достигли кольца — переходим к HOLD
         if (dist < DRONE_RING_RADIUS + 40) {
           marker.mode = HOLD;
-          marker.modeT = DRONE_HOLD_MIN + marker.seed * (DRONE_HOLD_MAX - DRONE_HOLD_MIN);
-          // Запоминаем направление стрейфа
-          marker.strafeDir = marker.seed > 0.5 ? 1 : -1;
-          // Фиксируем направление пикирования
-          marker.angle = angleToPlayer + (Math.PI / 4) * marker.strafeDir;
+          marker.modeT = DRONE_HOLD_MIN + roll * (DRONE_HOLD_MAX - DRONE_HOLD_MIN);
+          marker.strafeDir = roll > 0.5 ? 1 : -1;
         }
         break;
       }
 
       case HOLD: {
-        // Удержание на кольце, касательный стрейф.
+        // Удержание на кольце, касательный стрейф в свою сторону.
         marker.modeT -= dt;
 
         const strafeAngle = angleToPlayer + (Math.PI / 2) * marker.strafeDir;
         const speed = marker.speed * HOLD_STRAFE_MULT;
-        const targetVx = Math.cos(strafeAngle) * speed;
-        const targetVy = Math.sin(strafeAngle) * speed;
-        smoothVelocity(vel, targetVx, targetVy, HOLD_TURN_RATE, dt);
+        smoothVelocity(vel, Math.cos(strafeAngle) * speed, Math.sin(strafeAngle) * speed, HOLD_TURN_RATE, dt);
 
         // Вращение: смотреть по курсу стрейфа
-        const dsp = Math.hypot(vel.vx, vel.vy);
-        if (dsp > 5) {
-          const movementAngle = Math.atan2(vel.vy, vel.vx);
-          marker.angle = lerpAngle(marker.angle, movementAngle, 1 - Math.exp(-4 * dt));
-        }
+        this.faceVelocity(enemy, 5, dt);
 
-        // Таймер истёк — пикируем
-        if (marker.modeT <= 0) {
-          marker.mode = DIVE;
-          marker.modeT = 0;
-          // Фиксируем направление пикирования
-          marker.angle = angleToPlayer;
+        // Таймер истёк или игрок уже вплотную — атакуем.
+        if (marker.modeT <= 0 || dist < DIVE_DIST_THRESHOLD) {
+          if (roll > 0.55) {
+            // Часть роя идёт в прямое преследование.
+            marker.mode = PURSUE;
+            marker.modeT = DRONE_PURSUE_DURATION;
+          } else {
+            // Остальные — в пике на упреждённую точку.
+            marker.mode = DIVE;
+            marker.modeT = DRONE_DIVE_DURATION;
+            marker.lockAngle = this.interceptAngle(enemy, context, marker.speed * DRONE_DIVE_MULT);
+          }
         }
         break;
       }
 
       case DIVE: {
-        // Пикирование: фиксированное направление, ускорение.
+        // Пикирование: летим на упреждённую точку, слегка подруливая.
         marker.modeT -= dt;
 
         const speed = marker.speed * DRONE_DIVE_MULT;
-        const targetVx = Math.cos(marker.angle) * speed;
-        const targetVy = Math.sin(marker.angle) * speed;
-        smoothVelocity(vel, targetVx, targetVy, DRIVE_TURN_RATE, dt);
+        const desired = this.interceptAngle(enemy, context, speed);
+        smoothVelocity(vel, Math.cos(desired) * speed, Math.sin(desired) * speed, DRIVE_TURN_RATE, dt);
+        this.faceVelocity(enemy, 10, dt);
 
-        // Вращение: смотреть по фиксированному направлению
-        marker.angle = lerpAngle(marker.angle, marker.angle, 1 - Math.exp(-DRIVE_TURN_RATE * dt));
-
-        // Пролетели игрока или истёк таймер — кулдаун
-        const distToPlayer = Math.hypot(playerX - pos.x, playerY - pos.y);
-        if (distToPlayer < 30 || marker.modeT <= -0.5) {
+        // Пролетели игрока или истёк таймер — кулдаун.
+        const closing = (playerX - pos.x) * vel.vx + (playerY - pos.y) * vel.vy;
+        if (marker.modeT <= 0 || (closing < 0 && dist > 45) || dist < 20) {
           marker.mode = COOLDOWN;
-          marker.modeT = DRONE_COOLDOWN;
+          marker.modeT = DRONE_COOLDOWN + roll * 0.4;
+        }
+        break;
+      }
+
+      case PURSUE: {
+        // Короткое прямое преследование: дрон реально гонится за игроком,
+        // а не просто летит мимо. Через 1.25 с снова уходит на кольцо.
+        marker.modeT -= dt;
+
+        const speed = marker.speed * DRONE_PURSUE_MULT;
+        const desired = this.interceptAngle(enemy, context, speed);
+        smoothVelocity(vel, Math.cos(desired) * speed, Math.sin(desired) * speed, PURSUE_TURN_RATE, dt);
+        this.faceVelocity(enemy, 8, dt);
+
+        if (marker.modeT <= 0 || dist > 520) {
+          marker.mode = COOLDOWN;
+          marker.modeT = DRONE_COOLDOWN + roll * 0.4;
         }
         break;
       }
@@ -174,21 +198,45 @@ export class DroneStrategy implements IEnemyStrategy {
       case COOLDOWN: {
         marker.modeT -= dt;
 
-        // Свободный дрейф — без наведения
-        const speed = marker.speed * 0.5;
-        const currentAngle = Math.atan2(vel.vy, vel.vx);
-        const targetVx = Math.cos(currentAngle) * speed;
-        const targetVy = Math.sin(currentAngle) * speed;
-        smoothVelocity(vel, targetVx, targetVy, COOLDOWN_TURN_RATE, dt);
+        // Отход в сторону, чтобы перестроиться для следующего захода.
+        const escape = angleToPlayer + Math.PI + (Math.PI / 3) * marker.strafeDir;
+        const speed = marker.speed * 0.55;
+        smoothVelocity(vel, Math.cos(escape) * speed, Math.sin(escape) * speed, COOLDOWN_TURN_RATE, dt);
+        this.faceVelocity(enemy, 5, dt);
 
         if (marker.modeT <= 0) {
-          // Новый цикл — снова подход к кольцу
+          // Новый цикл — снова подход к кольцу.
           marker.mode = APPROACH;
           marker.modeT = 0;
         }
         break;
       }
     }
+  }
+
+  /** Направить нос по вектору скорости. */
+  private faceVelocity(enemy: EnemyRef, rate: number, dt: number): void {
+    const vel = enemy.velocity;
+    const speed = Math.hypot(vel.vx, vel.vy);
+    if (speed <= 5) return;
+    const movementAngle = Math.atan2(vel.vy, vel.vx);
+    enemy.marker.angle = lerpAngle(enemy.marker.angle, movementAngle, 1 - Math.exp(-rate * dt));
+  }
+
+  /**
+   * Угол на упреждённую точку встречи с игроком. Если дрон не может догнать
+   * игрока по прямой, берём текущую позицию (лучше, чем ничего).
+   */
+  private interceptAngle(enemy: EnemyRef, context: GameContext, speed: number): number {
+    const pos = enemy.position;
+    const dx = context.playerX - pos.x;
+    const dy = context.playerY - pos.y;
+    const t = solveInterceptTime(dx, dy, context.playerVx, context.playerVy, speed);
+    const lead = t === null ? 0 : clamp(t, 0, DRONE_LEAD_MAX);
+    return Math.atan2(
+      context.playerY + context.playerVy * lead - pos.y,
+      context.playerX + context.playerVx * lead - pos.x
+    );
   }
 
   /**
@@ -207,15 +255,17 @@ export class DroneStrategy implements IEnemyStrategy {
     }
 
     const orbitSpeed = 1.5; // радиан в секунду
-    marker.orbitAngle += orbitSpeed * dt;
+    // Знак задаёт направление: половина роя летит по часовой, половина — против.
+    const dir = marker.strafeDir >= 0 ? 1 : -1;
+    marker.orbitAngle += orbitSpeed * dir * dt;
 
     // Устанавливаем позицию напрямую на орбите
     pos.x = carrier.position.x + Math.cos(marker.orbitAngle) * marker.orbitRadius;
     pos.y = carrier.position.y + Math.sin(marker.orbitAngle) * marker.orbitRadius;
 
     // Вычисляем velocity для отрисовки и collision
-    const tangentX = -Math.sin(marker.orbitAngle);
-    const tangentY = Math.cos(marker.orbitAngle);
+    const tangentX = -Math.sin(marker.orbitAngle) * dir;
+    const tangentY = Math.cos(marker.orbitAngle) * dir;
     vel.vx = tangentX * marker.speed;
     vel.vy = tangentY * marker.speed;
 

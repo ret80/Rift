@@ -27,11 +27,11 @@ import {
     CRUISER_BULLET_SPEED,
     CRUISER_FIRE_RANGE,
     ENEMY_BOLT_LEAD_TIME,
-    ENEMY_BOLT_SPEED,
     ENEMY_SHOOT_RANGE,
     enemyHitChance,
     EnemyKind,
     FIGHTER_BOLT_SPEED,
+    FIGHTER_BURST_COOLDOWN,
     FIGHTER_BURST_INTERVAL,
     FIGHTER_CIRCLE_OMEGA,
     PLAYER_BULLET_HIT_OFFSET,
@@ -153,14 +153,23 @@ export class EnemyShootingSystem extends PhasedSystem {
 
       const dist = Math.hypot(player.x - position.x, player.y - position.y) || 1;
       const range = marker.kind === EnemyKind.Cruiser ? CRUISER_FIRE_RANGE : ENEMY_SHOOT_RANGE;
-      if (dist >= range) continue;
+      if (dist >= range) {
+        // Игрок вышел из дальности посреди очереди — очередь обрывается,
+        // иначе marker.burstLeft застрял бы и заблокировал следующие залпы.
+        if (marker.kind === EnemyKind.Fighter) {
+          marker.fireGate = false;
+          marker.burstLeft = 0;
+          marker.burstTimer = 0;
+        }
+        continue;
+      }
 
       const hitChance = enemyHitChance(this.wave, marker.kind);
 
       if (marker.kind === EnemyKind.Cruiser) {
         this.fireCruiserTurrets(shot, dt, player, weapon, hitChance);
       } else {
-        this.fireSingleTurret(shot, dt, player, weapon, hitChance);
+        this.fireFighterBurst(shot, dt, player, weapon, hitChance);
       }
     }
   }
@@ -243,7 +252,7 @@ export class EnemyShootingSystem extends PhasedSystem {
   }
 
   /** Одиночная турель: Fighter и Carrier */
-  private fireSingleTurret(
+  private fireFighterBurst(
     shot: EnemyShotRef,
     dt: number,
     player: PlayerMotion,
@@ -251,40 +260,51 @@ export class EnemyShootingSystem extends PhasedSystem {
     hitChance: number
   ): void {
     const { marker: e, position } = shot;
-    const baseRate = e.kind === EnemyKind.Carrier ? CARRIER_TURRET_RATE : SINGLE_TURRET_RATE;
-    const waveBoost = Math.min(SINGLE_RATE_WAVE_CAP, 1 + this.wave * SINGLE_RATE_WAVE_BOOST);
-    e.fireCd -= dt * waveBoost;
 
-    if (e.fireCd > 0) return;
-
-    // Истребитель: очередь болтов (burst) или одиночный выстрел.
-    if (e.kind === EnemyKind.Fighter) {
-      // Если есть очередь — добиваем её по burstTimer
-      if (e.burstLeft > 0) {
-        e.burstTimer -= dt;
-        if (e.burstTimer <= 0) {
-          e.burstTimer = FIGHTER_BURST_INTERVAL;
-          e.burstLeft--;
-          this.fire(e, position.x, position.y, player, weapon, hitChance);
-          this.audio.playEnemyShoot();
-          // Если очередь не закончена — остаёмся в FIRE
-          if (e.burstLeft > 0) return;
-          // Очередь закончена — сбрасываем
-          e.fireGate = false;
-          e.burstLeft = 0;
-        }
-        return;
-      }
-      // Иначе ждёт заявки AI: он стреляет только в подтверждённое окно.
-      if (!e.fireGate) return;
-      e.fireGate = false;
+    if (e.kind === EnemyKind.Carrier) {
+      const baseRate = CARRIER_TURRET_RATE;
+      const waveBoost = Math.min(SINGLE_RATE_WAVE_CAP, 1 + this.wave * SINGLE_RATE_WAVE_BOOST);
+      e.fireCd -= dt * waveBoost;
+      if (e.fireCd > 0) return;
+      e.fireCd = baseRate;
+      this.fire(e, position.x, position.y, player, weapon, hitChance);
+      this.audio.playEnemyShoot();
+      return;
     }
 
-    e.fireCd = baseRate;
+    if (e.kind !== EnemyKind.Fighter) return;
 
-    this.fire(e, position.x, position.y, player, weapon, hitChance);
-    if (weapon.heavy) this.audio.playHeavyShoot();
-    else this.audio.playEnemyShoot();
+    // Пауза между очередями.
+    if (e.fireCd > 0) {
+      e.fireCd -= dt;
+      // Пауза должна удерживать файтера вне стрельбы, даже если заявка висит.
+      e.fireGate = false;
+      if (e.fireCd <= 0) {
+        e.fireCd = 0;
+      }
+      return;
+    }
+
+    // Если есть очередь — добиваем её по burstTimer.
+    if (e.burstLeft > 0) {
+      e.burstTimer -= dt;
+      if (e.burstTimer <= 0) {
+        e.burstTimer = FIGHTER_BURST_INTERVAL;
+        e.burstLeft--;
+        this.fire(e, position.x, position.y, player, weapon, hitChance);
+        this.audio.playEnemyShoot();
+        if (e.burstLeft > 0) return;
+        // Очередь закончена — пауза между следующими залпами.
+        e.fireGate = false;
+        e.burstLeft = 0;
+        e.fireCd = FIGHTER_BURST_COOLDOWN;
+      }
+      return;
+    }
+
+    // Ждёт заявки AI: он стреляет только в подтверждённое окно.
+    if (!e.fireGate) return;
+    e.fireGate = false;
   }
 
   /**
@@ -342,7 +362,6 @@ const CRUISER_TURRET_TURN_RATE = 3.2;
 const CRUISER_MUZZLE_FORWARD = 20;
 /** Полуразнесение стволов поперёк оси наведения турели. */
 const CRUISER_MUZZLE_GAP = 8;
-const SINGLE_TURRET_RATE = 0.8;
 const CARRIER_TURRET_RATE = 1.5;
 const SINGLE_RATE_WAVE_BOOST = 0.08;
 const SINGLE_RATE_WAVE_CAP = 2.5;

@@ -46,15 +46,12 @@ import {
   FIGHTER_ATTACK_TIMEOUT,
   FIGHTER_BOLT_SPEED,
   FIGHTER_BREAK_DIST,
-  FIGHTER_BURST_COUNT,
-  FIGHTER_BURST_DISPERSION,
-  FIGHTER_BURST_INTERVAL,
-  FIGHTER_BURST_WINDOW,
+  FIGHTER_BURST_MAX,
+  FIGHTER_BURST_MIN,
   FIGHTER_CIRCLE_OMEGA,
   FIGHTER_COMMIT_RANGE,
   FIGHTER_COMMIT_TIME,
   FIGHTER_COOLDOWN_TIME,
-  FIGHTER_CUT_DIST,
   FIGHTER_CUT_LEAD,
   FIGHTER_CUT_RADIUS,
   FIGHTER_CUT_ZONE_MARGIN,
@@ -310,11 +307,8 @@ export class FighterStrategy implements IEnemyStrategy {
           break;
         }
         // Оружие к бою: в срезе окно проверяется каждый кадр, но между
-        // burst есть перезарядка — игрок получает ~0.6 с на манёвр.
-        marker.burstWindowT -= dt;
-        if (marker.burstWindowT <= 0) {
-          this.tryFire(enemy, context);
-        }
+        // очередями держится пауза FIGHTER_BURST_COOLDOWN.
+        this.tryFire(enemy, context);
         break;
       }
 
@@ -369,18 +363,25 @@ export class FighterStrategy implements IEnemyStrategy {
   }
 
   /**
-   * Заявка на выстрел: если окно открыто — открываем очередь болтов
+   * Заявка на выстрел: если окно открыто — открываем очередь из 3-5 болтов
    * и уходим в FIRE. Саму стрельбу выполнит EnemyShootingSystem.
-   * Ставит cooldown burstWindowT, чтобы в CUT режиме не стрелять непрерывно.
+   * После очереди shooter ставит fireCd = FIGHTER_BURST_COOLDOWN, поэтому
+   * новая заявка не откроется, пока пауза не истечёт.
    */
   private tryFire(enemy: EnemyRef, context: GameContext): boolean {
+    const marker = enemy.marker;
+    // Очередь уже идёт или держится пауза между очередями.
+    if (marker.burstLeft > 0 || marker.fireCd > 0) return false;
     if (!this.fireWindow(enemy, context)) return false;
-    enemy.marker.mode = FIRE;
-    enemy.marker.burstLeft = FIGHTER_BURST_COUNT;
-    enemy.marker.burstTimer = 0;
-    enemy.marker.fireGate = true;
-    // Cooldown между burst: даёт игроку ~0.6 с (40% окна) на реакцию.
-    enemy.marker.burstWindowT = FIGHTER_BURST_WINDOW;
+
+    marker.mode = FIRE;
+    // seed — стабильный признак конкретного врага: очередь 3-5 болтов,
+    // но у каждого файтера свой рисунок.
+    const roll = marker.seed - Math.floor(marker.seed);
+    marker.burstLeft =
+      FIGHTER_BURST_MIN + Math.floor(roll * (FIGHTER_BURST_MAX - FIGHTER_BURST_MIN + 1));
+    marker.burstTimer = 0;
+    marker.fireGate = true;
     return true;
   }
 

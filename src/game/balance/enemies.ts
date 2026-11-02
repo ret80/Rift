@@ -111,12 +111,12 @@ export interface EnemyBaseDef {
  */
 export const ENEMY_BASES: Record<EnemyKind, EnemyBaseDef> = {
   [EnemyKind.Drone]: {
-    r: 10, hpBase: 12, speed: DRONE_BASE_SPEED,
-    contactBase: 10, score: 10, boltBase: 0, mass: 0,
+    r: 10, hpBase: 10, speed: DRONE_BASE_SPEED,
+    contactBase: 12, score: 10, boltBase: 0, mass: 0,
   },
   [EnemyKind.Hunter]: {
     r: 9, hpBase: 30, speed: HUNTER_SPEED,
-    contactBase: 25, score: 40, boltBase: 0, mass: 0,
+    contactBase: 32, score: 40, boltBase: 0, mass: 0,
   },
   [EnemyKind.Fighter]: {
     r: 13, hpBase: 34, speed: FIGHTER_BASE_SPEED,
@@ -241,15 +241,16 @@ export const FIGHTER_CUT_ZONE_MARGIN = 60;
 
 /* ----------------------- Fighter: очередь (burst) ----------------------- */
 
-/** Количество болтов в очереди истребителя. */
-export const FIGHTER_BURST_COUNT = 2;
+/** Минимальное количество болтов в очереди истребителя. */
+export const FIGHTER_BURST_MIN = 3;
+/** Максимальное количество болтов в очереди истребителя. */
+export const FIGHTER_BURST_MAX = 5;
 /** Интервал между болтами в очереди, с. */
-export const FIGHTER_BURST_INTERVAL = 0.12;
+export const FIGHTER_BURST_INTERVAL = 0.15;
 /** Рассеивание болтов в очереди, рад. */
 export const FIGHTER_BURST_DISPERSION = 0.015;
 /**
- * Минимальный интервал между открытием fireGate в CUT режиме, с.
- * Prevents continuous firing: cooldown between bursts so the player
- * has ~0.6 s (40% of window) to read the pattern and maneuver.
+ * Пауза между очередями истребителя, с. Игрок получает почти две секунды,
+ * чтобы выйти из линии огня; сами болты внутри очереди идут с интервалом.
  */
-export const FIGHTER_BURST_WINDOW = 1.5;
+export const FIGHTER_BURST_COOLDOWN = 1.9;
