@@ -9,9 +9,9 @@
  *                  поэтому часть роя идёт по часовой, часть — против.
  *   DIVE     (2) — пикирование на упреждённую точку. Лёгкое самонаведение
  *                  (доворот 2.4 рад/с), скорость ×1.35.
- *   PURSUE   (3) — короткое прямое преследование игрока (1.2 с, скорость
- *                  ×1.1). Часть дронов выбирает его вместо пике.
- *   COOLDOWN (4) — пауза 0.55–0.95 с, затем снова APPROACH.
+ *   PURSUE   (3) — короткий рывок на игрока (0.8 с, скорость ×1.1).
+ *                  Лишь ~20% дронов выбирают его — остальные пикируют.
+ *   COOLDOWN (4) — пауза 0.8–1.3 с, затем снова APPROACH.
  *
  * Дроны, выпущенные носителем, первый заход делают сразу, без HOLD.
  *
@@ -35,19 +35,19 @@ const COOLDOWN = 4;
 /** Радиус кольца вокруг игрока, на котором дроны формируют рой. */
 const DRONE_RING_RADIUS = 230;
 /** Минимальное время удержания на кольце, с. */
-const DRONE_HOLD_MIN = 0.2;
+const DRONE_HOLD_MIN = 0.5;
 /** Максимальное время удержания на кольце, с. */
-const DRONE_HOLD_MAX = 0.55;
+const DRONE_HOLD_MAX = 1.2;
 /** Множитель скорости в пикировании. */
 const DRONE_DIVE_MULT = 1.35;
 /** Длительность пикирования, с. */
 const DRONE_DIVE_DURATION = 0.9;
 /** Множитель скорости в преследовании. */
 const DRONE_PURSUE_MULT = 1.1;
-/** Длительность преследования, с. */
-const DRONE_PURSUE_DURATION = 1.25;
+/** Длительность преследования, с. Короткий рывок, не погоня. */
+const DRONE_PURSUE_DURATION = 0.8;
 /** Длительность кулдауна после атаки, с. */
-const DRONE_COOLDOWN = 0.55;
+const DRONE_COOLDOWN = 0.8;
 /** Максимальный горизонт упреждения при пикировании, с. */
 const DRONE_LEAD_MAX = 0.6;
 /** Скорость доворота в пикировании (лёгкое самонаведение). */
@@ -65,7 +65,7 @@ const APPROACH_SPEED_MULT = 1.0;
 /** Скорость стрейфа при удержании (доля от базовой). */
 const HOLD_STRAFE_MULT = 0.5;
 /** Порог дистанции для перехода HOLD → атака. */
-const DIVE_DIST_THRESHOLD = 170;
+const DIVE_DIST_THRESHOLD = 200;
 
 export class DroneStrategy implements IEnemyStrategy {
   update(enemy: EnemyRef, context: GameContext, dt: number): void {
@@ -90,6 +90,8 @@ export class DroneStrategy implements IEnemyStrategy {
 
   /**
    * Роевое поведение: APPROACH → HOLD → DIVE/PURSUE → COOLDOWN.
+   * Дроны в основном кружат вокруг игрока на кольце.
+   * Лишь ~20% срываются в атаку (пике или редкое преследование).
    */
   private updateSwarm(enemy: EnemyRef, context: GameContext, dt: number): void {
     const { playerX, playerY } = context;
@@ -146,12 +148,12 @@ export class DroneStrategy implements IEnemyStrategy {
 
         // Таймер истёк или игрок уже вплотную — атакуем.
         if (marker.modeT <= 0 || dist < DIVE_DIST_THRESHOLD) {
-          if (roll > 0.55) {
-            // Часть роя идёт в прямое преследование.
+          if (roll > 0.8) {
+            // Редкий дрон срывается в прямое преследование.
             marker.mode = PURSUE;
             marker.modeT = DRONE_PURSUE_DURATION;
           } else {
-            // Остальные — в пике на упреждённую точку.
+            // Обычный дрон — короткое пике на упреждённую точку.
             marker.mode = DIVE;
             marker.modeT = DRONE_DIVE_DURATION;
             marker.lockAngle = this.interceptAngle(enemy, context, marker.speed * DRONE_DIVE_MULT);
@@ -173,7 +175,7 @@ export class DroneStrategy implements IEnemyStrategy {
         const closing = (playerX - pos.x) * vel.vx + (playerY - pos.y) * vel.vy;
         if (marker.modeT <= 0 || (closing < 0 && dist > 45) || dist < 20) {
           marker.mode = COOLDOWN;
-          marker.modeT = DRONE_COOLDOWN + roll * 0.4;
+          marker.modeT = DRONE_COOLDOWN + roll * 0.5;
         }
         break;
       }
@@ -190,7 +192,7 @@ export class DroneStrategy implements IEnemyStrategy {
 
         if (marker.modeT <= 0 || dist > 520) {
           marker.mode = COOLDOWN;
-          marker.modeT = DRONE_COOLDOWN + roll * 0.4;
+          marker.modeT = DRONE_COOLDOWN + roll * 0.5;
         }
         break;
       }
