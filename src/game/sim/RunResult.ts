@@ -111,6 +111,7 @@ export function flatMetrics(metrics: RunMetrics): Record<string, number> {
     zoneViolations: metrics.zoneViolations,
     abilityUses: metrics.abilityUses,
     finalHp: metrics.finalHp,
+    waveReached: metrics.waveReached,
   };
 }
 

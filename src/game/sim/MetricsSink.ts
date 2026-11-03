@@ -29,6 +29,8 @@ export interface RunMetrics {
   zoneViolations: number;
   abilityUses: number;
   finalHp: number;
+  /** Максимальная волна, до которой дошёл прогон. */
+  waveReached: number;
   byKind: Record<string, { kills: number; damage: number }>;
   rngDraws: Record<RngStream, number>;
 }
@@ -41,6 +43,7 @@ export class MetricsSink {
   private graze = 0;
   private abilityUses = 0;
   private zoneViolations = 0;
+  private waveReached = 1;
   private deathTime: number | null = null;
   private killsByKind = new Map<string, number>();
   private damageByKind = new Map<string, number>();
@@ -92,6 +95,9 @@ export class MetricsSink {
    * краем он получает прямой урон, и агент обязан этого избегать.
    */
   sample(): void {
+    const wave = this.world.waveOrchestrator.wave;
+    if (wave > this.waveReached) this.waveReached = wave;
+
     const zone = this.world.waveOrchestrator.zoneState;
     if (!zone.active || zone.radius <= 0) return;
     const player = this.world.getPlayerPosition();
@@ -126,6 +132,7 @@ export class MetricsSink {
       zoneViolations: this.zoneViolations,
       abilityUses: this.abilityUses,
       finalHp: this.world.playerSystem.getHp(),
+      waveReached: this.waveReached,
       byKind,
       rngDraws: this.world.rngDraws(),
     };
