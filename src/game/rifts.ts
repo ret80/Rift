@@ -7,10 +7,11 @@
 import { Aspect, type Engine } from "@trixt0r/ecs";
 import { PhasedSystem, Phase } from "./ecs/SystemSchedule";
 import type { IRenderer } from "./render/index";
-import type { AudioManager } from "./systems/AudioManager";
-import type { Fx } from "./fx";
+import type { AudioPort } from "./core/WorldPorts";
+import type { FxPort } from "./core/WorldPorts";
+import type { Rng } from "./core/rng";
 import type { EcsWorld } from "./ecs";
-import { TAU, rand, clamp, easeOutCubic, rgba } from "./math";
+import { TAU, clamp, easeOutCubic, rgba } from "./math";
 import { C, type EnemyKind } from "./balance";
 import { RiftComponent, type RiftState } from "./ecs/components/RiftComponent";
 import { GameEntity } from "./ecs/GameEntity";
@@ -30,8 +31,8 @@ export interface Rift {
 
 export interface RiftHooks {
   spawnEnemy(kind: EnemyKind, x: number, y: number): void;
-  fx: Fx;
-  audio: AudioManager;
+  fx: FxPort;
+  audio: AudioPort;
 }
 
 export class RiftField extends PhasedSystem {
@@ -43,7 +44,14 @@ export class RiftField extends PhasedSystem {
     return this.ecs.rifts();
   }
 
-  constructor(private h: RiftHooks, ecs: EcsWorld) {
+  constructor(
+    private h: RiftHooks,
+    ecs: EcsWorld,
+    /** Поток спавна: смещение вышедшего из разлома врага. */
+    private readonly rngSpawn: Rng,
+    /** Визуальный поток: seed и поворот разлома. */
+    private readonly rngFx: Rng,
+  ) {
     super(Phase.Allies);
     this.ecs = ecs;
   }
@@ -134,8 +142,8 @@ export class RiftField extends PhasedSystem {
       state: "opening",
       queue,
       timer: 0.8,
-      seed: Math.random() * 100,
-      rot: Math.random() * TAU,
+      seed: this.rngFx.next() * 100,
+      rot: this.rngFx.range(0, TAU),
       size,
     });
     this.h.audio.playRiftOpen();
@@ -163,7 +171,7 @@ export class RiftField extends PhasedSystem {
         if (rf.timer <= 0 && rf.queue.length > 0) {
           rf.timer = 0.28;
           const kind = rf.queue.shift()!;
-          this.h.spawnEnemy(kind, rf.x + rand(-14, 14), rf.y + rand(-14, 14));
+          this.h.spawnEnemy(kind, rf.x + this.rngSpawn.range(-14, 14), rf.y + this.rngSpawn.range(-14, 14));
           this.h.audio.playRiftSpawn();
           this.h.fx.burst(rf.x, rf.y, 5, C.rift, 140, 0.3);
         }

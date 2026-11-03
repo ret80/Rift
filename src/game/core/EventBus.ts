@@ -60,6 +60,22 @@ export interface ScoreAddedPayload {
   amount: number;
 }
 
+/** Урон, нанесённый врагу (для метрик симуляции). */
+export interface EnemyDamagedPayload {
+  /** Нанесённый урон. */
+  dmg: number;
+  /** Вид врага. */
+  kind: string;
+  /** Погиб ли враг от этого удара. */
+  killed: boolean;
+}
+
+/** Выстрел игрока (для метрик: все выстрелы считаются в одной точке). */
+export interface PlayerShotPayload {
+  /** Необязательная подпись источника. */
+  source?: string;
+}
+
 // ===== GameEventMap — discriminated union =====
 
 export type GameEventMap = {
@@ -73,6 +89,9 @@ export type GameEventMap = {
   drone_push_player: DronePushPlayerPayload;
   bullet_grazed: BulletGrazedPayload;
   score_added: ScoreAddedPayload;
+  enemy_damaged: EnemyDamagedPayload;
+  player_shot: PlayerShotPayload;
+  ability_used: { id: string };
 };
 
 export type EventType = keyof GameEventMap;
@@ -89,6 +108,19 @@ export type EventCallback<T extends EventType = EventType> = (event: GameEvent<T
 
 export class EventBus {
   private listeners: Map<EventType, Set<EventCallback>> = new Map();
+
+  /**
+   * Часы мира для метки события.
+   *
+   * В браузере по умолчанию берётся `performance.now()`, в симуляции хост
+   * инжектит детерминированное время `tick * FIXED_DT` — иначе timestamp
+   * события делал бы прогон невоспроизводимым.
+   */
+  private readonly now: () => number;
+
+  constructor(now?: () => number) {
+    this.now = now ?? (() => (typeof performance === "undefined" ? 0 : performance.now()));
+  }
 
   /** Subscribe to a specific event type. */
   subscribe<T extends EventType>(eventType: T, callback: EventCallback<T>): () => void {
@@ -107,7 +139,7 @@ export class EventBus {
     const event: GameEvent<T> = {
       type: eventType,
       payload,
-      timestamp: performance.now(),
+      timestamp: this.now(),
     };
 
     const callbacks = this.listeners.get(eventType);

@@ -12,19 +12,19 @@ import {
   GRAZE_SCORE,
 } from "../balance/player";
 import type { EventBus } from "../core/EventBus";
-import type { Fx } from "../fx";
+import type { FxPort } from "../core/WorldPorts";
 import type { ScoringSystem } from "./ScoringSystem";
 
 /** Цвет искр касания. */
 const GRAZE_SPARK_COLOR = "#b9f6ff";
 
 export class GrazeSystem {
-  private fx: Fx;
+  private fx: FxPort;
   private scoring: ScoringSystem;
   /** Всего касаний за забег — для HUD и статистики. */
   private grazes = 0;
 
-  constructor(eventBus: EventBus, fx: Fx, scoring: ScoringSystem) {
+  constructor(eventBus: EventBus, fx: FxPort, scoring: ScoringSystem) {
     this.fx = fx;
     this.scoring = scoring;
 

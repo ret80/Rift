@@ -21,6 +21,7 @@ import {
     LEAD_MAX_TIME,
     LEAD_MIN_TIME,
 } from "../balance";
+import type { Rng } from "../core/rng";
 import { clamp } from "../math";
 
 /** Цель: позиция, скорость и радиус поражения. */
@@ -325,10 +326,17 @@ export function spreadForChance(
  * Угол выстрела: упреждение плюс случайное отклонение внутри конуса рассеивания.
  * Если встречи нет — цель берётся по текущей позиции.
  */
+/**
+ * Угол выстрела с упреждением и рассеиванием.
+ *
+ * @param rng — источник рассеивания: в игре и симуляции это seeded-поток,
+ *              поэтому одинаковый seed даёт одинаковый разброс.
+ */
 export function aimAtTarget(
   params: AimParams,
   hitChance: number,
-  hitRadius: number
+  hitRadius: number,
+  rng: Rng
 ): number {
   const dx = params.target.x - params.sx;
   const dy = params.target.y - params.sy;
@@ -337,5 +345,5 @@ export function aimAtTarget(
   if (!lead) return Math.atan2(dy, dx);
 
   const spread = spreadForChance(hitChance, Math.hypot(dx, dy), hitRadius);
-  return lead.angle + (Math.random() - 0.5) * 2 * spread;
+  return lead.angle + (rng.next() - 0.5) * 2 * spread;
 }

@@ -1,154 +1,112 @@
 /**
- * GameContext — композиционный корень игры (DI-контейнер).
+ * GameContext — презентационный хост игры.
  *
- * Единственное место, где создаются системы, слои кадра/рендера,
- * подписки EventBus, игровой цикл и задаются их связи. Game использует
- * контекст как источник зависимостей и не знает, как системы собраны.
- * Порядок создания повторяет исходный конструктор Game — он важен
- * для корректной работы коллбэков во время инициализации.
+ * Держит то, что существует только в браузере: canvas, рендер-бэкенд,
+ * ввод/геймпад, аудио, меню-сцену, камеру, HUD, кадровый цикл и requestAnimationFrame.
+ * Игровой мир (`GameWorld`) — отдельный DOM-free объект; контекст владеет им,
+ * передаёт порты и делегирует игровые операции.
+ *
+ * Геттеры-делегаты (`ctx.ecs`, `ctx.playerSystem`, …) сохранены, чтобы
+ * презентационные файлы не пришлось переписывать в том же шаге.
  */
 
 import { AbilitySystem } from "../abilities/AbilitySystem";
 import { AsteroidField } from "../asteroids";
-import {
-  EnemyKind,
-  PickupKind,
-  PLAYER_HITBOX_RADIUS,
-  PLAYER_MAX_SPEED,
-  SURVIVAL_PARTS_CAP,
-  SURVIVAL_PARTS_INTERVAL,
-  waveClearParts,
-} from "../balance";
+import type { EnemyKind, PickupKind } from "../balance";
+import type { WaveCompositionOverride } from "../balance/waves";
 import type { EnemyRef, PlayerRef } from "../ecs";
 import { EcsWorld } from "../ecs";
-import { SystemSchedule } from "../ecs/SystemSchedule";
-import { AllyDroneSystem } from "../ecs/systems/AllyDroneSystem";
+import type { SystemSchedule } from "../ecs/SystemSchedule";
 import { Fx } from "../fx";
 import { GAMEPAD_CODES, GamepadManager } from "../gamepad";
 import { InputManager } from "../input";
-import { LoadoutSystem } from "../loadout/LoadoutSystem";
-import { BonusManager } from "../loadout/bonuses/BonusManager";
+import type { LoadoutSystem } from "../loadout/LoadoutSystem";
+import type { BonusManager } from "../loadout/bonuses/BonusManager";
 import type { PhysicsEngineId } from "../physics/index";
-import { createPhysicsEngine, normalizePhysicsEngine, PhysicsSystem } from "../physics/index";
+import type { PhysicsSystem } from "../physics/index";
 import { MenuScene } from "../presentation/menu/MenuScene";
-import {
-    getDpr,
-    NullRenderer,
-    PicoGLRenderer,
-    type IRenderer,
-} from "../render/index";
+import { getDpr, NullRenderer, PicoGLRenderer, type IRenderer } from "../render/index";
 import { RiftField } from "../rifts";
 import { Starfield } from "../starfield";
-import { ApplyPickupSystem } from "../systems/ApplyPickupSystem";
+import type { ApplyPickupSystem } from "../systems/ApplyPickupSystem";
 import { AudioManager } from "../systems/AudioManager";
 import { CameraSystem } from "../systems/CameraSystem";
-import { CollisionSystem } from "../systems/CollisionSystem";
-import { CountdownSystem } from "../systems/CountdownSystem";
+import type { CollisionSystem } from "../systems/CollisionSystem";
+import type { CountdownSystem } from "../systems/CountdownSystem";
 import type { DeathSystem } from "../systems/DeathSystem";
 import { DebugSystem } from "../systems/DebugSystem";
-import { GrazeSystem } from "../systems/GrazeSystem";
+import type { GrazeSystem } from "../systems/GrazeSystem";
 import { InputSystem } from "../systems/InputSystem";
-import { PickupDropSystem } from "../systems/PickupDropSystem";
-import { PlayerSystem } from "../systems/PlayerSystem";
+import type { PickupDropSystem } from "../systems/PickupDropSystem";
+import type { PlayerSystem } from "../systems/PlayerSystem";
 import { RendererSystem } from "../systems/RendererSystem";
-import { ScoringSystem } from "../systems/ScoringSystem";
-import { ShieldSystem } from "../systems/ShieldSystem";
-import { SpawnSystem, type SpawnDependencies } from "../systems/SpawnSystem";
-import { UpgradeSystem } from "../systems/UpgradeSystem";
-import { WaveFlowSystem } from "../systems/WaveFlowSystem";
-import { WaveOrchestrator } from "../systems/WaveOrchestrator";
-import { ZoneSystem } from "../systems/ZoneSystem";
+import type { ScoringSystem } from "../systems/ScoringSystem";
+import type { ShieldSystem } from "../systems/ShieldSystem";
+import type { SpawnSystem } from "../systems/SpawnSystem";
+import type { UpgradeSystem } from "../systems/UpgradeSystem";
+import type { WaveFlowSystem } from "../systems/WaveFlowSystem";
+import type { WaveOrchestrator } from "../systems/WaveOrchestrator";
+import type { ZoneSystem } from "../systems/ZoneSystem";
 import type { PlayerSnapshot, WeaponId } from "../weapons/Weapon";
-import { WEAPON_CATALOG } from "../weapons/WeaponCatalog";
-import { WeaponManager } from "../weapons/WeaponManager";
-import { EventBus } from "./EventBus";
+import type { WeaponManager } from "../weapons/WeaponManager";
+import type { EventBus } from "./EventBus";
 import type { GameFSMContext } from "./GameFSM";
-import { GAME_TRANSITIONS } from "./GameFSM";
 import { GameFrame } from "./GameFrame";
 import type { Hooks } from "./GameHooks";
-import { GameListeners } from "./GameListeners";
 import { GameLoop } from "./GameLoop";
 import { GameRender } from "./GameRender";
 import { GameStart } from "./GameStart";
 import { GameUpgrades } from "./GameUpgrades";
+import { GameWorld, createGameWorld } from "./GameWorld";
+import { t } from "../../i18n";
 import type { PersistencePort } from "./PersistencePort";
+import { HumanControls } from "./PlayerControls";
 import { PresentationFrame } from "./PresentationFrame";
-import { GameStateMachine } from "./StateMachine";
+import { createRandomSeed, createSeedSet } from "./rng";
+import { SimulationClock } from "./SimulationClock";
+import type { GameStateMachine } from "./StateMachine";
 import type { WorldFrame } from "./WorldFrame";
 import { getViewport, readUrlParam } from "./env";
-import type { WaveCompositionOverride } from "../balance/waves";
 
 export class GameContext {
   readonly hooks: Hooks;
   readonly storage: PersistencePort;
 
+  /** Seed-набор забега: `?seed=` или случайный мастер-seed. */
+  readonly seedSet = createSeedSet(this.readSeedParam());
+
   readonly audio = new AudioManager();
   readonly renderer: IRenderer;
-  readonly physics: PhysicsSystem;
-  readonly eventBus = new EventBus();
 
-  readonly cameraSystem: CameraSystem;
-  readonly debugSystem: DebugSystem;
-  readonly scoringSystem: ScoringSystem;
-  readonly upgradeSystem: UpgradeSystem;
-  readonly ecs: EcsWorld;
-  /** Явный порядок ECS-систем по фазам. */
-  readonly schedule = new SystemSchedule();
+  /** DOM-free игровой мир: единственный источник правды симуляции. */
+  readonly world: GameWorld;
 
-  readonly inputSystem: InputSystem;
+  readonly cameraSystem = new CameraSystem();
+  readonly debugSystem = new DebugSystem();
+
   readonly input: InputManager;
-  readonly gamepad: GamepadManager;
-  readonly fx: Fx;
+  readonly inputSystem: InputSystem;
+  readonly gamepad = new GamepadManager();
+  /** Порт управления игроком в браузере. */
+  readonly controls: HumanControls;
+
   readonly starfield: Starfield;
-  readonly asteroidField: AsteroidField;
-  readonly riftField: RiftField;
   readonly rendererSystem: RendererSystem;
   readonly menuScene: MenuScene;
-
-  readonly bonusManager: BonusManager;
-  readonly shieldSystem: ShieldSystem;
-  readonly grazeSystem: GrazeSystem;
-  readonly playerSystem: PlayerSystem;
-  readonly abilitySystem: AbilitySystem;
-  readonly spawnSystem: SpawnSystem;
-  readonly weaponManager: WeaponManager;
-  readonly countdownSystem: CountdownSystem;
-  readonly applyPickupSystem: ApplyPickupSystem;
-  readonly loadoutSystem: LoadoutSystem;
-  readonly dropSystem: PickupDropSystem;
-  readonly collisionSystem: CollisionSystem;
-  readonly zoneSystem: ZoneSystem;
-  readonly waveOrchestrator: WaveOrchestrator;
-  readonly waveFlowSystem: WaveFlowSystem;
-
-  readonly fsm: GameStateMachine<GameFSMContext>;
-  deathSystem!: DeathSystem;
 
   readonly render: GameRender;
   readonly presentation: PresentationFrame;
   readonly frame: GameFrame;
-  readonly listeners: GameListeners;
   readonly start: GameStart;
   readonly upgrades: GameUpgrades;
   readonly loop: GameLoop;
 
-  /** Стартовая волна (для отладки/URL-параметра). */
-  startWave = 1;
+  /** Фиксированный шаг мира для браузерного кадра. */
+  readonly clock = new SimulationClock();
 
-  /** Тестовый режим `?test=...`: не сохранять рекорд и не начислять детали. */
-  testMode = false;
+  /** Размер вьюпорта в CSS-пикселях (обновляется в resize). */
+  readonly viewport = { width: 0, height: 0 };
 
-  /** Накопитель страховки за выживание и уже выданное количество. */
-  private survivalTimer = 0;
-  private survivalAwarded = 0;
-
-  /** Физический движок, выбранный в настройках (persisted). */
-  private _physicsEngineId: PhysicsEngineId = "planck";
-  get physicsEngineId(): PhysicsEngineId {
-    return this._physicsEngineId;
-  }
-
-  private countId = 0;
   private _paused = false;
 
   /** Текущее направление навигации (стик или D-pad). */
@@ -159,98 +117,54 @@ export class GameContext {
   private _navCandidateT = 0;
   /** Время до следующего шага автоповтора, секунды. */
   private _navRepeatT = 0;
-  /** Задержка перед первым повтором (секунды). */
   private static readonly NAV_INITIAL_DELAY = 0.45;
-  /** Интервал автоповтора (секунды). */
   private static readonly NAV_REPEAT_INTERVAL = 0.18;
-  /** Мёртвая зона навигации (выше, чем для движения). */
   private static readonly NAV_DEADZONE = 0.3;
-  /** Стабильность направления для гашения дребезга hat-стика, секунды. */
   private static readonly NAV_DEBOUNCE = 0.03;
-
-  /** Размер вьюпорта в CSS-пикселях (обновляется в resize). */
-  readonly viewport = { width: 0, height: 0 };
-  /** Переиспользуемое мировое сечение кадра (создаётся при первом buildWorld). */
-  private worldFrame: WorldFrame | null = null;
-
-  /** Сменить физический движок (выбор в меню настроек). */
-  setPhysicsEngine(id: PhysicsEngineId): void {
-    if (id === this._physicsEngineId) return;
-    this._physicsEngineId = id;
-    this.physics.setEngine(createPhysicsEngine(id));
-  }
-
-  /** Включить тестовую волну точного состава. */
-  setWaveOverride(override: WaveCompositionOverride): void {
-    this.testMode = true;
-    this.spawnSystem.setWaveComposition(override);
-  }
 
   constructor(canvas: HTMLCanvasElement, hooks: Hooks, storage: PersistencePort) {
     this.hooks = hooks;
     this.storage = storage;
 
     // Рендер-бэкенд: PicoGL; NullRenderer — через URL-параметр ?renderer=null.
-    // NullRenderer рисует на Canvas 2D и копит debug-метрики — удобен в
-    // средах без WebGL.
     const useNull = readUrlParam("renderer") === "null";
     this.renderer = useNull ? new NullRenderer(canvas) : new PicoGLRenderer(canvas);
 
-    // Физический бэкенд: выбирается через меню настроек (persisted) или
-    // URL-параметр ?physics=<id>. По умолчанию — Planck.js.
+    // Мир создаётся до презентации: он не зависит от canvas и DOM.
     const physicsParam = readUrlParam("physics");
-    this.physics = new PhysicsSystem(
-      createPhysicsEngine(normalizePhysicsEngine(physicsParam ?? this.physicsEngineId)),
-      // Источник тел кадра: ECS-компоненты (игрок/враг/астероид/пикап).
-      // Читается лениво при каждом шаге физики (внутри engine.run(dt)), поэтому
-      // this.ecs к моменту вызова уже создан.
-      () => this.ecs.physicsBodies(),
-    );
-    // Физика — ECS-система; регистрируется позже (см. блок после weaponManager).
+    const { width, height } = getViewport();
+    this.viewport.width = width;
+    this.viewport.height = height;
 
-    this.scoringSystem = new ScoringSystem({}, storage);
-    this.upgradeSystem = UpgradeSystem.create(storage);
-
-    this.cameraSystem = new CameraSystem();
-    this.debugSystem = new DebugSystem();
-    this.ecs = new EcsWorld(this.eventBus, () => this.getPlayerHitbox(), {
-      getPlayer: () => this.getPlayerPosition(),
-      getZoneBounds: () => this.getZoneBounds(),
-      getIntegrate: () => !this.physics.integratesPositions,
-      getPlayerMotion: () => this.getPlayerPosition(),
-      isCombatActive: () => this.fsm.is("playing", "active"),
-      audio: this.audio,
-    });
-    this.resize();
-
-    this.inputSystem = new InputSystem(canvas, {
-      onAimUpdate: (mouseX, mouseY, winW, winH) => this.handleAim(mouseX, mouseY, winW, winH),
-      onFiringChanged: (firing) => this.weaponManager.setManualFiring(firing),
-    });
-
-    this.waveOrchestrator = new WaveOrchestrator({
-      hooks: {
-        onBanner: (title, sub, color) => hooks.onBanner({ title, sub, color }),
-        onToast: (text, color) => hooks.onToast({ text, color }),
-        hitPlayerRaw: (amount) => this.playerSystem.hitRaw(amount),
-        shakeScreen: (strength) => this.fx.addShake(strength),
-        onWaveCleared: (wave) => {
-          if (!this.testMode) this.upgradeSystem.addParts(waveClearParts(wave));
-        },
-        onWaveAdvanced: () => {
-          const nextWave = this.waveOrchestrator.wave;
-          this.ecs.setEnemyWave(nextWave);
-          this.countdownSystem.startWave(nextWave);
+    this.world = createGameWorld({
+      seed: this.seedSet,
+      startWave: 1,
+      physics: (physicsParam as PhysicsEngineId | null) ?? "planck",
+      ports: {
+        audio: this.audio,
+        storage,
+        hooks: {
+          onBanner: (banner) => hooks.onBanner(banner),
+          onToast: (toast) => hooks.onToast(toast),
+          // Мир отдаёт номер волны без текста: подпись локализует хост.
+          onCountdown: (count) =>
+            hooks.onCountdown(
+              count
+                ? {
+                    id: count.id,
+                    label: t("game.waveN", { n: String(count.wave).padStart(2, "0") }),
+                    value: count.value,
+                  }
+                : null,
+            ),
+          onGameOver: () => hooks.onGameOver(),
+          onStats: (stats) => hooks.onStats(stats),
         },
       },
-      playerMaxSpeed: PLAYER_MAX_SPEED,
-      getPlayerMaxHp: () => this.playerSystem.getMaxHp(),
+      view: { width, height, cameraX: 0, cameraY: 0, zoom: 1 },
     });
 
-    this.zoneSystem = new ZoneSystem({
-      getZoneState: () => this.waveOrchestrator.zoneState,
-      getAsteroids: () => this.ecs.asteroids(),
-    });
+    console.info(`[Rift] seed ${this.seedSet.master}`);
 
     this.input = new InputManager({
       onPauseKey: () => this.togglePause(),
@@ -261,223 +175,36 @@ export class GameContext {
         }
       },
     });
+    this.controls = new HumanControls(this.input);
+
+    this.inputSystem = new InputSystem(canvas, {
+      onAimUpdate: (mouseX, mouseY, winW, winH) => this.handleAim(mouseX, mouseY, winW, winH),
+      onFiringChanged: (firing) => this.controls.setFiring(firing),
+    });
 
     // Геймпад: создаём и подключаем к InputManager.
-    this.gamepad = new GamepadManager();
     this.input.setGamepadSource(this.gamepad);
     this._setupGamepadListeners();
 
-    this.fx = new Fx(this.ecs);
     this.starfield = new Starfield();
-
-    this.asteroidField = new AsteroidField({
-      addScore: (n) => this.scoringSystem.add(n),
-      spawnPickup: (kind, x, y, vx, vy) => this.ecs.spawnPickup(kind, x, y, vx, vy),
-      fx: this.fx,
-      audio: this.audio,
-      ecs: this.ecs,
-    }, this.eventBus);
-
-    this.riftField = new RiftField({
-      spawnEnemy: (kind, x, y) => this.spawnEnemy(kind, x, y, null),
-      fx: this.fx,
-      audio: this.audio,
-    }, this.ecs);
-    // RiftField — ECS-система: регистрируется в общем schedule ниже.
-
     this.rendererSystem = new RendererSystem({
-      fx: this.fx,
+      fx: this.world.fx,
       starfield: this.starfield,
-      asteroidField: this.asteroidField,
-      riftField: this.riftField,
+      asteroidField: this.world.asteroidField,
+      riftField: this.world.riftField,
     });
 
     this.menuScene = new MenuScene(
       this.starfield,
-      this.asteroidField,
-      this.riftField,
+      this.world.asteroidField,
+      this.world.riftField,
       this.rendererSystem,
       this.renderer,
       this.cameraSystem.getRawCamera(),
     );
 
-    this.bonusManager = new BonusManager();
-    this.bonusManager.setHealHook((amount) => this.playerSystem.heal(amount));
-    this.shieldSystem = new ShieldSystem();
-    this.grazeSystem = new GrazeSystem(this.eventBus, this.fx, this.scoringSystem);
-    // State/timer-домены теперь — ECS-системы: тикают внутри engine.run(dt).
-    // Игрок — Singleton-сущность ECS-мира: базовые компоненты (Position/Velocity/
-    // Radius/Life) + узкий PlayerComponent. PlayerSystem работает через живую
-    // связку PlayerRef. Никакого «зеркала»-состояния нет.
-    this.ecs.registerPlayer();
-    this.playerSystem = new PlayerSystem(
-      this.eventBus,
-      this.input,
-      this.fx,
-      () => this.ecs.playerRef(),
-      () => !this.physics.integratesPositions,
-    );
-    this.playerSystem.setShield(this.shieldSystem);
+    this.resize();
 
-    this.abilitySystem = new AbilitySystem(
-      this.input,
-      {
-        getPlayerX: () => this.playerSystem.getPlayerRef()?.position.x ?? 0,
-        getPlayerY: () => this.playerSystem.getPlayerRef()?.position.y ?? 0,
-        movePlayerTo: (x, y) => this.playerSystem.teleportTo(x, y),
-        getEnemies: () => this.ecs.enemies(),
-        damageEnemy: (enemy, dmg) => this.damageEnemy(enemy, dmg),
-      },
-      this.fx,
-    );
-    // Ability — ECS-система: кулдауны/активация до игровых систем.
-    this.spawnSystem = new SpawnSystem({
-      riftField: this.riftField,
-      getDeps: () => this.buildSpawnDeps(),
-    });
-
-    this.weaponManager = new WeaponManager(
-      {
-        getPlayer: () => this.getPlayerSnapshot(),
-        getEnemies: () => this.ecs.enemies(),
-        addBullet: (b) => this.ecs.addBullet(b),
-        getDrones: () => this.ecs.allyDrones(),
-        addAllyDrone: (d) => this.ecs.addAllyDrone(d),
-        getBonuses: () => this.bonusManager.getBonuses(),
-        getBeams: () => this.ecs.beams(),
-        addBeam: (b) => this.ecs.addBeam(b),
-        damageEnemy: (enemy, dmg) => this.damageEnemy(enemy, dmg),
-      },
-      (id) => this.onWeaponFired(id),
-    );
-    // Оружие и физика — ECS-системы внутри engine.run(dt): оружие
-    // спавнит пули, физика их интегрирует и собирает контакты.
-
-    // Дроны-компаньоны: ECS-система ведёт орбиту/цель/стрельбу/гибель по компонентам.
-    const allyDroneSystem = new AllyDroneSystem({
-      getPlayer: () => this.ecs.playerRef(),
-      getRateMult: () => this.bonusManager.getRateMult(),
-      getHitChance: () => this.weaponManager.getHitChance(),
-      getEnemies: () => this.ecs.enemies(),
-      addBullet: (b) => this.ecs.addBullet(b),
-      onDroneFired: () => this.onWeaponFired("drone"),
-    });
-
-    this.countdownSystem = new CountdownSystem({
-      hooks: {
-        onBanner: (b) => hooks.onBanner(b),
-        onToast: (t) => hooks.onToast(t),
-        onCountdown: (c) => {
-          if (c) {
-            this.countId++;
-            hooks.onCountdown({ id: this.countId, label: c.label, value: c.value });
-          } else {
-            hooks.onCountdown(null);
-          }
-        },
-        countdownDone: () => {
-          this.fsm.fire("countdown_done");
-        },
-      },
-      eventBus: this.eventBus,
-    });
-
-    this.applyPickupSystem = new ApplyPickupSystem({
-      applyBonus: (pickup: PickupKind) => this.bonusManager.applyPickup(pickup),
-      rechargeShield: (amount: number) => this.shieldSystem.recharge(amount),
-      equipWeapon: (id: WeaponId) => this.weaponManager.equipWeapon(id),
-      grantAbility: (id) => this.abilitySystem.grant(id),
-      playPickupSound: (kind: string) => this.audio.playPickupSound(kind as PickupKind),
-    });
-
-    this.loadoutSystem = new LoadoutSystem(
-      {
-        getWeaponSlots: () => this.weaponManager.getSlots(),
-        getBonusSlots: () => this.bonusManager.getSlots(),
-        getAbilitySlots: () => this.abilitySystem.getSlots(),
-        getSystemSlots: () => this.shieldSystem.getSlots(),
-      },
-      this.eventBus,
-    );
-    // Loadout — ECS-система: пересборка HUD-слотов после игровых систем.
-
-    this.dropSystem = new PickupDropSystem(this.eventBus, {
-      spawnPickup: (kind, x, y, vx, vy) => this.ecs.spawnPickup(kind, x, y, vx, vy),
-      addParts: (n) => {
-        if (!this.testMode) this.upgradeSystem.addParts(n);
-      },
-    });
-
-    this.collisionSystem = new CollisionSystem(
-      this.eventBus,
-      this.physics,
-      this.ecs,
-      () => this.buildWorld(),
-      () => this.waveOrchestrator.wave,
-    );
-    // Коллизии — ECS-система: после физики, до волны/спавна.
-
-    this.waveFlowSystem = new WaveFlowSystem({
-      orchestrator: this.waveOrchestrator,
-      scoringSystem: this.scoringSystem,
-      spawnSystem: this.spawnSystem,
-      upgradeSystem: this.upgradeSystem,
-      countdownSystem: this.countdownSystem,
-      getEnemyList: () => this.ecs.enemies(),
-      getPlayerPosition: () => this.getPlayerPosition(),
-    });
-    // Зона и волны — ECS-системы: waveFlow обновляет zoneState, zoneSystem
-    // выталкивает астероиды, ZoneEnemyPullSystem тянет врагов — всё после
-    // физики/коллизий.
-    // Спавн — ECS-система: после коллизий, до волны/зоны.
-
-    // Единый явный список систем: фазы задают крупный порядок, порядок
-    // добавления внутри фазы сохраняется.
-    this.schedule.add(this.scoringSystem);
-    this.schedule.add(this.bonusManager);
-    this.schedule.add(this.shieldSystem);
-    this.schedule.add(this.countdownSystem);
-    this.schedule.add(this.abilitySystem);
-    this.schedule.add(this.playerSystem);
-    for (const system of this.ecs.systems) this.schedule.add(system);
-    this.schedule.add(this.riftField);
-    this.schedule.add(allyDroneSystem);
-    this.schedule.add(this.weaponManager);
-    this.schedule.add(this.physics);
-    this.schedule.add(this.collisionSystem);
-    this.schedule.add(this.spawnSystem);
-    this.schedule.add(this.waveFlowSystem);
-    this.schedule.add(this.zoneSystem);
-    this.schedule.add(this.loadoutSystem);
-    this.schedule.install(this.ecs);
-
-    const fsmCtx: GameFSMContext = {
-      onPlayerDeath: () => {
-        this.deathSystem.startDeath();
-      },
-      onDeathAnimationEnd: () => {
-        this.deathSystem.onFinishDeath();
-      },
-      onReturnToMenu: () => {},
-      onStartRun: (_wave: number) => {
-        this.startRun();
-      },
-      countdownDone: () => {
-        this.fsm.fire("countdown_done");
-      },
-      onPause: (paused: boolean) => {
-        this.hooks.onPause(paused);
-        this.audio.setSuspended(paused);
-      },
-    };
-    this.fsm = new GameStateMachine<GameFSMContext>("menu", GAME_TRANSITIONS, fsmCtx);
-
-    // Scoring должен подписаться первым, чтобы killedWave обновлялся
-    // до проверки завершения волны в GameListeners.
-    this.scoringSystem.subscribeToEvents(this.eventBus);
-
-    // Композиционные слои: слушатели, кадр, рендер, старт, апгрейды, цикл.
-    this.listeners = new GameListeners(this);
     this.render = new GameRender(this);
     this.presentation = new PresentationFrame(this);
     this.frame = new GameFrame(this, this.presentation);
@@ -486,10 +213,55 @@ export class GameContext {
     this.loop = new GameLoop((dt) => this.frame.step(dt), () => this.resize());
   }
 
-  // ===== Gamepad listeners =====
+  /** Мастер-seed из `?seed=`, иначе случайный. */
+  private readSeedParam(): number {
+    const raw = readUrlParam("seed");
+    const parsed = raw === null ? NaN : Number(raw);
+    return Number.isFinite(parsed) ? parsed >>> 0 : createRandomSeed();
+  }
+
+  // ============================== Delegates ==============================
+  // Презентационный слой читает мир через эти геттеры. Они исчезнут, когда
+  // файлы перейдут на `ctx.world.*` напрямую.
+
+  get fsm(): GameStateMachine<GameFSMContext> { return this.world.fsm; }
+  get eventBus(): EventBus { return this.world.eventBus; }
+  get ecs(): EcsWorld { return this.world.ecs; }
+  get schedule(): SystemSchedule { return this.world.schedule; }
+  get physics(): PhysicsSystem { return this.world.physics; }
+  get fx(): Fx { return this.world.fx; }
+  get asteroidField(): AsteroidField { return this.world.asteroidField; }
+  get riftField(): RiftField { return this.world.riftField; }
+  get scoringSystem(): ScoringSystem { return this.world.scoringSystem; }
+  get upgradeSystem(): UpgradeSystem { return this.world.upgradeSystem; }
+  get bonusManager(): BonusManager { return this.world.bonusManager; }
+  get shieldSystem(): ShieldSystem { return this.world.shieldSystem; }
+  get grazeSystem(): GrazeSystem { return this.world.grazeSystem; }
+  get playerSystem(): PlayerSystem { return this.world.playerSystem; }
+  get abilitySystem(): AbilitySystem { return this.world.abilitySystem; }
+  get spawnSystem(): SpawnSystem { return this.world.spawnSystem; }
+  get weaponManager(): WeaponManager { return this.world.weaponManager; }
+  get countdownSystem(): CountdownSystem { return this.world.countdownSystem; }
+  get applyPickupSystem(): ApplyPickupSystem { return this.world.applyPickupSystem; }
+  get loadoutSystem(): LoadoutSystem { return this.world.loadoutSystem; }
+  get dropSystem(): PickupDropSystem { return this.world.dropSystem; }
+  get collisionSystem(): CollisionSystem { return this.world.collisionSystem; }
+  get zoneSystem(): ZoneSystem { return this.world.zoneSystem; }
+  get waveOrchestrator(): WaveOrchestrator { return this.world.waveOrchestrator; }
+  get waveFlowSystem(): WaveFlowSystem { return this.world.waveFlowSystem; }
+  get deathSystem(): DeathSystem { return this.world.deathSystem; }
+
+  /** Стартовая волна (применяется при следующем забеге). */
+  get startWave(): number { return this.world.startWave; }
+  set startWave(wave: number) { this.world.startWave = wave; }
+
+  /** Тестовый режим `?test=...`. */
+  get testMode(): boolean { return this.world.testMode; }
+  set testMode(on: boolean) { this.world.testMode = on; }
+
+  // ============================== Gamepad ==============================
 
   private _setupGamepadListeners(): void {
-    // Слушаем события подключения/отключения геймпада.
     window.addEventListener("gamepadconnected", this._onGamepadConnected);
     window.addEventListener("gamepaddisconnected", this._onGamepadDisconnected);
   }
@@ -502,8 +274,9 @@ export class GameContext {
   private _onGamepadDisconnected = (e: Event) => {
     const gp = e as GamepadEvent;
     console.log(`[Gamepad] отключён: ${gp.gamepad.id.slice(0, 40)}`);
-    // GamepadManager автоматически определит отключение при следующем poll().
   };
+
+  // ============================== Pause ==============================
 
   get paused(): boolean {
     return this._paused;
@@ -511,26 +284,8 @@ export class GameContext {
 
   setPaused(paused: boolean): void {
     this._paused = paused;
-  }
-
-  /** Сбросить страховку за выживание в начале забега. */
-  resetSurvivalStipend(): void {
-    this.survivalTimer = 0;
-    this.survivalAwarded = 0;
-  }
-
-  /** Начислить страховку за выживание: 1 деталь за 3 с, максимум 30. */
-  updateSurvivalStipend(dt: number): void {
-    if (this.testMode || this.survivalAwarded >= SURVIVAL_PARTS_CAP) return;
-    this.survivalTimer += dt;
-    while (
-      this.survivalTimer >= SURVIVAL_PARTS_INTERVAL &&
-      this.survivalAwarded < SURVIVAL_PARTS_CAP
-    ) {
-      this.survivalTimer -= SURVIVAL_PARTS_INTERVAL;
-      this.survivalAwarded++;
-      this.upgradeSystem.addParts(1);
-    }
+    // На паузе время мира не идёт: накопитель не должен «догонять» после снятия.
+    if (paused) this.clock.reset();
   }
 
   togglePause(): void {
@@ -539,6 +294,8 @@ export class GameContext {
     this.hooks.onPause(this._paused);
     this.audio.setSuspended(this._paused);
   }
+
+  // ============================== Loop metrics ==============================
 
   get loopTime(): number {
     return this.loop ? this.loop.time : 0;
@@ -552,43 +309,52 @@ export class GameContext {
     return this.loop ? this.loop.fps() : 60;
   }
 
+  // ============================== View ==============================
+
   resize(): void {
     const { width, height } = getViewport();
     this.viewport.width = width;
     this.viewport.height = height;
     this.renderer.resize(width, height);
     this.cameraSystem.resize(width, height, getDpr());
+    this.updateWorldView();
   }
 
-  // ===== Frame entry =====
+  /** Передать миру текущее сечение камеры/вьюпорта. */
+  updateWorldView(): void {
+    const cam = this.cameraSystem.getPosition();
+    this.world.setView({
+      width: this.viewport.width,
+      height: this.viewport.height,
+      cameraX: cam.x,
+      cameraY: cam.y,
+      zoom: cam.zoom,
+    });
+  }
+
+  // ============================== Frame entry ==============================
 
   handleDebugKeys(dt: number): void {
     // Опрос геймпада каждый кадр.
     this.gamepad.poll();
 
     // Пауза через кнопку Start на геймпаде.
-    // Только Start — D-pad не используем для паузы (конфликт с навигацией по меню).
     if (this.gamepad.isConnected) {
       if (this.gamepad.consumePress(GAMEPAD_CODES.Start)) {
         this.togglePause();
       }
-      // Кнопки подтверждения/отмены — через хуки к UI.
       if (this.gamepad.consumePress(GAMEPAD_CODES.A)) {
         this.hooks.onGamepadConfirm?.();
       }
       if (this.gamepad.consumePress(GAMEPAD_CODES.B)) {
         this.hooks.onGamepadCancel?.();
       }
-      // L/R (LB/RB) — переключение вкладок на экране прокачки.
       if (this.gamepad.consumePress(GAMEPAD_CODES.LB)) {
         this.hooks.onGamepadTabLeft?.();
       }
       if (this.gamepad.consumePress(GAMEPAD_CODES.RB)) {
         this.hooks.onGamepadTabRight?.();
       }
-
-      // Навигация: стик и D-pad приходят уже слитыми в axisX/axisY.
-      // Один шаг на вход в направление, затем задержка и повтор с интервалом.
       this._updateNavRepeat(dt);
     }
 
@@ -611,7 +377,6 @@ export class GameContext {
         : (ay > 0 ? "down" : "up");
     }
 
-    // Нейтраль — сбрасываем всё сразу, без инерции.
     if (raw === null) {
       this._navDir = null;
       this._navCandidate = null;
@@ -620,7 +385,6 @@ export class GameContext {
       return;
     }
 
-    // Дребезг hat-оси: направление должно продержаться NAV_DEBOUNCE.
     if (raw !== this._navCandidate) {
       this._navCandidate = raw;
       this._navCandidateT = 0;
@@ -639,8 +403,6 @@ export class GameContext {
     this._navRepeatT -= dt;
     if (this._navRepeatT <= 0) {
       this._fireNav(raw);
-      // Вычитаем интервал, а не присваиваем задержку: иначе повтор
-      // срабатывает каждый кадр.
       this._navRepeatT += GameContext.NAV_REPEAT_INTERVAL;
       if (this._navRepeatT <= 0) this._navRepeatT = GameContext.NAV_REPEAT_INTERVAL;
     }
@@ -656,6 +418,8 @@ export class GameContext {
     }
   }
 
+  // ============================== Run lifecycle ==============================
+
   startRun(): void {
     if (this.fsm.is("menu", "over")) {
       this.fsm.fire("start");
@@ -667,140 +431,57 @@ export class GameContext {
     this.start.toMenu();
   }
 
-  // ===== Presentation helpers =====
+  // ============================== Game delegates ==============================
 
-  /** Позиция игрока для систем (world coordinates + скорость). */
   getPlayerPosition(): { x: number; y: number; vx: number; vy: number; turnRate: number } {
-    const ref = this.ecs.playerRef();
-    return ref
-      ? {
-          x: ref.position.x,
-          y: ref.position.y,
-          vx: ref.velocity.vx,
-          vy: ref.velocity.vy,
-          turnRate: ref.marker.turnRate,
-        }
-      : { x: 0, y: 0, vx: 0, vy: 0, turnRate: 0 };
+    return this.world.getPlayerPosition();
   }
 
-  /** Хитбокс игрока в игровых координатах (для систем пикапов). */
-  private getPlayerHitbox(): { x: number; y: number; r: number } {
-    const ref = this.ecs.playerRef();
-    return ref
-      ? { x: ref.position.x, y: ref.position.y, r: ref.radius.r }
-      : { x: 0, y: 0, r: PLAYER_HITBOX_RADIUS };
-  }
-
-  /** Границы зоны для врагов/констрейнтов. */
-  getZoneBounds(): { x: number; y: number; radius: number; active: boolean; targetRadius: number } {
-    const z = this.waveOrchestrator.zoneState;
-    return { x: z.x, y: z.y, radius: z.radius, active: z.active, targetRadius: z.targetRadius };
-  }
-
-  /** Живая связка компонентов игрока (единый вид WorldFrame для кадра и рендера). */
-  getPlayerWorld(): PlayerRef {
-    const ref = this.ecs.playerRef();
-    if (ref) return ref;
-    // Фолбэк формально не достижим в работающем мире, но нужен для типов.
-    throw new Error("playerRef is null while world is active");
-  }
-
-  /** Снимок игрока для WeaponManager (PlayerSnapshot из Weapon.ts). */
   getPlayerSnapshot(): PlayerSnapshot {
-    const ref = this.ecs.playerRef();
-    return ref
-      ? {
-          x: ref.position.x,
-          y: ref.position.y,
-          vx: ref.velocity.vx,
-          vy: ref.velocity.vy,
-          hp: ref.life.remaining,
-          maxHp: ref.life.max,
-        }
-      : { x: 0, y: 0, vx: 0, vy: 0, hp: 0, maxHp: 0 };
+    return this.world.getPlayerSnapshot();
   }
 
-  /** Единое мировое сечение для систем и рендера (переиспользуемый буфер). */
+  getPlayerWorld(): PlayerRef {
+    return this.world.getPlayerWorld();
+  }
+
+  getZoneBounds(): { x: number; y: number; radius: number; active: boolean; targetRadius: number } {
+    return this.world.getZoneBounds();
+  }
+
   buildWorld(): WorldFrame {
-    const player = this.ecs.playerRef();
-    if (!player) throw new Error("buildWorld: playerRef is null");
-    const zoneState = this.waveOrchestrator.zoneState;
-
-    const world = this.worldFrame ?? (this.worldFrame = {
-      player,
-      enemies: [],
-      bullets: [],
-      enemyBullets: [],
-      pickups: [],
-      allyDrones: [],
-      beams: [],
-      asteroids: [],
-      zone: null,
-    });
-
-    world.player = player;
-    this.ecs.enemies(world.enemies);
-    this.ecs.bullets(world.bullets);
-    this.ecs.enemyBullets(world.enemyBullets);
-    this.ecs.pickups(world.pickups);
-    this.ecs.allyDrones(world.allyDrones);
-    this.ecs.beams(world.beams);
-    this.ecs.asteroids(world.asteroids);
-    world.zone = zoneState && zoneState.active ? zoneState : null;
-
-    return world;
+    return this.world.buildWorld();
   }
-
-  /** Зависимости спавна для engine.run(dt) (SpawnSystem). */
-  private buildSpawnDeps(): SpawnDependencies {
-    const player = this.getPlayerWorld();
-    return {
-      countdownSystem: this.countdownSystem,
-      zoneState: this.waveOrchestrator.zoneState,
-      riftField: this.riftField,
-      hooks: { onToast: (data) => this.hooks.onToast(data) },
-      wave: this.waveOrchestrator.wave,
-      killedWave: this.scoringSystem.killedWave,
-      playerX: player.position.x,
-      playerY: player.position.y,
-    };
-  }
-
-  // ===== Upgrades application (dedup between start/refresh) =====
 
   applyUpgrades(withResetHp: boolean): void {
-    this.weaponManager.setLoadout(this.upgradeSystem.loadout);
-    this.weaponManager.setDroneFleet(this.upgradeSystem.getDroneFleetSpec());
-    this.upgradeSystem.applyToSystems({
-      setMaxHp: (v) => this.playerSystem.setMaxHp(v),
-      setWeaponUpgrades: (upgrades) => this.weaponManager.applyUpgrades(upgrades),
-      setSpeedMult: (v) => this.playerSystem.setSpeedMult(v),
-      setShieldBlockLevel: (v) => this.shieldSystem.setBlockLevel(v),
-      setShieldRegenLevel: (v) => this.shieldSystem.setRegenLevel(v),
-      setShieldOwned: (v) => this.shieldSystem.setOwned(v),
-      setRateDurationMult: (v) => this.bonusManager.setRateDurationMult(v),
-      setHealDurationMult: (v) => this.bonusManager.setHealDurationMult(v),
-      setHealRateMult: (v) => this.bonusManager.setHealRateMult(v),
-      ...(withResetHp ? { resetHp: () => this.playerSystem.resetHp() } : {}),
-    });
+    this.world.applyUpgrades(withResetHp);
   }
-
-  // ===== Entities / combat =====
 
   spawnEnemy(kind: EnemyKind, x: number, y: number, parent: EnemyRef | null): void {
-    const playerPos = this.getPlayerPosition();
-    this.ecs.spawnEnemy(kind, x, y, parent, playerPos);
+    this.world.spawnEnemy(kind, x, y, parent);
   }
 
-  /**
-   * Единственный путь урона врагу для оружия и способностей.
-   * HP/вспышка/смерть и публикация `enemy_killed` — в EnemyLifecycle.
-   */
-  private damageEnemy(enemy: EnemyRef, dmg: number): boolean {
-    const id = enemy.marker.ecsId;
-    if (id === null || id === undefined) return false;
-    return this.ecs.damageEnemy(id, dmg);
+  updateSurvivalStipend(dt: number): void {
+    this.world.updateSurvivalStipend(dt);
   }
+
+  resetSurvivalStipend(): void {
+    this.world.resetSurvivalStipend();
+  }
+
+  setWaveOverride(override: WaveCompositionOverride): void {
+    this.world.setWaveOverride(override);
+  }
+
+  setPhysicsEngine(id: PhysicsEngineId): void {
+    this.world.setPhysicsEngine(id);
+  }
+
+  setEnabledPickups(pickups: PickupKind[] | null): void {
+    this.dropSystem.setEnabledPickups(pickups);
+  }
+
+  // ============================== Aim ==============================
 
   private handleAim(mouseX: number, mouseY: number, winW: number, winH: number): void {
     const cp = this.cameraSystem.getPosition();
@@ -809,26 +490,23 @@ export class GameContext {
     const player = this.ecs.playerRef();
     if (!player) return;
     const angle = Math.atan2(worldY - player.position.y, worldX - player.position.x);
-    this.weaponManager.setManualAim(angle);
+    this.controls.setAim(angle);
   }
 
-  private onWeaponFired(id: WeaponId): void {
-    if (WEAPON_CATALOG[id].fireSound === "droneShot") {
-      this.audio.playDroneShot();
-    } else {
-      this.audio.playShoot();
-    }
+  /** Звук выстрела для презентационных вызовов (menu/debug). */
+  playWeaponSound(id: WeaponId): void {
+    this.world.ports.audio.playDroneShot();
+    void id;
   }
 
   destroy(): void {
-    this.listeners.destroy();
+    this.world.destroy();
     this.loop.destroy();
     this.inputSystem.destroy();
     this.input.destroy();
     window.removeEventListener("gamepadconnected", this._onGamepadConnected);
     window.removeEventListener("gamepaddisconnected", this._onGamepadDisconnected);
     this.audio.destroy();
-    this.physics.clear();
     this.renderer.destroy?.();
   }
 }

@@ -7,6 +7,9 @@ node_modules/
 # Build artifacts
 dist/
 
+# Local simulation results (baselines live in sim/baselines/)
+sim-results/
+
 # Environment
 .env
 .env.local

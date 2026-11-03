@@ -170,7 +170,7 @@ export function kindWeightsForEnabled(
   return base.filter(([kind]) => enabledEnemies.includes(kind));
 }
 
-export function pickKindFor(w: number, random: RandomSource = Math.random): EnemyKind {
+export function pickKindFor(w: number, random: RandomSource): EnemyKind {
   const weights = kindWeights(w);
   let total = 0;
   for (const [, wt] of weights) total += wt;
@@ -188,7 +188,7 @@ export function pickKindFor(w: number, random: RandomSource = Math.random): Enem
 export function pickKindForEnabled(
   w: number,
   enabledEnemies: EnemyKind[] | null,
-  random: RandomSource = Math.random
+  random: RandomSource
 ): EnemyKind {
   const weights = kindWeightsForEnabled(w, enabledEnemies);
   let total = 0;

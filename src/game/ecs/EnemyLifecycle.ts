@@ -29,11 +29,16 @@ export class EnemyLifecycle implements EnemyDamagePort {
     if (enemy.marker.dead) return false;
     enemy.life.remaining -= dmg;
     enemy.marker.flash = 1;
-    if (enemy.life.remaining <= 0) {
-      this.die(enemy);
-      return true;
-    }
-    return false;
+    const killed = enemy.life.remaining <= 0;
+    if (killed) this.die(enemy);
+    // Единственная точка публикации урона: сюда приходят и пули, и лазер,
+    // и всё остальное, поэтому метрики не зависят от пути выстрела.
+    this.eventBus.publish("enemy_damaged", {
+      dmg,
+      kind: String(enemy.marker.kind),
+      killed,
+    });
+    return killed;
   }
 
   /**

@@ -13,6 +13,7 @@
 import { Aspect, type Engine } from "@trixt0r/ecs";
 import { BULLET_RANGE_PLAYER } from "../../balance";
 import { aimAtTarget } from "../../aiming/AimSolver";
+import type { Rng } from "../../core/rng";
 import type { EnemyRef, PlayerRef } from "../../ecs";
 import { AllyDroneComponent } from "../components/AllyDroneComponent";
 import { LifeComponent } from "../components/LifeComponent";
@@ -48,6 +49,8 @@ export interface AllyDroneHooks {
   addBullet(bullet: BulletSpawn): void;
   /** Колбэк, когда какой-то дрон выстрелил. */
   onDroneFired(): void;
+  /** Боевой поток случайности (рассеивание выстрела дрона). */
+  getRng(): Rng;
 }
 
 export class AllyDroneSystem extends PhasedSystem {
@@ -135,7 +138,8 @@ export class AllyDroneSystem extends PhasedSystem {
           maxFlightTime: combat.leadTime,
         },
         this.h.getHitChance(),
-        target.radius.r
+        target.radius.r,
+        this.h.getRng(),
       );
 
       const rateMult = Math.max(0.01, this.h.getRateMult());

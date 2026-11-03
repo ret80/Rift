@@ -13,9 +13,10 @@
    покинули пояс, а не из исходной точки чанка (иначе они «мигали» бы в кадре). */
 
 import type { IRenderer } from "./render/index";
-import type { AudioManager } from "./systems/AudioManager";
-import type { Fx } from "./fx";
+import type { AudioPort } from "./core/WorldPorts";
+import type { FxPort } from "./core/WorldPorts";
 import type { EventBus } from "./core/EventBus";
+import type { Rng } from "./core/rng";
 import { softResolveCollision } from "./systems/EntityCollision";
 import { TAU, clamp, mulberry32, rgba } from "./math";
 import type { AsteroidKind, PickupKind } from "./balance";
@@ -38,8 +39,8 @@ export interface AsteroidEnv {
 export interface AsteroidHooks {
   addScore(n: number): void;
   spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number): void;
-  fx: Fx;
-  audio: AudioManager;
+  fx: FxPort;
+  audio: AudioPort;
   /** ECS-мир: пояс спавнит астероиды сюда как сущности. */
   ecs: EcsWorld;
 }
@@ -126,7 +127,12 @@ export class AsteroidField {
   /** Первичное заполнение выполнено: дальше спавн в кадре запрещён. */
   private primed = false;
 
-  constructor(private h: AsteroidHooks, eventBus?: EventBus) {
+  constructor(
+    private h: AsteroidHooks,
+    eventBus: EventBus | undefined,
+    /** Поток дропов: осколки разбитого камня и разлёт пикапов. */
+    private readonly rng: Rng,
+  ) {
     if (eventBus) {
       eventBus.subscribe('asteroid_hit', (event) => {
         this.damageAt(event.payload.index, event.payload.dmg, event.payload.x ?? 0, event.payload.y ?? 0);
@@ -382,7 +388,7 @@ export class AsteroidField {
     this.h.fx.addShake(marker.kind === "large" ? 4 : marker.kind === "medium" ? 2.5 : 1);
 
     const spawnFrag = (kind: AsteroidKind) => {
-      const ang = Math.random() * TAU;
+      const ang = this.rng.range(0, TAU);
       const dist = radius.r * 0.5;
       this.fragSeq++;
       const frag = makeSeed(
@@ -390,9 +396,9 @@ export class AsteroidField {
         kind,
         position.x + Math.cos(ang) * dist,
         position.y + Math.sin(ang) * dist,
-        Math.random,
-        velocity.vx + Math.cos(ang) * (40 + Math.random() * 60),
-        velocity.vy + Math.sin(ang) * (40 + Math.random() * 60)
+        () => this.rng.next(),
+        velocity.vx + Math.cos(ang) * (40 + this.rng.range(0, 60)),
+        velocity.vy + Math.sin(ang) * (40 + this.rng.range(0, 60))
       );
       this.h.ecs.spawnAsteroid({
         key: frag.key, kind: frag.kind, x: frag.x, y: frag.y,
@@ -403,7 +409,7 @@ export class AsteroidField {
     };
 
     if (marker.kind === "large") {
-      const roll = Math.random();
+      const roll = this.rng.next();
       if (roll < 0.5) {
         spawnFrag("medium");
         spawnFrag("small");
@@ -416,7 +422,7 @@ export class AsteroidField {
         spawnFrag("small");
         spawnFrag("small");
       }
-    } else if (marker.kind === "medium" && Math.random() < 0.7) {
+    } else if (marker.kind === "medium" && this.rng.next() < 0.7) {
       spawnFrag("small");
       spawnFrag("small");
     }

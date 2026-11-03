@@ -5,9 +5,10 @@
    keeps the same public API so callers are unchanged. */
 
 import type { IRenderer } from "./render/index";
-import { TAU, rand, clamp, rgba } from "./math";
+import { TAU, clamp, rgba } from "./math";
 import type { Ring, Particle } from "./types";
 import type { EcsWorld } from "./ecs";
+import type { Rng } from "./core/rng";
 export type { Ring, Particle } from "./types";
 
 export class Fx {
@@ -27,7 +28,7 @@ export class Fx {
     return this.ecs.rings();
   }
 
-  constructor(ecs: EcsWorld) {
+  constructor(ecs: EcsWorld, private readonly rng?: Rng) {
     this.ecs = ecs;
   }
 
@@ -44,18 +45,20 @@ export class Fx {
 
   burst(x: number, y: number, n: number, hex: string, speed: number, life: number) {
     const c = rgba(hex, 1);
+    // В мире есть seeded поток (rngFx); без него — визуальная случайность.
+    const rngNext = this.rng ? () => this.rng!.next() : Math.random;
     for (let i = 0; i < n; i++) {
-      const a = Math.random() * TAU;
-      const sp = rand(speed * 0.3, speed);
+      const a = rngNext() * TAU;
+      const sp = speed * 0.3 + rngNext() * speed * 0.7;
       this.ecs.addParticle({
         x,
         y,
         vx: Math.cos(a) * sp,
         vy: Math.sin(a) * sp,
-        life: rand(life * 0.5, life),
+        life: life * 0.5 + rngNext() * life * 0.5,
         maxLife: life,
         c,
-        size: rand(2, 7),
+        size: 2 + rngNext() * 5,
       });
     }
   }

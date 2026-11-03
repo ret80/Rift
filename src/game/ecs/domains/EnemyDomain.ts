@@ -9,7 +9,8 @@
 
 import type { EnemyKind } from "../../balance";
 import type { EventBus } from "../../core/EventBus";
-import type { AudioManager } from "../../systems/AudioManager";
+import type { Rng } from "../../core/rng";
+import type { AudioPort } from "../../core/WorldPorts";
 import {
     EnemyShootingSystem,
     type CombatActiveSource,
@@ -51,7 +52,11 @@ export interface EnemySystemDeps {
   getIntegrate: IntegrateSource;
   getPlayerMotion: PlayerMotionSource;
   isCombatActive: CombatActiveSource;
-  audio: AudioManager;
+  audio: AudioPort;
+  /** Поток боевых бросков (разброс, таймеры, орбиты). */
+  rngCombat: Rng;
+  /** Поток спавна (seed врага, страйф, стартовые таймеры). */
+  rngSpawn: Rng;
 }
 
 export class EnemyDomain {
@@ -82,7 +87,14 @@ export class EnemyDomain {
     spawnShot: EnemyShotSink,
   ) {
     this.lifecycle = new EnemyLifecycle(eventBus);
-    this.enemySystem = new EnemySystem(this, deps.getPlayer, deps.getZoneBounds, deps.getIntegrate);
+    this.enemySystem = new EnemySystem(
+      this,
+      deps.getPlayer,
+      deps.getZoneBounds,
+      deps.getIntegrate,
+      deps.rngCombat,
+      deps.rngSpawn,
+    );
     const shootingSystem = new EnemyShootingSystem(
       deps.audio,
       deps.getPlayerMotion,
@@ -97,6 +109,7 @@ export class EnemyDomain {
         shot.cruiser,
       ),
       () => deps.getZoneBounds().radius,
+      deps.rngCombat,
     );
     this.systems = [this.enemySystem, shootingSystem];
   }

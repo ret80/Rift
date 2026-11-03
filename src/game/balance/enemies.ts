@@ -22,6 +22,11 @@ export enum EnemyKind {
 
 export const ENEMY_KIND_COUNT = Object.keys(EnemyKind).length;
 
+/** Проверить, что строка — известный вид врага (для сценариев/URL). */
+export function isEnemyKind(value: unknown): value is EnemyKind {
+  return typeof value === "string" && (Object.values(EnemyKind) as string[]).includes(value);
+}
+
 /* Cruiser tuning */
 export const CRUISER_BULLET_SPEED = 436.8; // 260 × 1.68 — тяжёлые болты на 20% быстрее прежних 364
 

@@ -27,9 +27,10 @@ import {
 import type { EnemyRef } from "../ecs";
 import { EnemyComponent } from "../ecs/components/EnemyComponent";
 import { GameEntity } from "../ecs/GameEntity";
+import type { Rng } from "../core/rng";
 import type { EnemySpawn } from "../ecs/spawn";
 import { Phase, PhasedSystem } from "../ecs/SystemSchedule";
-import { TAU, rand } from "../math";
+import { TAU } from "../math";
 
 /** Узкий порт домена врагов: только спавн и чтение живой связки. */
 export interface EnemySpawnPort {
@@ -68,6 +69,10 @@ export class EnemySystem extends PhasedSystem {
     private readonly getPlayer: EnemyPlayerSource,
     private readonly getZoneBounds: ZoneBoundsSource,
     private readonly getIntegrate: IntegrateSource,
+    /** Поток боевых бросков: орбиты и таймеры во время боя. */
+    private readonly rng: Rng,
+    /** Поток спавна: страйф, seed врага, стартовые таймеры. */
+    private readonly rngSpawn: Rng,
     private readonly avoidance: IEnemyAvoidance = new EnemyAvoidance(),
   ) {
     super(Phase.Enemies);
@@ -141,6 +146,7 @@ export class EnemySystem extends PhasedSystem {
     this.lastEnemyRefs = enemyRefs;
     this.context.enemies = enemyRefs;
     this.context.swarm = this.swarm;
+    this.context.rng = this.rng;
     this.swarm.update(enemyRefs, this.context, dt);
     this.ai.updateAI(enemyRefs, this.context, dt);
 
@@ -181,9 +187,9 @@ export class EnemySystem extends PhasedSystem {
         // и не перекрывают друг друга на орбите.
         const occupied = this.countOrbitingChildren(enemyRefs, carrier.marker.ecsId);
         const slot = occupied + orbitSpawnIndex;
-        drone.orbitAngle = (slot * TAU) / ENEMY_MAX_DRONES + rand(-0.06, 0.06);
+        drone.orbitAngle = (slot * TAU) / ENEMY_MAX_DRONES + this.rng.range(-0.06, 0.06);
         // Половина роя летит по часовой, половина — против часовой.
-        drone.strafeDir = Math.random() < 0.5 ? 1 : -1;
+        drone.strafeDir = this.rng.next() < 0.5 ? 1 : -1;
         orbitSpawnIndex++;
       }
       this.ecs.addEnemy(drone);
@@ -212,19 +218,19 @@ export class EnemySystem extends PhasedSystem {
   ): EnemySpawn {
     const angle = kind === EnemyKind.Drone && playerPos
       ? Math.atan2(playerPos.y - y, playerPos.x - x)
-      : rand(0, TAU);
+      : this.rngSpawn.range(0, TAU);
     // Турель крейсера изначально наведена на игрока: корпус смотрит по курсу.
     const turretAngle = kind === EnemyKind.Cruiser && playerPos
       ? Math.atan2(playerPos.y - y, playerPos.x - x)
       : angle;
     const mass = massForRadius(def.r);
-    const tStagger = rand(-0.5, 0.5);
-    const carrierBurstActive = Math.random() < 0.5;
+    const tStagger = this.rngSpawn.range(-0.5, 0.5);
+    const carrierBurstActive = this.rngSpawn.next() < 0.5;
     const carrierBurstSpawned = carrierBurstActive ? 10 : 0;
 
     // Инициализация полей орбиты: только для дронов Carrier
     let droneState: "orbiting" | "attacking" | "none" = "none";
-    const orbitAngle = rand(0, TAU);
+    const orbitAngle = this.rngSpawn.range(0, TAU);
     let orbitRadius = 0; // 0 = без орбиты
 
     if (kind === EnemyKind.Drone && parent) {
@@ -237,18 +243,18 @@ export class EnemySystem extends PhasedSystem {
       kind, x, y, vx: 0, vy: 0, angle, turretAngle,
       hp: def.hp, maxHp: def.hp, r: def.r, speed: def.speed,
       contact: def.contact, score: def.score, boltDmg: def.bolt,
-      fireCd: rand(0.3, 1), mode: 0, modeT: 0,
-      strafeDir: Math.random() < 0.5 ? -1 : 1,
-      seed: Math.random() * 100, spawnCd: rand(1, 2),
+      fireCd: this.rngSpawn.range(0.3, 1), mode: 0, modeT: 0,
+      strafeDir: this.rngSpawn.next() < 0.5 ? -1 : 1,
+      seed: this.rngSpawn.next() * 100, spawnCd: this.rngSpawn.range(1, 2),
       flash: 0, hitCd: 0, dead: false,
       mass,
-      tCd1: rand(0.3, 0.8) + tStagger,
-      tCd2: rand(0.3, 0.8) - tStagger,
+      tCd1: this.rngSpawn.range(0.3, 0.8) + tStagger,
+      tCd2: this.rngSpawn.range(0.3, 0.8) - tStagger,
       burstSpawned: carrierBurstSpawned, burstActive: carrierBurstActive,
-      burstRestT: carrierBurstActive ? 0 : rand(6, 10),
+      burstRestT: carrierBurstActive ? 0 : this.rngSpawn.range(6, 10),
       burstCd: 0.5, dodgeDir: 0, dodgeTimer: 0,
       droneState, orbitAngle, orbitRadius,
-      orbitTimer: carrierBurstActive ? 0 : rand(5, 8),
+      orbitTimer: carrierBurstActive ? 0 : this.rngSpawn.range(5, 8),
       waitTimer: 0,
       phaseDrones: 0,
       carrierChildren: 0,
@@ -262,7 +268,7 @@ export class EnemySystem extends PhasedSystem {
 
     // Если дрон спавнится от Carrier — размещаем на орбите
     if (kind === EnemyKind.Drone && parent && parent.marker.kind === EnemyKind.Carrier) {
-      const orbitAngle = Math.random() * TAU;
+      const orbitAngle = this.rngSpawn.next() * TAU;
       const orbitRadius = parent.radius.r + CARRIER_DRONE_ORBIT_GAP;
       spawnX = parent.position.x + Math.cos(orbitAngle) * orbitRadius;
       spawnY = parent.position.y + Math.sin(orbitAngle) * orbitRadius;

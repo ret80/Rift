@@ -4,14 +4,15 @@
  */
 
 import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
-import { t } from "../../i18n";
 import type { EventBus } from "../core/EventBus";
-import type { BannerData, ToastData, CountData } from "../types/ui";
+import type { CountdownState } from "../core/WorldPorts";
+import type { BannerData, ToastData } from "../types/ui";
 
 export interface CountdownHooks {
   onBanner: (b: BannerData | null) => void;
   onToast: (toast: ToastData | null) => void;
-  onCountdown: (c: CountData | null) => void;
+  /** Счётчик без локализации: подпись волны подставляет хост. */
+  onCountdown: (c: CountdownState | null) => void;
   countdownDone?: () => void;
 }
 
@@ -68,7 +69,7 @@ export class CountdownSystem extends PhasedSystem {
       this.cdLast = c;
       this.hooks.onCountdown({
         id: this.countId++,
-        label: t("game.waveN", { n: String(this.currentWave).padStart(2, "0") }),
+        wave: this.currentWave,
         value: String(c),
       });
     }
@@ -104,5 +105,21 @@ export class CountdownSystem extends PhasedSystem {
    */
   isCountdownActive(): boolean {
     return this.cdT > 0;
+  }
+
+  /**
+   * Пропустить отсчёт (headless-прогон).
+   *
+   * Волна объявляется сразу, отсчёт завершается в том же тике — иначе
+   * симуляция тратила бы 5 секунд на каждый запуск.
+   */
+  skip(): void {
+    if (this.started) return;
+    this.started = true;
+    this.cdT = 0;
+    this.doneCalled = true;
+    this.hooks.onCountdown(null);
+    this.eventBus.publish("wave_started", { wave: this.currentWave });
+    this.hooks.countdownDone?.();
   }
 }

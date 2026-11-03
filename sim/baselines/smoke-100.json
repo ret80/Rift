@@ -1,0 +1,4825 @@
+{
+  "scenario": "smoke",
+  "scenarioHash": "sha256:a273d66b62432fead823e0d2af8b53ddac441ba31a05ca83b18dfe47aa14f066",
+  "gitSha": "68cdcad1",
+  "runtime": "node v26.13.0 darwin/arm64",
+  "physics": "custom",
+  "tickRate": 60,
+  "duration": 12,
+  "ticks": 720,
+  "seed": {
+    "master": 12345,
+    "streams": {
+      "combat": 241527836,
+      "spawn": 2307763317,
+      "drops": 2353422408,
+      "fx": 412099138,
+      "agent": 1232222247
+    }
+  },
+  "runs": 100,
+  "identical": false,
+  "firstDivergenceTick": null,
+  "firstDivergenceField": null,
+  "metrics": {
+    "shots": 26,
+    "hits": 13,
+    "hitRate": 0.5,
+    "damageDealt": 182,
+    "dps": 15.166666666666666,
+    "damageTaken": 0,
+    "damageTakenPerSecond": 0,
+    "survivalTime": 12,
+    "kills": 13,
+    "killsPerSecond": 1.0833333333333333,
+    "graze": 0,
+    "zoneViolations": 0,
+    "abilityUses": 0,
+    "finalHp": 120,
+    "byKind": {
+      "drone": {
+        "kills": 13,
+        "damage": 182
+      }
+    },
+    "rngDraws": {
+      "combat": 54,
+      "spawn": 241,
+      "drops": 4,
+      "fx": 12,
+      "agent": 180
+    }
+  },
+  "aggregate": {
+    "shots": {
+      "mean": 23.88,
+      "median": 23,
+      "stddev": 1.4918444959177202,
+      "min": 23,
+      "max": 28,
+      "p50": 23,
+      "p90": 27,
+      "p95": 27,
+      "p99": 28
+    },
+    "hits": {
+      "mean": 12.68,
+      "median": 13,
+      "stddev": 2.1442014830700957,
+      "min": 7,
+      "max": 17,
+      "p50": 13,
+      "p90": 15,
+      "p95": 16,
+      "p99": 17
+    },
+    "hitRate": {
+      "mean": 0.5311199324025413,
+      "median": 0.5555555555555556,
+      "stddev": 0.08537783440312459,
+      "min": 0.30434782608695654,
+      "max": 0.7391304347826086,
+      "p50": 0.5555555555555556,
+      "p90": 0.6086956521739131,
+      "p95": 0.6521739130434783,
+      "p99": 0.6956521739130435
+    },
+    "damageDealt": {
+      "mean": 177.52,
+      "median": 182,
+      "stddev": 30.01882076298135,
+      "min": 98,
+      "max": 238,
+      "p50": 182,
+      "p90": 210,
+      "p95": 224,
+      "p99": 238
+    },
+    "dps": {
+      "mean": 14.793333333333333,
+      "median": 15.166666666666666,
+      "stddev": 2.5015683969151126,
+      "min": 8.166666666666666,
+      "max": 19.833333333333332,
+      "p50": 15.166666666666666,
+      "p90": 17.5,
+      "p95": 18.666666666666668,
+      "p99": 19.833333333333332
+    },
+    "damageTaken": {
+      "mean": 9.34371060841616,
+      "median": 0,
+      "stddev": 11.65657453874157,
+      "min": 0,
+      "max": 43.32995907842246,
+      "p50": 0,
+      "p90": 24,
+      "p95": 24,
+      "p99": 39.837523162424006
+    },
+    "damageTakenPerSecond": {
+      "mean": 0.7786425507013468,
+      "median": 0,
+      "stddev": 0.9713812115617988,
+      "min": 0,
+      "max": 3.6108299232018717,
+      "p50": 0,
+      "p90": 2,
+      "p95": 2,
+      "p99": 3.319793596868667
+    },
+    "survivalTime": {
+      "mean": 12,
+      "median": 12,
+      "stddev": 0,
+      "min": 12,
+      "max": 12,
+      "p50": 12,
+      "p90": 12,
+      "p95": 12,
+      "p99": 12
+    },
+    "kills": {
+      "mean": 13.16,
+      "median": 13,
+      "stddev": 2.062619693496598,
+      "min": 9,
+      "max": 17,
+      "p50": 13,
+      "p90": 16,
+      "p95": 16,
+      "p99": 17
+    },
+    "killsPerSecond": {
+      "mean": 1.0966666666666667,
+      "median": 1.0833333333333333,
+      "stddev": 0.17188497445804976,
+      "min": 0.75,
+      "max": 1.4166666666666667,
+      "p50": 1.0833333333333333,
+      "p90": 1.3333333333333333,
+      "p95": 1.3333333333333333,
+      "p99": 1.4166666666666667
+    },
+    "graze": {
+      "mean": 0,
+      "median": 0,
+      "stddev": 0,
+      "min": 0,
+      "max": 0,
+      "p50": 0,
+      "p90": 0,
+      "p95": 0,
+      "p99": 0
+    },
+    "zoneViolations": {
+      "mean": 0,
+      "median": 0,
+      "stddev": 0,
+      "min": 0,
+      "max": 0,
+      "p50": 0,
+      "p90": 0,
+      "p95": 0,
+      "p99": 0
+    },
+    "abilityUses": {
+      "mean": 0,
+      "median": 0,
+      "stddev": 0,
+      "min": 0,
+      "max": 0,
+      "p50": 0,
+      "p90": 0,
+      "p95": 0,
+      "p99": 0
+    },
+    "finalHp": {
+      "mean": 113.6996934408557,
+      "median": 120,
+      "stddev": 10.114265545759734,
+      "min": 80.162476837576,
+      "max": 120,
+      "p50": 120,
+      "p90": 120,
+      "p95": 120,
+      "p99": 120
+    }
+  },
+  "snapshotHashes": [
+    "fnv1a64:921879dc2b925867",
+    "fnv1a64:ad61984610bb0701",
+    "fnv1a64:4945e7f1bb10f59e",
+    "fnv1a64:27047cf9eb55f21e",
+    "fnv1a64:44440776ecc3e123",
+    "fnv1a64:5ed4ac5d6a7aeb34",
+    "fnv1a64:84231d658411727f",
+    "fnv1a64:8f2d9ec23c7eb1fe",
+    "fnv1a64:46656715822e8b4c",
+    "fnv1a64:74e5c20173433c66",
+    "fnv1a64:a5e24276bb15df6f",
+    "fnv1a64:9700701cdc20af17"
+  ],
+  "perSeed": [
+    {
+      "seed": 1,
+      "metrics": {
+        "shots": 26,
+        "hits": 13,
+        "hitRate": 0.5,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 54,
+          "spawn": 241,
+          "drops": 4,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:ad61984610bb0701",
+        "fnv1a64:4945e7f1bb10f59e",
+        "fnv1a64:27047cf9eb55f21e",
+        "fnv1a64:44440776ecc3e123",
+        "fnv1a64:5ed4ac5d6a7aeb34",
+        "fnv1a64:84231d658411727f",
+        "fnv1a64:8f2d9ec23c7eb1fe",
+        "fnv1a64:46656715822e8b4c",
+        "fnv1a64:74e5c20173433c66",
+        "fnv1a64:a5e24276bb15df6f",
+        "fnv1a64:9700701cdc20af17"
+      ]
+    },
+    {
+      "seed": 2,
+      "metrics": {
+        "shots": 23,
+        "hits": 7,
+        "hitRate": 0.30434782608695654,
+        "damageDealt": 98,
+        "dps": 8.166666666666666,
+        "damageTaken": 13.944229393627564,
+        "damageTakenPerSecond": 1.1620191161356304,
+        "survivalTime": 12,
+        "kills": 9,
+        "killsPerSecond": 0.75,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 118.38910393970612,
+        "byKind": {
+          "drone": {
+            "kills": 7,
+            "damage": 98
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 231,
+          "drops": 4,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:675f44986d445fc0",
+        "fnv1a64:7624f3d4636461fc",
+        "fnv1a64:2e01712ff3f142d8",
+        "fnv1a64:c507e270f0a4cef2",
+        "fnv1a64:a43be9ebe88dacd2",
+        "fnv1a64:72082d6df5692d65",
+        "fnv1a64:f2e585c7551e2b6c",
+        "fnv1a64:25c250cdaae09aba",
+        "fnv1a64:67bf4be0dc69bfd4",
+        "fnv1a64:3c2fca8d72cd3307",
+        "fnv1a64:a877fdb52161c392"
+      ]
+    },
+    {
+      "seed": 3,
+      "metrics": {
+        "shots": 23,
+        "hits": 14,
+        "hitRate": 0.6086956521739131,
+        "damageDealt": 196,
+        "dps": 16.333333333333332,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 14,
+        "killsPerSecond": 1.1666666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 14,
+            "damage": 196
+          }
+        },
+        "rngDraws": {
+          "combat": 48,
+          "spawn": 278,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:8e8ee9eccf44484c",
+        "fnv1a64:a94f93eb57b4e3e6",
+        "fnv1a64:7573cd256210a32b",
+        "fnv1a64:d0411b2bbb53fdaa",
+        "fnv1a64:408c6006036f64da",
+        "fnv1a64:bae1232f83b69346",
+        "fnv1a64:9135c2214d134bc8",
+        "fnv1a64:173cecc83163804c",
+        "fnv1a64:721f227ba3d945b5",
+        "fnv1a64:4350231a4b43ce7b",
+        "fnv1a64:6372172b2b91bb5c"
+      ]
+    },
+    {
+      "seed": 4,
+      "metrics": {
+        "shots": 23,
+        "hits": 12,
+        "hitRate": 0.5217391304347826,
+        "damageDealt": 168,
+        "dps": 14,
+        "damageTaken": 20.75102759308042,
+        "damageTakenPerSecond": 1.7292522994233683,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 99.24897240691958,
+        "byKind": {
+          "drone": {
+            "kills": 12,
+            "damage": 168
+          }
+        },
+        "rngDraws": {
+          "combat": 51,
+          "spawn": 282,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:945ab813f084dbe4",
+        "fnv1a64:604cba330a9cb3cf",
+        "fnv1a64:17cc010ebd54dfb0",
+        "fnv1a64:7cf220f7de6d0b91",
+        "fnv1a64:bcaf1801a359ede0",
+        "fnv1a64:d82ab2696e73e077",
+        "fnv1a64:63f876559965d65e",
+        "fnv1a64:bac079ee382eed23",
+        "fnv1a64:b9d356b56f2e8c2f",
+        "fnv1a64:a2a6b456dac4e1a9",
+        "fnv1a64:880c7f389063a26d"
+      ]
+    },
+    {
+      "seed": 5,
+      "metrics": {
+        "shots": 23,
+        "hits": 10,
+        "hitRate": 0.43478260869565216,
+        "damageDealt": 140,
+        "dps": 11.666666666666666,
+        "damageTaken": 24,
+        "damageTakenPerSecond": 2,
+        "survivalTime": 12,
+        "kills": 11,
+        "killsPerSecond": 0.9166666666666666,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 96,
+        "byKind": {
+          "drone": {
+            "kills": 10,
+            "damage": 140
+          }
+        },
+        "rngDraws": {
+          "combat": 53,
+          "spawn": 241,
+          "drops": 0,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:bbf1ab071188e31c",
+        "fnv1a64:b35b9ff9958b9c96",
+        "fnv1a64:3a1b84e1152d5ed9",
+        "fnv1a64:6e2af6769d6d584a",
+        "fnv1a64:f0aa5d10ca16e2c5",
+        "fnv1a64:a4d2c93590c3036a",
+        "fnv1a64:d343622bd5d68b14",
+        "fnv1a64:3fd087f603239c2f",
+        "fnv1a64:79cc7322dac2c267",
+        "fnv1a64:abca61d2269400b7",
+        "fnv1a64:efe0e3e5b080c059"
+      ]
+    },
+    {
+      "seed": 6,
+      "metrics": {
+        "shots": 23,
+        "hits": 14,
+        "hitRate": 0.6086956521739131,
+        "damageDealt": 196,
+        "dps": 16.333333333333332,
+        "damageTaken": 17.228363851661303,
+        "damageTakenPerSecond": 1.435696987638442,
+        "survivalTime": 12,
+        "kills": 15,
+        "killsPerSecond": 1.25,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 102.7716361483387,
+        "byKind": {
+          "drone": {
+            "kills": 14,
+            "damage": 196
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 325,
+          "drops": 0,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:1e7f87a826825129",
+        "fnv1a64:034e1c18705f7d90",
+        "fnv1a64:3c522bef42dd3ffa",
+        "fnv1a64:2993ca5d04558fb9",
+        "fnv1a64:ed0762548b4aea21",
+        "fnv1a64:09e236d5aa0239e3",
+        "fnv1a64:4c6d020dc10dec39",
+        "fnv1a64:ec5243da734e8376",
+        "fnv1a64:d9c58a9115c73aaf",
+        "fnv1a64:167d6592a28c78c6",
+        "fnv1a64:0d9ceb0acd496df3"
+      ]
+    },
+    {
+      "seed": 7,
+      "metrics": {
+        "shots": 23,
+        "hits": 14,
+        "hitRate": 0.6086956521739131,
+        "damageDealt": 196,
+        "dps": 16.333333333333332,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 14,
+        "killsPerSecond": 1.1666666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 14,
+            "damage": 196
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 278,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:9dfd9973be647ec7",
+        "fnv1a64:3af762d5ae9eed27",
+        "fnv1a64:36176bd5ed57df46",
+        "fnv1a64:d1fb322878462064",
+        "fnv1a64:23af43012f364c5a",
+        "fnv1a64:bdc277d8d0071fc5",
+        "fnv1a64:c402b894ac31d92e",
+        "fnv1a64:a2ae421e9f9fed75",
+        "fnv1a64:4662ea6ce53ad22e",
+        "fnv1a64:e055e69780367f51",
+        "fnv1a64:d290f07acc4adee7"
+      ]
+    },
+    {
+      "seed": 8,
+      "metrics": {
+        "shots": 23,
+        "hits": 13,
+        "hitRate": 0.5652173913043478,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 274,
+          "drops": 8,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:6916c6e001bc2c13",
+        "fnv1a64:d0c0022acec08690",
+        "fnv1a64:dd82448f27e449fe",
+        "fnv1a64:d8f977fa3c30ec10",
+        "fnv1a64:d11cd6a03004931d",
+        "fnv1a64:55a0c4f35956fc36",
+        "fnv1a64:ef0bc371bbc2c8c3",
+        "fnv1a64:e0e1c44bd3b4a210",
+        "fnv1a64:f0247bffc3efc9b3",
+        "fnv1a64:fb097e4cc381ab6e",
+        "fnv1a64:e645a4cd2cf88691"
+      ]
+    },
+    {
+      "seed": 9,
+      "metrics": {
+        "shots": 23,
+        "hits": 14,
+        "hitRate": 0.6086956521739131,
+        "damageDealt": 196,
+        "dps": 16.333333333333332,
+        "damageTaken": 7.435194209066356,
+        "damageTakenPerSecond": 0.6195995174221963,
+        "survivalTime": 12,
+        "kills": 15,
+        "killsPerSecond": 1.25,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 14,
+            "damage": 196
+          }
+        },
+        "rngDraws": {
+          "combat": 49,
+          "spawn": 278,
+          "drops": 4,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:7faa1b26d0f86af0",
+        "fnv1a64:4dd458056c804165",
+        "fnv1a64:dea31a04ff28f9ea",
+        "fnv1a64:776a3c966457f415",
+        "fnv1a64:a7da3c1a1507d9b5",
+        "fnv1a64:c2f8a527a9a78519",
+        "fnv1a64:aaeefe80c314f525",
+        "fnv1a64:2c198321c21e10d9",
+        "fnv1a64:f6aa8db670597e68",
+        "fnv1a64:48cbbab4b31b789c",
+        "fnv1a64:2b31bc456e57863e"
+      ]
+    },
+    {
+      "seed": 10,
+      "metrics": {
+        "shots": 23,
+        "hits": 13,
+        "hitRate": 0.5652173913043478,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 24,
+        "damageTakenPerSecond": 2,
+        "survivalTime": 12,
+        "kills": 14,
+        "killsPerSecond": 1.1666666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 96,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 47,
+          "spawn": 282,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:e526e0c7ee02880c",
+        "fnv1a64:8b95caa43732f475",
+        "fnv1a64:0451b20a53cf622a",
+        "fnv1a64:15da56d045e2a1d7",
+        "fnv1a64:07fc0a7ba4f45c39",
+        "fnv1a64:de5b21c1b9b52399",
+        "fnv1a64:5b7a705ea96934c7",
+        "fnv1a64:8a638febffcd80fb",
+        "fnv1a64:65e2b460b7bd58c0",
+        "fnv1a64:f810b001346ba244",
+        "fnv1a64:58a520fba23a901b"
+      ]
+    },
+    {
+      "seed": 11,
+      "metrics": {
+        "shots": 23,
+        "hits": 14,
+        "hitRate": 0.6086956521739131,
+        "damageDealt": 196,
+        "dps": 16.333333333333332,
+        "damageTaken": 24,
+        "damageTakenPerSecond": 2,
+        "survivalTime": 12,
+        "kills": 15,
+        "killsPerSecond": 1.25,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 96,
+        "byKind": {
+          "drone": {
+            "kills": 14,
+            "damage": 196
+          }
+        },
+        "rngDraws": {
+          "combat": 51,
+          "spawn": 286,
+          "drops": 0,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:94e7108af1ca9ecd",
+        "fnv1a64:008dd23892150636",
+        "fnv1a64:6b75eb27e78b2cb3",
+        "fnv1a64:4d536a91bca67804",
+        "fnv1a64:00b2652f588a5eac",
+        "fnv1a64:62f7b31ea195f793",
+        "fnv1a64:ff3bd55c92e657c4",
+        "fnv1a64:3c3b4d909d1ba4b5",
+        "fnv1a64:59375b0925170953",
+        "fnv1a64:5f58cd36f931f7ae",
+        "fnv1a64:da26c8bf4dd3161d"
+      ]
+    },
+    {
+      "seed": 12,
+      "metrics": {
+        "shots": 23,
+        "hits": 13,
+        "hitRate": 0.5652173913043478,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 243,
+          "drops": 4,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:84b2679e65aecd16",
+        "fnv1a64:ece62d25841d35b6",
+        "fnv1a64:65520f1c6899581e",
+        "fnv1a64:c10813eeee66c7fa",
+        "fnv1a64:e169adae9f7657f3",
+        "fnv1a64:02ba8bf0c23580ce",
+        "fnv1a64:6bbb251afc988758",
+        "fnv1a64:d831ab8cf4c7bee4",
+        "fnv1a64:b324435f158d071b",
+        "fnv1a64:a9c144df0f2d810a",
+        "fnv1a64:29893d999a9e27d3"
+      ]
+    },
+    {
+      "seed": 13,
+      "metrics": {
+        "shots": 23,
+        "hits": 14,
+        "hitRate": 0.6086956521739131,
+        "damageDealt": 196,
+        "dps": 16.333333333333332,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 14,
+        "killsPerSecond": 1.1666666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 14,
+            "damage": 196
+          }
+        },
+        "rngDraws": {
+          "combat": 53,
+          "spawn": 280,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:c12a7e076a0ed1f8",
+        "fnv1a64:24d3cbb9dd966cdd",
+        "fnv1a64:052bfe60c16772e0",
+        "fnv1a64:5115fcfcde69ab82",
+        "fnv1a64:b6928d15c070ec7f",
+        "fnv1a64:8567be90fc15fe6d",
+        "fnv1a64:6e46269edbe9739d",
+        "fnv1a64:a932762e20b1fa3b",
+        "fnv1a64:30f73dd641643c85",
+        "fnv1a64:4312bb1b23feba2d",
+        "fnv1a64:2a69aa7ff8db0bb6"
+      ]
+    },
+    {
+      "seed": 14,
+      "metrics": {
+        "shots": 26,
+        "hits": 16,
+        "hitRate": 0.6153846153846154,
+        "damageDealt": 224,
+        "dps": 18.666666666666668,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 16,
+        "killsPerSecond": 1.3333333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 16,
+            "damage": 224
+          }
+        },
+        "rngDraws": {
+          "combat": 55,
+          "spawn": 320,
+          "drops": 8,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:2775942d64538c3e",
+        "fnv1a64:1559ad230d5f4728",
+        "fnv1a64:4d7c6c5b8e5ba2e4",
+        "fnv1a64:6484d30516fa75f8",
+        "fnv1a64:0c3d8a96a01260ad",
+        "fnv1a64:bb4078d80c8d7053",
+        "fnv1a64:91a3fe70ef77267f",
+        "fnv1a64:bdcdda44a96c1025",
+        "fnv1a64:9a1d60c189eada01",
+        "fnv1a64:cef4ce899c2ced83",
+        "fnv1a64:573b8c42a325b499"
+      ]
+    },
+    {
+      "seed": 15,
+      "metrics": {
+        "shots": 23,
+        "hits": 12,
+        "hitRate": 0.5217391304347826,
+        "damageDealt": 168,
+        "dps": 14,
+        "damageTaken": 13.164259153572948,
+        "damageTakenPerSecond": 1.097021596131079,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 106.83574084642706,
+        "byKind": {
+          "drone": {
+            "kills": 12,
+            "damage": 168
+          }
+        },
+        "rngDraws": {
+          "combat": 51,
+          "spawn": 276,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:85277b4e60037146",
+        "fnv1a64:4908b1a0c5ed541d",
+        "fnv1a64:7624ee43a7d3663d",
+        "fnv1a64:3acb6913144a0053",
+        "fnv1a64:e9d75058ebd071a5",
+        "fnv1a64:29056e75358c9ae8",
+        "fnv1a64:9283b2c7f327466a",
+        "fnv1a64:018433e3be7fd597",
+        "fnv1a64:f524bd5509bf5e47",
+        "fnv1a64:627a83f8c6b2942b",
+        "fnv1a64:0f86c27ef7f2ee02"
+      ]
+    },
+    {
+      "seed": 16,
+      "metrics": {
+        "shots": 25,
+        "hits": 14,
+        "hitRate": 0.56,
+        "damageDealt": 196,
+        "dps": 16.333333333333332,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 14,
+        "killsPerSecond": 1.1666666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 14,
+            "damage": 196
+          }
+        },
+        "rngDraws": {
+          "combat": 54,
+          "spawn": 286,
+          "drops": 12,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:e6d6b0a53ce3c802",
+        "fnv1a64:6eb17bf927ac772e",
+        "fnv1a64:22b137b26a47abfd",
+        "fnv1a64:25ca7de441865233",
+        "fnv1a64:1996cd2e2ec47e1c",
+        "fnv1a64:69d0b8f0bdc601c0",
+        "fnv1a64:526b29da97114eb5",
+        "fnv1a64:c015c0eae0a6c9da",
+        "fnv1a64:6ea6aef18e91836e",
+        "fnv1a64:dcfdb8ce7cf18bcf",
+        "fnv1a64:bce088bef7f8c670"
+      ]
+    },
+    {
+      "seed": 17,
+      "metrics": {
+        "shots": 26,
+        "hits": 12,
+        "hitRate": 0.46153846153846156,
+        "damageDealt": 168,
+        "dps": 14,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 12,
+        "killsPerSecond": 1,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 12,
+            "damage": 168
+          }
+        },
+        "rngDraws": {
+          "combat": 55,
+          "spawn": 258,
+          "drops": 12,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:b81585ea3d697579",
+        "fnv1a64:89c30e4418ab8083",
+        "fnv1a64:7f71590f9c6358c3",
+        "fnv1a64:ad09fd292325b9ba",
+        "fnv1a64:36c38d8536ed12e6",
+        "fnv1a64:3ffdcd874cea8892",
+        "fnv1a64:8e465965b2134fa4",
+        "fnv1a64:c5e5aa60abdc3077",
+        "fnv1a64:2efc4b69338880cc",
+        "fnv1a64:1972320df012ddeb",
+        "fnv1a64:8d20bba575bd65ee"
+      ]
+    },
+    {
+      "seed": 18,
+      "metrics": {
+        "shots": 24,
+        "hits": 13,
+        "hitRate": 0.5416666666666666,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 53,
+          "spawn": 235,
+          "drops": 8,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:e81dc8ac6988bc12",
+        "fnv1a64:37bb35adda02441c",
+        "fnv1a64:47b7fa24bc31fe0d",
+        "fnv1a64:5f59c2f06647f3eb",
+        "fnv1a64:743d347e99f33001",
+        "fnv1a64:9225ba6693116120",
+        "fnv1a64:0355ac0c8ef6cc97",
+        "fnv1a64:803ebdb3bac0d5c5",
+        "fnv1a64:90b74459cda10720",
+        "fnv1a64:36db6ad9f764140e",
+        "fnv1a64:51180f8633428848"
+      ]
+    },
+    {
+      "seed": 19,
+      "metrics": {
+        "shots": 23,
+        "hits": 13,
+        "hitRate": 0.5652173913043478,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 24,
+        "damageTakenPerSecond": 2,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 96,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 48,
+          "spawn": 243,
+          "drops": 4,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:ee0d8e32de2f80dd",
+        "fnv1a64:ef697e4ba5f0962d",
+        "fnv1a64:0b641a74b2c43825",
+        "fnv1a64:9e8b25c5d4d9f5c1",
+        "fnv1a64:1255713cb87459aa",
+        "fnv1a64:cd922f21825ac521",
+        "fnv1a64:9bcb2afaa2781d4e",
+        "fnv1a64:7ae974cdd7a19b16",
+        "fnv1a64:517f0adafaef74e3",
+        "fnv1a64:ad9d930569cf507a",
+        "fnv1a64:cea6a939fa3b3a8c"
+      ]
+    },
+    {
+      "seed": 20,
+      "metrics": {
+        "shots": 23,
+        "hits": 13,
+        "hitRate": 0.5652173913043478,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 49,
+          "spawn": 237,
+          "drops": 4,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:bf3aaaf3a7256b29",
+        "fnv1a64:888c6876bf8014f8",
+        "fnv1a64:982c9010dfc60940",
+        "fnv1a64:62243e358c8abf73",
+        "fnv1a64:6a3887e0efe423dc",
+        "fnv1a64:a8e20b14e72eeebd",
+        "fnv1a64:597f5b0857dfe3ba",
+        "fnv1a64:f993c009b7cdcecb",
+        "fnv1a64:8f17c7f260e98603",
+        "fnv1a64:81d57027aa223985",
+        "fnv1a64:44e1d37c3aecbd4b"
+      ]
+    },
+    {
+      "seed": 21,
+      "metrics": {
+        "shots": 23,
+        "hits": 13,
+        "hitRate": 0.5652173913043478,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 17.645463222312934,
+        "damageTakenPerSecond": 1.4704552685260779,
+        "survivalTime": 12,
+        "kills": 14,
+        "killsPerSecond": 1.1666666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 284,
+          "drops": 8,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:a00043ceedf85724",
+        "fnv1a64:99210df8a143d5a3",
+        "fnv1a64:cbe2ee9a81105dc1",
+        "fnv1a64:f6a9472ccc71fd0d",
+        "fnv1a64:ac971b7957d01875",
+        "fnv1a64:59208ef53831cd6f",
+        "fnv1a64:5e5dd52cb8cd0e1f",
+        "fnv1a64:6ecc130b326677a4",
+        "fnv1a64:f5ba47220afbb900",
+        "fnv1a64:c1ef7edc1ef31c7c",
+        "fnv1a64:01582924a9417598"
+      ]
+    },
+    {
+      "seed": 22,
+      "metrics": {
+        "shots": 24,
+        "hits": 14,
+        "hitRate": 0.5833333333333334,
+        "damageDealt": 196,
+        "dps": 16.333333333333332,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 14,
+        "killsPerSecond": 1.1666666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 14,
+            "damage": 196
+          }
+        },
+        "rngDraws": {
+          "combat": 52,
+          "spawn": 280,
+          "drops": 4,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:74631d0a6302db06",
+        "fnv1a64:7c46344c0b9313fa",
+        "fnv1a64:52afaf583c428d8f",
+        "fnv1a64:8575a3b3d94ad18d",
+        "fnv1a64:968fff5843ce797a",
+        "fnv1a64:91db7e1aa24b7a52",
+        "fnv1a64:ccbc254b77d29107",
+        "fnv1a64:f4cf1ec2607ca4c7",
+        "fnv1a64:0d59a957be8c150a",
+        "fnv1a64:9900047520c23387",
+        "fnv1a64:8888b20ca292b9a4"
+      ]
+    },
+    {
+      "seed": 23,
+      "metrics": {
+        "shots": 23,
+        "hits": 16,
+        "hitRate": 0.6956521739130435,
+        "damageDealt": 224,
+        "dps": 18.666666666666668,
+        "damageTaken": 3,
+        "damageTakenPerSecond": 0.25,
+        "survivalTime": 12,
+        "kills": 17,
+        "killsPerSecond": 1.4166666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 117,
+        "byKind": {
+          "drone": {
+            "kills": 16,
+            "damage": 224
+          }
+        },
+        "rngDraws": {
+          "combat": 51,
+          "spawn": 317,
+          "drops": 4,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:c3e546b40afe33bd",
+        "fnv1a64:76e9904eb81b40ee",
+        "fnv1a64:d1769fcf27deb70a",
+        "fnv1a64:19c4524d0b030cbd",
+        "fnv1a64:9af21e1efc40ef6b",
+        "fnv1a64:d362708cc52e361f",
+        "fnv1a64:f7d868db16fe8dca",
+        "fnv1a64:cc25b5461d46c0d4",
+        "fnv1a64:0013c02cfa85bafe",
+        "fnv1a64:4c5defdee484e5fe",
+        "fnv1a64:5274406a4cd4a759"
+      ]
+    },
+    {
+      "seed": 24,
+      "metrics": {
+        "shots": 23,
+        "hits": 13,
+        "hitRate": 0.5652173913043478,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 43.32995907842246,
+        "damageTakenPerSecond": 3.6108299232018717,
+        "survivalTime": 12,
+        "kills": 15,
+        "killsPerSecond": 1.25,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 100.83670758824489,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 53,
+          "spawn": 290,
+          "drops": 4,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:fa060432d864d19b",
+        "fnv1a64:1515cce10b8dd8af",
+        "fnv1a64:54ac7e9e2e0d7935",
+        "fnv1a64:af086a396aa2ee39",
+        "fnv1a64:abd23aed12a2848c",
+        "fnv1a64:7a0af264d164869b",
+        "fnv1a64:3c21869d1bc49d19",
+        "fnv1a64:f99ba286bcee648f",
+        "fnv1a64:0545553271035087",
+        "fnv1a64:da472f348c69a208",
+        "fnv1a64:4773b04fc9215ab7"
+      ]
+    },
+    {
+      "seed": 25,
+      "metrics": {
+        "shots": 23,
+        "hits": 14,
+        "hitRate": 0.6086956521739131,
+        "damageDealt": 196,
+        "dps": 16.333333333333332,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 14,
+        "killsPerSecond": 1.1666666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 14,
+            "damage": 196
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 272,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:0b21009eddee7a30",
+        "fnv1a64:898732ffcca08fb1",
+        "fnv1a64:3ea1dc79c4d826a7",
+        "fnv1a64:b3c5d3e49c528e45",
+        "fnv1a64:33927f3f7108ea23",
+        "fnv1a64:7c161339271ab527",
+        "fnv1a64:afabb965f5c390c3",
+        "fnv1a64:cf8846703f6698f7",
+        "fnv1a64:bb41b8781f42a3b1",
+        "fnv1a64:a7e768a01a6deee7",
+        "fnv1a64:aa47a01abadb2155"
+      ]
+    },
+    {
+      "seed": 26,
+      "metrics": {
+        "shots": 25,
+        "hits": 15,
+        "hitRate": 0.6,
+        "damageDealt": 210,
+        "dps": 17.5,
+        "damageTaken": 11.446894750530783,
+        "damageTakenPerSecond": 0.9539078958775652,
+        "survivalTime": 12,
+        "kills": 15,
+        "killsPerSecond": 1.25,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 108.55310524946921,
+        "byKind": {
+          "drone": {
+            "kills": 15,
+            "damage": 210
+          }
+        },
+        "rngDraws": {
+          "combat": 56,
+          "spawn": 282,
+          "drops": 4,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:2c2753ed7b7c695c",
+        "fnv1a64:08609586e2107640",
+        "fnv1a64:3bf261ea8404b3b0",
+        "fnv1a64:e4b65dcd233385f7",
+        "fnv1a64:19d6507406ebad61",
+        "fnv1a64:690a2da44cd9a534",
+        "fnv1a64:b45e414459ce083a",
+        "fnv1a64:6dda80f55e48b7a4",
+        "fnv1a64:67640e4e3adc9379",
+        "fnv1a64:2c52ab91601c782e",
+        "fnv1a64:a187bf7310a03fcd"
+      ]
+    },
+    {
+      "seed": 27,
+      "metrics": {
+        "shots": 23,
+        "hits": 15,
+        "hitRate": 0.6521739130434783,
+        "damageDealt": 210,
+        "dps": 17.5,
+        "damageTaken": 39.670123889883094,
+        "damageTakenPerSecond": 3.3058436574902577,
+        "survivalTime": 12,
+        "kills": 16,
+        "killsPerSecond": 1.3333333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 15,
+            "damage": 210
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 294,
+          "drops": 8,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:15720be2113fec5f",
+        "fnv1a64:09a5a55ed3542c6f",
+        "fnv1a64:892a334864fdef01",
+        "fnv1a64:ffbc77860f96340e",
+        "fnv1a64:1ab94b4f19f6546c",
+        "fnv1a64:9ba62c8efedef763",
+        "fnv1a64:4d079fdd9ce73480",
+        "fnv1a64:f7591ceefe761a52",
+        "fnv1a64:226dd5b710ca7a66",
+        "fnv1a64:54be73e62663ef07",
+        "fnv1a64:b873d43abda3d44d"
+      ]
+    },
+    {
+      "seed": 28,
+      "metrics": {
+        "shots": 27,
+        "hits": 14,
+        "hitRate": 0.5185185185185185,
+        "damageDealt": 196,
+        "dps": 16.333333333333332,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 14,
+        "killsPerSecond": 1.1666666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 14,
+            "damage": 196
+          }
+        },
+        "rngDraws": {
+          "combat": 59,
+          "spawn": 274,
+          "drops": 8,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:da757bce9eeb5eb2",
+        "fnv1a64:dd3a83f20dc75554",
+        "fnv1a64:81ccdd78922f3029",
+        "fnv1a64:a4658feab31a990f",
+        "fnv1a64:064f5fac79636201",
+        "fnv1a64:2911902f1c0eba3b",
+        "fnv1a64:26a2c3e8d0373669",
+        "fnv1a64:aad0bf11cc68c45a",
+        "fnv1a64:4d709665b1924d14",
+        "fnv1a64:86df2d7447cab52b",
+        "fnv1a64:04da37c26d30aa25"
+      ]
+    },
+    {
+      "seed": 29,
+      "metrics": {
+        "shots": 23,
+        "hits": 10,
+        "hitRate": 0.43478260869565216,
+        "damageDealt": 140,
+        "dps": 11.666666666666666,
+        "damageTaken": 17.983326564503628,
+        "damageTakenPerSecond": 1.498610547041969,
+        "survivalTime": 12,
+        "kills": 11,
+        "killsPerSecond": 0.9166666666666666,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 10,
+            "damage": 140
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 233,
+          "drops": 4,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:7017789c18cf16b9",
+        "fnv1a64:377fc0a8ed79465a",
+        "fnv1a64:bbffffc6336045b2",
+        "fnv1a64:abcabdacb55d204d",
+        "fnv1a64:80840e593d2ead94",
+        "fnv1a64:3ce378fc31687fcc",
+        "fnv1a64:de7bda39623591ef",
+        "fnv1a64:43d4e088c9026901",
+        "fnv1a64:40fcef96d5e3c36a",
+        "fnv1a64:436d96e9d1e3f5b0",
+        "fnv1a64:ab8cb8aed5bbaefe"
+      ]
+    },
+    {
+      "seed": 30,
+      "metrics": {
+        "shots": 23,
+        "hits": 14,
+        "hitRate": 0.6086956521739131,
+        "damageDealt": 196,
+        "dps": 16.333333333333332,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 14,
+        "killsPerSecond": 1.1666666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 14,
+            "damage": 196
+          }
+        },
+        "rngDraws": {
+          "combat": 49,
+          "spawn": 272,
+          "drops": 4,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:3698c0696a85c2ee",
+        "fnv1a64:83944b754605ff26",
+        "fnv1a64:a64115eec7d58069",
+        "fnv1a64:279a4dc1b09e4260",
+        "fnv1a64:2678b849cb1805a2",
+        "fnv1a64:3b33e78e81ec8c3a",
+        "fnv1a64:5bb732f834dd4386",
+        "fnv1a64:cfe0f199a4863cdb",
+        "fnv1a64:1b3419e29eb35dc9",
+        "fnv1a64:30e18f904e660750",
+        "fnv1a64:ece30d4fb4f9718d"
+      ]
+    },
+    {
+      "seed": 31,
+      "metrics": {
+        "shots": 23,
+        "hits": 10,
+        "hitRate": 0.43478260869565216,
+        "damageDealt": 140,
+        "dps": 11.666666666666666,
+        "damageTaken": 6.475823170208484,
+        "damageTakenPerSecond": 0.539651930850707,
+        "survivalTime": 12,
+        "kills": 11,
+        "killsPerSecond": 0.9166666666666666,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 113.52417682979151,
+        "byKind": {
+          "drone": {
+            "kills": 10,
+            "damage": 140
+          }
+        },
+        "rngDraws": {
+          "combat": 48,
+          "spawn": 239,
+          "drops": 0,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:a4959e7b8647ba6a",
+        "fnv1a64:b02f72ea84972a72",
+        "fnv1a64:25eb8434961c1fef",
+        "fnv1a64:f7a10d083e48d990",
+        "fnv1a64:b4ce9335be550f22",
+        "fnv1a64:15a957cdd54d254d",
+        "fnv1a64:e18d52d69a0b1d1f",
+        "fnv1a64:2d04b35942ddfc76",
+        "fnv1a64:df5c8bb6fb7645e5",
+        "fnv1a64:e2600611a2a1812c",
+        "fnv1a64:2c3462bf7fbdf474"
+      ]
+    },
+    {
+      "seed": 32,
+      "metrics": {
+        "shots": 27,
+        "hits": 14,
+        "hitRate": 0.5185185185185185,
+        "damageDealt": 196,
+        "dps": 16.333333333333332,
+        "damageTaken": 17.235615951161144,
+        "damageTakenPerSecond": 1.4363013292634286,
+        "survivalTime": 12,
+        "kills": 15,
+        "killsPerSecond": 1.25,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 114.0977173821725,
+        "byKind": {
+          "drone": {
+            "kills": 14,
+            "damage": 196
+          }
+        },
+        "rngDraws": {
+          "combat": 59,
+          "spawn": 325,
+          "drops": 8,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:c98fab079f1f3507",
+        "fnv1a64:16435aad544118aa",
+        "fnv1a64:0f3faa82b0dc43ef",
+        "fnv1a64:bcb734dc8911b992",
+        "fnv1a64:faa1bf163cb9ae87",
+        "fnv1a64:2dd1e616946c4ffe",
+        "fnv1a64:9a03301dfe2368d6",
+        "fnv1a64:af1aba8cb993d32b",
+        "fnv1a64:6974145fc506ecc6",
+        "fnv1a64:cd933e72793698d4",
+        "fnv1a64:55d578fb83c7bb2a"
+      ]
+    },
+    {
+      "seed": 33,
+      "metrics": {
+        "shots": 23,
+        "hits": 10,
+        "hitRate": 0.43478260869565216,
+        "damageDealt": 140,
+        "dps": 11.666666666666666,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 10,
+        "killsPerSecond": 0.8333333333333334,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 10,
+            "damage": 140
+          }
+        },
+        "rngDraws": {
+          "combat": 51,
+          "spawn": 237,
+          "drops": 4,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:7aa2ebd143dc1701",
+        "fnv1a64:51a431269c4d002f",
+        "fnv1a64:583fe8c644a96a07",
+        "fnv1a64:55018cd06afc47b9",
+        "fnv1a64:23dcc65d98243b04",
+        "fnv1a64:a7e455ad9189cd9e",
+        "fnv1a64:8f3b105ba7c3241b",
+        "fnv1a64:0db583e4a7750714",
+        "fnv1a64:686059a803921ddb",
+        "fnv1a64:5904cf1214daf811",
+        "fnv1a64:814361fb9ebe99c2"
+      ]
+    },
+    {
+      "seed": 34,
+      "metrics": {
+        "shots": 23,
+        "hits": 14,
+        "hitRate": 0.6086956521739131,
+        "damageDealt": 196,
+        "dps": 16.333333333333332,
+        "damageTaken": 24,
+        "damageTakenPerSecond": 2,
+        "survivalTime": 12,
+        "kills": 16,
+        "killsPerSecond": 1.3333333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 114.83333333333387,
+        "byKind": {
+          "drone": {
+            "kills": 14,
+            "damage": 196
+          }
+        },
+        "rngDraws": {
+          "combat": 54,
+          "spawn": 276,
+          "drops": 4,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:af6ff1ccb5e5cd2a",
+        "fnv1a64:cab9bb76ccfbc680",
+        "fnv1a64:a95743388b006bcd",
+        "fnv1a64:222d5e4b50fd78a7",
+        "fnv1a64:18f197530bd42dcc",
+        "fnv1a64:af561e36d1b3f98e",
+        "fnv1a64:0da68ee721fca816",
+        "fnv1a64:e75ec7613913382c",
+        "fnv1a64:93f4adb39e71e3dd",
+        "fnv1a64:b898ef905a1deaad",
+        "fnv1a64:78baa579c8f2700c"
+      ]
+    },
+    {
+      "seed": 35,
+      "metrics": {
+        "shots": 23,
+        "hits": 12,
+        "hitRate": 0.5217391304347826,
+        "damageDealt": 168,
+        "dps": 14,
+        "damageTaken": 14.620504680470667,
+        "damageTakenPerSecond": 1.2183753900392222,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 105.37949531952933,
+        "byKind": {
+          "drone": {
+            "kills": 12,
+            "damage": 168
+          }
+        },
+        "rngDraws": {
+          "combat": 52,
+          "spawn": 282,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:1fdde2df07080961",
+        "fnv1a64:5255553dc0864ff5",
+        "fnv1a64:2d9fb3c45a25371f",
+        "fnv1a64:9e8e6d6b3dcb42ce",
+        "fnv1a64:5ada49a0636e8a3b",
+        "fnv1a64:1ecd33adb2b16e5c",
+        "fnv1a64:cb393d62ef2acf3b",
+        "fnv1a64:ff9dda80181f1342",
+        "fnv1a64:9d6223f44e329a6b",
+        "fnv1a64:8efb51ac34d9dd70",
+        "fnv1a64:77616b4d616ac851"
+      ]
+    },
+    {
+      "seed": 36,
+      "metrics": {
+        "shots": 23,
+        "hits": 15,
+        "hitRate": 0.6521739130434783,
+        "damageDealt": 210,
+        "dps": 17.5,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 15,
+        "killsPerSecond": 1.25,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 15,
+            "damage": 210
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 286,
+          "drops": 0,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:e1c58c71b50e95b7",
+        "fnv1a64:f85fbd29800439d0",
+        "fnv1a64:6728c13b1a258109",
+        "fnv1a64:29456020f362f40c",
+        "fnv1a64:3ce31be64922cf51",
+        "fnv1a64:540d87863280251e",
+        "fnv1a64:b972f64a469e7cc5",
+        "fnv1a64:82c956a385be892d",
+        "fnv1a64:5db701df9dfef198",
+        "fnv1a64:93f7b06bc010df9c",
+        "fnv1a64:4395053d03b4d449"
+      ]
+    },
+    {
+      "seed": 37,
+      "metrics": {
+        "shots": 25,
+        "hits": 15,
+        "hitRate": 0.6,
+        "damageDealt": 210,
+        "dps": 17.5,
+        "damageTaken": 24,
+        "damageTakenPerSecond": 2,
+        "survivalTime": 12,
+        "kills": 15,
+        "killsPerSecond": 1.25,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 96,
+        "byKind": {
+          "drone": {
+            "kills": 15,
+            "damage": 210
+          }
+        },
+        "rngDraws": {
+          "combat": 53,
+          "spawn": 284,
+          "drops": 4,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:0c43f923912b3903",
+        "fnv1a64:b0f23a936782b727",
+        "fnv1a64:4853934dcaae587d",
+        "fnv1a64:81841539b9364d97",
+        "fnv1a64:59d325014073e4a7",
+        "fnv1a64:14e81433a8a02a0a",
+        "fnv1a64:4ef8c8440271ba92",
+        "fnv1a64:d40ce7851f32c81c",
+        "fnv1a64:b0ed282fe3674d70",
+        "fnv1a64:877011ee8f9abe2a",
+        "fnv1a64:6a390fcec1de4445"
+      ]
+    },
+    {
+      "seed": 38,
+      "metrics": {
+        "shots": 27,
+        "hits": 12,
+        "hitRate": 0.4444444444444444,
+        "damageDealt": 168,
+        "dps": 14,
+        "damageTaken": 4.221111045048379,
+        "damageTakenPerSecond": 0.35175925375403155,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 115.77888895495163,
+        "byKind": {
+          "drone": {
+            "kills": 12,
+            "damage": 168
+          }
+        },
+        "rngDraws": {
+          "combat": 58,
+          "spawn": 278,
+          "drops": 4,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:878fd91b65ad80dc",
+        "fnv1a64:32f92da6c5b5158b",
+        "fnv1a64:c07ea992356e59cc",
+        "fnv1a64:28a02825bef822a7",
+        "fnv1a64:d8de9eb977f1e329",
+        "fnv1a64:3a9184f934ab17ab",
+        "fnv1a64:423eb2478219761e",
+        "fnv1a64:0d7093b5b778c104",
+        "fnv1a64:5dce70cbaab4da8b",
+        "fnv1a64:113bd853ce72e5e3",
+        "fnv1a64:02a7731d9f5b67cf"
+      ]
+    },
+    {
+      "seed": 39,
+      "metrics": {
+        "shots": 28,
+        "hits": 13,
+        "hitRate": 0.4642857142857143,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 58,
+          "spawn": 286,
+          "drops": 12,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:343b8fd5119326fa",
+        "fnv1a64:05c48282adcf48f2",
+        "fnv1a64:0e2940170280615d",
+        "fnv1a64:04d974598fbe6337",
+        "fnv1a64:9e7ee5a4a81e3894",
+        "fnv1a64:dfc0f5436c96875d",
+        "fnv1a64:6037e389017efe92",
+        "fnv1a64:ea8f4d985cd670af",
+        "fnv1a64:9f67b91035df1da7",
+        "fnv1a64:f234e6eaf329f271",
+        "fnv1a64:84574aef7fc81282"
+      ]
+    },
+    {
+      "seed": 40,
+      "metrics": {
+        "shots": 23,
+        "hits": 13,
+        "hitRate": 0.5652173913043478,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 48,
+          "spawn": 278,
+          "drops": 4,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:ad8dc0443bc3b9cc",
+        "fnv1a64:e6ed04ee9c086b72",
+        "fnv1a64:1cfe597c0da2b187",
+        "fnv1a64:6e56cd9ac9b399f6",
+        "fnv1a64:300a9ee43293c2fd",
+        "fnv1a64:0fe4a6e1d3e4db12",
+        "fnv1a64:1babac35cf51dfe9",
+        "fnv1a64:cf863116c69b5dfe",
+        "fnv1a64:40dd2c631d28f139",
+        "fnv1a64:ff4947ff619a7fe8",
+        "fnv1a64:d46c9a65b8c9934f"
+      ]
+    },
+    {
+      "seed": 41,
+      "metrics": {
+        "shots": 23,
+        "hits": 11,
+        "hitRate": 0.4782608695652174,
+        "damageDealt": 154,
+        "dps": 12.833333333333334,
+        "damageTaken": 7.244601028340327,
+        "damageTakenPerSecond": 0.6037167523616939,
+        "survivalTime": 12,
+        "kills": 12,
+        "killsPerSecond": 1,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 112.75539897165967,
+        "byKind": {
+          "drone": {
+            "kills": 11,
+            "damage": 154
+          }
+        },
+        "rngDraws": {
+          "combat": 48,
+          "spawn": 245,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:9825efb90b9dd44b",
+        "fnv1a64:7d96ee09909f2f1c",
+        "fnv1a64:72c68a3a74ce688a",
+        "fnv1a64:b006890536342ef7",
+        "fnv1a64:dc1a75776c5dedc2",
+        "fnv1a64:ec8af2445aaf38a3",
+        "fnv1a64:e54070a77d7e8acd",
+        "fnv1a64:e6e45f2927f15ea8",
+        "fnv1a64:0e4991bfcf1b32cc",
+        "fnv1a64:77587d0a0be639c3",
+        "fnv1a64:3288e6328f12b749"
+      ]
+    },
+    {
+      "seed": 42,
+      "metrics": {
+        "shots": 23,
+        "hits": 10,
+        "hitRate": 0.43478260869565216,
+        "damageDealt": 140,
+        "dps": 11.666666666666666,
+        "damageTaken": 24,
+        "damageTakenPerSecond": 2,
+        "survivalTime": 12,
+        "kills": 11,
+        "killsPerSecond": 0.9166666666666666,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 96,
+        "byKind": {
+          "drone": {
+            "kills": 10,
+            "damage": 140
+          }
+        },
+        "rngDraws": {
+          "combat": 49,
+          "spawn": 235,
+          "drops": 0,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:802848b736b25628",
+        "fnv1a64:0e175a51ff03e751",
+        "fnv1a64:637df413c48fda33",
+        "fnv1a64:f8b63b68348255a9",
+        "fnv1a64:d5f90a178b9985b9",
+        "fnv1a64:03d15b6d34d94a8c",
+        "fnv1a64:12c434a87a9ccc8c",
+        "fnv1a64:37368b63defaac10",
+        "fnv1a64:f74c73cb5b9f93fa",
+        "fnv1a64:01c3b75541e8037f",
+        "fnv1a64:d0490b0e5f01bae6"
+      ]
+    },
+    {
+      "seed": 43,
+      "metrics": {
+        "shots": 23,
+        "hits": 15,
+        "hitRate": 0.6521739130434783,
+        "damageDealt": 210,
+        "dps": 17.5,
+        "damageTaken": 16.834416192227785,
+        "damageTakenPerSecond": 1.4028680160189821,
+        "survivalTime": 12,
+        "kills": 16,
+        "killsPerSecond": 1.3333333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 15,
+            "damage": 210
+          }
+        },
+        "rngDraws": {
+          "combat": 49,
+          "spawn": 282,
+          "drops": 4,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:e753a2b9f61fbf0a",
+        "fnv1a64:36df5fb099eb868e",
+        "fnv1a64:07971f3b2645f347",
+        "fnv1a64:c71728f5ffd7169f",
+        "fnv1a64:9d74194943f64f39",
+        "fnv1a64:056c7f158d7da619",
+        "fnv1a64:ef97e6389a3356a3",
+        "fnv1a64:d58ebf6c1a629a6b",
+        "fnv1a64:5e1447d8e8792756",
+        "fnv1a64:4214bf5bee8ccd95",
+        "fnv1a64:c7c223d928ea0124"
+      ]
+    },
+    {
+      "seed": 44,
+      "metrics": {
+        "shots": 23,
+        "hits": 13,
+        "hitRate": 0.5652173913043478,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 48,
+          "spawn": 280,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:aff7c791e74466c7",
+        "fnv1a64:bfc7a424d39e6e1f",
+        "fnv1a64:2aaf985151044d69",
+        "fnv1a64:2c19b5dedbcf2ad9",
+        "fnv1a64:0f93b1300577db55",
+        "fnv1a64:ec161d31b03ef7bd",
+        "fnv1a64:0ccbda9eb4450bbc",
+        "fnv1a64:56f758f388a95d2f",
+        "fnv1a64:e2dc4288f90939cc",
+        "fnv1a64:5295cb4595636d7b",
+        "fnv1a64:319a5cf3a3fae076"
+      ]
+    },
+    {
+      "seed": 45,
+      "metrics": {
+        "shots": 23,
+        "hits": 11,
+        "hitRate": 0.4782608695652174,
+        "damageDealt": 154,
+        "dps": 12.833333333333334,
+        "damageTaken": 24,
+        "damageTakenPerSecond": 2,
+        "survivalTime": 12,
+        "kills": 12,
+        "killsPerSecond": 1,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 96,
+        "byKind": {
+          "drone": {
+            "kills": 11,
+            "damage": 154
+          }
+        },
+        "rngDraws": {
+          "combat": 49,
+          "spawn": 245,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:449506ce30f47e67",
+        "fnv1a64:79bc87a573520f2c",
+        "fnv1a64:0e24c097823d9083",
+        "fnv1a64:5219278967955786",
+        "fnv1a64:712f67ab1efd592c",
+        "fnv1a64:84ee22e93df450d7",
+        "fnv1a64:aa06c92ff9334ff4",
+        "fnv1a64:f66e5c35ded217bc",
+        "fnv1a64:21609b28228fc4c3",
+        "fnv1a64:e4a9a49ce718abd0",
+        "fnv1a64:b3c9a69fb731af22"
+      ]
+    },
+    {
+      "seed": 46,
+      "metrics": {
+        "shots": 23,
+        "hits": 14,
+        "hitRate": 0.6086956521739131,
+        "damageDealt": 196,
+        "dps": 16.333333333333332,
+        "damageTaken": 24,
+        "damageTakenPerSecond": 2,
+        "survivalTime": 12,
+        "kills": 15,
+        "killsPerSecond": 1.25,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 14,
+            "damage": 196
+          }
+        },
+        "rngDraws": {
+          "combat": 49,
+          "spawn": 284,
+          "drops": 4,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:53513d7200f1ce3e",
+        "fnv1a64:61b2185dc2a6fadf",
+        "fnv1a64:1d855cb605d053f2",
+        "fnv1a64:07d45f0f8dd12423",
+        "fnv1a64:5693679145fc2c3f",
+        "fnv1a64:7b4ff23e4c8faa5b",
+        "fnv1a64:092d10127b5d24ea",
+        "fnv1a64:d0fd15c7d9c0fbb2",
+        "fnv1a64:f7df1432cca08cc1",
+        "fnv1a64:f41bdedb9f6e4229",
+        "fnv1a64:4b307c45c04ffe05"
+      ]
+    },
+    {
+      "seed": 47,
+      "metrics": {
+        "shots": 27,
+        "hits": 16,
+        "hitRate": 0.5925925925925926,
+        "damageDealt": 224,
+        "dps": 18.666666666666668,
+        "damageTaken": 11.232381929909925,
+        "damageTakenPerSecond": 0.9360318274924938,
+        "survivalTime": 12,
+        "kills": 17,
+        "killsPerSecond": 1.4166666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 16,
+            "damage": 224
+          }
+        },
+        "rngDraws": {
+          "combat": 59,
+          "spawn": 313,
+          "drops": 8,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:7106659992ae26ae",
+        "fnv1a64:a2191841d011a12a",
+        "fnv1a64:e7c2c1776440d2da",
+        "fnv1a64:79b66a20caa58260",
+        "fnv1a64:671fef7322dd3b61",
+        "fnv1a64:778954181c566deb",
+        "fnv1a64:8992941e84ac6547",
+        "fnv1a64:5ca2468b74871f22",
+        "fnv1a64:fa3e215339df6976",
+        "fnv1a64:d5333a824ed9b1cc",
+        "fnv1a64:e5bbf065e375e559"
+      ]
+    },
+    {
+      "seed": 48,
+      "metrics": {
+        "shots": 23,
+        "hits": 12,
+        "hitRate": 0.5217391304347826,
+        "damageDealt": 168,
+        "dps": 14,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 12,
+        "killsPerSecond": 1,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 12,
+            "damage": 168
+          }
+        },
+        "rngDraws": {
+          "combat": 46,
+          "spawn": 241,
+          "drops": 4,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:ef0a996c8d1c2cda",
+        "fnv1a64:274629aef222e382",
+        "fnv1a64:606a618a44b49b74",
+        "fnv1a64:8aa6e8e23197e93b",
+        "fnv1a64:29fccc536c0ffdc6",
+        "fnv1a64:af44ee853464325f",
+        "fnv1a64:5c9501164ceb2112",
+        "fnv1a64:fe2a4e1d4aa4dfe1",
+        "fnv1a64:5d5b020cdb84bdfa",
+        "fnv1a64:5583ddeb6b38cba4",
+        "fnv1a64:be47f9e845338ecf"
+      ]
+    },
+    {
+      "seed": 49,
+      "metrics": {
+        "shots": 23,
+        "hits": 13,
+        "hitRate": 0.5652173913043478,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 24,
+        "damageTakenPerSecond": 2,
+        "survivalTime": 12,
+        "kills": 14,
+        "killsPerSecond": 1.1666666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 48,
+          "spawn": 280,
+          "drops": 8,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:ff545b382113065a",
+        "fnv1a64:db3e54e17dc46579",
+        "fnv1a64:4b539ac3a5ad8c95",
+        "fnv1a64:b08545d00ccf5257",
+        "fnv1a64:9c48e1052f894de5",
+        "fnv1a64:3cdce13887d96189",
+        "fnv1a64:43514edd057653a5",
+        "fnv1a64:a4b17fc701ca03a7",
+        "fnv1a64:12343f426b39fcf8",
+        "fnv1a64:cdaee4a9ea926df7",
+        "fnv1a64:51e9ab59b71515f5"
+      ]
+    },
+    {
+      "seed": 50,
+      "metrics": {
+        "shots": 27,
+        "hits": 16,
+        "hitRate": 0.5925925925925926,
+        "damageDealt": 224,
+        "dps": 18.666666666666668,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 16,
+        "killsPerSecond": 1.3333333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 16,
+            "damage": 224
+          }
+        },
+        "rngDraws": {
+          "combat": 55,
+          "spawn": 327,
+          "drops": 8,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:a67467f18084243f",
+        "fnv1a64:8d56a7985be19e29",
+        "fnv1a64:7c6ce84b83e533f1",
+        "fnv1a64:67b4b37684abc35b",
+        "fnv1a64:8723b3ec5b833ef5",
+        "fnv1a64:7334a6fc1f7969df",
+        "fnv1a64:2cbc8369d088faac",
+        "fnv1a64:95e9f230efc5ca72",
+        "fnv1a64:0d7878659bcd91a3",
+        "fnv1a64:c32ee0e0ae5f62e8",
+        "fnv1a64:a7cfb6d168c1619d"
+      ]
+    },
+    {
+      "seed": 51,
+      "metrics": {
+        "shots": 23,
+        "hits": 12,
+        "hitRate": 0.5217391304347826,
+        "damageDealt": 168,
+        "dps": 14,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 12,
+        "killsPerSecond": 1,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 12,
+            "damage": 168
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 241,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:9e860aa2d6d2350e",
+        "fnv1a64:426b0d1384335b25",
+        "fnv1a64:f990b9f5d2838803",
+        "fnv1a64:cfffa2f79e0bca6e",
+        "fnv1a64:f213c3df2207070a",
+        "fnv1a64:abb60f37288019ca",
+        "fnv1a64:7ab30f8af2e2ed4c",
+        "fnv1a64:94d65acc9de3ea62",
+        "fnv1a64:25d08d64c12f725e",
+        "fnv1a64:25e2d20ce0c43a77",
+        "fnv1a64:4bbae48728ec5383"
+      ]
+    },
+    {
+      "seed": 52,
+      "metrics": {
+        "shots": 23,
+        "hits": 9,
+        "hitRate": 0.391304347826087,
+        "damageDealt": 126,
+        "dps": 10.5,
+        "damageTaken": 16.038363798998436,
+        "damageTakenPerSecond": 1.336530316583203,
+        "survivalTime": 12,
+        "kills": 10,
+        "killsPerSecond": 0.8333333333333334,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 9,
+            "damage": 126
+          }
+        },
+        "rngDraws": {
+          "combat": 51,
+          "spawn": 206,
+          "drops": 4,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:8910305fd5b80c6d",
+        "fnv1a64:ad375b6fa5296c2a",
+        "fnv1a64:a0538336c46778bd",
+        "fnv1a64:0a8eac7b22e6f283",
+        "fnv1a64:0aa91e5f4144d106",
+        "fnv1a64:809772a6e61c1cab",
+        "fnv1a64:94dacf3ddb74a127",
+        "fnv1a64:a8d40a1f699d7f41",
+        "fnv1a64:184c58f99e92fd39",
+        "fnv1a64:7508c95df501250e",
+        "fnv1a64:1f8a483ca0694217"
+      ]
+    },
+    {
+      "seed": 53,
+      "metrics": {
+        "shots": 27,
+        "hits": 15,
+        "hitRate": 0.5555555555555556,
+        "damageDealt": 210,
+        "dps": 17.5,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 15,
+        "killsPerSecond": 1.25,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 15,
+            "damage": 210
+          }
+        },
+        "rngDraws": {
+          "combat": 54,
+          "spawn": 276,
+          "drops": 8,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:e7af8189397dbc3f",
+        "fnv1a64:7f0569e128975787",
+        "fnv1a64:f770c531769cd07e",
+        "fnv1a64:d33cab7286269237",
+        "fnv1a64:f53ea82bfc84ecde",
+        "fnv1a64:0f30ddd9889ee5b3",
+        "fnv1a64:cababab42300da8f",
+        "fnv1a64:0d20da5cea823ef0",
+        "fnv1a64:2f8134ffe0d846ac",
+        "fnv1a64:ba83e43f62ca0e97",
+        "fnv1a64:5e67c9ad4d1e7f3a"
+      ]
+    },
+    {
+      "seed": 54,
+      "metrics": {
+        "shots": 25,
+        "hits": 12,
+        "hitRate": 0.48,
+        "damageDealt": 168,
+        "dps": 14,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 12,
+        "killsPerSecond": 1,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 12,
+            "damage": 168
+          }
+        },
+        "rngDraws": {
+          "combat": 53,
+          "spawn": 261,
+          "drops": 4,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:58cdf65b176b6f60",
+        "fnv1a64:c93913b09c121a2c",
+        "fnv1a64:ea5236f53e6cfb63",
+        "fnv1a64:7ecb558cc09554f7",
+        "fnv1a64:90073bce91cfab33",
+        "fnv1a64:ea0612c77b208e30",
+        "fnv1a64:2138899c23639430",
+        "fnv1a64:296a374843056f38",
+        "fnv1a64:5569c76318a9e0d3",
+        "fnv1a64:8335b3296f603a0a",
+        "fnv1a64:6032f7fdb2326b48"
+      ]
+    },
+    {
+      "seed": 55,
+      "metrics": {
+        "shots": 24,
+        "hits": 13,
+        "hitRate": 0.5416666666666666,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 24,
+        "damageTakenPerSecond": 2,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 115.00000000000054,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 51,
+          "spawn": 284,
+          "drops": 8,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:9dd07b600890e8a1",
+        "fnv1a64:3aaeb4cdf4b7e08e",
+        "fnv1a64:307f21067a72d7e9",
+        "fnv1a64:6a0ea82af31c95f5",
+        "fnv1a64:e7276104925388fc",
+        "fnv1a64:7ca57664472c133e",
+        "fnv1a64:dc6fec9bb93d618a",
+        "fnv1a64:a18a9a1b623624c7",
+        "fnv1a64:942fba1f5e7dc226",
+        "fnv1a64:3fa9a8989553cf74",
+        "fnv1a64:fa24c8ea3ff61b8e"
+      ]
+    },
+    {
+      "seed": 56,
+      "metrics": {
+        "shots": 23,
+        "hits": 8,
+        "hitRate": 0.34782608695652173,
+        "damageDealt": 112,
+        "dps": 9.333333333333334,
+        "damageTaken": 24,
+        "damageTakenPerSecond": 2,
+        "survivalTime": 12,
+        "kills": 9,
+        "killsPerSecond": 0.75,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 96,
+        "byKind": {
+          "drone": {
+            "kills": 8,
+            "damage": 112
+          }
+        },
+        "rngDraws": {
+          "combat": 49,
+          "spawn": 198,
+          "drops": 0,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:c84c1df156c7ccec",
+        "fnv1a64:7e54f1fc544cd614",
+        "fnv1a64:bf83a0fa0793b80e",
+        "fnv1a64:03a8f8651ad9426b",
+        "fnv1a64:6f8836c8d9b134d2",
+        "fnv1a64:c30df40685f36aae",
+        "fnv1a64:bf0180b946c4d552",
+        "fnv1a64:25294d495cd688a4",
+        "fnv1a64:a8b75aeedc43e75f",
+        "fnv1a64:a0e871823bc3506c",
+        "fnv1a64:d2dd696facc82ad6"
+      ]
+    },
+    {
+      "seed": 57,
+      "metrics": {
+        "shots": 28,
+        "hits": 16,
+        "hitRate": 0.5714285714285714,
+        "damageDealt": 224,
+        "dps": 18.666666666666668,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 16,
+        "killsPerSecond": 1.3333333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 16,
+            "damage": 224
+          }
+        },
+        "rngDraws": {
+          "combat": 60,
+          "spawn": 321,
+          "drops": 12,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:33a4ff5ccc13e03c",
+        "fnv1a64:829ee578e14a4f9a",
+        "fnv1a64:d874acdab76aeac4",
+        "fnv1a64:0f6227fa25490c8e",
+        "fnv1a64:e18e701e3f468697",
+        "fnv1a64:9fef3615ddef19a8",
+        "fnv1a64:f5422a41d8ec793e",
+        "fnv1a64:388fbf9dc94ace7f",
+        "fnv1a64:61ccbb8e7f95b0d3",
+        "fnv1a64:78faffa701431bb2",
+        "fnv1a64:160686f9143de911"
+      ]
+    },
+    {
+      "seed": 58,
+      "metrics": {
+        "shots": 23,
+        "hits": 11,
+        "hitRate": 0.4782608695652174,
+        "damageDealt": 154,
+        "dps": 12.833333333333334,
+        "damageTaken": 17.674228577289554,
+        "damageTakenPerSecond": 1.472852381440796,
+        "survivalTime": 12,
+        "kills": 12,
+        "killsPerSecond": 1,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 116.15910475604417,
+        "byKind": {
+          "drone": {
+            "kills": 11,
+            "damage": 154
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 245,
+          "drops": 8,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:ef0b538177ab4374",
+        "fnv1a64:257cfb3610618993",
+        "fnv1a64:b433118faf294385",
+        "fnv1a64:0503d017d3b07aa6",
+        "fnv1a64:8525482a5cd435ff",
+        "fnv1a64:90e0cc4680c1529d",
+        "fnv1a64:ff5923da3455beb5",
+        "fnv1a64:350185ee83e9b4e2",
+        "fnv1a64:431c7bfd22676295",
+        "fnv1a64:474b402f67c8ff64",
+        "fnv1a64:2fb949191dfa6047"
+      ]
+    },
+    {
+      "seed": 59,
+      "metrics": {
+        "shots": 25,
+        "hits": 17,
+        "hitRate": 0.68,
+        "damageDealt": 238,
+        "dps": 19.833333333333332,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 17,
+        "killsPerSecond": 1.4166666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 17,
+            "damage": 238
+          }
+        },
+        "rngDraws": {
+          "combat": 54,
+          "spawn": 297,
+          "drops": 4,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:bccec0a199632af4",
+        "fnv1a64:3360f7efcbdded69",
+        "fnv1a64:d377718ac2fcf4e4",
+        "fnv1a64:725940dee3c04de8",
+        "fnv1a64:6baa510b15606895",
+        "fnv1a64:d84774b5da25ff54",
+        "fnv1a64:58d7896bba6c0b3d",
+        "fnv1a64:df8b358d0fa672f1",
+        "fnv1a64:40136210a14e2a18",
+        "fnv1a64:6965b892c096f4bd",
+        "fnv1a64:30d03a51bbf447ab"
+      ]
+    },
+    {
+      "seed": 60,
+      "metrics": {
+        "shots": 27,
+        "hits": 13,
+        "hitRate": 0.48148148148148145,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 18.887272803203402,
+        "damageTakenPerSecond": 1.5739394002669502,
+        "survivalTime": 12,
+        "kills": 14,
+        "killsPerSecond": 1.1666666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 101.1127271967966,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 52,
+          "spawn": 276,
+          "drops": 8,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:63a983d5c2c5be2e",
+        "fnv1a64:40111cb819688d53",
+        "fnv1a64:0bdea18532dfe6eb",
+        "fnv1a64:4e9f78e939fb35db",
+        "fnv1a64:248b6aa39dd169d7",
+        "fnv1a64:0477972cf2d549ea",
+        "fnv1a64:fc74a1f4ce162774",
+        "fnv1a64:813fb7f15ffdee29",
+        "fnv1a64:e7d1c2911f371cf6",
+        "fnv1a64:0b65b97d4886870e",
+        "fnv1a64:3ce2a3b174e2297c"
+      ]
+    },
+    {
+      "seed": 61,
+      "metrics": {
+        "shots": 23,
+        "hits": 10,
+        "hitRate": 0.43478260869565216,
+        "damageDealt": 140,
+        "dps": 11.666666666666666,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 10,
+        "killsPerSecond": 0.8333333333333334,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 10,
+            "damage": 140
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 237,
+          "drops": 4,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:3f7e4b6ad7fbee53",
+        "fnv1a64:67fd62c0f8ee9016",
+        "fnv1a64:7fe36a729ae167a9",
+        "fnv1a64:2efae201014eec42",
+        "fnv1a64:e43d9372640ae93c",
+        "fnv1a64:b8259a59d5f64f44",
+        "fnv1a64:ad41a69a3bff7a5d",
+        "fnv1a64:0bafc2217309e9fd",
+        "fnv1a64:b86e7ccd910264be",
+        "fnv1a64:8ee0efc174b12e13",
+        "fnv1a64:e5d562ce6e491885"
+      ]
+    },
+    {
+      "seed": 62,
+      "metrics": {
+        "shots": 23,
+        "hits": 15,
+        "hitRate": 0.6521739130434783,
+        "damageDealt": 210,
+        "dps": 17.5,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 15,
+        "killsPerSecond": 1.25,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 15,
+            "damage": 210
+          }
+        },
+        "rngDraws": {
+          "combat": 51,
+          "spawn": 290,
+          "drops": 4,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:69f73551cc8a1d7a",
+        "fnv1a64:ad73034c61452dc6",
+        "fnv1a64:aa20a30d43bcf4ec",
+        "fnv1a64:3f924a01d6418723",
+        "fnv1a64:efdcb911930d7560",
+        "fnv1a64:789caf4624c368f5",
+        "fnv1a64:c706f0e1ed1826fa",
+        "fnv1a64:18fd863dd4082985",
+        "fnv1a64:97921ae16526c1e5",
+        "fnv1a64:2f0425dfb3c26edf",
+        "fnv1a64:21723bb82f497be5"
+      ]
+    },
+    {
+      "seed": 63,
+      "metrics": {
+        "shots": 23,
+        "hits": 12,
+        "hitRate": 0.5217391304347826,
+        "damageDealt": 168,
+        "dps": 14,
+        "damageTaken": 24,
+        "damageTakenPerSecond": 2,
+        "survivalTime": 12,
+        "kills": 12,
+        "killsPerSecond": 1,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 96,
+        "byKind": {
+          "drone": {
+            "kills": 12,
+            "damage": 168
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 249,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:d294edb55f1aaacc",
+        "fnv1a64:3b5b6a3f7aae0608",
+        "fnv1a64:b12f5a01b337fee4",
+        "fnv1a64:3069becc7c078e1c",
+        "fnv1a64:64d76219cab279bc",
+        "fnv1a64:367c1e87a7dd4a63",
+        "fnv1a64:f6cc72485fcf6875",
+        "fnv1a64:4620709ecc259091",
+        "fnv1a64:7189de7e759913aa",
+        "fnv1a64:6429141d20df6937",
+        "fnv1a64:5333c482dd30c3e8"
+      ]
+    },
+    {
+      "seed": 64,
+      "metrics": {
+        "shots": 23,
+        "hits": 12,
+        "hitRate": 0.5217391304347826,
+        "damageDealt": 168,
+        "dps": 14,
+        "damageTaken": 24,
+        "damageTakenPerSecond": 2,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 96,
+        "byKind": {
+          "drone": {
+            "kills": 12,
+            "damage": 168
+          }
+        },
+        "rngDraws": {
+          "combat": 51,
+          "spawn": 243,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:8cc0aa9b50a035c6",
+        "fnv1a64:3d47031c4da62e0c",
+        "fnv1a64:a8adb3be79857677",
+        "fnv1a64:7f8297ba83674fa7",
+        "fnv1a64:1c0e8a6b806af3a5",
+        "fnv1a64:dad4d822b9bef8a9",
+        "fnv1a64:88ddeddf723e6fc6",
+        "fnv1a64:459061e9a606da42",
+        "fnv1a64:15f180831e8ee7a7",
+        "fnv1a64:71c7df24c6e817f3",
+        "fnv1a64:b55151bcbac38ef3"
+      ]
+    },
+    {
+      "seed": 65,
+      "metrics": {
+        "shots": 25,
+        "hits": 14,
+        "hitRate": 0.56,
+        "damageDealt": 196,
+        "dps": 16.333333333333332,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 14,
+        "killsPerSecond": 1.1666666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 14,
+            "damage": 196
+          }
+        },
+        "rngDraws": {
+          "combat": 52,
+          "spawn": 254,
+          "drops": 12,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:64520846cede3747",
+        "fnv1a64:6bc80bea812314cb",
+        "fnv1a64:6170825028c4f3c9",
+        "fnv1a64:d8cdec8b77d796c0",
+        "fnv1a64:90022af496e83433",
+        "fnv1a64:83e9052d3bf30708",
+        "fnv1a64:ba888c093aef9ccd",
+        "fnv1a64:b1112915fc46a47d",
+        "fnv1a64:51d241492600e193",
+        "fnv1a64:4522bd36298bfea8",
+        "fnv1a64:a10508d2ed2cb9c1"
+      ]
+    },
+    {
+      "seed": 66,
+      "metrics": {
+        "shots": 23,
+        "hits": 12,
+        "hitRate": 0.5217391304347826,
+        "damageDealt": 168,
+        "dps": 14,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 12,
+        "killsPerSecond": 1,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 12,
+            "damage": 168
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 251,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:f750f61676b5c5d5",
+        "fnv1a64:eedcf0fbcac5a98f",
+        "fnv1a64:eb0a3d97be94174a",
+        "fnv1a64:a72949e9cc49a34e",
+        "fnv1a64:b06326ad4ebca603",
+        "fnv1a64:0b7357977c31647a",
+        "fnv1a64:83d9686d0b790c2a",
+        "fnv1a64:16986b1a241fb5e2",
+        "fnv1a64:4bdc9e161cd484cf",
+        "fnv1a64:d4f4043f3ac1bbb7",
+        "fnv1a64:1aeb6bce3c70a977"
+      ]
+    },
+    {
+      "seed": 67,
+      "metrics": {
+        "shots": 23,
+        "hits": 13,
+        "hitRate": 0.5652173913043478,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 39.610050161650804,
+        "damageTakenPerSecond": 3.3008375134709005,
+        "survivalTime": 12,
+        "kills": 15,
+        "killsPerSecond": 1.25,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 80.3899498383492,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 52,
+          "spawn": 284,
+          "drops": 4,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:42ee1bf742da6f86",
+        "fnv1a64:39e4c6d83ae77095",
+        "fnv1a64:2dd7581d337a35a4",
+        "fnv1a64:088e96a2b22c053b",
+        "fnv1a64:3b70ad8cb8af8ce0",
+        "fnv1a64:f7a02beb967812fd",
+        "fnv1a64:e56e87c28efa29e1",
+        "fnv1a64:24d4c9fddcfeb2aa",
+        "fnv1a64:7ff6d281c418d6fe",
+        "fnv1a64:e87d0d4e72b4fe33",
+        "fnv1a64:6c56af9241e24eeb"
+      ]
+    },
+    {
+      "seed": 68,
+      "metrics": {
+        "shots": 23,
+        "hits": 13,
+        "hitRate": 0.5652173913043478,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 24,
+        "damageTakenPerSecond": 2,
+        "survivalTime": 12,
+        "kills": 14,
+        "killsPerSecond": 1.1666666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 114.83333333333387,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 54,
+          "spawn": 282,
+          "drops": 4,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:088197ef649402c9",
+        "fnv1a64:72ef138c4bea0b92",
+        "fnv1a64:7f2840d98cdf6eb5",
+        "fnv1a64:aa08b586e3c99e81",
+        "fnv1a64:84d1e8c22f0eb776",
+        "fnv1a64:21c88300879152fc",
+        "fnv1a64:006c3da490ddf29c",
+        "fnv1a64:7c6a0aad971b4887",
+        "fnv1a64:7235cf2ec1c5694e",
+        "fnv1a64:d81a20dbd2e17af5",
+        "fnv1a64:6293581d6975898c"
+      ]
+    },
+    {
+      "seed": 69,
+      "metrics": {
+        "shots": 23,
+        "hits": 15,
+        "hitRate": 0.6521739130434783,
+        "damageDealt": 210,
+        "dps": 17.5,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 15,
+        "killsPerSecond": 1.25,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 15,
+            "damage": 210
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 287,
+          "drops": 0,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:f02f85409ac26043",
+        "fnv1a64:8038aef45f3c1188",
+        "fnv1a64:096c83efdd93c155",
+        "fnv1a64:3add0fa2ee6a7473",
+        "fnv1a64:37ef32405f4976fb",
+        "fnv1a64:73f746d63e1b0e11",
+        "fnv1a64:bc64eb58c6aca207",
+        "fnv1a64:67bd874aeee2f520",
+        "fnv1a64:9d4957f13f4d784e",
+        "fnv1a64:dfe54ed83944f105",
+        "fnv1a64:ddaff71c8d19951e"
+      ]
+    },
+    {
+      "seed": 70,
+      "metrics": {
+        "shots": 27,
+        "hits": 15,
+        "hitRate": 0.5555555555555556,
+        "damageDealt": 210,
+        "dps": 17.5,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 15,
+        "killsPerSecond": 1.25,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 15,
+            "damage": 210
+          }
+        },
+        "rngDraws": {
+          "combat": 56,
+          "spawn": 308,
+          "drops": 8,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:40d2ed5a9c64a9e9",
+        "fnv1a64:c4550998b0070c26",
+        "fnv1a64:a229e2be1ff1daa8",
+        "fnv1a64:3a4cc8d5c83a1801",
+        "fnv1a64:e74f1fdf69d86477",
+        "fnv1a64:7ff26c01fb2b171d",
+        "fnv1a64:f9f4dd586dd7cf8b",
+        "fnv1a64:b673144e8df68c48",
+        "fnv1a64:18ab211ce2bb7dd7",
+        "fnv1a64:e9fc790f50654cf2",
+        "fnv1a64:b72d3e4776c03540"
+      ]
+    },
+    {
+      "seed": 71,
+      "metrics": {
+        "shots": 25,
+        "hits": 14,
+        "hitRate": 0.56,
+        "damageDealt": 196,
+        "dps": 16.333333333333332,
+        "damageTaken": 39.837523162424006,
+        "damageTakenPerSecond": 3.319793596868667,
+        "survivalTime": 12,
+        "kills": 16,
+        "killsPerSecond": 1.3333333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 80.162476837576,
+        "byKind": {
+          "drone": {
+            "kills": 14,
+            "damage": 196
+          }
+        },
+        "rngDraws": {
+          "combat": 56,
+          "spawn": 293,
+          "drops": 4,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:4674952237a4fd1f",
+        "fnv1a64:cddfd527879fc39a",
+        "fnv1a64:eade27f8aba6d43d",
+        "fnv1a64:1531dbe34d2dbe17",
+        "fnv1a64:df41ae45d7f0670d",
+        "fnv1a64:d801db7903c56920",
+        "fnv1a64:a9c70e396d27dced",
+        "fnv1a64:7149ac3aae15ffa9",
+        "fnv1a64:ce18da5973fb6589",
+        "fnv1a64:cf816bf220cb5ad0",
+        "fnv1a64:7c26d0826c30fd69"
+      ]
+    },
+    {
+      "seed": 72,
+      "metrics": {
+        "shots": 24,
+        "hits": 9,
+        "hitRate": 0.375,
+        "damageDealt": 126,
+        "dps": 10.5,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 9,
+        "killsPerSecond": 0.75,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 9,
+            "damage": 126
+          }
+        },
+        "rngDraws": {
+          "combat": 54,
+          "spawn": 210,
+          "drops": 8,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:3baf755a3a23377f",
+        "fnv1a64:b043ac43ec1e97de",
+        "fnv1a64:fb86f7b2ec32dae9",
+        "fnv1a64:5bf91cc98bdc9cd2",
+        "fnv1a64:c511903896984e28",
+        "fnv1a64:0b076c49f5e79691",
+        "fnv1a64:0c77641b6d0b9ba9",
+        "fnv1a64:0233f1d0adaee266",
+        "fnv1a64:68685d83aa2b7b0b",
+        "fnv1a64:392894683a165b1a",
+        "fnv1a64:b32105b2a90da02f"
+      ]
+    },
+    {
+      "seed": 73,
+      "metrics": {
+        "shots": 23,
+        "hits": 11,
+        "hitRate": 0.4782608695652174,
+        "damageDealt": 154,
+        "dps": 12.833333333333334,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 11,
+        "killsPerSecond": 0.9166666666666666,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 11,
+            "damage": 154
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 245,
+          "drops": 4,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:266b3d28b77d95a2",
+        "fnv1a64:97e2009afa2df619",
+        "fnv1a64:0e718d34ede9379a",
+        "fnv1a64:50dede64682d9dee",
+        "fnv1a64:a636ee3b426e9904",
+        "fnv1a64:3824cd3687aeea61",
+        "fnv1a64:b07fa0b9d31132cc",
+        "fnv1a64:efc069fe97735cf0",
+        "fnv1a64:352164190b7a45ff",
+        "fnv1a64:87db8833b5ec92b0",
+        "fnv1a64:d3ec12bfe6557d68"
+      ]
+    },
+    {
+      "seed": 74,
+      "metrics": {
+        "shots": 23,
+        "hits": 12,
+        "hitRate": 0.5217391304347826,
+        "damageDealt": 168,
+        "dps": 14,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 12,
+        "killsPerSecond": 1,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 12,
+            "damage": 168
+          }
+        },
+        "rngDraws": {
+          "combat": 51,
+          "spawn": 243,
+          "drops": 8,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:e57fc7ebede4a033",
+        "fnv1a64:fbc3b3afcec86368",
+        "fnv1a64:6091361061e9b919",
+        "fnv1a64:bb432bfcc60eab37",
+        "fnv1a64:bb63d6a723889e04",
+        "fnv1a64:382d963a13176a22",
+        "fnv1a64:7edcfc217262b311",
+        "fnv1a64:907b15446679bf44",
+        "fnv1a64:c472b000951ed752",
+        "fnv1a64:adbbc3e77681d588",
+        "fnv1a64:ecc7deccde61fdd0"
+      ]
+    },
+    {
+      "seed": 75,
+      "metrics": {
+        "shots": 23,
+        "hits": 9,
+        "hitRate": 0.391304347826087,
+        "damageDealt": 126,
+        "dps": 10.5,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 9,
+        "killsPerSecond": 0.75,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 9,
+            "damage": 126
+          }
+        },
+        "rngDraws": {
+          "combat": 53,
+          "spawn": 202,
+          "drops": 0,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:bb6ef76706740a70",
+        "fnv1a64:b1f5d13664671622",
+        "fnv1a64:df4e1c401269bea1",
+        "fnv1a64:e9640be56a25860d",
+        "fnv1a64:d8c4d0723b03e195",
+        "fnv1a64:286b9d45bd29c731",
+        "fnv1a64:80798a8bf420e9bf",
+        "fnv1a64:7294a20b59bc5597",
+        "fnv1a64:e9bb1e9f6830e591",
+        "fnv1a64:08db3fc48a8e1422",
+        "fnv1a64:7eb9a69645c3f873"
+      ]
+    },
+    {
+      "seed": 76,
+      "metrics": {
+        "shots": 23,
+        "hits": 9,
+        "hitRate": 0.391304347826087,
+        "damageDealt": 126,
+        "dps": 10.5,
+        "damageTaken": 24,
+        "damageTakenPerSecond": 2,
+        "survivalTime": 12,
+        "kills": 9,
+        "killsPerSecond": 0.75,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 96,
+        "byKind": {
+          "drone": {
+            "kills": 9,
+            "damage": 126
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 204,
+          "drops": 0,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:3dd130a2fbd95e1d",
+        "fnv1a64:e529b3bd0d18861c",
+        "fnv1a64:ec4a3bdd34532276",
+        "fnv1a64:4873f003aff4f98c",
+        "fnv1a64:d121dbc518f379fb",
+        "fnv1a64:4e00036bff7f4627",
+        "fnv1a64:6514c390c0029150",
+        "fnv1a64:56719d3bff4e2b3a",
+        "fnv1a64:04c7f5f21fd3a1b0",
+        "fnv1a64:ee32f9a666656222",
+        "fnv1a64:4264f245939cc76b"
+      ]
+    },
+    {
+      "seed": 77,
+      "metrics": {
+        "shots": 27,
+        "hits": 15,
+        "hitRate": 0.5555555555555556,
+        "damageDealt": 210,
+        "dps": 17.5,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 15,
+        "killsPerSecond": 1.25,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 15,
+            "damage": 210
+          }
+        },
+        "rngDraws": {
+          "combat": 57,
+          "spawn": 286,
+          "drops": 4,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:bfabade5a5860d34",
+        "fnv1a64:6ffaadc9e9867ec0",
+        "fnv1a64:5e816f86764c7d35",
+        "fnv1a64:c558fefc251b8cf8",
+        "fnv1a64:7362de956d226a14",
+        "fnv1a64:27298f3cf08c5193",
+        "fnv1a64:1bb87ba53b501842",
+        "fnv1a64:034127929740f4c9",
+        "fnv1a64:d6baa6ed3b2a479d",
+        "fnv1a64:c6c2465bc5005774",
+        "fnv1a64:ee6540d06093b3c4"
+      ]
+    },
+    {
+      "seed": 78,
+      "metrics": {
+        "shots": 23,
+        "hits": 13,
+        "hitRate": 0.5652173913043478,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 243,
+          "drops": 4,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:1c28ffb3e16aec43",
+        "fnv1a64:430f13a6d7f3ebd6",
+        "fnv1a64:dcc3ea44cca07f54",
+        "fnv1a64:d33cc6499a7062e7",
+        "fnv1a64:685cc0c1ef0c54e0",
+        "fnv1a64:1c9425aabd88ed12",
+        "fnv1a64:2ea88c8400a35faf",
+        "fnv1a64:e9f498da9f40f1e6",
+        "fnv1a64:1d96445600a25556",
+        "fnv1a64:471d93ef7789cbf8",
+        "fnv1a64:4a2dc709e82a9304"
+      ]
+    },
+    {
+      "seed": 79,
+      "metrics": {
+        "shots": 23,
+        "hits": 14,
+        "hitRate": 0.6086956521739131,
+        "damageDealt": 196,
+        "dps": 16.333333333333332,
+        "damageTaken": 24,
+        "damageTakenPerSecond": 2,
+        "survivalTime": 12,
+        "kills": 14,
+        "killsPerSecond": 1.1666666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 96,
+        "byKind": {
+          "drone": {
+            "kills": 14,
+            "damage": 196
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 267,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:110777deda9aa00e",
+        "fnv1a64:554fcd755867b2a1",
+        "fnv1a64:579adf6aa107625d",
+        "fnv1a64:0932e0f499380519",
+        "fnv1a64:96d909bf0000f8f8",
+        "fnv1a64:d53866ce393dd881",
+        "fnv1a64:abd17af600858a78",
+        "fnv1a64:827e34061c423de9",
+        "fnv1a64:eeec982a2e5bc14d",
+        "fnv1a64:7191e6818abeafed",
+        "fnv1a64:7fb225b8e4b8d0ed"
+      ]
+    },
+    {
+      "seed": 80,
+      "metrics": {
+        "shots": 24,
+        "hits": 13,
+        "hitRate": 0.5416666666666666,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 56,
+          "spawn": 274,
+          "drops": 8,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:4c79626d62d22f3e",
+        "fnv1a64:9afd3430e996e5ca",
+        "fnv1a64:5f6c667fb3f0d1ab",
+        "fnv1a64:c0d8e754f9ee0062",
+        "fnv1a64:eb6e0286ecc7eb2b",
+        "fnv1a64:2d4264bfc23230c2",
+        "fnv1a64:de3d6affb2699751",
+        "fnv1a64:f20cac2f3a222a8d",
+        "fnv1a64:2a2e6793c6731b6e",
+        "fnv1a64:efa1879b4804ca2f",
+        "fnv1a64:96c172fc7c4f0a07"
+      ]
+    },
+    {
+      "seed": 81,
+      "metrics": {
+        "shots": 23,
+        "hits": 16,
+        "hitRate": 0.6956521739130435,
+        "damageDealt": 224,
+        "dps": 18.666666666666668,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 16,
+        "killsPerSecond": 1.3333333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 16,
+            "damage": 224
+          }
+        },
+        "rngDraws": {
+          "combat": 51,
+          "spawn": 323,
+          "drops": 0,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:803cbbaf8bf51b8d",
+        "fnv1a64:91a94f9e3d5852fb",
+        "fnv1a64:2918a977b53720a0",
+        "fnv1a64:1e23d9fa48c19132",
+        "fnv1a64:e951104784ba5933",
+        "fnv1a64:c1404dd2d2aa23d6",
+        "fnv1a64:542b0f2f0e54a2fa",
+        "fnv1a64:94b6ef443d428b72",
+        "fnv1a64:75fe8451cb6be60d",
+        "fnv1a64:c83933df27c7de99",
+        "fnv1a64:5faf9231b47df7a0"
+      ]
+    },
+    {
+      "seed": 82,
+      "metrics": {
+        "shots": 23,
+        "hits": 11,
+        "hitRate": 0.4782608695652174,
+        "damageDealt": 154,
+        "dps": 12.833333333333334,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 11,
+        "killsPerSecond": 0.9166666666666666,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 11,
+            "damage": 154
+          }
+        },
+        "rngDraws": {
+          "combat": 53,
+          "spawn": 231,
+          "drops": 0,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:59292f037614c8f2",
+        "fnv1a64:3c1fa51c1ee28515",
+        "fnv1a64:d93f4a4021bb9c14",
+        "fnv1a64:26ce839edaa4bd98",
+        "fnv1a64:54312cad1c76dea8",
+        "fnv1a64:912f2d91fa5b7627",
+        "fnv1a64:14722d205cd27aca",
+        "fnv1a64:206f5392020a0bd2",
+        "fnv1a64:dbd96c709edbf791",
+        "fnv1a64:90f2403b22333bd1",
+        "fnv1a64:536879b482efe893"
+      ]
+    },
+    {
+      "seed": 83,
+      "metrics": {
+        "shots": 23,
+        "hits": 12,
+        "hitRate": 0.5217391304347826,
+        "damageDealt": 168,
+        "dps": 14,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 12,
+        "killsPerSecond": 1,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 12,
+            "damage": 168
+          }
+        },
+        "rngDraws": {
+          "combat": 53,
+          "spawn": 256,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:cb6f0a80309ccc94",
+        "fnv1a64:e6ff236feb2aa81c",
+        "fnv1a64:1547da40abd766e2",
+        "fnv1a64:80513f876beb2c46",
+        "fnv1a64:0d33bdee4aa01d92",
+        "fnv1a64:31b4af6e24057663",
+        "fnv1a64:c36c6819fe338e0a",
+        "fnv1a64:1bed808fc31ca9a7",
+        "fnv1a64:be6938cc805e1a19",
+        "fnv1a64:cc733285080976c0",
+        "fnv1a64:125c12051873f88d"
+      ]
+    },
+    {
+      "seed": 84,
+      "metrics": {
+        "shots": 25,
+        "hits": 14,
+        "hitRate": 0.56,
+        "damageDealt": 196,
+        "dps": 16.333333333333332,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 14,
+        "killsPerSecond": 1.1666666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 14,
+            "damage": 196
+          }
+        },
+        "rngDraws": {
+          "combat": 55,
+          "spawn": 274,
+          "drops": 12,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:95ec47cfbba7572e",
+        "fnv1a64:5aee103d2a86474f",
+        "fnv1a64:5064960d29d5c383",
+        "fnv1a64:21f0db17cc1d2c55",
+        "fnv1a64:bfa61bb97a7c27e3",
+        "fnv1a64:5a652ba6b357dde1",
+        "fnv1a64:2718f587b983f8af",
+        "fnv1a64:29542cc65835a016",
+        "fnv1a64:7ab3f690802e3117",
+        "fnv1a64:bd06dc12394476cd",
+        "fnv1a64:cc896c5d9b693e5e"
+      ]
+    },
+    {
+      "seed": 85,
+      "metrics": {
+        "shots": 27,
+        "hits": 9,
+        "hitRate": 0.3333333333333333,
+        "damageDealt": 126,
+        "dps": 10.5,
+        "damageTaken": 7.613606846890575,
+        "damageTakenPerSecond": 0.6344672372408813,
+        "survivalTime": 12,
+        "kills": 10,
+        "killsPerSecond": 0.8333333333333334,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 112.38639315310942,
+        "byKind": {
+          "drone": {
+            "kills": 9,
+            "damage": 126
+          }
+        },
+        "rngDraws": {
+          "combat": 58,
+          "spawn": 239,
+          "drops": 4,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:8b89e462e7a4846e",
+        "fnv1a64:48dc0777a9d41739",
+        "fnv1a64:62cf8c9619d4f051",
+        "fnv1a64:a9f5da511553819a",
+        "fnv1a64:d97e02bbbf830dd6",
+        "fnv1a64:265da362659c32a2",
+        "fnv1a64:59029d17fc58b71c",
+        "fnv1a64:00760e061cc2f156",
+        "fnv1a64:e950c325886b433e",
+        "fnv1a64:f5e3c55681363c8e",
+        "fnv1a64:353054bd2cf051be"
+      ]
+    },
+    {
+      "seed": 86,
+      "metrics": {
+        "shots": 26,
+        "hits": 13,
+        "hitRate": 0.5,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 54,
+          "spawn": 269,
+          "drops": 8,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:63e8ef836a444576",
+        "fnv1a64:925448590d37ec22",
+        "fnv1a64:865e8a44766c7bdf",
+        "fnv1a64:4db503d5df3a3271",
+        "fnv1a64:2857612b50e8f5c8",
+        "fnv1a64:e865a3171f011f3a",
+        "fnv1a64:0be645a09a392a58",
+        "fnv1a64:b327925c4e5316b2",
+        "fnv1a64:39eed168f59b3c06",
+        "fnv1a64:16d596c43906a42d",
+        "fnv1a64:3ddb738559050872"
+      ]
+    },
+    {
+      "seed": 87,
+      "metrics": {
+        "shots": 24,
+        "hits": 10,
+        "hitRate": 0.4166666666666667,
+        "damageDealt": 140,
+        "dps": 11.666666666666666,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 10,
+        "killsPerSecond": 0.8333333333333334,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 10,
+            "damage": 140
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 217,
+          "drops": 4,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:55cdaef17af5086a",
+        "fnv1a64:940bab2fc0188b52",
+        "fnv1a64:30eccf819c3f20d4",
+        "fnv1a64:eefb2f8e9a41d965",
+        "fnv1a64:897e48656a212d46",
+        "fnv1a64:babd084e29d2d9a7",
+        "fnv1a64:0f6f72b8fca12a77",
+        "fnv1a64:4a79b16a87eac3e7",
+        "fnv1a64:f7885b9684da1e16",
+        "fnv1a64:ed567acbe96cceb4",
+        "fnv1a64:1ea4c2ed6188c954"
+      ]
+    },
+    {
+      "seed": 88,
+      "metrics": {
+        "shots": 23,
+        "hits": 11,
+        "hitRate": 0.4782608695652174,
+        "damageDealt": 154,
+        "dps": 12.833333333333334,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 11,
+        "killsPerSecond": 0.9166666666666666,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 11,
+            "damage": 154
+          }
+        },
+        "rngDraws": {
+          "combat": 50,
+          "spawn": 229,
+          "drops": 0,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:707df4915c805f75",
+        "fnv1a64:816cc6e1f5cc529a",
+        "fnv1a64:e7d80f1787e84385",
+        "fnv1a64:5c4e4f82bad2c9a3",
+        "fnv1a64:b37fda1ccd8189e7",
+        "fnv1a64:f992a2af63a23ecc",
+        "fnv1a64:f71bd081854217d5",
+        "fnv1a64:39b1066301c0a089",
+        "fnv1a64:ad357bb0d5fea063",
+        "fnv1a64:0ed86815253fc7c7",
+        "fnv1a64:003588f49382ba9f"
+      ]
+    },
+    {
+      "seed": 89,
+      "metrics": {
+        "shots": 23,
+        "hits": 9,
+        "hitRate": 0.391304347826087,
+        "damageDealt": 126,
+        "dps": 10.5,
+        "damageTaken": 11.807198474470077,
+        "damageTakenPerSecond": 0.9839332062058398,
+        "survivalTime": 12,
+        "kills": 10,
+        "killsPerSecond": 0.8333333333333334,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 108.19280152552992,
+        "byKind": {
+          "drone": {
+            "kills": 9,
+            "damage": 126
+          }
+        },
+        "rngDraws": {
+          "combat": 53,
+          "spawn": 241,
+          "drops": 0,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:118d39b5798f30f9",
+        "fnv1a64:68c895442677f4e3",
+        "fnv1a64:5141133dc0543581",
+        "fnv1a64:3daafc34ee839129",
+        "fnv1a64:72b9c34e352a6093",
+        "fnv1a64:668be4a993a2d634",
+        "fnv1a64:7ee4f2671f84c8cd",
+        "fnv1a64:474d4155dc4d85ce",
+        "fnv1a64:baf4c5948d1c5cdb",
+        "fnv1a64:eb1dc50dd442f436",
+        "fnv1a64:30467f1df70d5a87"
+      ]
+    },
+    {
+      "seed": 90,
+      "metrics": {
+        "shots": 23,
+        "hits": 8,
+        "hitRate": 0.34782608695652173,
+        "damageDealt": 112,
+        "dps": 9.333333333333334,
+        "damageTaken": 11.167801786946544,
+        "damageTakenPerSecond": 0.930650148912212,
+        "survivalTime": 12,
+        "kills": 9,
+        "killsPerSecond": 0.75,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 8,
+            "damage": 112
+          }
+        },
+        "rngDraws": {
+          "combat": 51,
+          "spawn": 215,
+          "drops": 4,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:11d3069be5addde8",
+        "fnv1a64:4e08e5ab9c7168dc",
+        "fnv1a64:da8cc67a4d2053a1",
+        "fnv1a64:9c857e78a7b6b761",
+        "fnv1a64:de6aa829235452ce",
+        "fnv1a64:e5e6f8ec7628804a",
+        "fnv1a64:ebd905c751c12cfa",
+        "fnv1a64:91b0617cafb3b2f7",
+        "fnv1a64:3af0a340e67cbe6d",
+        "fnv1a64:84ad651042c8fa60",
+        "fnv1a64:9fd78d5cb7333f55"
+      ]
+    },
+    {
+      "seed": 91,
+      "metrics": {
+        "shots": 23,
+        "hits": 11,
+        "hitRate": 0.4782608695652174,
+        "damageDealt": 154,
+        "dps": 12.833333333333334,
+        "damageTaken": 28.73586629046791,
+        "damageTakenPerSecond": 2.394655524205659,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 91.26413370953209,
+        "byKind": {
+          "drone": {
+            "kills": 11,
+            "damage": 154
+          }
+        },
+        "rngDraws": {
+          "combat": 53,
+          "spawn": 270,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:0fd60143b834b2ea",
+        "fnv1a64:67d158db25211b17",
+        "fnv1a64:b3f28f0cde94a312",
+        "fnv1a64:78f2c75ee2c283cd",
+        "fnv1a64:52a36a7c03ad1a40",
+        "fnv1a64:84ee3d7c7143bd7c",
+        "fnv1a64:7f9622e477e80cc1",
+        "fnv1a64:c794ced3aaa59b27",
+        "fnv1a64:230a3edc0d85f109",
+        "fnv1a64:d9528430171293b0",
+        "fnv1a64:841759f8ffe82199"
+      ]
+    },
+    {
+      "seed": 92,
+      "metrics": {
+        "shots": 27,
+        "hits": 15,
+        "hitRate": 0.5555555555555556,
+        "damageDealt": 210,
+        "dps": 17.5,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 15,
+        "killsPerSecond": 1.25,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 15,
+            "damage": 210
+          }
+        },
+        "rngDraws": {
+          "combat": 55,
+          "spawn": 282,
+          "drops": 4,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:2030327fb9163830",
+        "fnv1a64:e0e3bef2edc2c570",
+        "fnv1a64:6bee4ca816c21043",
+        "fnv1a64:93db02c4d8fb1cd3",
+        "fnv1a64:f8034075ed62abe0",
+        "fnv1a64:25f0d201bb59707a",
+        "fnv1a64:3665e3e6a3eb9820",
+        "fnv1a64:7d56bd7b84dbf9f5",
+        "fnv1a64:da3af718982bf0df",
+        "fnv1a64:03679cfd143942f1",
+        "fnv1a64:a867b6cded74dc4a"
+      ]
+    },
+    {
+      "seed": 93,
+      "metrics": {
+        "shots": 23,
+        "hits": 17,
+        "hitRate": 0.7391304347826086,
+        "damageDealt": 238,
+        "dps": 19.833333333333332,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 17,
+        "killsPerSecond": 1.4166666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 17,
+            "damage": 238
+          }
+        },
+        "rngDraws": {
+          "combat": 51,
+          "spawn": 311,
+          "drops": 0,
+          "fx": 14,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:95622c1b9b992693",
+        "fnv1a64:fcded6cea732ecf5",
+        "fnv1a64:87be4399f62c7c73",
+        "fnv1a64:ca4c8e76b37ed3d4",
+        "fnv1a64:40d8f190f31ff138",
+        "fnv1a64:c0f67ce5b35132b0",
+        "fnv1a64:46f180f7659eacf7",
+        "fnv1a64:29e8a485b8f26f26",
+        "fnv1a64:f1c3a099746711ce",
+        "fnv1a64:0d2c6213e8701380",
+        "fnv1a64:7521fe5654043472"
+      ]
+    },
+    {
+      "seed": 94,
+      "metrics": {
+        "shots": 23,
+        "hits": 13,
+        "hitRate": 0.5652173913043478,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 3,
+        "damageTakenPerSecond": 0.25,
+        "survivalTime": 12,
+        "kills": 14,
+        "killsPerSecond": 1.1666666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 117,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 52,
+          "spawn": 280,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:78cd4284129e3e2b",
+        "fnv1a64:39218e3a768dd9ab",
+        "fnv1a64:88c9163faf6076bc",
+        "fnv1a64:8962262c534cede4",
+        "fnv1a64:193e93d987ed496f",
+        "fnv1a64:b8c7ae61dd4f9b48",
+        "fnv1a64:c9cd52e5fb3d2eea",
+        "fnv1a64:7fcda40601fa8bcd",
+        "fnv1a64:599b023dda3eeb19",
+        "fnv1a64:69ccceb88fd5ecd3",
+        "fnv1a64:4285ed0498f706b0"
+      ]
+    },
+    {
+      "seed": 95,
+      "metrics": {
+        "shots": 23,
+        "hits": 13,
+        "hitRate": 0.5652173913043478,
+        "damageDealt": 182,
+        "dps": 15.166666666666666,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 13,
+            "damage": 182
+          }
+        },
+        "rngDraws": {
+          "combat": 48,
+          "spawn": 249,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:04c9f0e556ed6a1b",
+        "fnv1a64:044a917ce61685a2",
+        "fnv1a64:d56bf8a0164976d5",
+        "fnv1a64:1d57f18a343a3664",
+        "fnv1a64:f9cad2163d07b700",
+        "fnv1a64:b6123d9ccc0d0542",
+        "fnv1a64:7ff07ee83095e1fa",
+        "fnv1a64:db44fa7e154b8a80",
+        "fnv1a64:353990c57b13db0e",
+        "fnv1a64:b83344bb0c0005dd",
+        "fnv1a64:dffb4cb28085182e"
+      ]
+    },
+    {
+      "seed": 96,
+      "metrics": {
+        "shots": 23,
+        "hits": 12,
+        "hitRate": 0.5217391304347826,
+        "damageDealt": 168,
+        "dps": 14,
+        "damageTaken": 11.625546078955422,
+        "damageTakenPerSecond": 0.9687955065796184,
+        "survivalTime": 12,
+        "kills": 13,
+        "killsPerSecond": 1.0833333333333333,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 108.37445392104458,
+        "byKind": {
+          "drone": {
+            "kills": 12,
+            "damage": 168
+          }
+        },
+        "rngDraws": {
+          "combat": 52,
+          "spawn": 274,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:3b337cd7c6634392",
+        "fnv1a64:beeaf3d361a4c4bc",
+        "fnv1a64:87c643fcb98b2b65",
+        "fnv1a64:c443549bdb0a2978",
+        "fnv1a64:b39a3e6b718247ea",
+        "fnv1a64:5ecb7e675cd42486",
+        "fnv1a64:04bb133cc21b478d",
+        "fnv1a64:ebaa6c18720f7f4b",
+        "fnv1a64:9d981098df0bcc4e",
+        "fnv1a64:dc41965a6bab43fc",
+        "fnv1a64:3e1251e1450d0a65"
+      ]
+    },
+    {
+      "seed": 97,
+      "metrics": {
+        "shots": 23,
+        "hits": 10,
+        "hitRate": 0.43478260869565216,
+        "damageDealt": 140,
+        "dps": 11.666666666666666,
+        "damageTaken": 24,
+        "damageTakenPerSecond": 2,
+        "survivalTime": 12,
+        "kills": 11,
+        "killsPerSecond": 0.9166666666666666,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 96,
+        "byKind": {
+          "drone": {
+            "kills": 10,
+            "damage": 140
+          }
+        },
+        "rngDraws": {
+          "combat": 51,
+          "spawn": 243,
+          "drops": 4,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:d2a698326dc34510",
+        "fnv1a64:745487acea4b9400",
+        "fnv1a64:a1bb8d0f314062fd",
+        "fnv1a64:148b446c1c174b62",
+        "fnv1a64:ce0e7c0eae027aa4",
+        "fnv1a64:fa41e39a69597009",
+        "fnv1a64:4ea12007038b4ad5",
+        "fnv1a64:8eb3b379944b0f94",
+        "fnv1a64:8c84a25ff33119be",
+        "fnv1a64:974265cfa4921721",
+        "fnv1a64:f17701f9dedb2c65"
+      ]
+    },
+    {
+      "seed": 98,
+      "metrics": {
+        "shots": 23,
+        "hits": 10,
+        "hitRate": 0.43478260869565216,
+        "damageDealt": 140,
+        "dps": 11.666666666666666,
+        "damageTaken": 12.91030715629125,
+        "damageTakenPerSecond": 1.0758589296909375,
+        "survivalTime": 12,
+        "kills": 12,
+        "killsPerSecond": 1,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 107.08969284370875,
+        "byKind": {
+          "drone": {
+            "kills": 10,
+            "damage": 140
+          }
+        },
+        "rngDraws": {
+          "combat": 51,
+          "spawn": 286,
+          "drops": 0,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:ccf839099b7c0960",
+        "fnv1a64:4b95f89f662cca16",
+        "fnv1a64:925aa583835184a4",
+        "fnv1a64:4c9c225a29a83642",
+        "fnv1a64:4f4029e6fae240ad",
+        "fnv1a64:e374d9b8857fddad",
+        "fnv1a64:42cb65aa25b1324d",
+        "fnv1a64:a0d72b860c0ffe1e",
+        "fnv1a64:30c75c4a339f73a9",
+        "fnv1a64:46df83c0d28e420a",
+        "fnv1a64:bf1a0fcf268370a6"
+      ]
+    },
+    {
+      "seed": 99,
+      "metrics": {
+        "shots": 23,
+        "hits": 14,
+        "hitRate": 0.6086956521739131,
+        "damageDealt": 196,
+        "dps": 16.333333333333332,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 14,
+        "killsPerSecond": 1.1666666666666667,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 14,
+            "damage": 196
+          }
+        },
+        "rngDraws": {
+          "combat": 49,
+          "spawn": 274,
+          "drops": 8,
+          "fx": 12,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:fe591a168dbd409f",
+        "fnv1a64:0aede3b00ab0b14d",
+        "fnv1a64:b8d6c4c6092f6e38",
+        "fnv1a64:295c815f333f337e",
+        "fnv1a64:f39d74c506bd69b4",
+        "fnv1a64:df234bbb35ce11da",
+        "fnv1a64:589453c73b1a5bf7",
+        "fnv1a64:255011c83649012f",
+        "fnv1a64:592641f8fd130913",
+        "fnv1a64:24d02388c07ea027",
+        "fnv1a64:aaee3443ca8d5c6d"
+      ]
+    },
+    {
+      "seed": 100,
+      "metrics": {
+        "shots": 23,
+        "hits": 9,
+        "hitRate": 0.391304347826087,
+        "damageDealt": 126,
+        "dps": 10.5,
+        "damageTaken": 0,
+        "damageTakenPerSecond": 0,
+        "survivalTime": 12,
+        "kills": 9,
+        "killsPerSecond": 0.75,
+        "graze": 0,
+        "zoneViolations": 0,
+        "abilityUses": 0,
+        "finalHp": 120,
+        "byKind": {
+          "drone": {
+            "kills": 9,
+            "damage": 126
+          }
+        },
+        "rngDraws": {
+          "combat": 49,
+          "spawn": 202,
+          "drops": 0,
+          "fx": 10,
+          "agent": 180
+        }
+      },
+      "snapshotHashes": [
+        "fnv1a64:921879dc2b925867",
+        "fnv1a64:527f2b2613285be5",
+        "fnv1a64:08c31ea076b5d62d",
+        "fnv1a64:aafbc3a44bff9559",
+        "fnv1a64:abb4a35b188e1dca",
+        "fnv1a64:0fbebf04a2e18fb0",
+        "fnv1a64:599fc881613e2309",
+        "fnv1a64:6f9ddfa6e366f6fb",
+        "fnv1a64:142807ef4b0246b0",
+        "fnv1a64:9aafc465ec64aa2c",
+        "fnv1a64:8077e759aacab985",
+        "fnv1a64:c74c4f1bf303b90c"
+      ]
+    }
+  ]
+}

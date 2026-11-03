@@ -200,7 +200,8 @@ export class LaserWeapon implements Weapon {
         maxFlightTime: 0.85,
       },
       this.getHitChance(ctx),
-      target.radius.r
+      target.radius.r,
+      ctx.rng,
     );
 
     const dx = Math.cos(angle);
@@ -230,7 +231,7 @@ export class LaserWeapon implements Weapon {
       y2: muzzleY + dy * hitDist,
       life: LASER_BEAM_LIFE,
       maxLife: LASER_BEAM_LIFE,
-      seed: Math.random() * 100,
+      seed: ctx.rngFx.next() * 100,
       // Не занята ли цель, видно по живым лучам: своя цель — «занята».
       targetId: target.marker.ecsId ?? null,
     });

@@ -270,13 +270,13 @@ export class DroneSwarm {
           Math.hypot(a.position.x - context.playerX, a.position.y - context.playerY) -
           Math.hypot(b.position.x - context.playerX, b.position.y - context.playerY),
       );
-      const count = Math.random() < 0.3 ? 2 : 1;
+      const count = context.rng.next() < 0.3 ? 2 : 1;
       for (let i = 0; i < count && i < ready.length; i++) {
         const drone = ready[i];
         drone.marker.swarmState = "detached";
         drone.marker.detachT = DETACH_TIME;
       }
-      group.cooldown = DETACH_COOLDOWN_MIN + Math.random() * (DETACH_COOLDOWN_MAX - DETACH_COOLDOWN_MIN);
+      group.cooldown = context.rng.range(DETACH_COOLDOWN_MIN, DETACH_COOLDOWN_MAX);
     }
   }
 

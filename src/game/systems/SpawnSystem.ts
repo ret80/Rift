@@ -78,12 +78,13 @@ export class SpawnSystem extends PhasedSystem {
   constructor(config: {
     riftField: RiftField;
     getDeps: SpawnDepsSource;
-    random?: RandomSource;
+    /** Seeded поток спавна; глобальная случайность недопустима. */
+    random: RandomSource;
   }) {
     super(Phase.Spawn);
     this.riftField = config.riftField;
     this.getDeps = config.getDeps;
-    this.random = config.random ?? Math.random;
+    this.random = config.random;
   }
 
   /** Тик спавна внутри engine.run(dt). */

@@ -10,6 +10,18 @@ import { AbstractEntity } from "@trixt0r/ecs";
 
 let nextId = 1;
 
+/**
+ * Сбросить счётчик id сущностей.
+ *
+ * Вызывается композиционным корнем при создании мира: иначе два прогона
+ * получают разные id (счётчик общий на модуль), и снимки расходятся там,
+ * где в самой игре всё одинаково. На геймплей id не влияет — только на
+ * идентичность сущностей внутри одного мира.
+ */
+export function resetGameEntityIds(): void {
+  nextId = 1;
+}
+
 export class GameEntity extends AbstractEntity {
   constructor() {
     super(`game-${nextId++}`);

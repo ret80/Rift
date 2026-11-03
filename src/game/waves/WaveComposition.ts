@@ -35,7 +35,7 @@ export function zoneRadius(wave: number): number {
 }
 
 /** Количество стартовых разломов на волне. */
-export function riftCountFor(wave: number, random: RandomSource = Math.random): number {
+export function riftCountFor(wave: number, random: RandomSource): number {
   if (wave === 1) return 2;
   if (wave < 6) return 3;
   if (wave < 12) return 4;
@@ -63,7 +63,7 @@ export function buildWaveQueue(
   count: number,
   wave: number,
   enabledEnemies: EnemyKind[] | null,
-  random: RandomSource = Math.random,
+  random: RandomSource,
 ): EnemyKind[] {
   const queue: EnemyKind[] = [];
   for (let i = 0; i < count; i++) {

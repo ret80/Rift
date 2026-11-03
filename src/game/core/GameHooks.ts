@@ -1,7 +1,7 @@
 /**
  * GameHooks — контракт публичного интерфейса Game с React-UI.
  * Хуки прокидываются из App.tsx в Game без изменений; внутренние
- * слои (GameListeners, GameRender, GameStart) пишут в них данные.
+ * слои (GameWorld, GameRender, GameStart) пишут в них данные.
  */
 
 import type { BannerData, CountData, HudData, StatsData, ToastData } from "../types/ui";

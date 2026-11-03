@@ -1,9 +1,9 @@
 /**
- * GameFrame — кадровый цикл: игровые системы и презентация.
+ * GameFrame — кадровый цикл браузера: меню/пауза, смерть, мир и презентация.
  *
- * Здесь остаётся только последовательность фаз: debug-ввод, меню/пауза,
- * таймер смерти, engine.run(dt), обновление и отрисовка презентации.
- * Порядок систем задан SystemSchedule, размеры вьюпорта — GameContext.
+ * Здесь остаётся только последовательность фаз: debug-ввод, меню, пауза,
+ * таймер смерти, фиксированные тики мира через `SimulationClock`, обновление
+ * и отрисовка презентации. Мир (`GameWorld`) не знает о кадре и rAF.
  */
 
 import type { GameContext } from "./GameContext";
@@ -31,13 +31,12 @@ export class GameFrame {
       return;
     }
 
-    // Смерть и анимация обрабатываются до engine.run: в dying/over
-    // игровые системы не тикают, чтобы не оставлять «сиротские» пули.
+    // Смерть и анимация обрабатываются до тиков мира: в dying/over игровые
+    // системы не тикают, чтобы не оставлять «сиротские» пули.
     this.presentation.updateDeath(dt);
-    if (!ctx.fsm.is("dying", "over")) {
-      if (ctx.fsm.is("playing", "active")) ctx.updateSurvivalStipend(dt);
-      ctx.ecs.update(dt);
-    }
+
+    ctx.updateWorldView();
+    ctx.clock.advance(dt, (fixedDt) => ctx.world.tick(fixedDt));
 
     this.presentation.update(dt);
     this.presentation.render(dt);

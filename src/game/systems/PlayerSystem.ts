@@ -18,8 +18,8 @@
 import { Aspect, type Engine } from "@trixt0r/ecs";
 import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import type { EventBus } from '../core/EventBus';
-import type { Fx } from '../fx';
-import type { InputManager } from '../input';
+import type { PlayerControls } from '../core/PlayerControls';
+import type { FxPort } from '../core/WorldPorts';
 import type { ShieldSystem } from './ShieldSystem';
 import { updateMovement } from './PlayerMovement';
 import type { PlayerRef } from '../ecs';
@@ -36,8 +36,9 @@ export type PlayerRefSource = () => PlayerRef | null;
 export class PlayerSystem extends PhasedSystem {
   private aspect: Aspect | null = null;
   private eventBus: EventBus;
-  private input: InputManager;
-  private fx: Fx;
+  /** Порт управления: человек или агент — системе всё равно. */
+  private controls: PlayerControls;
+  private fx: FxPort;
   /** Постоянный множитель скорости из апгрейдов. */
   private speedMult = 1;
   /** Энергетический щит: блокирует часть урона. */
@@ -51,14 +52,14 @@ export class PlayerSystem extends PhasedSystem {
 
   constructor(
     eventBus: EventBus,
-    input: InputManager,
-    fx: Fx,
+    controls: PlayerControls,
+    fx: FxPort,
     playerRefSource: PlayerRefSource,
     private readonly getIntegrate: PlayerIntegrateSource,
   ) {
     super(Phase.Player);
     this.eventBus = eventBus;
-    this.input = input;
+    this.controls = controls;
     this.fx = fx;
     this.playerRefSource = playerRefSource;
 
@@ -89,8 +90,8 @@ export class PlayerSystem extends PhasedSystem {
     if (!ref) return;
     const { position, velocity, marker } = ref;
 
-    // Движение из оси ввода.
-    const mv = this.input.axis;
+    // Движение из оси порта управления.
+    const mv = this.controls.axis;
     const ax = mv.x;
     const ay = mv.y;
 
@@ -238,9 +239,4 @@ export class PlayerSystem extends PhasedSystem {
     ref.life.remaining = Math.min(ref.life.max, ref.life.remaining + amount);
   }
 
-  // ---- Input delegation ----
-
-  setTouch(active: boolean, x: number, y: number): void {
-    this.input.setTouch(active, x, y);
-  }
 }

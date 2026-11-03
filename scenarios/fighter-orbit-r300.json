@@ -1,0 +1,19 @@
+{
+  "name": "fighter-orbit-r300",
+  "seed": { "master": 12345 },
+  "tickRate": 60,
+  "duration": 30,
+  "physics": "custom",
+  "startWave": 10,
+  "viewport": { "width": 1920, "height": 1080 },
+  "player": {
+    "agent": "orbit",
+    "radius": 300,
+    "direction": 1,
+    "reactionTime": 0.15,
+    "aimJitter": 0.02
+  },
+  "enemies": [{ "kind": "fighter", "count": 1 }],
+  "upgrades": { "speed": 0, "fireRate": 0 },
+  "metrics": ["shots", "hits", "dps", "survivalTime", "graze", "zoneViolations"]
+}

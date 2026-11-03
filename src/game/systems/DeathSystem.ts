@@ -3,10 +3,10 @@
  * Отвечает за: таймер смерти, взрыв частиц, переход dying → over.
  */
 
-import type { AudioManager } from "./AudioManager";
+import type { AudioPort } from "../core/WorldPorts";
 import type { ScoringSystem } from "./ScoringSystem";
 import type { EcsWorld } from "../ecs";
-import type { Fx } from "../fx";
+import type { FxPort } from "../core/WorldPorts";
 import {
   DEATH_ANIMATION_DURATION,
   DEATH_EXPLOSION_PARTICLES,
@@ -15,6 +15,7 @@ import {
   DEATH_EXPLOSION_MIN_LIFE,
   DEATH_EXPLOSION_MAX_LIFE,
 } from "../balance";
+import type { Rng } from "../core/rng";
 import type { RGBA } from "../render/index";
 
 export interface DeathSystemHooks {
@@ -27,11 +28,13 @@ export class DeathSystem {
 
   constructor(
     private readonly getPlayerPosition: () => { x: number; y: number },
-    private readonly fx: Fx,
-    private readonly audio: AudioManager,
+    private readonly fx: FxPort,
+    private readonly audio: AudioPort,
     private readonly ecs: EcsWorld,
     private readonly scoringSystem: ScoringSystem,
     private readonly hooks: DeathSystemHooks,
+    /** Визуальный поток: разлёт и цвета взрыва (не влияет на геймплей). */
+    private readonly rng: Rng,
     private readonly isTestMode: () => boolean = () => false,
   ) {}
 
@@ -44,17 +47,17 @@ export class DeathSystem {
     // Spawn death explosion particles
     const pos = this.getPlayerPosition();
     for (let i = 0; i < DEATH_EXPLOSION_PARTICLES; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = DEATH_EXPLOSION_MIN_SPEED + Math.random() * (DEATH_EXPLOSION_MAX_SPEED - DEATH_EXPLOSION_MIN_SPEED);
+      const angle = this.rng.range(0, Math.PI * 2);
+      const speed = this.rng.range(DEATH_EXPLOSION_MIN_SPEED, DEATH_EXPLOSION_MAX_SPEED);
       this.fx.emit({
         x: pos.x,
         y: pos.y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
-        life: DEATH_EXPLOSION_MIN_LIFE + Math.random() * (DEATH_EXPLOSION_MAX_LIFE - DEATH_EXPLOSION_MIN_LIFE),
+        life: this.rng.range(DEATH_EXPLOSION_MIN_LIFE, DEATH_EXPLOSION_MAX_LIFE),
         maxLife: DEATH_EXPLOSION_MAX_LIFE,
-        c: (Math.random() > 0.5 ? [1, 0.3, 0.1, 1] : [1, 0.8, 0.2, 1]) as RGBA,
-        size: 1 + Math.random() * 3,
+        c: (this.rng.next() > 0.5 ? [1, 0.3, 0.1, 1] : [1, 0.8, 0.2, 1]) as RGBA,
+        size: 1 + this.rng.next() * 3,
       });
     }
     this.audio.playExplosion();

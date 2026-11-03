@@ -6,6 +6,7 @@
 
 import { dropChanceFor, type PickupKind } from "../balance";
 import type { EventBus } from "../core/EventBus";
+import type { Rng } from "../core/rng";
 
 /* Pseudo-random multiplier constants (seed-based drop determination) */
 const PSEUDO_RNG_A = 7.31;
@@ -30,7 +31,12 @@ export class PickupDropSystem {
   private hooks: PickupDropHooks;
   private enabledPickups: PickupKind[] | null = null;
 
-  constructor(eventBus: EventBus, hooks: PickupDropHooks) {
+  constructor(
+    eventBus: EventBus,
+    hooks: PickupDropHooks,
+    /** Поток дропов: только разлёт и позиция выпавшего пикапа. */
+    private readonly rng: Rng,
+  ) {
     this.eventBus = eventBus;
     this.hooks = hooks;
     this.eventBus.subscribe("enemy_killed", (event) => {
@@ -117,13 +123,13 @@ export class PickupDropSystem {
     const kind = this.generateDrop(enemy.kind, enemy.seed);
     if (!kind) return;
 
-    const vx = (Math.random() - 0.5) * 30;
-    const vy = (Math.random() - 0.5) * 30;
+    const vx = (this.rng.next() - 0.5) * 30;
+    const vy = (this.rng.next() - 0.5) * 30;
 
     this.hooks.spawnPickup(
       kind,
-      enemy.x + (Math.random() - 0.5) * 10,
-      enemy.y + (Math.random() - 0.5) * 10,
+      enemy.x + (this.rng.next() - 0.5) * 10,
+      enemy.y + (this.rng.next() - 0.5) * 10,
       vx,
       vy
     );

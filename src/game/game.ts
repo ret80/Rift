@@ -3,7 +3,7 @@
  *
  * Вся композиция систем, кадровый цикл, старт забега и работа с
  * апгрейдами вынесены в core/GameContext и его слои (GameFrame,
- * GameRender, GameStart, GameListeners, GameUpgrades). Здесь остаётся
+ * GameRender, GameStart, GameWorld, GameUpgrades). Здесь остаётся
  * публичный фасад для React-UI и делегирование вызовов.
  */
 

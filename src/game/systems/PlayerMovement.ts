@@ -4,10 +4,9 @@
  * PlayerComponent (angle/thrusting), без отдельного DTO-объекта.
  */
 
-import { PLAYER_MAX_SPEED } from '../balance';
-import type { Fx } from '../fx';
+import { PLAYER_ACCEL, PLAYER_FRICTION_EXP, PLAYER_MAX_SPEED } from '../balance';
+import type { FxPort } from '../core/WorldPorts';
 import { TAU, lerpAngle as lerpAngleMath } from '../math';
-import { FRICTION_EXP, PLAYER_ACCELERATION } from './PlayerState';
 import type { PositionComponent } from '../ecs/components/PositionComponent';
 import type { VelocityComponent } from '../ecs/components/VelocityComponent';
 import type { PlayerComponent } from '../ecs/components/PlayerComponent';
@@ -35,7 +34,7 @@ export function updateMovement(
   dt: number,
   ax: number,
   ay: number,
-  _fx: Fx,
+  _fx: FxPort,
   isThrusting: boolean,
   speedMult: number = 1,
   integratePosition: boolean = true,
@@ -48,14 +47,14 @@ export function updateMovement(
       const norm = l > 1 ? l : 1;
       ax /= norm;
       ay /= norm;
-      const accel = PLAYER_ACCELERATION * speedMult;
+      const accel = PLAYER_ACCEL * speedMult;
       velocity.vx += ax * accel * dt;
       velocity.vy += ay * accel * dt;
     }
   }
 
   // Friction
-  const fr = Math.exp(-FRICTION_EXP * dt);
+  const fr = Math.exp(-PLAYER_FRICTION_EXP * dt);
   velocity.vx *= fr;
   velocity.vy *= fr;
 

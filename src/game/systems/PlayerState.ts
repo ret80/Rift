@@ -11,8 +11,7 @@ import { massForRadius, PLAYER_RADIUS } from '../balance';
 
 /* ============================== constants ============================== */
 
-export const PLAYER_ACCELERATION = 1500;
-export const FRICTION_EXP = 2.4;
+// PLAYER_ACCEL и PLAYER_FRICTION_EXP живут в balance/player.ts — один источник правды.
 
 /* ============================== interface ============================== */
 

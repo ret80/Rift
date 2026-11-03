@@ -28,7 +28,7 @@ export type {
   PlayerRef,
   EnemyRef,
 } from "./refs";
-export { GameEntity } from "./GameEntity";
+export { GameEntity, resetGameEntityIds } from "./GameEntity";
 
 // Базовые компоненты-данные и механика EntityRef.
 export { PositionComponent } from "./components/PositionComponent";

@@ -15,7 +15,7 @@
 import type { LoadoutSlotMeta } from "../loadout/LoadoutTypes";
 import type { EnemyRef } from "../ecs";
 import type { EnemyDamagePort } from "../ecs/EnemyLifecycle";
-import type { Fx } from "../fx";
+import type { FxPort } from "../core/WorldPorts";
 
 /** Идентификаторы активных способностей. */
 export type AbilityId = "quantum_swap";
@@ -33,7 +33,7 @@ export interface AbilityContext extends EnemyDamagePort {
   /** Переместить корабль в точку (со сбросом скорости). */
   movePlayerTo(x: number, y: number): void;
   /** Система эффектов — искры, вспышки. */
-  fx: Fx;
+  fx: FxPort;
 }
 
 /** Снимок слота способности для строки снаряжения. */

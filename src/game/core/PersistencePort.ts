@@ -9,26 +9,42 @@ export interface PersistencePort {
   remove(key: string): void;
 }
 
-/** Реализация поверх localStorage (браузер). */
+/**
+ * Реализация поверх localStorage (браузер).
+ *
+ * Доступ идёт через `window.localStorage`: в Node/DOM-free среде `window`
+ * отсутствует, и глобальный `localStorage` (в Node он экспериментальный)
+ * не трогается вообще — иначе headless-прогон получает предупреждение
+ * рантайма на импорте.
+ */
 export function createLocalStoragePort(): PersistencePort {
+  const storage = (): Storage | null => {
+    if (typeof window === "undefined") return null;
+    try {
+      return window.localStorage ?? null;
+    } catch {
+      return null;
+    }
+  };
+
   return {
     get: (key) => {
       try {
-        return localStorage.getItem(key);
+        return storage()?.getItem(key) ?? null;
       } catch {
         return null;
       }
     },
     set: (key, value) => {
       try {
-        localStorage.setItem(key, value);
+        storage()?.setItem(key, value);
       } catch {
         /* приватный режим/переполнение — молча */
       }
     },
     remove: (key) => {
       try {
-        localStorage.removeItem(key);
+        storage()?.removeItem(key);
       } catch {
         /* приватный режим/переполнение — молча */
       }

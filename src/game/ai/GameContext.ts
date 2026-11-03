@@ -3,6 +3,7 @@
  * Содержит только те данные, которые реально используются стратегиями.
  */
 
+import type { Rng } from '../core/rng';
 import type { EnemyRef } from '../ecs';
 import type { DroneSwarm } from './DroneSwarm';
 
@@ -46,6 +47,12 @@ export class GameContext {
 
   /** Координатор групп дронов (присваивается из EnemySystem). */
   public swarm: DroneSwarm | null = null;
+
+  /**
+   * Боевой поток случайности (присваивается из EnemySystem перед AI pass).
+   * Стратегии не должны брать `Math.random`: только этот поток.
+   */
+  public rng!: Rng;
 
   /** Выходной буфер CarrierStrategy — спавн дронов. */
   public carrierSpawns: Array<{ x: number; y: number }> = [];

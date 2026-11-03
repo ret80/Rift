@@ -143,7 +143,8 @@ export class CannonWeapon implements Weapon {
         maxFlightTime: CANNON_LEAD_TIME,
       },
       this.getHitChance(ctx),
-      target.radius.r
+      target.radius.r,
+      ctx.rng,
     );
   }
 
@@ -158,7 +159,7 @@ export class CannonWeapon implements Weapon {
     const spread = ctx.aim.target ? 0 : CANNON_MANUAL_SPREAD;
 
     for (let i = 0; i < barrels; i++) {
-      const barrelAngle = turret + (Math.random() - 0.5) * 2 * spread;
+      const barrelAngle = turret + (ctx.rng.next() - 0.5) * 2 * spread;
       const offset = CANNON_BARREL_OFFSETS[i] ?? 0;
       ctx.addBullet({
         x: ctx.player.x + Math.cos(turret) * 14 - Math.sin(turret) * offset,

@@ -70,7 +70,7 @@ export class CarrierStrategy implements IEnemyStrategy {
     this.strafeTimer -= dt;
     if (this.strafeTimer <= 0) {
       marker.strafeDir = -marker.strafeDir;
-      this.strafeTimer = CARRIER_STRAFE_CHANGE_INTERVAL + Math.random() * 2;
+      this.strafeTimer = CARRIER_STRAFE_CHANGE_INTERVAL + context.rng.range(0, 2);
     }
 
     // Удержание позиции — стрейф, с учётом радиуса зоны.
@@ -103,7 +103,7 @@ export class CarrierStrategy implements IEnemyStrategy {
       // Если живых дронов >= лимита — не спавним, переходим к ожиданию
       if (this.liveDroneCount >= CARRIER_MIN_LIVE_DRONES) {
         marker.droneState = 'waiting';
-        marker.waitTimer = Math.random() * (8 - 5) + 5;
+        marker.waitTimer = context.rng.range(5, 8);
         return;
       }
 
@@ -115,7 +115,7 @@ export class CarrierStrategy implements IEnemyStrategy {
 
       // Спавним дрона, если ещё не все выпущены
       if (marker.orbitTimer <= 0 && marker.carrierChildren < maxDrones) {
-        const angle = Math.random() * Math.PI * 2;
+        const angle = context.rng.range(0, Math.PI * 2);
         const offset = enemy.radius.r + CARRIER_DRONE_ORBIT_GAP;
         context.carrierSpawns.push({
           x: pos.x + Math.cos(angle) * offset,
@@ -127,7 +127,7 @@ export class CarrierStrategy implements IEnemyStrategy {
 
       // Когда все 10 дронов спавнены — переходим к ОЖИДАНИЮ
       if (marker.carrierChildren >= maxDrones) {
-        marker.waitTimer = Math.random() * (8 - 5) + 5;
+        marker.waitTimer = context.rng.range(5, 8);
         marker.droneState = 'waiting';
       }
     }

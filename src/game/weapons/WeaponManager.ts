@@ -13,6 +13,7 @@
 import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import { PLAYER_AIM_BASE_CHANCE } from "../balance";
 import { weaponDamageMult, weaponReloadMult, weaponHitChance } from "../upgrades";
+import type { Rng } from "../core/rng";
 import type { LoadoutSlotData } from "../loadout/LoadoutTypes";
 import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
 import type { BeamSpawn, BulletSpawn } from "../ecs/spawn";
@@ -79,6 +80,10 @@ export class WeaponManager extends PhasedSystem {
   constructor(
     world: WeaponWorld,
     onWeaponFired: (id: WeaponId) => void,
+    /** Боевой поток случайности (разброс стволов). */
+    private readonly rng: Rng,
+    /** Визуальный поток (seed'ы лучей). */
+    private readonly rngFx: Rng,
     targetRange: number = DEFAULT_TARGET_RANGE
   ) {
     super(Phase.Weapons);
@@ -214,6 +219,8 @@ export class WeaponManager extends PhasedSystem {
       addBeam: (beam) => this.world.addBeam?.(beam),
       onFired: (id) => this.onWeaponFired(id),
       damageEnemy: (enemy, dmg) => this.world.damageEnemy(enemy, dmg),
+      rng: this.rng,
+      rngFx: this.rngFx,
     };
   }
 }

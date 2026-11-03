@@ -17,10 +17,7 @@ import type { EnemyRef } from "../ecs";
 import type { EnemyDamagePort } from "../ecs/EnemyLifecycle";
 import type { AbilityContext, AbilityId } from "./Ability";
 import { createAbilityRegistry, type AbilityRegistryData } from "./AbilityRegistry";
-import type { InputManager } from "../input";
-
-/** Клавиша активации способности. */
-const ABILITY_KEY = "Space";
+import type { PlayerControls } from "../core/PlayerControls";
 
 /** Провайдеры живых данных игрового мира для способностей. */
 export interface AbilityWorld extends EnemyDamagePort {
@@ -36,19 +33,24 @@ export interface AbilityWorld extends EnemyDamagePort {
 export class AbilitySystem extends PhasedSystem {
   private abilities: AbilityRegistryData;
   private world: AbilityWorld;
-  private input: InputManager;
+  /** Порт управления: клавиша Space или намерение агента. */
+  private controls: PlayerControls;
   /** Источник эффектов — передаётся способности в контекст активации. */
   private fx: AbilityContext["fx"];
+  /** Колбэк успешной активации (метрики/звук). */
+  private activationHook: ((id: AbilityId) => void) | null;
 
   constructor(
-    input: InputManager,
+    controls: PlayerControls,
     world: AbilityWorld,
-    fx: AbilityContext["fx"]
+    fx: AbilityContext["fx"],
+    onActivated?: (id: AbilityId) => void,
   ) {
     super(Phase.Upkeep);
-    this.input = input;
+    this.controls = controls;
     this.world = world;
     this.fx = fx;
+    this.activationHook = onActivated ?? null;
     this.abilities = createAbilityRegistry();
   }
 
@@ -58,9 +60,12 @@ export class AbilitySystem extends PhasedSystem {
       ability.update(dt);
     }
 
-    if (!this.input.consumePress(ABILITY_KEY)) return;
+    if (!this.controls.consumeAbility()) return;
     for (const ability of Object.values(this.abilities)) {
-      if (ability.isAvailable() && ability.activate(this.buildContext())) break;
+      if (ability.isAvailable() && ability.activate(this.buildContext())) {
+        this.activationHook?.(ability.id);
+        break;
+      }
     }
   }
 

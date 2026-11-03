@@ -58,6 +58,8 @@ export const CRUISER_BASE_SPEED = PLAYER_MAX_SPEED * 0.5;
 export const CARRIER_BASE_SPEED = PLAYER_MAX_SPEED * 0.3;
 /** Thrust applied per second while the player holds a direction. */
 export const PLAYER_ACCEL = 1500;
+/** Показатель экспоненциального трения скорости игрока, 1/с. */
+export const PLAYER_FRICTION_EXP = 2.4;
 /** Zone expansion multiplier × текущая максимальная скорость игрока — игрок не может её догнать. */
 export const ZONE_EXPAND_SPEED_MULT = 1.3;
 
@@ -125,6 +127,11 @@ export function shieldRegenPerSecond(level: number): number {
 export const PLAYER_HITBOX_RADIUS = 16;
 /** Допуск вражеского снаряда до внешней границы хитбокса. */
 export const PLAYER_BULLET_HIT_OFFSET = 12;
+/**
+ * Внешний радиус поражения игрока — угловой размер цели для вражеских орудий
+ * и AI-тарана. Одна константа для всех стрелков: хитбокс плюс допуск снаряда.
+ */
+export const PLAYER_HIT_RADIUS = PLAYER_HITBOX_RADIUS + PLAYER_BULLET_HIT_OFFSET;
 /** Ширина полосы касания (грейза) за границей хитбокса. */
 export const GRAZE_BAND = 22;
 /** Очки за одно касание вражеского снаряда. */

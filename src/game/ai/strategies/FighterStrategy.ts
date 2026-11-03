@@ -68,8 +68,7 @@ import {
   FIGHTER_PATROL_STEP,
   FIGHTER_STANDOFF_R,
   FIGHTER_STANDOFF_BAND,
-  PLAYER_BULLET_HIT_OFFSET,
-  PLAYER_HITBOX_RADIUS,
+  PLAYER_HIT_RADIUS,
 } from '../../balance';
 import type { EnemyRef } from '../../ecs';
 import type { EnemyComponent } from '../../ecs/components/EnemyComponent';
@@ -85,9 +84,6 @@ const FIRE = 3;
 const EVADE = 4;
 const COOLDOWN = 5;
 const CUT = 6;
-
-/** Внешний радиус хитбокса игрока — он же угловой размер цели для прицела. */
-const PLAYER_HIT_RADIUS = PLAYER_HITBOX_RADIUS + PLAYER_BULLET_HIT_OFFSET;
 
 /** Минимальный радиус зоны, при котором она считается действующей границей. */
 const MIN_ZONE_RADIUS = 40;

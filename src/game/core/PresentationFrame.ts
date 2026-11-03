@@ -1,12 +1,11 @@
 /**
  * PresentationFrame — презентационная часть кадра.
  *
- * Отделяет обновление эффектов, астероидного пояса и отрисовку от
- * игровых систем. GameFrame вызывает engine.run(dt) и этот слой; здесь
- * нет `window` — размеры вьюпорта берутся из GameContext.viewport.
+ * Отделяет эффекты, меню-сцену и отрисовку от игровых систем. Пояс
+ * астероидов обновляется в `GameWorld.tick`, поэтому здесь остаются только
+ * частицы/тряска, камера и рендер. Размеры вьюпорта берутся из GameContext.
  */
 
-import type { AsteroidEnv } from "../asteroids";
 import type { GameContext } from "./GameContext";
 
 export class PresentationFrame {
@@ -25,7 +24,7 @@ export class PresentationFrame {
     this.ctx.render.renderScene(dt, this.ctx.buildWorld());
   }
 
-  /** Таймер смерти до engine.run: переход dying → over. */
+  /** Таймер смерти до тиков мира: переход dying → over. */
   updateDeath(dt: number): void {
     const ctx = this.ctx;
     if (ctx.fsm.is("dying") && ctx.deathSystem.update(dt)) {
@@ -33,11 +32,9 @@ export class PresentationFrame {
     }
   }
 
-  /** Эффекты и астероидный пояс после engine.run. */
+  /** Эффекты после тиков мира. Пояс астероидов живёт в мире. */
   update(dt: number): void {
-    const ctx = this.ctx;
-    ctx.fx.update(dt, dt);
-    ctx.asteroidField.update(dt, this.asteroidEnv());
+    this.ctx.fx.update(dt, dt);
   }
 
   /** Отрисовка сцены, debug-слоя и отправка HUD. */
@@ -46,21 +43,5 @@ export class PresentationFrame {
     ctx.render.renderScene(dt, ctx.buildWorld());
     ctx.render.renderDebug();
     ctx.render.updateHud();
-  }
-
-  /** Окружение пояса астероидов из состояния кадра. */
-  private asteroidEnv(): AsteroidEnv {
-    const ctx = this.ctx;
-    const camera = ctx.cameraSystem.getPosition();
-    const zone = ctx.waveOrchestrator.zoneState;
-    return {
-      camX: camera.x,
-      camY: camera.y,
-      viewW: ctx.viewport.width,
-      viewH: ctx.viewport.height,
-      zone: zone.active ? { x: zone.x, y: zone.y, r: zone.radius } : null,
-      physicsIntegrates: !ctx.physics.integratesPositions,
-      physicsResolves: ctx.physics.resolvesVelocity,
-    };
   }
 }

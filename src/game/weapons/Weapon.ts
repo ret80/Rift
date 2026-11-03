@@ -11,6 +11,7 @@
  * в контексте (WeaponContext) на каждый вызов.
  */
 
+import type { Rng } from "../core/rng";
 import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
 import type { DroneFleetSpec } from "../drones/Drone";
 import type { BeamSpawn, BulletSpawn } from "../ecs/spawn";
@@ -64,6 +65,10 @@ export interface WeaponContext extends EnemyDamagePort {
   addBeam(beam: BeamSpawn): void;
   /** Колбэк выстрела — проигрывание звука. */
   onFired(id: WeaponId): void;
+  /** Боевой поток случайности: разброс стволов и точность. */
+  readonly rng: Rng;
+  /** Визуальный поток: seed'ы лучей и эффектов. */
+  readonly rngFx: Rng;
 }
 
 /** Снимок слота оружия для строки снаряжения. */

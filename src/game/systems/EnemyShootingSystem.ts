@@ -36,23 +36,20 @@ import {
     FIGHTER_BURST_DISPERSION,
     FIGHTER_BURST_INTERVAL,
     FIGHTER_CIRCLE_OMEGA,
-    PLAYER_BULLET_HIT_OFFSET,
-    PLAYER_HITBOX_RADIUS
+    PLAYER_HIT_RADIUS
 } from "../balance";
+import type { Rng } from "../core/rng";
 import { EnemyComponent } from "../ecs/components/EnemyComponent";
 import { PositionComponent } from "../ecs/components/PositionComponent";
 import { Phase, PhasedSystem } from "../ecs/SystemSchedule";
-import { lerpAngle, rand } from "../math";
-import type { AudioManager } from "./AudioManager";
+import { lerpAngle } from "../math";
+import type { AudioPort } from "../core/WorldPorts";
 
 /** Локальная связка «маркер + позиция» врага для стрельбы (без radius/life). */
 interface EnemyShotRef {
   marker: EnemyComponent;
   position: PositionComponent;
 }
-
-/** Внешний радиус хитбокса игрока — угловой размер цели для вражеских орудий. */
-const PLAYER_HIT_RADIUS = PLAYER_HITBOX_RADIUS + PLAYER_BULLET_HIT_OFFSET;
 
 /** Движущаяся цель вражеского орудия — игрок. */
 export interface PlayerMotion {
@@ -103,15 +100,17 @@ export type SpawnBoltSource = (shot: EnemyBoltShot) => void;
 
 export class EnemyShootingSystem extends PhasedSystem {
   private aspect: Aspect | null = null;
-  private audio: AudioManager;
+  private audio: AudioPort;
   private wave = 1;
 
   constructor(
-    audio: AudioManager,
+    audio: AudioPort,
     private readonly getPlayer: PlayerMotionSource,
     private readonly isCombatActive: CombatActiveSource,
     private readonly spawnBolt: SpawnBoltSource,
     private readonly getZoneRadius: () => number,
+    /** Поток случайности боя: разброс очередей и джиттер турелей. */
+    private readonly rng: Rng,
   ) {
     super(Phase.EnemyActions);
     this.audio = audio;
@@ -223,7 +222,7 @@ export class EnemyShootingSystem extends PhasedSystem {
     // Левый ствол
     e.tCd1! -= dt;
     if (e.tCd1! <= 0) {
-      e.tCd1! = rate + rand(-CRUISER_RATE_JITTER, CRUISER_RATE_JITTER);
+      e.tCd1! = rate + this.rng.range(-CRUISER_RATE_JITTER, CRUISER_RATE_JITTER);
       this.fire(e, position.x + fx + gx, position.y + fy + gy, player, weapon, hitChance);
       this.audio.playHeavyShoot();
     }
@@ -231,7 +230,7 @@ export class EnemyShootingSystem extends PhasedSystem {
     // Правый ствол
     e.tCd2! -= dt;
     if (e.tCd2! <= 0) {
-      e.tCd2! = rate + rand(-CRUISER_RATE_JITTER, CRUISER_RATE_JITTER);
+      e.tCd2! = rate + this.rng.range(-CRUISER_RATE_JITTER, CRUISER_RATE_JITTER);
       this.fire(e, position.x + fx - gx, position.y + fy - gy, player, weapon, hitChance);
       this.audio.playHeavyShoot();
     }
@@ -338,13 +337,13 @@ export class EnemyShootingSystem extends PhasedSystem {
       if (e.burstAimOffset === null) {
         const dist = Math.hypot(player.x - sx, player.y - sy) || 1;
         const spread = spreadForChance(hitChance, dist, PLAYER_HIT_RADIUS);
-        e.burstAimOffset = (Math.random() - 0.5) * 2 * spread;
+        e.burstAimOffset = (this.rng.next() - 0.5) * 2 * spread;
       }
       const lead = solveLead(params);
       const base = lead ? lead.angle : Math.atan2(player.y - sy, player.x - sx);
-      angle = base + e.burstAimOffset + (Math.random() - 0.5) * 2 * FIGHTER_BURST_DISPERSION;
+      angle = base + e.burstAimOffset + (this.rng.next() - 0.5) * 2 * FIGHTER_BURST_DISPERSION;
     } else {
-      angle = aimAtTarget(params, hitChance, PLAYER_HIT_RADIUS);
+      angle = aimAtTarget(params, hitChance, PLAYER_HIT_RADIUS, this.rng);
     }
 
     this.spawnBolt({

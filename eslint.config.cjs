@@ -40,4 +40,55 @@ module.exports = [
       "react-hooks/exhaustive-deps": "warn",
     },
   },
+  {
+    // Игровой мир DOM-free: никаких импортов рендера, презентации, аудио,
+    // ввода и окружения браузера.
+    files: ["src/game/core/GameWorld.ts", "src/game/core/WorldPorts.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "../render/*",
+                "../presentation/*",
+                "../audio",
+                "../audio/*",
+                "../input",
+                "./env",
+              ],
+              message: "GameWorld/WorldPorts не зависят от DOM, рендера, аудио и ввода.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Геймплей не использует глобальную случайность: только seeded-потоки
+    // из src/game/core/rng.ts. Визуальные слои (render/presentation/audio)
+    // и рендереры систем остаются на Math.random.
+    files: [
+      "src/game/systems/**/*.ts",
+      "src/game/weapons/**/*.ts",
+      "src/game/ai/**/*.ts",
+      "src/game/aiming/**/*.ts",
+      "src/game/ecs/**/*.ts",
+      "src/game/waves/**/*.ts",
+      "src/game/asteroids.ts",
+      "src/game/rifts.ts",
+    ],
+    ignores: ["src/game/systems/Renderers/**"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "MemberExpression[object.name='Math'][property.name='random']",
+          message:
+            "Геймплейный код не использует Math.random: берите seeded-поток из core/rng.",
+        },
+      ],
+    },
+  },
 ];
