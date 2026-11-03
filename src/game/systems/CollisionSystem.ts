@@ -10,7 +10,14 @@
  */
 
 import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
-import { massForRadius, dmgScale } from '../balance';
+import {
+  ASTEROID_CONTACT_BASE,
+  ASTEROID_CONTACT_CAP_FRACTION,
+  ENEMY_CONTACT_CAP_FRACTION,
+  dmgScale,
+  impactFactor,
+  massForRadius,
+} from '../balance';
 import {
   GRAZE_BAND,
   PLAYER_BULLET_HIT_OFFSET,
@@ -28,7 +35,6 @@ import {
 } from './BulletCollision';
 import type { PlayerHitbox } from './GrazeCollision';
 import type { EcsWorld, AsteroidRef, EnemyRef } from '../ecs';
-import { EnemyKind } from '../balance/enemies';
 
 /** Источник мирового сечения (buildWorld из GameContext). */
 export type WorldSource = () => WorldFrame;
@@ -186,11 +192,15 @@ export class CollisionSystem extends PhasedSystem {
         const e = enemy as EnemyRef;
 
         // Урон игроку — не более одного раза за кадр и только не в неуязвимости.
-        // Урон = контакт (настраиваемый по роли) × dmgScale(wave).
-        // Масса остаётся для физики, contact определяет боевой характер врага.
+        // Урон = контакт (роль) × dmgScale(wave) × множитель скорости удара.
+        // Масса остаётся физике, contact определяет боевой характер врага.
         if (!playerHit && player.marker.invuln <= 0 && player.life.remaining > 0) {
           const contact = e.marker.contact;
-          const dmg = contact * dmgScale(wave);
+          const speed = this.closingSpeed(player, e);
+          const dmg = Math.min(
+            contact * dmgScale(wave) * impactFactor(speed),
+            player.life.max * ENEMY_CONTACT_CAP_FRACTION,
+          );
           this.eventBus.publish('player_damaged', {
             dmg,
           });
@@ -221,9 +231,14 @@ export class CollisionSystem extends PhasedSystem {
           const dgS = dmgScale(wave);
           const { position, velocity, marker } = rock;
 
-          // Урон игроку = масса астероида × dmgScale.
+          // Урон игроку = базовый урон по размеру × dmgScale × скорость удара.
+          const impact = this.closingSpeed(player, rock);
+          const asteroidDmg = Math.min(
+            ASTEROID_CONTACT_BASE[marker.kind] * dgS * impactFactor(impact),
+            player.life.max * ASTEROID_CONTACT_CAP_FRACTION,
+          );
           this.eventBus.publish('player_damaged', {
-            dmg: marker.mass * dgS,
+            dmg: asteroidDmg,
           });
           playerHit = true;
 
@@ -289,6 +304,27 @@ export class CollisionSystem extends PhasedSystem {
   /**
    * Soft avoidance between player and companion drones.
    */
+  /**
+   * Скорость сближения двух тел по нормали контакта.
+   * Берём скорости до шага физики: Planck к моменту контакта уже погасил
+   * импульс, и после шага сила удара была бы занижена.
+   */
+  private closingSpeed(
+    a: { position: { x: number; y: number }; velocity: { vx: number; vy: number } },
+    b: { position: { x: number; y: number }; velocity: { vx: number; vy: number } },
+  ): number {
+    const dx = b.position.x - a.position.x;
+    const dy = b.position.y - a.position.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    const nx = dx / dist;
+    const ny = dy / dist;
+    const av = this.physics.getPreStepVelocity(a) ?? a.velocity;
+    const bv = this.physics.getPreStepVelocity(b) ?? b.velocity;
+    const rvx = bv.vx - av.vx;
+    const rvy = bv.vy - av.vy;
+    return Math.max(0, -(rvx * nx + rvy * ny));
+  }
+
   private checkDroneAvoidance(
     world: WorldFrame
   ): void {

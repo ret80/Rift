@@ -33,7 +33,7 @@
  * по волнам (balance/accuracy) всё ещё может увести болт в сторону.
  *
  * Cooldown между burst: в CUT режиме между открытием fireGate проходит
- * FIGHTER_BURST_WINDOW (1.5 с) — игрок получает ~0.6 с на манёвр.
+ * FIGHTER_BURST_COOLDOWN (2.0 с) — игрок получает ~1.5 с на манёвр.
  */
 
 import {
@@ -381,6 +381,7 @@ export class FighterStrategy implements IEnemyStrategy {
     marker.burstLeft =
       FIGHTER_BURST_MIN + Math.floor(roll * (FIGHTER_BURST_MAX - FIGHTER_BURST_MIN + 1));
     marker.burstTimer = 0;
+    marker.burstAimOffset = null;
     marker.fireGate = true;
     return true;
   }

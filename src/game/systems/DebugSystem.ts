@@ -16,6 +16,10 @@ export interface DebugDeps {
   zoneAlpha: number;
   countdownActive: boolean;
   enemyCount: number;
+  swarmGroups: number;
+  swarmDetached: number;
+  swarmDirections: string;
+  beltRocks: number;
   riftCount: number;
   waveTotal: number;
   kills: number;
@@ -28,6 +32,8 @@ export interface DebugDeps {
   inputAxisY: number;
   mouseX: number;
   mouseY: number;
+  /** Диагностика геймпада (id, mapping, профиль, оси/кнопки). */
+  gamepad: string | null;
 }
 
 export class DebugSystem {
@@ -101,7 +107,7 @@ export class DebugSystem {
 
     // Background
     ctx.fillStyle = 'rgba(0,0,0,0.75)';
-    ctx.fillRect(0, 0, 280, 320);
+    ctx.fillRect(0, 0, 420, 540);
 
     // Title
     ctx.fillStyle = '#ff3b52';
@@ -133,6 +139,12 @@ export class DebugSystem {
       `  killed: ${deps.kills}`,
       `  allocated: ${deps.allocated}`,
       '',
+      'SWARM:',
+      `  groups: ${deps.swarmGroups}`,
+      `  dirs: ${deps.swarmDirections || "-"}`,
+      `  detached: ${deps.swarmDetached}`,
+      `  belt rocks: ${deps.beltRocks}`,
+      '',
       'PLAYER:',
       `  pos: ${deps.playerX.toFixed(0)}, ${deps.playerY.toFixed(0)}`,
       `  hp: ${deps.playerHp}/${deps.playerMaxHp}`,
@@ -140,6 +152,7 @@ export class DebugSystem {
       'INPUT:',
       `  axis: ${deps.inputAxisX.toFixed(2)}, ${deps.inputAxisY.toFixed(2)}`,
       `  mouse: [${deps.mouseX}, ${deps.mouseY}]`,
+      `  pad: ${deps.gamepad ?? "none"}`,
       '',
       'CONTROLS:',
       '  Tab: toggle debug',
@@ -152,6 +165,7 @@ export class DebugSystem {
       else if (line.includes('NO') || line.includes('OFF')) ctx.fillStyle = '#d8ff3e';
       else if (
         line.includes('ZONE:') ||
+        line.includes('SWARM:') ||
         line.includes('S') ||
         line.includes('PLAYER:') ||
         line.includes('INPUT:') ||

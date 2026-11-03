@@ -23,7 +23,6 @@ export enum EnemyKind {
 export const ENEMY_KIND_COUNT = Object.keys(EnemyKind).length;
 
 /* Cruiser tuning */
-export const CRUISER_FIRE_RANGE = 760; // range at which cruiser starts shooting (2× base)
 export const CRUISER_BULLET_SPEED = 436.8; // 260 × 1.68 — тяжёлые болты на 20% быстрее прежних 364
 
 /**
@@ -124,7 +123,7 @@ export const ENEMY_BASES: Record<EnemyKind, EnemyBaseDef> = {
   },
   [EnemyKind.Cruiser]: {
     r: 26, hpBase: 155, speed: CRUISER_BASE_SPEED,
-    contactBase: 22, score: 60, boltBase: 15, mass: 0,
+    contactBase: 22, score: 60, boltBase: 12, mass: 0,
   },
   [EnemyKind.Carrier]: {
     r: 41, hpBase: 350, speed: CARRIER_BASE_SPEED,
@@ -137,13 +136,6 @@ export const ENEMY_BASES: Record<EnemyKind, EnemyBaseDef> = {
 export function massForRadius(r: number): number {
   return Math.max(1, Math.PI * r * r * 0.02);
 }
-
-/* ------------------------------ AI constants ------------------------------ */
-
-/** Минимальное расстояние между врагами для avoidance */
-export const AI_MIN_DIST = 35;
-/** Сила отталкивания при avoidance */
-export const AI_BASE_PUSH = 1.2;
 
 /** Дальность стрельбы врагов */
 export const ENEMY_SHOOT_RANGE = 500;
@@ -242,9 +234,9 @@ export const FIGHTER_CUT_ZONE_MARGIN = 60;
 /* ----------------------- Fighter: очередь (burst) ----------------------- */
 
 /** Минимальное количество болтов в очереди истребителя. */
-export const FIGHTER_BURST_MIN = 3;
+export const FIGHTER_BURST_MIN = 2;
 /** Максимальное количество болтов в очереди истребителя. */
-export const FIGHTER_BURST_MAX = 5;
+export const FIGHTER_BURST_MAX = 3;
 /** Интервал между болтами в очереди, с. */
 export const FIGHTER_BURST_INTERVAL = 0.15;
 /** Рассеивание болтов в очереди, рад. */
@@ -253,4 +245,4 @@ export const FIGHTER_BURST_DISPERSION = 0.015;
  * Пауза между очередями истребителя, с. Игрок получает почти две секунды,
  * чтобы выйти из линии огня; сами болты внутри очереди идут с интервалом.
  */
-export const FIGHTER_BURST_COOLDOWN = 1.9;
+export const FIGHTER_BURST_COOLDOWN = 2.0;

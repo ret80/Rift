@@ -11,6 +11,7 @@ import { createPlayerState, type PlayerState } from "../../systems/PlayerState";
 import type { EcsEngine } from "../EcsEngine";
 import { GameEntity } from "../GameEntity";
 import { LifeComponent } from "../components/LifeComponent";
+import { PLAYER_BASE_HP } from "../../balance";
 import { PlayerComponent } from "../components/PlayerComponent";
 import { PositionComponent } from "../components/PositionComponent";
 import { RadiusComponent } from "../components/RadiusComponent";
@@ -33,7 +34,7 @@ export class PlayerDomain {
     entity.components.add(new PositionComponent(0, 0));
     entity.components.add(new VelocityComponent(0, 0));
     entity.components.add(new RadiusComponent(PLAYER_HITBOX_RADIUS));
-    entity.components.add(new LifeComponent(100, 100));
+    entity.components.add(new LifeComponent(PLAYER_BASE_HP, PLAYER_BASE_HP));
     entity.components.add(new PlayerComponent(state.angle, state.invuln, state.thrusting, state.mass));
     this.ecs.add(entity);
     this.entity = entity;

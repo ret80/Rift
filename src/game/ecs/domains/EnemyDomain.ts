@@ -62,6 +62,19 @@ export class EnemyDomain {
   /** Стабильная объектная идентичность связок: физика/коллизии/зоны/AI. */
   private readonly refCache = new WeakMap<GameEntity, EnemyRef>();
 
+  /** Диагностика роя дронов: число групп и отделившихся. */
+  get swarmGroups(): number {
+    return this.enemySystem.swarmGroups;
+  }
+
+  get swarmDetached(): number {
+    return this.enemySystem.swarmDetached;
+  }
+
+  get swarmDirections(): string {
+    return this.enemySystem.swarmDirections;
+  }
+
   constructor(
     private readonly ecs: EcsEngine,
     eventBus: EventBus,
@@ -83,6 +96,7 @@ export class EnemyDomain {
         shot.heavy,
         shot.cruiser,
       ),
+      () => deps.getZoneBounds().radius,
     );
     this.systems = [this.enemySystem, shootingSystem];
   }
@@ -114,7 +128,6 @@ export class EnemyDomain {
       hitCd: enemy.hitCd,
       dead: enemy.dead,
       mass: enemy.mass,
-      dodgeWeight: enemy.dodgeWeight,
       dodgeDir: enemy.dodgeDir,
       dodgeTimer: enemy.dodgeTimer,
       burstSpawned: enemy.burstSpawned,

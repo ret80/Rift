@@ -73,6 +73,7 @@ export class GameRender {
   /** Делегировать debug-оверлей в DebugSystem. */
   renderDebug(): void {
     const ctx = this.ctx;
+    const swarm = ctx.ecs.swarmMetrics();
     ctx.debugSystem.renderDebug({
       canvas: ctx.renderer.canvas,
       fsmState: ctx.fsm.state,
@@ -85,6 +86,10 @@ export class GameRender {
       zoneAlpha: ctx.waveOrchestrator.zoneState.alpha,
       countdownActive: ctx.countdownSystem.isCountdownActive(),
       enemyCount: ctx.ecs.enemies().length,
+      swarmGroups: swarm.groups,
+      swarmDetached: swarm.detached,
+      swarmDirections: swarm.directions,
+      beltRocks: ctx.ecs.beltRockCount(),
       riftCount: ctx.riftField.riftList.length,
       waveTotal: ctx.waveOrchestrator.waveTotal,
       kills: ctx.scoringSystem.getState().killed,
@@ -97,6 +102,7 @@ export class GameRender {
       inputAxisY: ctx.input.axis.y,
       mouseX: ctx.inputSystem.mouse.x,
       mouseY: ctx.inputSystem.mouse.y,
+      gamepad: ctx.gamepad.diagnostics,
     });
   }
 }

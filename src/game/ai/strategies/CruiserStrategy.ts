@@ -64,8 +64,6 @@ const CRUISER_ARRIVE_RADIUS = 90;
 const CRUISER_ARRIVE_EPS = 6;
 /** Скорость игрока ниже этой величины — вектор движения считать нулевым. */
 const CRUISER_PLAYER_STOP_SPEED = 12;
-/** Сила разъезда с другими врагами. */
-const CRUISER_SEPARATION_PUSH = 180;
 /** Скорость доворота корпуса: ниже порога хода нос некуда разворачивать. */
 const CRUISER_COURSE_SPEED = 5;
 /** Резкость поворота корпуса к курсу, 1/с. */
@@ -146,7 +144,7 @@ export class CruiserStrategy implements IEnemyStrategy {
         // Базовое поведение
         const target = this.pickTarget(enemy, context);
         this.clampIntoZone(target, enemy.radius.r * CRUISER_ZONE_EDGE_MARGIN_RADII, context);
-        this.applyNormalMovement(enemy, context, target, dt);
+        this.applyNormalMovement(enemy, target, dt);
         break;
       }
 
@@ -227,7 +225,6 @@ export class CruiserStrategy implements IEnemyStrategy {
    */
   private applyNormalMovement(
     enemy: EnemyRef,
-    context: GameContext,
     target: CruiserTarget,
     dt: number
   ): void {
@@ -244,21 +241,6 @@ export class CruiserStrategy implements IEnemyStrategy {
       const speed = enemy.marker.speed * Math.min(1, td / CRUISER_ARRIVE_RADIUS);
       desX = (tx / td) * speed;
       desY = (ty / td) * speed;
-    }
-
-    // Избегание других врагов
-    for (const o of context.enemies) {
-      if (o === enemy || o.marker.dead) continue;
-      const ddx = pos.x - o.position.x;
-      const ddy = pos.y - o.position.y;
-      const d2 = ddx * ddx + ddy * ddy;
-      const minSep = (enemy.radius.r + o.radius.r) * 1.1;
-      if (d2 < minSep * minSep && d2 > 0.0001) {
-        const d = Math.sqrt(d2);
-        const push = ((minSep - d) / d) * CRUISER_SEPARATION_PUSH;
-        desX += (ddx / d) * push;
-        desY += (ddy / d) * push;
-      }
     }
 
     smoothVelocity(vel, desX, desY, CRUISER_SMOOTH_RATE, dt);

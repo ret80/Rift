@@ -35,6 +35,7 @@ export class GameFrame {
     // игровые системы не тикают, чтобы не оставлять «сиротские» пули.
     this.presentation.updateDeath(dt);
     if (!ctx.fsm.is("dying", "over")) {
+      if (ctx.fsm.is("playing", "active")) ctx.updateSurvivalStipend(dt);
       ctx.ecs.update(dt);
     }
 

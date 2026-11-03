@@ -10,6 +10,7 @@ import {
   ZONE_CLEAR_FADE_TIME,
   ZONE_INITIAL_RADIUS,
   ZONE_MAX_ALPHA,
+  zoneRadiusFor,
   zoneExpandSpeed,
 } from "../balance";
 import type { ZoneData } from "../core/ZoneTypes";
@@ -71,7 +72,8 @@ export class ZoneModel {
   activate(playerX: number, playerY: number, wave: number): void {
     this.zone.x = playerX;
     this.zone.y = playerY;
-    this.zone.targetRadius = Math.max(400, 200 + wave * 50);
+    // Единый источник радиуса зоны: те же значения использует спавн и ИИ.
+    this.zone.targetRadius = zoneRadiusFor(wave);
     this.zone.radius = ZONE_INITIAL_RADIUS;
     this.zone.alpha = 0;
     this.zone.collapseT = ZONE_NOT_COLLAPSING;

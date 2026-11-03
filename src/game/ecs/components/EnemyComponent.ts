@@ -53,17 +53,17 @@ export class EnemyComponent implements Component {
   /**
    * Очередь болтов истребителя: сколько болтов осталось выстрелить.
    * Ставится стратегией при открытии окна огня, EnemyShootingSystem
-   * добивает очередь по burstTimer с интервалом 0.12 с.
+   * добивает очередь по burstTimer с интервалом 0.15 с.
    */
   burstLeft = 0;
-  /** Таймер для очереди болтов: интервал между болтами 0.12 с. */
+  /** Таймер для очереди болтов: интервал между болтами 0.15 с. */
   burstTimer = 0;
   /**
-   * Cooldown между открытием fireGate в CUT режиме, с.
-   * Prevents continuous firing: fighter can't open a new burst window
-   * until this timer expires.
+   * Общий угловой сдвиг текущей очереди, радианы. Считается один раз на
+   * очередь, чтобы болты летели близко, а не разлетались полным конусом.
+   * null — очередь ещё не начата.
    */
-  burstWindowT = 0;
+  burstAimOffset: number | null = null;
   /**
    * Угол зафиксированного захода хантера (WINDUP/CHARGE).
    * Фиксируется в WINDUP, используется в CHARGE для движения по прямой.
@@ -78,7 +78,6 @@ export class EnemyComponent implements Component {
   hitCd = 0;
   dead = false;
   mass = 1;
-  dodgeWeight = 1;
   dodgeDir = 0;
   dodgeTimer = 0;
   burstSpawned = 0;
@@ -88,6 +87,14 @@ export class EnemyComponent implements Component {
   tCd1?: number;
   tCd2?: number;
   droneState: EnemyDroneState = "none";
+  /** Группа роя дронов (−1 — не назначена). */
+  swarmGroupId = -1;
+  /** Слот в строю группы. */
+  swarmSlot = 0;
+  /** Состояние внутри группы: строй, атака, возврат. */
+  swarmState: "none" | "formation" | "detached" | "returning" = "none";
+  /** Остаток времени атаки отделившегося дрона, секунды. */
+  detachT = 0;
   orbitAngle = 0;
   orbitRadius = 0;
   orbitTimer = 0;

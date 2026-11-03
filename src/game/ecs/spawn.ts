@@ -41,7 +41,6 @@ export interface EnemySpawn {
   /** Id родителя (Carrier) или null. */
   parentId: number | string | null;
   mass: number;
-  dodgeWeight: number;
   dodgeDir: number;
   dodgeTimer: number;
   burstSpawned: number;

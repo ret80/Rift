@@ -15,6 +15,7 @@ import type { PersistencePort } from "./core/PersistencePort";
 import { GameContext } from "./core/GameContext";
 import type { Hooks } from "./core/GameHooks";
 import type { PhysicsEngineId } from "./physics";
+import type { WaveCompositionOverride } from "./balance/waves";
 
 /* UI types — единый источник правды */
 export type { BannerData, CountData, HudData, StatsData, ToastData } from "./types/ui";
@@ -47,6 +48,11 @@ export class Game {
 
   setStartWave(wave: number): void {
     this.ctx.startWave = wave;
+  }
+
+  /** Включить тестовую волну заданного состава (`?test=...`). */
+  setWaveOverride(override: WaveCompositionOverride): void {
+    this.ctx.setWaveOverride(override);
   }
 
   setEnabledEnemies(enemies: EnemyKind[] | null): void {

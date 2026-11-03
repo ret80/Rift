@@ -44,7 +44,7 @@ export default function App() {
     () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches
   );
 
-  const { debug: urlDebug, wave: urlWave } = useMemo(() => parseUrlParams(), []);
+  const { debug: urlDebug, wave: urlWave, waveOverride } = useMemo(() => parseUrlParams(), []);
 
   /* Refs для доступа к actions/gameRef из замыканий. */
   const actionsRef = useRef<any>(null);
@@ -63,6 +63,7 @@ export default function App() {
         : settings.enabledEnemies,
       urlDebug,
       urlWave,
+      waveOverride,
     },
     {
       onBanner: (b) => dispatch({ type: "SET_BANNER", banner: b }),

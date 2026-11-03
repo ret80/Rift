@@ -29,7 +29,8 @@ export class GameListeners {
         this.ctx.spawnSystem.reset();
         // Инициализация оркестратора для волны
         const pos = this.ctx.getPlayerPosition();
-        this.ctx.waveOrchestrator.initWave(pos.x, pos.y, waveData.wave, waveTotalFor(waveData.wave));
+        const total = this.ctx.spawnSystem.compositionTotal ?? waveTotalFor(waveData.wave);
+        this.ctx.waveOrchestrator.initWave(pos.x, pos.y, waveData.wave, total);
         this.ctx.waveOrchestrator.setSpeedMult(this.ctx.upgradeSystem.getApplied("speedMult"));
       }),
     );

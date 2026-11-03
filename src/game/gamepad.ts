@@ -75,8 +75,8 @@ const DEFAULT_DEADZONE = 0.15;
 /** Мёртвая зона D-pad (по умолчанию 0.5 — полунажатие). */
 const DEFAULT_BUTTON_DEADZONE = 0.5;
 
-/** Профиль устройства: стандартный или 8BitDo D-input. */
-type GamepadProfile = "standard" | "8bitdo_dinput";
+/** Профиль устройства: стандартный, 8BitDo D-input или общий D-input. */
+type GamepadProfile = "standard" | "8bitdo_dinput" | "generic_dinput";
 
 /** Раскладка кнопок, не зависящая от `gamepad.mapping`. */
 interface ButtonLayout {
@@ -129,21 +129,16 @@ const DINPUT_8BITDO_BUTTONS: ButtonLayout = {
 function resolveGamepadProfile(gp: Gamepad): GamepadProfile {
   if (gp.mapping === "standard") return "standard";
   if (/8bitdo|2dc8/i.test(gp.id)) return "8bitdo_dinput";
-  // Некоторые D-input устройства имеют 15-16 кнопок и hat-switch на оси 9,
-  // но не сообщают «8BitDo» в id — определяем по числу кнопок и осей.
-  if (
-    gp.buttons.length >= 15 &&
-    gp.buttons.length <= 16 &&
-    gp.axes.length > 9
-  ) {
-    return "8bitdo_dinput";
-  }
+  // D-input с hat-switch на оси 9, но без «8BitDo» в id. Точную раскладку
+  // кнопок у такого устройства не угадать, поэтому это общий профиль:
+  // общие индексы D-input + диагностика в debug-оверлее.
+  if (gp.axes.length > 9) return "generic_dinput";
   return "standard";
 }
 
 /** Раскладка кнопок для профиля. */
 function getButtonLayout(profile: GamepadProfile): ButtonLayout {
-  return profile === "8bitdo_dinput" ? DINPUT_8BITDO_BUTTONS : STANDARD_BUTTONS;
+  return profile === "standard" ? STANDARD_BUTTONS : DINPUT_8BITDO_BUTTONS;
 }
 
 /**
@@ -212,6 +207,9 @@ export class GamepadManager {
   /** Мёртвая зона кнопок (триггеры, D-pad). */
   private buttonDeadzone: number;
 
+  /** Профиль последнего опрошенного устройства. */
+  private _profile: GamepadProfile = "standard";
+
   constructor(
     options: { deadzone?: number; buttonDeadzone?: number } = {},
   ) {
@@ -231,6 +229,21 @@ export class GamepadManager {
 
   get axisY(): number {
     return this._axisY;
+  }
+
+  /** Краткая диагностика устройства для debug-оверлея. */
+  get diagnostics(): string | null {
+    const gp = this._gamepad;
+    if (!gp) return null;
+    const axes = Array.from(gp.axes, (v) => v.toFixed(2)).join(" ");
+    const pressed = gp.buttons
+      .map((b, i) => (b.pressed ? i : -1))
+      .filter((i) => i >= 0)
+      .join(",");
+    return (
+      `${gp.id.slice(0, 26)} | ${gp.mapping || "no-map"} | ${this._profile}` +
+      ` | axes ${axes} | btn ${pressed || "-"}`
+    );
   }
 
   /** Опросить состояние геймпада. Вызывается каждый кадр. */
@@ -438,6 +451,7 @@ export class GamepadManager {
     // Раскладка зависит от устройства: стандартный mapping или D-input 8BitDo.
     const profile = resolveGamepadProfile(gp);
     const layout = getButtonLayout(profile);
+    this._profile = profile;
 
     // --- D-pad: кнопки + оси (для нестандартных геймпадов) ---
     let dpadX = 0;
@@ -460,7 +474,7 @@ export class GamepadManager {
 
     // 2) 8BitDo D-input: D-pad — hat switch на оси 9.
     if (
-      profile === "8bitdo_dinput" &&
+      profile !== "standard" &&
       dpadX === 0 &&
       dpadY === 0 &&
       gp.axes.length > 9
@@ -566,11 +580,16 @@ export class GamepadManager {
     const dpadWasLeft = this._pressedDpadLeft;
     const dpadWasRight = this._pressedDpadRight;
 
-    // Объединяем: кнопки ИЛИ оси.
-    this._pressedDpadUp = (buttons[GAMEPAD_BUTTONS.DpadUp]?.pressed ?? false) || dpadY < 0;
-    this._pressedDpadDown = (buttons[GAMEPAD_BUTTONS.DpadDown]?.pressed ?? false) || dpadY > 0;
-    this._pressedDpadLeft = (buttons[GAMEPAD_BUTTONS.DpadLeft]?.pressed ?? false) || dpadX < 0;
-    this._pressedDpadRight = (buttons[GAMEPAD_BUTTONS.DpadRight]?.pressed ?? false) || dpadX > 0;
+    // Объединяем: для стандартного профиля кнопки ИЛИ оси; для D-input
+    // 8BitDo кнопки 12–15 могут быть совсем другими — только hat-ось.
+    const dpadButtons =
+      profile === "standard" && gp.buttons.length > 15
+        ? buttons
+        : null;
+    this._pressedDpadUp = (dpadButtons?.[GAMEPAD_BUTTONS.DpadUp]?.pressed ?? false) || dpadY < 0;
+    this._pressedDpadDown = (dpadButtons?.[GAMEPAD_BUTTONS.DpadDown]?.pressed ?? false) || dpadY > 0;
+    this._pressedDpadLeft = (dpadButtons?.[GAMEPAD_BUTTONS.DpadLeft]?.pressed ?? false) || dpadX < 0;
+    this._pressedDpadRight = (dpadButtons?.[GAMEPAD_BUTTONS.DpadRight]?.pressed ?? false) || dpadX > 0;
 
     this._justPressedDpadUp = this._pressedDpadUp && !dpadWasUp;
     this._justPressedDpadDown = this._pressedDpadDown && !dpadWasDown;

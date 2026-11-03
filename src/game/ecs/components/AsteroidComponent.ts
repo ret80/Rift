@@ -29,6 +29,12 @@ export class AsteroidComponent implements Component {
   verts: number[] = [];
   /** Масса (для физических контактов). */
   mass = 0;
+  /** Захвачен ли камень поясом у красного кольца. */
+  beltState: "none" | "captured" = "none";
+  /** Направление вращения в поясе: +1 CW, −1 CCW. */
+  beltDir: 1 | -1 = 1;
+  /** Дорожка: −1 внутренняя, +1 внешняя. */
+  beltLane: -1 | 1 = -1;
   dead = false;
 
   constructor(state: Partial<Omit<AsteroidComponent, "type" | "id">> = {}) {

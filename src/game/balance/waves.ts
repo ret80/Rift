@@ -7,6 +7,9 @@ import type { RandomSource } from "../math";
 import { clamp, ramp01 } from "../math";
 import { ENEMY_BASES, EnemyKind, massForRadius } from "./enemies";
 
+/** Состав тестовой волны: вид → количество. */
+export type WaveCompositionOverride = Partial<Record<EnemyKind, number>>;
+
 /* ------------------------------ StarLayer type ------------------------------ */
 
 export interface StarLayer {

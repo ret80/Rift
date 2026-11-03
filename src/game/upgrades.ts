@@ -6,6 +6,7 @@
 
 import { resetDroneLoadout } from "./drones/DroneSystem";
 import { PLAYER_AIM_BASE_CHANCE } from "./balance/accuracy";
+import { PLAYER_BASE_HP } from "./balance/player";
 import {
   BASE_WEAPON_MODEL,
   type WeaponId,
@@ -155,7 +156,7 @@ export function defaultUpgrades(): PlayerUpgrades {
 
 /**
  * Стоимости подобраны так, чтобы суммарная стоимость ВСЕХ апгрейдов
- * совпадала с ожидаемым кумулятивным доходом деталей к 50-й волне.
+ * совпадала с ожидаемым кумулятивным доходом деталей к 25–30-й волне.
  *
  * Пересчёт выполняется скриптом scripts/upgrade-cost-calc.mjs:
  * в него попадают те же линии и те же веса ценности, что и здесь.
@@ -205,7 +206,10 @@ export const UPGRADE_LABEL: Record<UpgradeKey, { label: TKey; desc: TKey }> = {
 /** Calculate cost to upgrade to next level */
 export function upgradeCost(key: UpgradeKey, level: number): number {
   const tier = UPGRADE_TIERS[key];
-  return tier.baseCost + tier.costStep * level;
+  // Первый уровень дешевле: игрок должен получить значимый апгрейд
+  // за 1–2 коротких забега, а не копить на него 4–10 попыток.
+  const base = level === 0 ? tier.baseCost * 0.75 : tier.baseCost;
+  return Math.round(base + tier.costStep * level);
 }
 
 /** Check if upgrade can be purchased */
@@ -364,8 +368,8 @@ export interface AppliedUpgrades {
 }
 
 export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
-  // hp: 100 base + 20 per hull level
-  const baseHp = 100 + upgrades.hull * 20;
+  // hp: базовый запас + 20 за уровень корпуса
+  const baseHp = PLAYER_BASE_HP + upgrades.hull * 20;
 
   // fire rate: 1.0 base + 0.08 per level
   const fireRateMult = 1.0 + upgrades.fireRate * 0.08;

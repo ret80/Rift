@@ -32,9 +32,11 @@ export const C = {
 /* --------------------------- player & limits --------------------------- */
 
 export const PLAYER_RADIUS = 13;
+/** Базовый запас корпуса без апгрейдов. */
+export const PLAYER_BASE_HP = 120;
 /** Reduced by 15% (310→248→211) then -20% more (211*0.8=169). */
 export const PLAYER_MAX_SPEED = 600;
-/** Drone base speed = 1.9 × player max speed. */
+/** Drone base speed = 0.93 × player max speed. */
 export const DRONE_BASE_SPEED = PLAYER_MAX_SPEED * 0.93;
 /**
  * Hunter speed = 1.15 × player max speed.
@@ -128,7 +130,7 @@ export const GRAZE_BAND = 22;
 /** Очки за одно касание вражеского снаряда. */
 export const GRAZE_SCORE = 12;
 /** Иммунитет после попадания, секунды. */
-export const PLAYER_HIT_INVULN = 0.6;
+export const PLAYER_HIT_INVULN = 0.75;
 
 /* --------------------------- quantum swap ability --------------------------- */
 

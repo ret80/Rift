@@ -28,6 +28,8 @@ export type PhysicsEntitySource = () => PhysicsEntity[];
 export class PhysicsSystem extends PhasedSystem {
   /** Реестр зарегистрированных сущностей (userData -> адаптер и ключ дефа). */
   private registered = new Map<unknown, { entity: PhysicsEntity; defKey: string }>();
+  /** Скорости тел до шага физики: нужны для урона от скорости удара. */
+  private preStepVelocity = new Map<unknown, { vx: number; vy: number }>();
 
   constructor(
     private backend: IPhysics,
@@ -62,6 +64,11 @@ export class PhysicsSystem extends PhasedSystem {
     }));
   }
 
+  /** Скорость тела до шага физики (для расчёта силы удара), если известна. */
+  getPreStepVelocity(userData: unknown): { vx: number; vy: number } | undefined {
+    return this.preStepVelocity.get(userData);
+  }
+
   get bodyCount(): number {
     return this.backend.bodyCount;
   }
@@ -88,11 +95,13 @@ export class PhysicsSystem extends PhasedSystem {
 
   removeBody(userData: unknown): void {
     this.registered.delete(userData);
+    this.preStepVelocity.delete(userData);
     this.backend.removeBody(userData);
   }
 
   clear(): void {
     this.registered.clear();
+    this.preStepVelocity.clear();
     this.backend.clear();
   }
 
@@ -119,6 +128,7 @@ export class PhysicsSystem extends PhasedSystem {
   /** Полный сброс (новый забег/меню): тела пересоздаются в следующем кадре. */
   reset(): void {
     this.registered.clear();
+    this.preStepVelocity.clear();
     this.backend.clear();
   }
 
@@ -172,8 +182,11 @@ export class PhysicsSystem extends PhasedSystem {
 
     // 3. Синхронизация тел с игровым состоянием (позиция + скорости).
     this.beginFrame();
+    this.preStepVelocity.clear();
     for (const { entity } of this.registered.values()) {
-      this.backend.syncBody(entity.userData, entity.getState());
+      const state = entity.getState();
+      this.preStepVelocity.set(entity.userData, { vx: state.vx, vy: state.vy });
+      this.backend.syncBody(entity.userData, state);
     }
 
     // 4. Шаг физики.

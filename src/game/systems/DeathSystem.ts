@@ -32,6 +32,7 @@ export class DeathSystem {
     private readonly ecs: EcsWorld,
     private readonly scoringSystem: ScoringSystem,
     private readonly hooks: DeathSystemHooks,
+    private readonly isTestMode: () => boolean = () => false,
   ) {}
 
   /** Установить состояние смерти (запуск анимации) */
@@ -72,7 +73,7 @@ export class DeathSystem {
 
   /** Вызвать при завершении анимации смерти */
   onFinishDeath(): void {
-    const best = this.scoringSystem.checkNewBest();
+    const best = this.isTestMode() ? false : this.scoringSystem.checkNewBest();
     const s = this.scoringSystem.getState();
     this.hooks.onStats(s.score, s.best, best, 0, s.killed, s.runTime);
     this.hooks.onGameOver();

@@ -21,17 +21,19 @@
  */
 
 import { Aspect, type Engine } from "@trixt0r/ecs";
-import { aimAtTarget } from "../aiming/AimSolver";
+import { aimAtTarget, solveLead, spreadForChance } from "../aiming/AimSolver";
 import {
     CRUISER_BOLT_LEAD_TIME,
     CRUISER_BULLET_SPEED,
-    CRUISER_FIRE_RANGE,
+    CRUISER_FIRE_RANGE_R,
+    CRUISER_MANEUVER_RANGE,
     ENEMY_BOLT_LEAD_TIME,
     ENEMY_SHOOT_RANGE,
     enemyHitChance,
     EnemyKind,
     FIGHTER_BOLT_SPEED,
     FIGHTER_BURST_COOLDOWN,
+    FIGHTER_BURST_DISPERSION,
     FIGHTER_BURST_INTERVAL,
     FIGHTER_CIRCLE_OMEGA,
     PLAYER_BULLET_HIT_OFFSET,
@@ -109,6 +111,7 @@ export class EnemyShootingSystem extends PhasedSystem {
     private readonly getPlayer: PlayerMotionSource,
     private readonly isCombatActive: CombatActiveSource,
     private readonly spawnBolt: SpawnBoltSource,
+    private readonly getZoneRadius: () => number,
   ) {
     super(Phase.EnemyActions);
     this.audio = audio;
@@ -152,7 +155,9 @@ export class EnemyShootingSystem extends PhasedSystem {
       if (!weapon) continue;
 
       const dist = Math.hypot(player.x - position.x, player.y - position.y) || 1;
-      const range = marker.kind === EnemyKind.Cruiser ? CRUISER_FIRE_RANGE : ENEMY_SHOOT_RANGE;
+      const range = marker.kind === EnemyKind.Cruiser
+        ? Math.max(CRUISER_MANEUVER_RANGE, this.getZoneRadius() * CRUISER_FIRE_RANGE_R)
+        : ENEMY_SHOOT_RANGE;
       if (dist >= range) {
         // Игрок вышел из дальности посреди очереди — очередь обрывается,
         // иначе marker.burstLeft застрял бы и заблокировал следующие залпы.
@@ -251,7 +256,7 @@ export class EnemyShootingSystem extends PhasedSystem {
     );
   }
 
-  /** Одиночная турель: Fighter и Carrier */
+  /** Очередь истребителя. */
   private fireFighterBurst(
     shot: EnemyShotRef,
     dt: number,
@@ -260,17 +265,6 @@ export class EnemyShootingSystem extends PhasedSystem {
     hitChance: number
   ): void {
     const { marker: e, position } = shot;
-
-    if (e.kind === EnemyKind.Carrier) {
-      const baseRate = CARRIER_TURRET_RATE;
-      const waveBoost = Math.min(SINGLE_RATE_WAVE_CAP, 1 + this.wave * SINGLE_RATE_WAVE_BOOST);
-      e.fireCd -= dt * waveBoost;
-      if (e.fireCd > 0) return;
-      e.fireCd = baseRate;
-      this.fire(e, position.x, position.y, player, weapon, hitChance);
-      this.audio.playEnemyShoot();
-      return;
-    }
 
     if (e.kind !== EnemyKind.Fighter) return;
 
@@ -291,12 +285,13 @@ export class EnemyShootingSystem extends PhasedSystem {
       if (e.burstTimer <= 0) {
         e.burstTimer = FIGHTER_BURST_INTERVAL;
         e.burstLeft--;
-        this.fire(e, position.x, position.y, player, weapon, hitChance);
+        this.fire(e, position.x, position.y, player, weapon, hitChance, true);
         this.audio.playEnemyShoot();
         if (e.burstLeft > 0) return;
         // Очередь закончена — пауза между следующими залпами.
         e.fireGate = false;
         e.burstLeft = 0;
+        e.burstAimOffset = null;
         e.fireCd = FIGHTER_BURST_COOLDOWN;
       }
       return;
@@ -317,27 +312,40 @@ export class EnemyShootingSystem extends PhasedSystem {
     sy: number,
     player: PlayerMotion,
     weapon: EnemyWeapon,
-    hitChance: number
+    hitChance: number,
+    burst = false,
   ): void {
-    const angle = aimAtTarget(
-      {
-        sx,
-        sy,
-        // Игрок поражается по внешнему радиусу хитбокса — он и задаёт
-        // угловой размер цели для рассеивания.
-        target: { x: player.x, y: player.y, vx: player.vx, vy: player.vy, r: PLAYER_HIT_RADIUS },
-        bulletSpeed: weapon.boltSpeed,
-        maxFlightTime: weapon.leadTime,
-        // Истребитель бьёт по дуге курса в том же режиме, в котором AI
-        // подтверждает окно выстрела: иначе заявка и прицел расходятся.
-        turnRate:
-          e.kind === EnemyKind.Fighter && Math.abs(player.turnRate ?? 0) >= FIGHTER_CIRCLE_OMEGA
-            ? player.turnRate
-            : 0,
-      },
-      hitChance,
-      PLAYER_HIT_RADIUS
-    );
+    const params = {
+      sx,
+      sy,
+      // Игрок поражается по внешнему радиусу хитбокса — он и задаёт
+      // угловой размер цели для рассеивания.
+      target: { x: player.x, y: player.y, vx: player.vx, vy: player.vy, r: PLAYER_HIT_RADIUS },
+      bulletSpeed: weapon.boltSpeed,
+      maxFlightTime: weapon.leadTime,
+      // Истребитель бьёт по дуге курса в том же режиме, в котором AI
+      // подтверждает окно выстрела: иначе заявка и прицел расходятся.
+      turnRate:
+        e.kind === EnemyKind.Fighter && Math.abs(player.turnRate ?? 0) >= FIGHTER_CIRCLE_OMEGA
+          ? player.turnRate
+          : 0,
+    };
+
+    let angle: number;
+    if (burst) {
+      // Один общий разброс на очередь: болты летят близко друг к другу,
+      // но вся очередь может уйти в сторону, если игрок увернулся.
+      if (e.burstAimOffset === null) {
+        const dist = Math.hypot(player.x - sx, player.y - sy) || 1;
+        const spread = spreadForChance(hitChance, dist, PLAYER_HIT_RADIUS);
+        e.burstAimOffset = (Math.random() - 0.5) * 2 * spread;
+      }
+      const lead = solveLead(params);
+      const base = lead ? lead.angle : Math.atan2(player.y - sy, player.x - sx);
+      angle = base + e.burstAimOffset + (Math.random() - 0.5) * 2 * FIGHTER_BURST_DISPERSION;
+    } else {
+      angle = aimAtTarget(params, hitChance, PLAYER_HIT_RADIUS);
+    }
 
     this.spawnBolt({
       sx,
@@ -353,8 +361,8 @@ export class EnemyShootingSystem extends PhasedSystem {
 
 /* ---- Константы стрельбы ---- */
 
-const CRUISER_TURRET_RATE = 1.5;
-const CRUISER_RATE_WAVE_STEP = 0.08;
+const CRUISER_TURRET_RATE = 2.6;
+const CRUISER_RATE_WAVE_STEP = 0.04;
 const CRUISER_RATE_JITTER = 0.15;
 /** Скорость доворота орудийной турели крейсера к цели, рад/с. */
 const CRUISER_TURRET_TURN_RATE = 3.2;
@@ -362,6 +370,3 @@ const CRUISER_TURRET_TURN_RATE = 3.2;
 const CRUISER_MUZZLE_FORWARD = 20;
 /** Полуразнесение стволов поперёк оси наведения турели. */
 const CRUISER_MUZZLE_GAP = 8;
-const CARRIER_TURRET_RATE = 1.5;
-const SINGLE_RATE_WAVE_BOOST = 0.08;
-const SINGLE_RATE_WAVE_CAP = 2.5;

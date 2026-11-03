@@ -10,13 +10,21 @@
 
 import { AbilitySystem } from "../abilities/AbilitySystem";
 import { AsteroidField } from "../asteroids";
-import { EnemyKind, PickupKind, PLAYER_HITBOX_RADIUS, PLAYER_MAX_SPEED } from "../balance";
+import {
+  EnemyKind,
+  PickupKind,
+  PLAYER_HITBOX_RADIUS,
+  PLAYER_MAX_SPEED,
+  SURVIVAL_PARTS_CAP,
+  SURVIVAL_PARTS_INTERVAL,
+  waveClearParts,
+} from "../balance";
 import type { EnemyRef, PlayerRef } from "../ecs";
 import { EcsWorld } from "../ecs";
 import { SystemSchedule } from "../ecs/SystemSchedule";
 import { AllyDroneSystem } from "../ecs/systems/AllyDroneSystem";
 import { Fx } from "../fx";
-import { GAMEPAD_CODES, GAMEPAD_DPAD_CODES, GamepadManager } from "../gamepad";
+import { GAMEPAD_CODES, GamepadManager } from "../gamepad";
 import { InputManager } from "../input";
 import { LoadoutSystem } from "../loadout/LoadoutSystem";
 import { BonusManager } from "../loadout/bonuses/BonusManager";
@@ -68,6 +76,7 @@ import { PresentationFrame } from "./PresentationFrame";
 import { GameStateMachine } from "./StateMachine";
 import type { WorldFrame } from "./WorldFrame";
 import { getViewport, readUrlParam } from "./env";
+import type { WaveCompositionOverride } from "../balance/waves";
 
 export class GameContext {
   readonly hooks: Hooks;
@@ -126,6 +135,13 @@ export class GameContext {
   /** Стартовая волна (для отладки/URL-параметра). */
   startWave = 1;
 
+  /** Тестовый режим `?test=...`: не сохранять рекорд и не начислять детали. */
+  testMode = false;
+
+  /** Накопитель страховки за выживание и уже выданное количество. */
+  private survivalTimer = 0;
+  private survivalAwarded = 0;
+
   /** Физический движок, выбранный в настройках (persisted). */
   private _physicsEngineId: PhysicsEngineId = "planck";
   get physicsEngineId(): PhysicsEngineId {
@@ -135,16 +151,22 @@ export class GameContext {
   private countId = 0;
   private _paused = false;
 
-  /** Предыдущее направление левого стика для edge-детекции навигации. */
-  private _stickNavDir: "up" | "down" | "left" | "right" | null = null;
-  /** Таймер auto-repeat для навигации стиком (секунды). */
-  private _stickNavRepeatTimer = 0;
-  /** Задержка перед auto-repeat (секунды). */
-  private static readonly STICK_NAV_INITIAL_DELAY = 0.4;
-  /** Интервал auto-repeat (секунды). */
-  private static readonly STICK_NAV_REPEAT_INTERVAL = 0.15;
-  /** Мёртвая зона навигации стиком (выше, чем для движения). */
-  private static readonly STICK_NAV_DEADZONE = 0.3;
+  /** Текущее направление навигации (стик или D-pad). */
+  private _navDir: "up" | "down" | "left" | "right" | null = null;
+  /** Кандидат направления — для дебаунса шумного hat-стика. */
+  private _navCandidate: "up" | "down" | "left" | "right" | null = null;
+  /** Сколько кандидат держится стабильно, секунды. */
+  private _navCandidateT = 0;
+  /** Время до следующего шага автоповтора, секунды. */
+  private _navRepeatT = 0;
+  /** Задержка перед первым повтором (секунды). */
+  private static readonly NAV_INITIAL_DELAY = 0.45;
+  /** Интервал автоповтора (секунды). */
+  private static readonly NAV_REPEAT_INTERVAL = 0.18;
+  /** Мёртвая зона навигации (выше, чем для движения). */
+  private static readonly NAV_DEADZONE = 0.3;
+  /** Стабильность направления для гашения дребезга hat-стика, секунды. */
+  private static readonly NAV_DEBOUNCE = 0.03;
 
   /** Размер вьюпорта в CSS-пикселях (обновляется в resize). */
   readonly viewport = { width: 0, height: 0 };
@@ -156,6 +178,12 @@ export class GameContext {
     if (id === this._physicsEngineId) return;
     this._physicsEngineId = id;
     this.physics.setEngine(createPhysicsEngine(id));
+  }
+
+  /** Включить тестовую волну точного состава. */
+  setWaveOverride(override: WaveCompositionOverride): void {
+    this.testMode = true;
+    this.spawnSystem.setWaveComposition(override);
   }
 
   constructor(canvas: HTMLCanvasElement, hooks: Hooks, storage: PersistencePort) {
@@ -206,6 +234,9 @@ export class GameContext {
         onToast: (text, color) => hooks.onToast({ text, color }),
         hitPlayerRaw: (amount) => this.playerSystem.hitRaw(amount),
         shakeScreen: (strength) => this.fx.addShake(strength),
+        onWaveCleared: (wave) => {
+          if (!this.testMode) this.upgradeSystem.addParts(waveClearParts(wave));
+        },
         onWaveAdvanced: () => {
           const nextWave = this.waveOrchestrator.wave;
           this.ecs.setEnemyWave(nextWave);
@@ -372,7 +403,9 @@ export class GameContext {
 
     this.dropSystem = new PickupDropSystem(this.eventBus, {
       spawnPickup: (kind, x, y, vx, vy) => this.ecs.spawnPickup(kind, x, y, vx, vy),
-      addParts: (n) => this.upgradeSystem.addParts(n),
+      addParts: (n) => {
+        if (!this.testMode) this.upgradeSystem.addParts(n);
+      },
     });
 
     this.collisionSystem = new CollisionSystem(
@@ -480,6 +513,26 @@ export class GameContext {
     this._paused = paused;
   }
 
+  /** Сбросить страховку за выживание в начале забега. */
+  resetSurvivalStipend(): void {
+    this.survivalTimer = 0;
+    this.survivalAwarded = 0;
+  }
+
+  /** Начислить страховку за выживание: 1 деталь за 3 с, максимум 30. */
+  updateSurvivalStipend(dt: number): void {
+    if (this.testMode || this.survivalAwarded >= SURVIVAL_PARTS_CAP) return;
+    this.survivalTimer += dt;
+    while (
+      this.survivalTimer >= SURVIVAL_PARTS_INTERVAL &&
+      this.survivalAwarded < SURVIVAL_PARTS_CAP
+    ) {
+      this.survivalTimer -= SURVIVAL_PARTS_INTERVAL;
+      this.survivalAwarded++;
+      this.upgradeSystem.addParts(1);
+    }
+  }
+
   togglePause(): void {
     if (this.fsm.is("menu", "over")) return;
     this.setPaused(!this._paused);
@@ -526,20 +579,6 @@ export class GameContext {
       if (this.gamepad.consumePress(GAMEPAD_CODES.B)) {
         this.hooks.onGamepadCancel?.();
       }
-      // Навигация — через хуки к UI.
-      if (this.gamepad.consumePress(GAMEPAD_DPAD_CODES.Up)) {
-        this.hooks.onGamepadNavUp?.();
-      }
-      if (this.gamepad.consumePress(GAMEPAD_DPAD_CODES.Down)) {
-        this.hooks.onGamepadNavDown?.();
-      }
-      if (this.gamepad.consumePress(GAMEPAD_DPAD_CODES.Left)) {
-        this.hooks.onGamepadNavLeft?.();
-      }
-      if (this.gamepad.consumePress(GAMEPAD_DPAD_CODES.Right)) {
-        this.hooks.onGamepadNavRight?.();
-      }
-
       // L/R (LB/RB) — переключение вкладок на экране прокачки.
       if (this.gamepad.consumePress(GAMEPAD_CODES.LB)) {
         this.hooks.onGamepadTabLeft?.();
@@ -548,33 +587,9 @@ export class GameContext {
         this.hooks.onGamepadTabRight?.();
       }
 
-      // Навигация левым стиком (edge-triggered: срабатывает при входе в направление).
-      const nav = GameContext.STICK_NAV_DEADZONE;
-      const ax = this.gamepad.axisX;
-      const ay = this.gamepad.axisY;
-      let dir: "up" | "down" | "left" | "right" | null = null;
-      if (Math.abs(ax) > nav || Math.abs(ay) > nav) {
-        if (Math.abs(ax) >= Math.abs(ay)) {
-          dir = ax > 0 ? "right" : "left";
-        } else {
-          dir = ay > 0 ? "down" : "up";
-        }
-      }
-      if (dir && dir !== this._stickNavDir) {
-        // Смена направления — мгновенный шаг, таймер повтора сбрасывается.
-        this._stickNavRepeatTimer = 0;
-        this._fireStickNav(dir);
-      } else if (dir && dir === this._stickNavDir) {
-        // Удержание стика: задержка, затем авто-повтор.
-        this._stickNavRepeatTimer += dt;
-        if (this._stickNavRepeatTimer >= GameContext.STICK_NAV_REPEAT_INTERVAL) {
-          this._stickNavRepeatTimer = GameContext.STICK_NAV_INITIAL_DELAY;
-          this._fireStickNav(dir);
-        }
-      } else {
-        this._stickNavRepeatTimer = 0;
-      }
-      this._stickNavDir = dir;
+      // Навигация: стик и D-pad приходят уже слитыми в axisX/axisY.
+      // Один шаг на вход в направление, затем задержка и повтор с интервалом.
+      this._updateNavRepeat(dt);
     }
 
     this.debugSystem.handleDebugKeys(
@@ -584,8 +599,55 @@ export class GameContext {
     );
   }
 
-  /** Вызвать навигационный хук по направлению стика. */
-  private _fireStickNav(dir: "up" | "down" | "left" | "right"): void {
+  /** Шаг навигации с дебаунсом и автоповтором для стика/D-pad. */
+  private _updateNavRepeat(dt: number): void {
+    const nav = GameContext.NAV_DEADZONE;
+    const ax = this.gamepad.axisX;
+    const ay = this.gamepad.axisY;
+    let raw: "up" | "down" | "left" | "right" | null = null;
+    if (Math.abs(ax) > nav || Math.abs(ay) > nav) {
+      raw = Math.abs(ax) >= Math.abs(ay)
+        ? (ax > 0 ? "right" : "left")
+        : (ay > 0 ? "down" : "up");
+    }
+
+    // Нейтраль — сбрасываем всё сразу, без инерции.
+    if (raw === null) {
+      this._navDir = null;
+      this._navCandidate = null;
+      this._navCandidateT = 0;
+      this._navRepeatT = 0;
+      return;
+    }
+
+    // Дребезг hat-оси: направление должно продержаться NAV_DEBOUNCE.
+    if (raw !== this._navCandidate) {
+      this._navCandidate = raw;
+      this._navCandidateT = 0;
+      return;
+    }
+    this._navCandidateT += dt;
+    if (this._navCandidateT < GameContext.NAV_DEBOUNCE) return;
+
+    if (raw !== this._navDir) {
+      this._navDir = raw;
+      this._fireNav(raw);
+      this._navRepeatT = GameContext.NAV_INITIAL_DELAY;
+      return;
+    }
+
+    this._navRepeatT -= dt;
+    if (this._navRepeatT <= 0) {
+      this._fireNav(raw);
+      // Вычитаем интервал, а не присваиваем задержку: иначе повтор
+      // срабатывает каждый кадр.
+      this._navRepeatT += GameContext.NAV_REPEAT_INTERVAL;
+      if (this._navRepeatT <= 0) this._navRepeatT = GameContext.NAV_REPEAT_INTERVAL;
+    }
+  }
+
+  /** Вызвать навигационный хук по направлению. */
+  private _fireNav(dir: "up" | "down" | "left" | "right"): void {
     switch (dir) {
       case "up": this.hooks.onGamepadNavUp?.(); break;
       case "down": this.hooks.onGamepadNavDown?.(); break;

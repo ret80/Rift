@@ -45,6 +45,7 @@ import { PickupCollectionSystem } from "./systems/PickupCollectionSystem";
 import { PickupMovementSystem } from "./systems/PickupMovementSystem";
 import { RingSystem } from "./systems/RingSystem";
 import { ZoneEnemyPullSystem } from "./systems/ZoneEnemyPullSystem";
+import { AsteroidBeltSystem } from "./systems/AsteroidBeltSystem";
 import type { PhasedSystem } from "./SystemSchedule";
 
 export class EcsWorld {
@@ -76,6 +77,7 @@ export class EcsWorld {
       new BulletSystem(),
       ...this.enemyDomain.systems,
       new ZoneEnemyPullSystem(this.core, deps.getZoneBounds),
+      new AsteroidBeltSystem(this.core, deps.getZoneBounds),
     ];
   }
 
@@ -84,6 +86,24 @@ export class EcsWorld {
   physicsBodies(): PhysicsEntity[] {
     return collectPhysicsBodies(this.core, this.playerDomain, this.enemyDomain, this.asteroidDomain);
   }
+  /** Метрики роя дронов для debug-оверлея. */
+  swarmMetrics(): { groups: number; detached: number; directions: string } {
+    return {
+      groups: this.enemyDomain.swarmGroups,
+      detached: this.enemyDomain.swarmDetached,
+      directions: this.enemyDomain.swarmDirections,
+    };
+  }
+
+  /** Сколько астероидов сейчас захвачено поясом. */
+  beltRockCount(): number {
+    let count = 0;
+    for (const asteroid of this.asteroidDomain.asteroids()) {
+      if (asteroid.marker.beltState === "captured") count++;
+    }
+    return count;
+  }
+
   clear(): void { this.core.clear(); }
   resetEnemyWave(): void { this.enemyDomain.resetWave(); }
   setEnemyWave(wave: number): void { this.enemyDomain.setWave(wave); }

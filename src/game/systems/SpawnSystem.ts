@@ -10,6 +10,7 @@
 
 import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import { EnemyKind } from "../balance";
+import type { WaveCompositionOverride } from "../balance/waves";
 import type { RandomSource } from "../math";
 import type { RiftField } from "../rifts";
 import {
@@ -52,6 +53,10 @@ export class SpawnSystem extends PhasedSystem {
   private readonly announcements = new WaveAnnouncements();
   private readonly random: RandomSource;
   private enabledEnemies: EnemyKind[] | null = null;
+  /** Тестовая волна: точный состав вместо случайных весов. */
+  private composition: WaveCompositionOverride | null = null;
+  /** Остаток тестового состава, который ещё не разошёлся по разломам. */
+  private compositionLeft: EnemyKind[] = [];
 
   /** Общее количество врагов на текущей волне */
   private total = 0;
@@ -95,6 +100,25 @@ export class SpawnSystem extends PhasedSystem {
   }
 
   /**
+   * Задать точный состав волны (тестовый режим, `?test=...`).
+   * Состав действует на каждую волну, пока не будет сброшен.
+   */
+  setWaveComposition(composition: WaveCompositionOverride | null): void {
+    this.composition = composition;
+    this.reset();
+  }
+
+  /** Сумма тестового состава или null в обычной волне. */
+  get compositionTotal(): number | null {
+    if (!this.composition) return null;
+    let total = 0;
+    for (const kind of Object.keys(this.composition) as EnemyKind[]) {
+      total += Math.max(0, Math.floor(this.composition[kind] ?? 0));
+    }
+    return total;
+  }
+
+  /**
    * Clear announced classes.
    */
   clearAnnounced(): void {
@@ -112,6 +136,7 @@ export class SpawnSystem extends PhasedSystem {
     this.nextThreshold = 0;
     this.lastTriggeredKills = 0;
     this.startRifts = 0;
+    this.compositionLeft = [];
   }
 
   update(deps: SpawnDependencies): void {
@@ -152,7 +177,8 @@ export class SpawnSystem extends PhasedSystem {
    * Все стартовые разломы размещаются разом, разведённые друг от друга.
    */
   private initWave(deps: SpawnDependencies): void {
-    this.total = waveTotal(deps.wave);
+    const override = this.composition ? this.expandComposition(this.composition) : null;
+    this.total = override ? override.length : waveTotal(deps.wave);
     this.spawned = 0;
     this.killed = 0;
     this.nextThreshold = killThreshold(this.total);
@@ -180,9 +206,13 @@ export class SpawnSystem extends PhasedSystem {
     const perRift = Math.floor(startCount / this.startRifts);
     const remainder = startCount % this.startRifts;
 
+    this.compositionLeft = override ? override.slice(startCount) : [];
+
     for (let i = 0; i < this.startRifts; i++) {
       const count = perRift + (i < remainder ? 1 : 0);
-      const queue = buildWaveQueue(count, deps.wave, this.enabledEnemies, this.random);
+      const queue = override
+        ? override.splice(0, count)
+        : buildWaveQueue(count, deps.wave, this.enabledEnemies, this.random);
       this.spawnRiftAt(deps, queue, points[i]);
       this.spawned += count;
     }
@@ -198,7 +228,10 @@ export class SpawnSystem extends PhasedSystem {
     if (killed <= this.lastTriggeredKills) return;
     if (this.spawned >= this.total) return;
 
-    const count = reinforcementCount(this.total, this.spawned);
+    const requested = reinforcementCount(this.total, this.spawned);
+    const count = this.composition
+      ? Math.min(requested, this.compositionLeft.length)
+      : requested;
     if (count <= 0) return;
 
     const zone = deps.zoneState;
@@ -218,12 +251,28 @@ export class SpawnSystem extends PhasedSystem {
       MIN_RIFT_DIST,
     );
 
-    const queue = buildWaveQueue(count, deps.wave, this.enabledEnemies, this.random);
+    const queue = this.composition
+      ? this.compositionLeft.splice(0, count)
+      : buildWaveQueue(count, deps.wave, this.enabledEnemies, this.random);
     this.spawnRiftAt(deps, queue, points[0]);
     this.spawned += count;
 
     this.lastTriggeredKills = killed;
     this.nextThreshold = killed + killThreshold(this.total);
+  }
+
+  /** Развернуть состав в массив видов и перемешать порядок выхода. */
+  private expandComposition(composition: WaveCompositionOverride): EnemyKind[] {
+    const queue: EnemyKind[] = [];
+    for (const kind of Object.keys(composition) as EnemyKind[]) {
+      const count = Math.max(0, Math.floor(composition[kind] ?? 0));
+      for (let i = 0; i < count; i++) queue.push(kind);
+    }
+    for (let i = queue.length - 1; i > 0; i--) {
+      const j = Math.floor(this.random() * (i + 1));
+      [queue[i], queue[j]] = [queue[j], queue[i]];
+    }
+    return queue;
   }
 
   /** Координаты уже активных разломов. */

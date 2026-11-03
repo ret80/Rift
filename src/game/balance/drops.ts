@@ -57,4 +57,18 @@ export function dropChanceFor(kind: EnemyKind): number {
 
 /* ------------------------------- asteroid kinds ------------------------------- */
 
+/* ------------------------------- economy ------------------------------- */
+
+/** Бонус за зачистку волны: база и прибавка за номер волны. */
+export const WAVE_CLEAR_PARTS_BASE = 15;
+export const WAVE_CLEAR_PARTS_PER_WAVE = 6;
+/** Страховка за выживание: одна деталь за интервал и потолок за забег. */
+export const SURVIVAL_PARTS_INTERVAL = 3;
+export const SURVIVAL_PARTS_CAP = 30;
+
+/** Детали за зачистку волны. */
+export function waveClearParts(wave: number): number {
+  return WAVE_CLEAR_PARTS_BASE + WAVE_CLEAR_PARTS_PER_WAVE * Math.max(1, Math.floor(wave));
+}
+
 export type AsteroidKind = "small" | "medium" | "large";

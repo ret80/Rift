@@ -17,6 +17,7 @@ export class GameStart {
 
     ctx.loopResetTime();
     ctx.scoringSystem.reset();
+    ctx.resetSurvivalStipend();
     // Начинаем с лучшей достигнутой волны (или стартовой для отладки)
     ctx.scoringSystem.setKilledWave(0);
 
@@ -44,7 +45,11 @@ export class GameStart {
     // Reset spawn and enemy system state for new game
     ctx.spawnSystem.clearAnnounced();
     ctx.ecs.resetEnemyWave();
-    const resetWaveStart = Math.max(ctx.startWave, loadBestWave(ctx.storage));
+    // В тестовом режиме стартовая волна задаётся только параметром,
+    // иначе сохранённый рекорд перекрыл бы `?test`.
+    const resetWaveStart = ctx.testMode
+      ? ctx.startWave
+      : Math.max(ctx.startWave, loadBestWave(ctx.storage));
     ctx.ecs.setEnemyWave(resetWaveStart);
 
     // Reset zone state via orchestrator
@@ -62,13 +67,14 @@ export class GameStart {
       ctx.scoringSystem,
       {
         onGameOver: () => {
-          saveBestWave(ctx.waveOrchestrator.wave, ctx.storage);
+          if (!ctx.testMode) saveBestWave(ctx.waveOrchestrator.wave, ctx.storage);
           ctx.hooks.onGameOver();
         },
         onStats: (score, best, isBest, _wave, kills, time) => {
           ctx.hooks.onStats({ score, best, isBest, wave: ctx.waveOrchestrator.wave, kills, time });
         },
       },
+      () => ctx.testMode,
     );
     // Пояс уже очищен в hardReset() выше; дубликат не нужен.
 

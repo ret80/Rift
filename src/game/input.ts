@@ -19,7 +19,6 @@ export interface MoveAxis {
 const TOUCH_DEADZONE = 0.12;
 
 /** Импорты типов для геймпада (отложенные, чтобы избежать циклических зависимостей). */
-type GamepadButtonCode = string;
 type GamepadInputSource = {
   isButton(code: string): boolean;
   consumePress(code: string): boolean;

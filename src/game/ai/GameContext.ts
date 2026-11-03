@@ -4,6 +4,7 @@
  */
 
 import type { EnemyRef } from '../ecs';
+import type { DroneSwarm } from './DroneSwarm';
 
 /** Данные для синхронизации контекста (объектный параметр вместо 12 positional args). */
 export interface GameContextInput {
@@ -42,6 +43,9 @@ export class GameContext {
 
   /** Живой список врагов (присваивается из EnemySystem перед AI pass). */
   public enemies: EnemyRef[] = [];
+
+  /** Координатор групп дронов (присваивается из EnemySystem). */
+  public swarm: DroneSwarm | null = null;
 
   /** Выходной буфер CarrierStrategy — спавн дронов. */
   public carrierSpawns: Array<{ x: number; y: number }> = [];

@@ -17,6 +17,7 @@ import type { MenuTrackId, CombatTrackId } from "../game/audio/tracks";
 import type { PhysicsEngineId } from "../game/physics";
 import type { HudStore } from "../ui/hud/HudStore";
 import { readUrlParam } from "../game/core/env";
+import type { WaveCompositionOverride } from "../game/balance/waves";
 
 /** Начальные настройки, применяемые к новому экземпляру игры. */
 export interface GameInitialSettings {
@@ -29,6 +30,8 @@ export interface GameInitialSettings {
   enabledEnemies: EnemyKind[] | null;
   urlDebug: boolean;
   urlWave: number | null;
+  /** Состав тестовой волны из `?test=...`; null — обычные волны. */
+  waveOverride: WaveCompositionOverride | null;
 }
 
 /** События, которые игра отправляет в React. */
@@ -130,8 +133,9 @@ export function useGameLifecycle(
     }
 
     // ?wave — сразу запустить забег с нужной волны.
-    if (initial.urlWave) {
-      game.setStartWave(initial.urlWave);
+    if (initial.urlWave || initial.waveOverride) {
+      if (initial.waveOverride) game.setWaveOverride(initial.waveOverride);
+      if (initial.urlWave) game.setStartWave(initial.urlWave);
       game.audio.init();
       game.audio.startMusic();
       game.startRun();

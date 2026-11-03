@@ -26,3 +26,6 @@ export * from "./balance/aiming";
 
 // Hit chances of the player and of enemy turrets
 export * from "./balance/accuracy";
+
+// Урон от столкновений: зависимость от скорости сближения
+export * from "./balance/impact";

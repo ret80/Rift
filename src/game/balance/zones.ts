@@ -54,6 +54,31 @@ export const ZONE_PICKUP_MAGNET = 150;
 
 export const ZONE_ASTEROID_PUSH_FORCE = 15; // force multiplier for pushing asteroids out
 
+/* ------------------------- пояс астероидов ------------------------- */
+
+/** Центр пояса — доля ширины красной полосы от её внутреннего края. */
+export const ZONE_BELT_BAND_FRACTION = 0.55;
+/** Максимум захваченных астероидов. */
+export const ZONE_BELT_MAX_ROCKS = 32;
+/** Дальность притяжения к кольцу, px. */
+export const ZONE_BELT_ATTRACT_RANGE = 650;
+/** Полоса захвата вокруг кольца, px. */
+export const ZONE_BELT_CAPTURE_BAND = 30;
+/** Полуразнос внутренней и внешней дорожек, px. */
+export const ZONE_BELT_LANE_OFFSET = 18;
+/** Целевая линейная скорость по кольцу, px/с. */
+export const ZONE_BELT_ORBIT_SPEED = 80;
+/** Жёсткость радиальной пружины, 1/с². */
+export const ZONE_BELT_SPRING = 2.2;
+/** Гашение радиальной скорости, 1/с. */
+export const ZONE_BELT_RADIAL_DAMPING = 1.8;
+/** Скорость выхода на целевую касательную скорость, 1/с. */
+export const ZONE_BELT_TANGENT_GAIN = 1.5;
+/** Потолок ускорения пояса, px/с². */
+export const ZONE_BELT_MAX_ACCEL = 600;
+/** Потолок скорости захваченного камня, px/с. */
+export const ZONE_BELT_MAX_SPEED = 220;
+
 /* --------------------------- дальность снарядов --------------------------- */
 
 /** Дальность снарядов игрока (пушек и дронов), мировые единицы. */

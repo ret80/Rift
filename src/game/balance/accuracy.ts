@@ -33,7 +33,7 @@ export const ENEMY_AIM_MAX_CHANCE = 0.7;
  */
 export const ENEMY_AIM_KIND_MULT: Partial<Record<EnemyKind, number>> = {
   fighter: 1,
-  cruiser: 0.9,
+  cruiser: 0.8,
   carrier: 0.7,
 };
 

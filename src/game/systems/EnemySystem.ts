@@ -14,11 +14,12 @@
 import { Aspect, type Engine } from "@trixt0r/ecs";
 import { EnemyAI } from "../ai/EnemyAI";
 import { GameContext } from "../ai/GameContext";
+import { DroneSwarm } from "../ai/DroneSwarm";
+import { EnemyAvoidance, type IEnemyAvoidance } from "../ai/EnemyAvoidance";
 import type { EnemyDef } from "../balance";
 import {
-    AI_BASE_PUSH,
-    AI_MIN_DIST,
     CARRIER_DRONE_ORBIT_GAP,
+    ENEMY_MAX_DRONES,
     EnemyKind,
     enemyDefFor,
     massForRadius
@@ -56,6 +57,9 @@ export class EnemySystem extends PhasedSystem {
   private aspect: Aspect | null = null;
   private ai: EnemyAI;
   private context: GameContext;
+  private swarm = new DroneSwarm();
+  /** Последний срез врагов — только для диагностики роя. */
+  private lastEnemyRefs: EnemyRef[] = [];
 
   private wave = 1;
 
@@ -64,6 +68,7 @@ export class EnemySystem extends PhasedSystem {
     private readonly getPlayer: EnemyPlayerSource,
     private readonly getZoneBounds: ZoneBoundsSource,
     private readonly getIntegrate: IntegrateSource,
+    private readonly avoidance: IEnemyAvoidance = new EnemyAvoidance(),
   ) {
     super(Phase.Enemies);
     this.ai = new EnemyAI();
@@ -73,6 +78,23 @@ export class EnemySystem extends PhasedSystem {
   /** Сброс волны (перед запуском забега). */
   reset(): void {
     this.wave = 1;
+    this.lastEnemyRefs = [];
+    this.swarm.clear();
+  }
+
+  /** Диагностика: число групп роя. */
+  get swarmGroups(): number {
+    return this.swarm.groupCount;
+  }
+
+  /** Диагностика: направления групп. */
+  get swarmDirections(): string {
+    return this.swarm.directions;
+  }
+
+  /** Диагностика: сколько дронов сейчас отделилось на атаку. */
+  get swarmDetached(): number {
+    return this.swarm.detachedCount(this.lastEnemyRefs);
   }
 
   /** Установить номер волны (влияет на defs и сложность). */
@@ -116,7 +138,10 @@ export class EnemySystem extends PhasedSystem {
 
     // AI movement via strategy pattern (стратегии мутируют базовые компоненты).
     const enemyRefs = entities.map((e) => e.ref);
+    this.lastEnemyRefs = enemyRefs;
     this.context.enemies = enemyRefs;
+    this.context.swarm = this.swarm;
+    this.swarm.update(enemyRefs, this.context, dt);
     this.ai.updateAI(enemyRefs, this.context, dt);
 
     // Apply velocity and update state
@@ -141,6 +166,7 @@ export class EnemySystem extends PhasedSystem {
 
     // processing carrier drone spawns
     const carrierSpawns = this.context.carrierSpawns || [];
+    let orbitSpawnIndex = 0;
     for (const spawn of carrierSpawns) {
       const droneDef = this.getEnemyDef(EnemyKind.Drone);
       const drone = this.createEnemy(EnemyKind.Drone, spawn.x, spawn.y, droneDef, playerPos, null);
@@ -151,15 +177,20 @@ export class EnemySystem extends PhasedSystem {
         // Дрон начинается на орбите вокруг Carrier
         drone.droneState = "orbiting";
         drone.orbitRadius = carrier.radius.r + CARRIER_DRONE_ORBIT_GAP;
-        drone.orbitAngle = Math.random() * Math.PI * 2;
+        // Равномерные орбитальные слоты: дроны не рождаются в одной точке
+        // и не перекрывают друг друга на орбите.
+        const occupied = this.countOrbitingChildren(enemyRefs, carrier.marker.ecsId);
+        const slot = occupied + orbitSpawnIndex;
+        drone.orbitAngle = (slot * TAU) / ENEMY_MAX_DRONES + rand(-0.06, 0.06);
         // Половина роя летит по часовой, половина — против часовой.
         drone.strafeDir = Math.random() < 0.5 ? 1 : -1;
+        orbitSpawnIndex++;
       }
       this.ecs.addEnemy(drone);
     }
 
-    // Simple collision avoidance between all enemies
-    this.applyAvoidance(enemyRefs);
+    // Расталкивание вынесено в сменный решатель (см. EnemyAvoidance).
+    this.avoidance.solve(enemyRefs);
   }
 
   /** Собрать сущности с EnemyComponent. */
@@ -201,12 +232,6 @@ export class EnemySystem extends PhasedSystem {
       orbitRadius = parent.radius.r + CARRIER_DRONE_ORBIT_GAP;
     }
 
-    // Орбитальные дроны имеют низкий dodgeWeight чтобы avoidance их не толкал
-    let dodgeWeight = this.getDodgeWeight(kind);
-    if (kind === EnemyKind.Drone && parent) {
-      dodgeWeight = 0.1; // Практически не реагирует на avoidance
-    }
-
     return {
       parentId: parent?.marker.ecsId ?? null,
       kind, x, y, vx: 0, vy: 0, angle, turretAngle,
@@ -217,7 +242,6 @@ export class EnemySystem extends PhasedSystem {
       seed: Math.random() * 100, spawnCd: rand(1, 2),
       flash: 0, hitCd: 0, dead: false,
       mass,
-      dodgeWeight,
       tCd1: rand(0.3, 0.8) + tStagger,
       tCd2: rand(0.3, 0.8) - tStagger,
       burstSpawned: carrierBurstSpawned, burstActive: carrierBurstActive,
@@ -229,71 +253,6 @@ export class EnemySystem extends PhasedSystem {
       phaseDrones: 0,
       carrierChildren: 0,
     };
-  }
-
-  /** Мягко раздвигает врагов, которые слишком близко друг к другу.
-   *  Толчок обратно пропорционален массе: тяжёлые (крейсер, носитель)
-   *  «пропахивают» рой, а лёгкие (дрон) разлетаются. */
-  private applyAvoidance(enemyList: EnemyRef[]): void {
-    const minDistSq = AI_MIN_DIST * AI_MIN_DIST;
-
-    for (let i = 0; i < enemyList.length; i++) {
-      const a = enemyList[i];
-      if (a.marker.dead) continue;
-
-      // Орбитальные дроны полностью игнорируют avoidance
-      if (a.marker.droneState === "orbiting") continue;
-
-      for (let j = i + 1; j < enemyList.length; j++) {
-        const b = enemyList[j];
-        if (b.marker.dead) continue;
-
-        if (a.marker.parentId !== null && a.marker.parentId === b.marker.ecsId) continue;
-        if (b.marker.parentId !== null && b.marker.parentId === a.marker.ecsId) continue;
-
-        // Орбитальные дроны игнорируют avoidance полностью
-        if (b.marker.droneState === "orbiting") continue;
-
-        const dx = a.position.x - b.position.x;
-        const dy = a.position.y - b.position.y;
-        const distSq = dx * dx + dy * dy;
-
-        if (distSq < minDistSq && distSq > 0.01) {
-          const dist = Math.sqrt(distSq);
-          const push = (1 - dist / AI_MIN_DIST) * AI_BASE_PUSH;
-          const pushX = (dx / dist) * push;
-          const pushY = (dy / dist) * push;
-
-          // Распределение импульса обратно пропорционально массе.
-          // Базовая масса — дрон (~6), тяжёлые (носитель ~105) получают
-          // в разы меньший толчок. dodgeWeight — дополнительный множитель.
-          const aMass = Math.max(a.marker.mass || 1, 1);
-          const bMass = Math.max(b.marker.mass || 1, 1);
-          const totalMass = aMass + bMass;
-          const aFactor = bMass / totalMass; // лёгкий получает больше
-          const bFactor = aMass / totalMass; // тяжёлый получает меньше
-          const aMult = (a.marker.dodgeWeight || 1.0) * aFactor;
-          const bMult = (b.marker.dodgeWeight || 1.0) * bFactor;
-
-          a.velocity.vx += pushX * aMult;
-          a.velocity.vy += pushY * aMult;
-          b.velocity.vx -= pushX * bMult;
-          b.velocity.vy -= pushY * bMult;
-        }
-      }
-    }
-  }
-
-  /** Возвращает weight для avoidance: насколько сильно корабль должен избегать других */
-  private getDodgeWeight(kind: EnemyKind): number {
-    const weights: Record<EnemyKind, number> = {
-      [EnemyKind.Drone]: 2.5,
-      [EnemyKind.Hunter]: 1.5,
-      [EnemyKind.Fighter]: 1.2,
-      [EnemyKind.Cruiser]: 1.0,
-      [EnemyKind.Carrier]: 0.8,
-    };
-    return weights[kind] ?? 1.0;
   }
 
   spawn(kind: EnemyKind, x: number, y: number, parent: EnemyRef | null, playerPos?: { x: number; y: number }): void {
@@ -318,6 +277,21 @@ export class EnemySystem extends PhasedSystem {
 
   private getEnemyDef(kind: EnemyKind): EnemyDef {
     return enemyDefFor(kind, this.wave);
+  }
+
+  /** Сколько живых дронов уже висит на орбите указанного носителя. */
+  private countOrbitingChildren(enemies: EnemyRef[], parentId: number | string): number {
+    let count = 0;
+    for (const e of enemies) {
+      if (
+        !e.marker.dead &&
+        e.marker.droneState === "orbiting" &&
+        e.marker.parentId === parentId
+      ) {
+        count++;
+      }
+    }
+    return count;
   }
 
   /** Найти ближайшего живого Carrier для дрона */

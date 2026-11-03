@@ -26,6 +26,8 @@ export interface WaveOrchestratorHooks {
   hitPlayerRaw: (amount: number) => void;
   shakeScreen: (strength: number, duration: number) => void;
   onWaveAdvanced: (wave: number) => void;
+  /** Волна зачищена (один раз за волну). */
+  onWaveCleared?: (wave: number) => void;
 }
 
 export interface WaveOrchestratorConfig {
@@ -114,6 +116,7 @@ export class WaveOrchestrator {
       this.waveClearSent = false;
       // Волна зачищена: зона начинает гаснуть сразу, от текущей альфы.
       this.zone.beginClear();
+      this.hooks.onWaveCleared?.(this.waves.wave);
     }
   }
 

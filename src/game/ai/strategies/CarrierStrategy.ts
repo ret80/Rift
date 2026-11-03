@@ -83,24 +83,8 @@ export class CarrierStrategy implements IEnemyStrategy {
     } else if (dist > holdDist) {
       radial = Math.min(0, (dist - holdDist) * 0.5);
     }
-    let desX = dirX * radial + -dirY * marker.strafeDir * marker.speed * 0.4;
-    let desY = dirY * radial + dirX * marker.strafeDir * marker.speed * 0.4;
-
-    // Избегание других врагов (исключая своих дронов)
-    for (const o of context.enemies) {
-      if (o === enemy || o.marker.dead) continue;
-      if (o.marker.parentId === marker.ecsId || marker.parentId === o.marker.ecsId) continue;
-      const ddx = pos.x - o.position.x;
-      const ddy = pos.y - o.position.y;
-      const d2 = ddx * ddx + ddy * ddy;
-      const minSep = (enemy.radius.r + o.radius.r) * 1.05;
-      if (d2 < minSep * minSep && d2 > 0.0001) {
-        const d = Math.sqrt(d2);
-        const push = (minSep - d) / d * 120;
-        desX += (ddx / d) * push;
-        desY += (ddy / d) * push;
-      }
-    }
+    const desX = dirX * radial + -dirY * marker.strafeDir * marker.speed * 0.4;
+    const desY = dirY * radial + dirX * marker.strafeDir * marker.speed * 0.4;
 
     smoothVelocity(vel, desX, desY, CARRIER_TURN_RATE, dt);
 

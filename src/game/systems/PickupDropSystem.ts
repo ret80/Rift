@@ -54,11 +54,11 @@ export class PickupDropSystem {
   /** Amount of parts dropped by each enemy type */
   partsAmountFor(enemyKind: string): number {
     switch (enemyKind) {
-      case "drone": return 2;
-      case "hunter": return 4;
-      case "fighter": return 5;
-      case "cruiser": return 12;
-      case "carrier": return 25;
+      case "drone": return 3;
+      case "hunter": return 6;
+      case "fighter": return 7;
+      case "cruiser": return 16;
+      case "carrier": return 32;
       default: return 1;
     }
   }

@@ -25,6 +25,7 @@ import { updateMovement } from './PlayerMovement';
 import type { PlayerRef } from '../ecs';
 import { PlayerComponent } from '../ecs/components/PlayerComponent';
 import { trackTurnRate } from '../aiming/AimSolver';
+import { PLAYER_HIT_INVULN } from '../balance/player';
 
 /** Флаг: должна ли система сама интегрировать позицию (true в custom-режиме). */
 export type PlayerIntegrateSource = () => boolean;
@@ -204,9 +205,13 @@ export class PlayerSystem extends PhasedSystem {
   hit(dmg: number): void {
     const ref = this.playerRefSource();
     if (!ref) return;
+    // Кадры неуязвимости после попадания: без них рой и две турели
+    // могут снимать HP каждый кадр.
+    if (ref.marker.invuln > 0) return;
     // Щит гасит часть урона и тратит на это энергию.
     const incoming = this.shield ? this.shield.absorb(dmg) : dmg;
     this.applyDamage(ref, incoming);
+    ref.marker.invuln = PLAYER_HIT_INVULN;
   }
 
   /**
