@@ -1,0 +1,17 @@
+{
+  "name": "campaign-orbit",
+  "seed": { "master": 1001 },
+  "tickRate": 60,
+  "duration": 120,
+  "physics": "planck",
+  "startWave": 1,
+  "viewport": { "width": 1600, "height": 900 },
+  "player": {
+    "agent": "orbit",
+    "radius": 260,
+    "direction": 1,
+    "reactionTime": 0.2,
+    "aimJitter": 0.05
+  },
+  "metrics": ["waveReached", "dps", "damageTaken", "survivalTime", "kills"]
+}
