@@ -49,7 +49,7 @@ export type EnemyPlayerSource = () => {
   turnRate?: number;
 };
 /** Источник границ игровой зоны. */
-export type ZoneBoundsSource = () => { x: number; y: number; radius: number; active: boolean };
+export type ZoneBoundsSource = () => { x: number; y: number; radius: number; active: boolean; targetRadius: number };
 /** Флаг: должна ли система сама интегрировать скорость (true в custom-режиме). */
 export type IntegrateSource = () => boolean;
 

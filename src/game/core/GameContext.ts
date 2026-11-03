@@ -692,9 +692,9 @@ export class GameContext {
   }
 
   /** Границы зоны для врагов/констрейнтов. */
-  getZoneBounds(): { x: number; y: number; radius: number; active: boolean } {
+  getZoneBounds(): { x: number; y: number; radius: number; active: boolean; targetRadius: number } {
     const z = this.waveOrchestrator.zoneState;
-    return { x: z.x, y: z.y, radius: z.radius, active: z.active };
+    return { x: z.x, y: z.y, radius: z.radius, active: z.active, targetRadius: z.targetRadius };
   }
 
   /** Живая связка компонентов игрока (единый вид WorldFrame для кадра и рендера). */

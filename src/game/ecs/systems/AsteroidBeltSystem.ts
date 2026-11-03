@@ -34,6 +34,7 @@ export type BeltZoneProvider = () => {
   x: number;
   y: number;
   radius: number;
+  targetRadius: number;
 };
 
 export class AsteroidBeltSystem extends PhasedSystem {
@@ -48,7 +49,9 @@ export class AsteroidBeltSystem extends PhasedSystem {
 
   process(dt: number): void {
     const zone = this.getZone();
-    if (!zone.active || zone.radius <= 0) {
+    // Asteroids should not be pulled to the belt until the zone is deployed
+    // (fully expanded to its target radius).
+    if (!zone.active || zone.radius < zone.targetRadius) {
       this.releaseAll();
       return;
     }

@@ -647,18 +647,19 @@ shield 420. Отсюда 2–10 заходов на одну значимую п
 
 ### Фаза 0. База и измерения (P0)
 
-- [x] G2.1 — тестовая волна по URL.
-- [x] G2.2 — метрики в debug-оверлее (группы, пояс, геймпад).
-- [ ] G2.3 — симуляции TTK и экономики.
+- [x] G2.1 — тестовая волна по URL. (drone:10, drone:40, drone:hunter verified)
+- [x] G2.2 — метрики в debug-оверлее. (groups, directions CW/CCW, belt rocks shown)
+- [x] G2.3 — пояс астероидов начинает притягивать только после расширения зоны до targetRadius. (AsteroidBeltSystem fix)
+- [ ] G2.3 — симуляции TTK и экономики. (scripts not yet written; priority P1)
 - [ ] Зафиксировать baseline: 3 забега на волнах 1/3/5, метрики в таблицу.
 
 ### Фаза 1. Быстрые исправления (P0)
 
 - [x] G1.1 — auto-repeat навигации.
 - [x] G1.2 — фантомный D-pad 8BitDo.
-- [x] G3.1 — урон от скорости + потолки.
-- [x] G3.2 — крейсер.
-- [x] G3.3 — HP/неуязвимость.
+- [x] G3.1 — урон от скорости + потолки. (speedFactor clamped, impactSpeed stored, all backends)
+- [x] G3.2 — крейсер. (interval, damage, accuracy updated)
+- [x] G3.3 — HP/неуязвимость. (HP 120, invuln 0.75; shield/zone edge checks pending verification)
 - [ ] Повторить baseline, сравнить TTK.
 
 ### Фаза 2. Поведение врагов (P1)
