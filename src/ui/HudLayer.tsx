@@ -130,6 +130,19 @@ export function HudLayer(props: { store: HudStore; godOn: boolean }) {
         </div>
       </div>
 
+      {/* recording chip: только dev/`?debug`, не поверх тач-зоны */}
+      {data?.recording && data.recording !== "off" && (
+        <div
+          className={
+            "absolute left-1/2 -translate-x-1/2 border border-[#ff3b52]/60 " +
+            "bg-[#ff3b52]/10 px-3 py-0.5 font-mono text-[9px] tracking-[0.25em] text-[#ff8a96]"
+          }
+          style={{ top: "calc(env(safe-area-inset-top) + 132px)" }}
+        >
+          ● {data.recording === "armed" ? t("hud.recArmed") : t("hud.recActive")}
+        </div>
+      )}
+
       {/* god-mode chip */}
       {props.godOn && (
         <div

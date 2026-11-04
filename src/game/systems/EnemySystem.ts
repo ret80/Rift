@@ -74,6 +74,10 @@ export class EnemySystem extends PhasedSystem {
     /** Поток спавна: страйф, seed врага, стартовые таймеры. */
     private readonly rngSpawn: Rng,
     private readonly avoidance: IEnemyAvoidance = new EnemyAvoidance(),
+    /** Множитель здоровья врагов из `BalanceOverrides`. */
+    private readonly getHpMult: () => number = () => 1,
+    /** Множитель урона врагов (болты и контакт) из `BalanceOverrides`. */
+    private readonly getDamageMult: () => number = () => 1,
   ) {
     super(Phase.Enemies);
     this.ai = new EnemyAI();
@@ -216,6 +220,11 @@ export class EnemySystem extends PhasedSystem {
     playerPos?: { x: number; y: number },
     parent: EnemyRef | null = null
   ): EnemySpawn {
+    // Балансные множители применяются здесь — в единственной точке создания
+    // врага. Так игрок, дроны и метрики видят одно и то же значение урона,
+    // а астероиды и зона не затрагиваются.
+    const hpMult = this.getHpMult();
+    const damageMult = this.getDamageMult();
     const angle = kind === EnemyKind.Drone && playerPos
       ? Math.atan2(playerPos.y - y, playerPos.x - x)
       : this.rngSpawn.range(0, TAU);
@@ -241,8 +250,8 @@ export class EnemySystem extends PhasedSystem {
     return {
       parentId: parent?.marker.ecsId ?? null,
       kind, x, y, vx: 0, vy: 0, angle, turretAngle,
-      hp: def.hp, maxHp: def.hp, r: def.r, speed: def.speed,
-      contact: def.contact, score: def.score, boltDmg: def.bolt,
+      hp: def.hp * hpMult, maxHp: def.hp * hpMult, r: def.r, speed: def.speed,
+      contact: def.contact * damageMult, score: def.score, boltDmg: def.bolt * damageMult,
       fireCd: this.rngSpawn.range(0.3, 1), mode: 0, modeT: 0,
       strafeDir: this.rngSpawn.next() < 0.5 ? -1 : 1,
       seed: this.rngSpawn.next() * 100, spawnCd: this.rngSpawn.range(1, 2),

@@ -59,7 +59,10 @@ import { GameStart } from "./GameStart";
 import { GameUpgrades } from "./GameUpgrades";
 import { createGameWorld, GameWorld } from "./GameWorld";
 import type { PersistencePort } from "./PersistencePort";
-import { HumanControls } from "./PlayerControls";
+import { HumanControls, type PlayerControls } from "./PlayerControls";
+import { RecordingControls } from "./RecordingControls";
+import { SessionRecorder } from "./SessionRecorder";
+import { recordToJsonl, type SessionRecordV1 } from "./SessionRecord";
 import { PresentationFrame } from "./PresentationFrame";
 import { SimulationClock } from "./SimulationClock";
 import type { GameStateMachine } from "./StateMachine";
@@ -86,8 +89,12 @@ export class GameContext {
   readonly input: InputManager;
   readonly inputSystem: InputSystem;
   readonly gamepad = new GamepadManager();
-  /** Порт управления игроком в браузере. */
-  readonly controls: HumanControls;
+  /** Человеческий ввод без обёрток: сюда пишут мышь/тач/геймпад. */
+  readonly humanControls: HumanControls;
+  /** Пассивная запись забега (работает только в dev/`?debug`). */
+  readonly recorder: SessionRecorder;
+  /** Порт управления игроком; в dev — с записью способности. */
+  readonly controls: PlayerControls;
 
   readonly starfield: Starfield;
   readonly rendererSystem: RendererSystem;
@@ -125,6 +132,14 @@ export class GameContext {
     this.hooks = hooks;
     this.storage = storage;
 
+    // Запись — только dev или явный ?debug=1. В прод-сборке F9 не
+    // перехватывается, а рекордер никогда не включается.
+    const dev = import.meta.env.DEV || readUrlParam("debug") === "1";
+    this.recorder = new SessionRecorder({
+      gitSha: "dev",
+      onFinalize: (record) => this.downloadRecord(record),
+    });
+
     // Рендер-бэкенд: PicoGL; NullRenderer — через URL-параметр ?renderer=null.
     const useNull = readUrlParam("renderer") === "null";
     this.renderer = useNull ? new NullRenderer(canvas) : new PicoGLRenderer(canvas);
@@ -141,13 +156,19 @@ export class GameContext {
     this.input = new InputManager({
       onPauseKey: () => this.togglePause(),
       onLoseFocus: () => {
+        // Потеря фокуса сохраняет уже записанное: иначе запись молча теряется.
+        if (this.recorder.status === "recording") this.stopRecording("focus_lost");
         if (this.fsm.is("playing", "active", "dying") && !this._paused) {
           this.togglePause();
           this.audio.setSuspended(true);
         }
       },
+      ...(dev ? { onRecordKey: () => this.toggleRecording() } : {}),
     });
-    this.controls = new HumanControls(this.input);
+    this.humanControls = new HumanControls(this.input);
+    this.controls = dev
+      ? new RecordingControls(this.humanControls, () => this.recorder.noteAbility())
+      : this.humanControls;
 
     this.world = createGameWorld({
       seed: this.seedSet,
@@ -182,7 +203,7 @@ export class GameContext {
 
     this.inputSystem = new InputSystem(canvas, {
       onAimUpdate: (mouseX, mouseY, winW, winH) => this.handleAim(mouseX, mouseY, winW, winH),
-      onFiringChanged: (firing) => this.controls.setFiring(firing),
+      onFiringChanged: (firing) => this.humanControls.setFiring(firing),
     });
 
     // Геймпад: создаём и подключаем к InputManager.
@@ -289,6 +310,35 @@ export class GameContext {
     this._paused = paused;
     // На паузе время мира не идёт: накопитель не должен «догонять» после снятия.
     if (paused) this.clock.reset();
+  }
+
+  // ============================== Recording ==============================
+
+  /** F9: взвести до старта, начать/остановить во время забега. */
+  private toggleRecording(): void {
+    if (this.fsm.is("menu", "over")) {
+      if (this.recorder.status === "off") this.recorder.arm();
+      else this.recorder.discard();
+      return;
+    }
+    if (this.recorder.status === "recording") this.stopRecording("user_stop");
+    else this.recorder.start(this.world);
+  }
+
+  /** Остановить запись; сохранение сделает `onFinalize` рекордера. */
+  private stopRecording(reason: "user_stop" | "focus_lost"): void {
+    this.recorder.stop(this.world, reason);
+  }
+
+  /** Скачать готовую запись JSONL (dev-инструмент, не геймплей). */
+  private downloadRecord(record: SessionRecordV1): void {
+    const blob = new Blob([recordToJsonl(record)], { type: "application/x-ndjson" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `rift-session-${record.sessionId}.jsonl`;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   togglePause(): void {
@@ -493,7 +543,7 @@ export class GameContext {
     const player = this.ecs.playerRef();
     if (!player) return;
     const angle = Math.atan2(worldY - player.position.y, worldX - player.position.x);
-    this.controls.setAim(angle);
+    this.humanControls.setAim(angle);
   }
 
   /** Звук выстрела для презентационных вызовов (menu/debug). */
@@ -503,6 +553,7 @@ export class GameContext {
   }
 
   destroy(): void {
+    if (this.recorder.status === "recording") this.stopRecording("user_stop");
     this.world.destroy();
     this.loop.destroy();
     this.inputSystem.destroy();

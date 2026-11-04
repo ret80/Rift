@@ -18,18 +18,22 @@ export interface EvadeAgentOptions extends KiteAgentOptions {
   threatRadius?: number;
   /** Вес уклонения относительно кайта. */
   evadeWeight?: number;
+  /** Вероятность запросить способность за тик при угрозе (default 0.02). */
+  abilityChancePerTick?: number;
 }
 
 export class EvadeAgent extends KiteAgent {
   private readonly threatHorizon: number;
   private readonly threatRadius: number;
   private readonly evadeWeight: number;
+  private readonly abilityChancePerTick: number;
 
   constructor(options: EvadeAgentOptions, rng: Rng) {
     super(options, rng);
     this.threatHorizon = options.threatHorizon ?? 0.9;
     this.threatRadius = options.threatRadius ?? 120;
     this.evadeWeight = options.evadeWeight ?? 1.4;
+    this.abilityChancePerTick = options.abilityChancePerTick ?? 0.02;
   }
 
   protected desiredMove(view: PlayerView): Vec2 {
@@ -93,6 +97,6 @@ export class EvadeAgent extends KiteAgent {
 
   /** Способность — по готовности и при плотной угрозе (задел под quantum_swap). */
   protected wantAbility(view: PlayerView): boolean {
-    return view.enemyBullets.length > 0 && this.rng.next() < 0.02;
+    return view.enemyBullets.length > 0 && this.rng.next() < this.abilityChancePerTick;
   }
 }

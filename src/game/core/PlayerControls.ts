@@ -43,6 +43,14 @@ export interface PlayerControls {
   readonly firing: boolean;
   /** Одноразовое нажатие способности: true ровно один тик. */
   consumeAbility(): boolean;
+  /**
+   * Была ли способность потреблена на текущем тике.
+   *
+   * Нужно для сэмпла поведения без повторного `consumeAbility()`: второй
+   * вызов съел бы нажатие и изменил игру. Реализуют только агентские порты;
+   * у человеческого ввода источник правды — `RecordingControls.noteAbility`.
+   */
+  readonly lastConsumedAbility?: boolean;
 }
 
 /**
@@ -91,6 +99,7 @@ export class HumanControls implements PlayerControls {
 export class AgentControls implements PlayerControls {
   private intent: PlayerIntent = emptyPlayerIntent();
   private abilityPending = false;
+  private _lastConsumedAbility = false;
 
   get axis(): { x: number; y: number } {
     return { x: this.intent.moveX, y: this.intent.moveY };
@@ -104,21 +113,28 @@ export class AgentControls implements PlayerControls {
     return this.intent.firing;
   }
 
+  get lastConsumedAbility(): boolean {
+    return this._lastConsumedAbility;
+  }
+
   /** Записать намерение агента на текущий тик. */
   setIntent(intent: PlayerIntent): void {
     this.intent = intent;
     this.abilityPending = intent.ability;
+    this._lastConsumedAbility = false;
   }
 
   /** Забыть намерение (мир сброшен, тик не выполнялся). */
   reset(): void {
     this.intent = emptyPlayerIntent();
     this.abilityPending = false;
+    this._lastConsumedAbility = false;
   }
 
   consumeAbility(): boolean {
     if (!this.abilityPending) return false;
     this.abilityPending = false;
+    this._lastConsumedAbility = true;
     return true;
   }
 }

@@ -11,10 +11,7 @@
  */
 
 import { AbilitySystem } from "../abilities/AbilitySystem";
-import { AsteroidField } from "../asteroids";
-import {
-  EnemyKind,
-  PLAYER_HITBOX_RADIUS,
+import { AsteroidField } from "../asteroids";import { EnemyKind, PLAYER_HITBOX_RADIUS,
   PLAYER_MAX_SPEED,
   SURVIVAL_PARTS_CAP,
   SURVIVAL_PARTS_INTERVAL,
@@ -55,6 +52,12 @@ import { EventBus } from "./EventBus";
 import type { GameFSMContext } from "./GameFSM";
 import { GAME_TRANSITIONS } from "./GameFSM";
 import { AgentControls, type PlayerControls } from "./PlayerControls";
+import {
+  resolveBalanceOverrides,
+  type BalanceOverrides,
+  type ResolvedBalanceOverrides,
+} from "../balance/BalanceOverrides";
+import type { SessionRecorderPort } from "./SessionRecord";
 import type { PlayerAgent, PlayerView, PlayerViewBullet, PlayerViewEnemy } from "../sim/agents/PlayerAgent";
 import {
   createRngStreams,
@@ -84,6 +87,10 @@ export interface GameWorldConfig {
   skipCountdown?: boolean;
   /** Тестовый режим: без сохранений и начисления деталей. */
   testMode?: boolean;
+  /** Явные множители баланса; при 1.0 поведение бит-в-бит прежнее. */
+  balance?: BalanceOverrides;
+  /** Пассивный рекордер: только читает мир и не влияет на тики. */
+  recorder?: SessionRecorderPort;
   /** Порт управления; по умолчанию — AgentControls (агент задаёт намерения). */
   controls?: PlayerControls;
   /**
@@ -139,6 +146,10 @@ export class GameWorld {
   startWave: number;
   /** Тестовый режим `?test=...`: не сохранять рекорд и не начислять детали. */
   testMode: boolean;
+  /** Множители баланса прогона. */
+  readonly balance: ResolvedBalanceOverrides;
+  /** Пассивный рекордер сессии (null — запись выключена). */
+  readonly recorder: SessionRecorderPort | null;
 
   /** Сечение камеры/вьюпорта (обновляется хостом или сценарием). */
   private _view: WorldView;
@@ -150,7 +161,7 @@ export class GameWorld {
   private worldFrame: WorldFrame | null = null;
   private readonly unsubscribers: Array<() => void> = [];
 
-  private readonly physicsEngineId: PhysicsEngineId;
+  readonly physicsEngineId: PhysicsEngineId;
 
   constructor(config: GameWorldConfig) {
     this.ports = config.ports;
@@ -164,6 +175,8 @@ export class GameWorld {
     }
     this.startWave = config.startWave ?? 1;
     this.testMode = config.testMode ?? false;
+    this.balance = resolveBalanceOverrides(config.balance);
+    this.recorder = config.recorder ?? null;
     this.physicsEngineId = config.physics ?? "planck";
     this._view = { ...DEFAULT_WORLD_VIEW, ...(config.view ?? {}) };
 
@@ -190,6 +203,8 @@ export class GameWorld {
         audio: this.ports.audio,
         rngCombat: this.rng("combat"),
         rngSpawn: this.rng("spawn"),
+        getEnemyHpMult: () => this.balance.enemyHpMult,
+        getEnemyDamageMult: () => this.balance.enemyDamageMult,
       },
     );
 
@@ -461,6 +476,10 @@ export class GameWorld {
       this.agentControls.setIntent(this.agent.update(this.buildPlayerView(), FIXED_DT));
     }
 
+    // Рекордер снимает намерение ПОСЛЕ решения агента: иначе запись
+    // агентского прогона отставала бы от мира на один тик.
+    this.recorder?.beginTick(this, this.controls);
+
     // Управление применяется до тика систем, иначе оно попадёт в следующий тик.
     this.weaponManager.setManualAim(this.controls.aimAngle);
     this.weaponManager.setManualFiring(this.controls.firing);
@@ -475,6 +494,10 @@ export class GameWorld {
 
     // Пояс астероидов — часть мира, а не презентации.
     this.asteroidField.update(FIXED_DT, this.asteroidEnv());
+
+    // Сэмпл и checkpoint снимаются после всех систем: позиция/HP уже
+    // отражают результат тика.
+    this.recorder?.endTick(this);
   }
 
   /** Окружение пояса астероидов из сечения мира и зоны. */
@@ -550,6 +573,14 @@ export class GameWorld {
     this.countdownSystem.startWave(this.waveOrchestrator.wave);
     // Headless: волна стартует сразу, без отсчёта и баннеров.
     if (this.skipCountdown) this.countdownSystem.skip();
+
+    // Запись стартует с нулевого тика; взведённый рекордер включается здесь.
+    this.recorder?.onRunStart(this);
+  }
+
+  /** Пропускается ли обратный отсчёт (нужно записи и повтору). */
+  get skipCountdownEnabled(): boolean {
+    return this.skipCountdown;
   }
 
   /** Вернуть мир в состояние «до забега» (без презентационных сбросов). */
@@ -830,6 +861,9 @@ export class GameWorld {
         this.ports.audio.setCombat(false);
         this.ports.hooks.onToast(null);
         this.fsm.fire("player_died");
+        // Рекордер финализирует запись в конце текущего тика, когда
+        // tickIndex уже отражает полный тик смерти.
+        this.recorder?.onRunEnd("game_over", this);
       }),
     );
 

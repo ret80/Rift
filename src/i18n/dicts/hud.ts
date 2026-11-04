@@ -13,6 +13,8 @@ export const ru = {
   status: "ОРУДИЯ {g} · ДРОНЫ {d}/8",
   statusBoost: "ТЕМП ОГНЯ +{p}% · {s}С",
   godChip: "БЕССМЕРТИЕ",
+  recActive: "ЗАПИСЬ",
+  recArmed: "ЗАПИСЬ: ЖДЁТ СТАРТА",
   loadout: {
     cannon: "ПУШКА",
     missile: "РАКЕТОМЁТ",
@@ -37,6 +39,8 @@ export const en: typeof ru = {
   status: "GUNS {g} · DRONES {d}/8",
   statusBoost: "FIRE RATE +{p}% · {s}S",
   godChip: "GOD MODE",
+  recActive: "REC",
+  recArmed: "REC: ARMED",
   loadout: {
     cannon: "CANNON",
     missile: "MISSILE POD",
