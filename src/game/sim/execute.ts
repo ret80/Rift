@@ -6,7 +6,8 @@
  * собирает метрики + снимки для проверки детерминизма.
  */
 
-import { defaultUpgrades } from "../upgrades";
+import { defaultUpgrades, defaultWeaponLoadout } from "../upgrades";
+import type { WeaponId } from "../weapons/Weapon";
 import { STORAGE_KEYS } from "../core/storageKeys";
 import type { SeedSet } from "../core/rng";
 import { SimulationClock } from "../core/SimulationClock";
@@ -53,7 +54,20 @@ export interface ExecuteResult {
 /** Хранилище с апгрейдами сценария — их читает мир при создании. */
 function scenarioStorage(scenario: Scenario): Record<string, string> {
   const upgrades = { ...defaultUpgrades(), ...(scenario.upgrades ?? {}) };
-  return { [STORAGE_KEYS.upgrades]: JSON.stringify(upgrades) };
+  const loadout = defaultWeaponLoadout();
+  for (const [id, entry] of Object.entries(scenario.weapons ?? {})) {
+    const target = loadout[id as WeaponId];
+    if (!target) continue;
+    target.owned = entry.owned;
+    for (const stat of ["reload", "damage", "accuracy"] as const) {
+      const value = entry[stat];
+      if (value !== undefined) target.model[stat] = value;
+    }
+  }
+  return {
+    [STORAGE_KEYS.upgrades]: JSON.stringify(upgrades),
+    [STORAGE_KEYS.weaponLoadout]: JSON.stringify(loadout),
+  };
 }
 
 /** Прогнать сценарий один раз с заданным seed-набором. */

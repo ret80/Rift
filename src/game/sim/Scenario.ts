@@ -12,6 +12,8 @@
 import { EnemyKind, isEnemyKind } from "../balance";
 import type { WaveCompositionOverride } from "../balance/waves";
 import { isPhysicsEngineId, type PhysicsEngineId } from "../physics/index";
+import { WEAPON_IDS, type WeaponId } from "../weapons/WeaponCatalog";
+import { WEAPON_STAT_MAX_LEVEL } from "../upgrades";
 import {
   createSeedSet,
   isSeedSet,
@@ -41,6 +43,14 @@ export interface ScenarioPlayer extends PlayerAgentFactoryOptions {
   agent: PlayerAgentKind;
 }
 
+/** Арсенал оружия из сценария: куплено ли оружие и уровни его линий. */
+export interface ScenarioWeapon {
+  owned: boolean;
+  reload?: number;
+  damage?: number;
+  accuracy?: number;
+}
+
 /** Сценарий как он лежит в JSON. */
 export interface Scenario {
   name: string;
@@ -56,6 +66,8 @@ export interface Scenario {
   enemies?: ScenarioEnemy[];
   /** Персистентные апгрейды игрока (поля PlayerUpgrades). */
   upgrades?: Record<string, number>;
+  /** Купленное оружие и уровни его линий (пушка куплена всегда). */
+  weapons?: Partial<Record<WeaponId, ScenarioWeapon>>;
   /** Какие метрики печатать в отчёте. */
   metrics?: string[];
 }
@@ -162,6 +174,42 @@ export function parseScenario(raw: unknown): Scenario {
       ? (data.upgrades as Record<string, number>)
       : undefined;
 
+  const weapons: Partial<Record<WeaponId, ScenarioWeapon>> = {};
+  if (data.weapons !== undefined) {
+    if (typeof data.weapons !== "object" || data.weapons === null) {
+      issues.push("weapons: ожидается объект { <weapon>: { owned, reload?, damage?, accuracy? } }");
+    } else {
+      for (const [id, raw] of Object.entries(data.weapons as Record<string, unknown>)) {
+        if (!(WEAPON_IDS as readonly string[]).includes(id)) {
+          issues.push(`weapons.${id}: неизвестное оружие (ожидается ${WEAPON_IDS.join(" | ")})`);
+          continue;
+        }
+        if (typeof raw !== "object" || raw === null) {
+          issues.push(`weapons.${id}: ожидается объект`);
+          continue;
+        }
+        const entry = raw as Record<string, unknown>;
+        if (typeof entry.owned !== "boolean") {
+          issues.push(`weapons.${id}.owned: ожидается boolean`);
+          continue;
+        }
+        const levels: ScenarioWeapon = { owned: entry.owned };
+        let valid = true;
+        for (const stat of ["reload", "damage", "accuracy"] as const) {
+          const value = entry[stat];
+          if (value === undefined) continue;
+          if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > WEAPON_STAT_MAX_LEVEL) {
+            issues.push(`weapons.${id}.${stat}: ожидается целое 0..${WEAPON_STAT_MAX_LEVEL}`);
+            valid = false;
+            continue;
+          }
+          levels[stat] = value;
+        }
+        if (valid) weapons[id as WeaponId] = levels;
+      }
+    }
+  }
+
   if (issues.length > 0) throw new ScenarioError(issues);
 
   return {
@@ -181,6 +229,7 @@ export function parseScenario(raw: unknown): Scenario {
     player: player!,
     enemies,
     upgrades,
+    ...(Object.keys(weapons).length > 0 ? { weapons } : {}),
     metrics: Array.isArray(data.metrics) ? (data.metrics as string[]) : undefined,
   };
 }
