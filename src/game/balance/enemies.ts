@@ -146,7 +146,7 @@ export function massForRadius(r: number): number {
 export const ENEMY_SHOOT_RANGE = 500;
 
 /** Максимальное количество дронов у одного Carrier */
-export const ENEMY_MAX_DRONES = 10;
+export const ENEMY_MAX_DRONES = 7;
 
 /* ------------------------------ Fighter AI ------------------------------ */
 

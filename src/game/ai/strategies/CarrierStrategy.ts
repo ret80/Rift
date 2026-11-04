@@ -5,9 +5,9 @@
  *
  * ФАЗА 1: НАКОПЛЕНИЕ
  * - Carrier спавнит дронов по одному раз в 0.5с.
- * - Считаются ЖИВЫЕ дети: не спавнит новый десяток, пока живы >= 6.
- * - После спавна всех 10 дронов (или при достижении лимита живых)
- *   переходит к ОЖИДАНИЮ.
+ * - Считаются ЖИВЫЕ дети: не спавнит новую партию, пока живы >= 6.
+ * - После спавна всех дронов (ENEMY_MAX_DRONES) или при достижении лимита
+ *   живых переходит к ОЖИДАНИЮ.
  *
  * ФАЗА 2: ОЖИДАНИЕ (5-8 секунд)
  * - Carrier ждёт 5-8 секунд. Дроны ждут на орбите.
@@ -27,8 +27,8 @@
  */
 
 import {
-  CARRIER_DRONE_ORBIT_GAP,
   CARRIER_ADVANCE_R,
+  CARRIER_DRONE_ORBIT_GAP,
   CARRIER_HOLD_R,
   CARRIER_RETREAT_R,
   ENEMY_MAX_DRONES,
@@ -125,7 +125,7 @@ export class CarrierStrategy implements IEnemyStrategy {
         marker.carrierChildren++;
       }
 
-      // Когда все 10 дронов спавнены — переходим к ОЖИДАНИЮ
+      // Когда все дроны спавнены — переходим к ОЖИДАНИЮ
       if (marker.carrierChildren >= maxDrones) {
         marker.waitTimer = context.rng.range(5, 8);
         marker.droneState = 'waiting';

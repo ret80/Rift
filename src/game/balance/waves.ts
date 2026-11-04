@@ -40,15 +40,15 @@ export const DMG_SCALE_SEGMENTS = [[1, 10], [10, 20], [20, 40]] as const;
  * Design intent — late-game pressure from armor, not headcount.
  */
 export function hpScale(w: number): number {
-  return 1 + 0.5 * ramp01(w, 1, 15) + 3.0 * ramp01(w, 15, 40);
+  return 1 + 0.5 * ramp01(w, 1, 15) + 1.0 * ramp01(w, 15, 40);
 }
 
 /**
- * Damage scaling: 1x at wave 1, 1.5x at wave 10, 2.5x at wave 20, 3.5x at wave 40.
+ * Damage scaling: 1x at wave 1, 1.5x at wave 10, 1.95x at wave 20, 2.95x at wave 40.
  * Design intent — errors become increasingly critical in late game.
  */
 export function dmgScale(w: number): number {
-  return 1 + 0.5 * ramp01(w, 1, 10) + 1.0 * ramp01(w, 10, 20) + 1.0 * ramp01(w, 20, 40);
+  return 1 + 0.5 * ramp01(w, 1, 10) + 0.45 * ramp01(w, 10, 20) + 1.0 * ramp01(w, 20, 40);
 }
 
 /**
@@ -122,9 +122,9 @@ export function enemyDefFor(kind: EnemyKind, w: number): import("./enemies").Ene
 
 /* ------------------------------- waves ------------------------------- */
 
-/** 30 ships on wave 1, ~100 by wave 30 (hard cap at 100). */
+/** 30 ships on wave 1, ~91 by wave 30 (hard cap at 100). */
 export function waveTotalFor(w: number): number {
-  return Math.min(100, Math.round(30 + (w - 1) * 2.4));
+  return Math.min(100, Math.round(30 + (w - 1) * 2.1));
 }
 
 export function zoneRadiusFor(w: number): number {
@@ -149,11 +149,11 @@ export function kindWeights(w: number): Array<[EnemyKind, number]> {
     // Хантер — редкий камикадзе: 3–16 волна, ~5%
     [EnemyKind.Hunter, w < 3 ? 0 : 0.05 + 0.05 * ramp01(w, 3, 16)],
     // Файтер — «перчик» (дуэлянт): появляется с 5-й, пик к 15-й
-    [EnemyKind.Fighter, 0.6 * ramp01(w, 5, 15)],
+    [EnemyKind.Fighter, 0.45 * ramp01(w, 5, 15)],
     // Крейсер — тяжёловес (событие волны): 8–20 волна
-    [EnemyKind.Cruiser, 0.35 * ramp01(w, 8, 20)],
+    [EnemyKind.Cruiser, 0.18 * ramp01(w, 8, 20)],
     // Носитель — матка (редкое событие): 12–25 волна
-    [EnemyKind.Carrier, 0.15 * ramp01(w, 12, 25)],
+    [EnemyKind.Carrier, 0.05 * ramp01(w, 12, 25)],
   ];
 }
 
