@@ -117,7 +117,10 @@ export function checkEnemyBulletVsPlayer(
       // За кадр игрок получает не больше одного урона: первое попадание
       // засчитывается, остальные снаряды просто поглощаются.
       if (playerInvuln <= 0 && result.hitIndex < 0) {
-        eventBus.publish('player_damaged', { dmg: b.bullet.dmg });
+        eventBus.publish('player_damaged', {
+          dmg: b.bullet.dmg,
+          source: b.bullet.cruiser ? "cruiser" : "fighter",
+        });
         result.hitIndex = i;
       }
       continue;

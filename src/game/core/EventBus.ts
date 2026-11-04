@@ -80,7 +80,7 @@ export interface PlayerShotPayload {
 
 export type GameEventMap = {
   enemy_killed: EnemyKilledPayload;
-  player_damaged: { dmg: number };
+  player_damaged: { dmg: number; source?: string };
   wave_started: WaveStartedPayload;
   pickup_collected: PickupCollectedPayload;
   asteroid_hit: AsteroidHitPayload;

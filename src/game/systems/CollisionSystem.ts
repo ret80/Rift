@@ -203,6 +203,7 @@ export class CollisionSystem extends PhasedSystem {
           );
           this.eventBus.publish('player_damaged', {
             dmg,
+            source: String(e.marker.kind),
           });
           playerHit = true;
         }
@@ -239,6 +240,7 @@ export class CollisionSystem extends PhasedSystem {
           );
           this.eventBus.publish('player_damaged', {
             dmg: asteroidDmg,
+            source: "asteroid",
           });
           playerHit = true;
 

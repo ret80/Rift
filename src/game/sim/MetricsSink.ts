@@ -32,6 +32,8 @@ export interface RunMetrics {
   /** Максимальная волна, до которой дошёл прогон. */
   waveReached: number;
   byKind: Record<string, { kills: number; damage: number }>;
+  /** Урон, полученный игроком, в разрезе источника (вид врага / asteroid). */
+  damageTakenByKind: Record<string, number>;
   rngDraws: Record<RngStream, number>;
 }
 
@@ -47,6 +49,7 @@ export class MetricsSink {
   private deathTime: number | null = null;
   private killsByKind = new Map<string, number>();
   private damageByKind = new Map<string, number>();
+  private damageTakenByKind = new Map<string, number>();
   private readonly unsubscribers: Array<() => void> = [];
 
   constructor(private readonly world: GameWorld) {
@@ -69,6 +72,8 @@ export class MetricsSink {
     this.unsubscribers.push(
       bus.subscribe("player_damaged", (event) => {
         this.damageTaken += event.payload.dmg;
+        const source = event.payload.source ?? "unknown";
+        this.damageTakenByKind.set(source, (this.damageTakenByKind.get(source) ?? 0) + event.payload.dmg);
       }),
     );
     this.unsubscribers.push(
@@ -116,6 +121,10 @@ export class MetricsSink {
         damage: this.damageByKind.get(kind) ?? 0,
       };
     }
+    const damageTakenByKind: Record<string, number> = {};
+    for (const [kind, damage] of this.damageTakenByKind) {
+      damageTakenByKind[kind] = damage;
+    }
 
     return {
       shots: this.shots,
@@ -134,6 +143,7 @@ export class MetricsSink {
       finalHp: this.world.playerSystem.getHp(),
       waveReached: this.waveReached,
       byKind,
+      damageTakenByKind,
       rngDraws: this.world.rngDraws(),
     };
   }
