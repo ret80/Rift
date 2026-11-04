@@ -1,7 +1,7 @@
 {
   "scenario": "smoke",
   "scenarioHash": "sha256:a273d66b62432fead823e0d2af8b53ddac441ba31a05ca83b18dfe47aa14f066",
-  "gitSha": "68cdcad1",
+  "gitSha": "f859b02f",
   "runtime": "node v26.13.0 darwin/arm64",
   "physics": "custom",
   "tickRate": 60,
@@ -36,12 +36,14 @@
     "zoneViolations": 0,
     "abilityUses": 0,
     "finalHp": 120,
+    "waveReached": 1,
     "byKind": {
       "drone": {
         "kills": 13,
         "damage": 182
       }
     },
+    "damageTakenByKind": {},
     "rngDraws": {
       "combat": 54,
       "spawn": 241,
@@ -204,6 +206,17 @@
       "p90": 120,
       "p95": 120,
       "p99": 120
+    },
+    "waveReached": {
+      "mean": 1,
+      "median": 1,
+      "stddev": 0,
+      "min": 1,
+      "max": 1,
+      "p50": 1,
+      "p90": 1,
+      "p95": 1,
+      "p99": 1
     }
   },
   "snapshotHashes": [
@@ -238,12 +251,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 54,
           "spawn": 241,
@@ -284,11 +299,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 118.38910393970612,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 7,
             "damage": 98
           }
+        },
+        "damageTakenByKind": {
+          "drone": 13.944229393627564
         },
         "rngDraws": {
           "combat": 50,
@@ -330,12 +349,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 14,
             "damage": 196
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 48,
           "spawn": 278,
@@ -376,11 +397,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 99.24897240691958,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 12,
             "damage": 168
           }
+        },
+        "damageTakenByKind": {
+          "drone": 20.75102759308042
         },
         "rngDraws": {
           "combat": 51,
@@ -422,11 +447,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 96,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 10,
             "damage": 140
           }
+        },
+        "damageTakenByKind": {
+          "drone": 24
         },
         "rngDraws": {
           "combat": 53,
@@ -468,11 +497,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 102.7716361483387,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 14,
             "damage": 196
           }
+        },
+        "damageTakenByKind": {
+          "drone": 17.228363851661303
         },
         "rngDraws": {
           "combat": 50,
@@ -514,12 +547,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 14,
             "damage": 196
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 50,
           "spawn": 278,
@@ -560,12 +595,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 50,
           "spawn": 274,
@@ -606,11 +643,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 14,
             "damage": 196
           }
+        },
+        "damageTakenByKind": {
+          "drone": 7.435194209066356
         },
         "rngDraws": {
           "combat": 49,
@@ -652,11 +693,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 96,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
+        },
+        "damageTakenByKind": {
+          "drone": 24
         },
         "rngDraws": {
           "combat": 47,
@@ -698,11 +743,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 96,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 14,
             "damage": 196
           }
+        },
+        "damageTakenByKind": {
+          "drone": 24
         },
         "rngDraws": {
           "combat": 51,
@@ -744,12 +793,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 50,
           "spawn": 243,
@@ -790,12 +841,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 14,
             "damage": 196
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 53,
           "spawn": 280,
@@ -836,12 +889,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 16,
             "damage": 224
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 55,
           "spawn": 320,
@@ -882,11 +937,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 106.83574084642706,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 12,
             "damage": 168
           }
+        },
+        "damageTakenByKind": {
+          "drone": 13.164259153572948
         },
         "rngDraws": {
           "combat": 51,
@@ -928,12 +987,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 14,
             "damage": 196
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 54,
           "spawn": 286,
@@ -974,12 +1035,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 12,
             "damage": 168
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 55,
           "spawn": 258,
@@ -1020,12 +1083,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 53,
           "spawn": 235,
@@ -1066,11 +1131,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 96,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
+        },
+        "damageTakenByKind": {
+          "drone": 24
         },
         "rngDraws": {
           "combat": 48,
@@ -1112,12 +1181,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 49,
           "spawn": 237,
@@ -1158,11 +1229,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
+        },
+        "damageTakenByKind": {
+          "drone": 17.645463222312934
         },
         "rngDraws": {
           "combat": 50,
@@ -1204,12 +1279,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 14,
             "damage": 196
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 52,
           "spawn": 280,
@@ -1250,11 +1327,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 117,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 16,
             "damage": 224
           }
+        },
+        "damageTakenByKind": {
+          "drone": 3
         },
         "rngDraws": {
           "combat": 51,
@@ -1296,11 +1377,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 100.83670758824489,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
+        },
+        "damageTakenByKind": {
+          "drone": 43.32995907842246
         },
         "rngDraws": {
           "combat": 53,
@@ -1342,12 +1427,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 14,
             "damage": 196
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 50,
           "spawn": 272,
@@ -1388,11 +1475,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 108.55310524946921,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 15,
             "damage": 210
           }
+        },
+        "damageTakenByKind": {
+          "drone": 11.446894750530783
         },
         "rngDraws": {
           "combat": 56,
@@ -1434,11 +1525,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 15,
             "damage": 210
           }
+        },
+        "damageTakenByKind": {
+          "drone": 39.670123889883094
         },
         "rngDraws": {
           "combat": 50,
@@ -1480,12 +1575,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 14,
             "damage": 196
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 59,
           "spawn": 274,
@@ -1526,11 +1623,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 10,
             "damage": 140
           }
+        },
+        "damageTakenByKind": {
+          "drone": 17.983326564503628
         },
         "rngDraws": {
           "combat": 50,
@@ -1572,12 +1673,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 14,
             "damage": 196
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 49,
           "spawn": 272,
@@ -1618,11 +1721,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 113.52417682979151,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 10,
             "damage": 140
           }
+        },
+        "damageTakenByKind": {
+          "drone": 6.475823170208484
         },
         "rngDraws": {
           "combat": 48,
@@ -1664,11 +1771,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 114.0977173821725,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 14,
             "damage": 196
           }
+        },
+        "damageTakenByKind": {
+          "drone": 17.235615951161144
         },
         "rngDraws": {
           "combat": 59,
@@ -1710,12 +1821,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 10,
             "damage": 140
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 51,
           "spawn": 237,
@@ -1756,11 +1869,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 114.83333333333387,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 14,
             "damage": 196
           }
+        },
+        "damageTakenByKind": {
+          "drone": 24
         },
         "rngDraws": {
           "combat": 54,
@@ -1802,11 +1919,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 105.37949531952933,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 12,
             "damage": 168
           }
+        },
+        "damageTakenByKind": {
+          "drone": 14.620504680470667
         },
         "rngDraws": {
           "combat": 52,
@@ -1848,12 +1969,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 15,
             "damage": 210
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 50,
           "spawn": 286,
@@ -1894,11 +2017,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 96,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 15,
             "damage": 210
           }
+        },
+        "damageTakenByKind": {
+          "drone": 24
         },
         "rngDraws": {
           "combat": 53,
@@ -1940,11 +2067,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 115.77888895495163,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 12,
             "damage": 168
           }
+        },
+        "damageTakenByKind": {
+          "drone": 4.221111045048379
         },
         "rngDraws": {
           "combat": 58,
@@ -1986,12 +2117,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 58,
           "spawn": 286,
@@ -2032,12 +2165,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 48,
           "spawn": 278,
@@ -2078,11 +2213,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 112.75539897165967,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 11,
             "damage": 154
           }
+        },
+        "damageTakenByKind": {
+          "drone": 7.244601028340327
         },
         "rngDraws": {
           "combat": 48,
@@ -2124,11 +2263,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 96,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 10,
             "damage": 140
           }
+        },
+        "damageTakenByKind": {
+          "drone": 24
         },
         "rngDraws": {
           "combat": 49,
@@ -2170,11 +2313,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 15,
             "damage": 210
           }
+        },
+        "damageTakenByKind": {
+          "drone": 16.834416192227785
         },
         "rngDraws": {
           "combat": 49,
@@ -2216,12 +2363,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 48,
           "spawn": 280,
@@ -2262,11 +2411,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 96,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 11,
             "damage": 154
           }
+        },
+        "damageTakenByKind": {
+          "drone": 24
         },
         "rngDraws": {
           "combat": 49,
@@ -2308,11 +2461,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 14,
             "damage": 196
           }
+        },
+        "damageTakenByKind": {
+          "drone": 24
         },
         "rngDraws": {
           "combat": 49,
@@ -2354,11 +2511,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 16,
             "damage": 224
           }
+        },
+        "damageTakenByKind": {
+          "drone": 11.232381929909925
         },
         "rngDraws": {
           "combat": 59,
@@ -2400,12 +2561,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 12,
             "damage": 168
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 46,
           "spawn": 241,
@@ -2446,11 +2609,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
+        },
+        "damageTakenByKind": {
+          "drone": 24
         },
         "rngDraws": {
           "combat": 48,
@@ -2492,12 +2659,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 16,
             "damage": 224
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 55,
           "spawn": 327,
@@ -2538,12 +2707,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 12,
             "damage": 168
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 50,
           "spawn": 241,
@@ -2584,11 +2755,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 9,
             "damage": 126
           }
+        },
+        "damageTakenByKind": {
+          "drone": 16.038363798998436
         },
         "rngDraws": {
           "combat": 51,
@@ -2630,12 +2805,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 15,
             "damage": 210
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 54,
           "spawn": 276,
@@ -2676,12 +2853,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 12,
             "damage": 168
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 53,
           "spawn": 261,
@@ -2722,11 +2901,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 115.00000000000054,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
+        },
+        "damageTakenByKind": {
+          "drone": 24
         },
         "rngDraws": {
           "combat": 51,
@@ -2768,11 +2951,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 96,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 8,
             "damage": 112
           }
+        },
+        "damageTakenByKind": {
+          "drone": 24
         },
         "rngDraws": {
           "combat": 49,
@@ -2814,12 +3001,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 16,
             "damage": 224
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 60,
           "spawn": 321,
@@ -2860,11 +3049,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 116.15910475604417,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 11,
             "damage": 154
           }
+        },
+        "damageTakenByKind": {
+          "drone": 17.674228577289554
         },
         "rngDraws": {
           "combat": 50,
@@ -2906,12 +3099,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 17,
             "damage": 238
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 54,
           "spawn": 297,
@@ -2952,11 +3147,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 101.1127271967966,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
+        },
+        "damageTakenByKind": {
+          "drone": 18.887272803203402
         },
         "rngDraws": {
           "combat": 52,
@@ -2998,12 +3197,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 10,
             "damage": 140
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 50,
           "spawn": 237,
@@ -3044,12 +3245,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 15,
             "damage": 210
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 51,
           "spawn": 290,
@@ -3090,11 +3293,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 96,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 12,
             "damage": 168
           }
+        },
+        "damageTakenByKind": {
+          "drone": 24
         },
         "rngDraws": {
           "combat": 50,
@@ -3136,11 +3343,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 96,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 12,
             "damage": 168
           }
+        },
+        "damageTakenByKind": {
+          "drone": 24
         },
         "rngDraws": {
           "combat": 51,
@@ -3182,12 +3393,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 14,
             "damage": 196
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 52,
           "spawn": 254,
@@ -3228,12 +3441,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 12,
             "damage": 168
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 50,
           "spawn": 251,
@@ -3274,11 +3489,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 80.3899498383492,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
+        },
+        "damageTakenByKind": {
+          "drone": 39.610050161650804
         },
         "rngDraws": {
           "combat": 52,
@@ -3320,11 +3539,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 114.83333333333387,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
+        },
+        "damageTakenByKind": {
+          "drone": 24
         },
         "rngDraws": {
           "combat": 54,
@@ -3366,12 +3589,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 15,
             "damage": 210
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 50,
           "spawn": 287,
@@ -3412,12 +3637,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 15,
             "damage": 210
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 56,
           "spawn": 308,
@@ -3458,11 +3685,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 80.162476837576,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 14,
             "damage": 196
           }
+        },
+        "damageTakenByKind": {
+          "drone": 39.837523162424006
         },
         "rngDraws": {
           "combat": 56,
@@ -3504,12 +3735,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 9,
             "damage": 126
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 54,
           "spawn": 210,
@@ -3550,12 +3783,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 11,
             "damage": 154
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 50,
           "spawn": 245,
@@ -3596,12 +3831,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 12,
             "damage": 168
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 51,
           "spawn": 243,
@@ -3642,12 +3879,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 9,
             "damage": 126
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 53,
           "spawn": 202,
@@ -3688,11 +3927,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 96,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 9,
             "damage": 126
           }
+        },
+        "damageTakenByKind": {
+          "drone": 24
         },
         "rngDraws": {
           "combat": 50,
@@ -3734,12 +3977,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 15,
             "damage": 210
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 57,
           "spawn": 286,
@@ -3780,12 +4025,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 50,
           "spawn": 243,
@@ -3826,11 +4073,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 96,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 14,
             "damage": 196
           }
+        },
+        "damageTakenByKind": {
+          "drone": 24
         },
         "rngDraws": {
           "combat": 50,
@@ -3872,12 +4123,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 56,
           "spawn": 274,
@@ -3918,12 +4171,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 16,
             "damage": 224
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 51,
           "spawn": 323,
@@ -3964,12 +4219,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 11,
             "damage": 154
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 53,
           "spawn": 231,
@@ -4010,12 +4267,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 12,
             "damage": 168
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 53,
           "spawn": 256,
@@ -4056,12 +4315,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 14,
             "damage": 196
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 55,
           "spawn": 274,
@@ -4102,11 +4363,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 112.38639315310942,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 9,
             "damage": 126
           }
+        },
+        "damageTakenByKind": {
+          "drone": 7.613606846890575
         },
         "rngDraws": {
           "combat": 58,
@@ -4148,12 +4413,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 54,
           "spawn": 269,
@@ -4194,12 +4461,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 10,
             "damage": 140
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 50,
           "spawn": 217,
@@ -4240,12 +4509,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 11,
             "damage": 154
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 50,
           "spawn": 229,
@@ -4286,11 +4557,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 108.19280152552992,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 9,
             "damage": 126
           }
+        },
+        "damageTakenByKind": {
+          "drone": 11.807198474470077
         },
         "rngDraws": {
           "combat": 53,
@@ -4332,11 +4607,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 8,
             "damage": 112
           }
+        },
+        "damageTakenByKind": {
+          "drone": 11.167801786946544
         },
         "rngDraws": {
           "combat": 51,
@@ -4378,11 +4657,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 91.26413370953209,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 11,
             "damage": 154
           }
+        },
+        "damageTakenByKind": {
+          "drone": 28.73586629046791
         },
         "rngDraws": {
           "combat": 53,
@@ -4424,12 +4707,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 15,
             "damage": 210
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 55,
           "spawn": 282,
@@ -4470,12 +4755,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 17,
             "damage": 238
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 51,
           "spawn": 311,
@@ -4516,11 +4803,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 117,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
+        },
+        "damageTakenByKind": {
+          "drone": 3
         },
         "rngDraws": {
           "combat": 52,
@@ -4562,12 +4853,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 13,
             "damage": 182
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 48,
           "spawn": 249,
@@ -4608,11 +4901,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 108.37445392104458,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 12,
             "damage": 168
           }
+        },
+        "damageTakenByKind": {
+          "drone": 11.625546078955422
         },
         "rngDraws": {
           "combat": 52,
@@ -4654,11 +4951,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 96,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 10,
             "damage": 140
           }
+        },
+        "damageTakenByKind": {
+          "drone": 24
         },
         "rngDraws": {
           "combat": 51,
@@ -4700,11 +5001,15 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 107.08969284370875,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 10,
             "damage": 140
           }
+        },
+        "damageTakenByKind": {
+          "drone": 12.91030715629125
         },
         "rngDraws": {
           "combat": 51,
@@ -4746,12 +5051,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 14,
             "damage": 196
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 49,
           "spawn": 274,
@@ -4792,12 +5099,14 @@
         "zoneViolations": 0,
         "abilityUses": 0,
         "finalHp": 120,
+        "waveReached": 1,
         "byKind": {
           "drone": {
             "kills": 9,
             "damage": 126
           }
         },
+        "damageTakenByKind": {},
         "rngDraws": {
           "combat": 49,
           "spawn": 202,
