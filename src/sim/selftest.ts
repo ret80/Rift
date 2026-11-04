@@ -6,6 +6,8 @@
  * Любая упавшая проверка даёт ненулевой код выхода.
  */
 
+import type { GameWorld } from "../game/core/GameWorld";
+import type { PlayerControls } from "../game/core/PlayerControls";
 import {
   RNG_STREAMS,
   createRandomSeed,
@@ -17,9 +19,10 @@ import {
   type SeedSet,
 } from "../game/core/rng";
 import { FIXED_DT, MAX_CATCH_UP, SimulationClock } from "../game/core/SimulationClock";
-import type { GameWorld } from "../game/core/GameWorld";
 import { PLAYER_AGENT_KINDS, ReplayAgent, createPlayerAgent } from "../game/sim/agents";
-import { createHeadlessWorld, ticksForSeconds } from "./runner";
+import { compareResults } from "../game/sim/Compare";
+import { executeScenario } from "../game/sim/execute";
+import { aggregateMetrics, type RunResult } from "../game/sim/RunResult";
 import {
   ScenarioError,
   parseScenario,
@@ -27,9 +30,7 @@ import {
   scenarioSeedSet,
   type Scenario,
 } from "../game/sim/Scenario";
-import { executeScenario } from "../game/sim/execute";
-import { compareResults } from "../game/sim/Compare";
-import { aggregateMetrics, type RunResult } from "../game/sim/RunResult";
+import { createHeadlessWorld, ticksForSeconds } from "./runner";
 
 type CheckFn = () => void | Promise<void>;
 
@@ -291,6 +292,44 @@ check("GameWorld.tick требует FIXED_DT", () => {
     threw = true;
   }
   expect(threw, "tick с переменным dt не должен проходить");
+});
+
+check("GameWorld использует переданный PlayerControls (custom и planck)", () => {
+  // Регрессия шага 9: браузер не передал HumanControls в мир, и мир жил
+  // с пустым AgentControls — игрок переставал реагировать на клавиши.
+  // Симуляция играет на custom, браузер — на planck, поэтому проверяем оба.
+  for (const physics of ["custom", "planck"] as const) {
+    const axis = { x: 1, y: 0 };
+    let abilityCalls = 0;
+    const controls: PlayerControls = {
+      axis,
+      aimAngle: 0,
+      firing: true,
+      consumeAbility() {
+        abilityCalls++;
+        return false;
+      },
+    };
+
+    const driven = createHeadlessWorld({ seed: 90210, controls, physics });
+    const idle = createHeadlessWorld({ seed: 90210, physics });
+    expect(driven.controls === controls, `${physics}: мир подставил собственный порт`);
+
+    let shots = 0;
+    driven.eventBus.subscribe("player_shot", () => shots++);
+
+    const ticks = 120;
+    clockTicks(driven, ticks);
+    clockTicks(idle, ticks);
+
+    const moved = Math.hypot(
+      driven.getPlayerPosition().x - idle.getPlayerPosition().x,
+      driven.getPlayerPosition().y - idle.getPlayerPosition().y,
+    );
+    expect(moved > 1, `${physics}: ось из порта не дошла до игрока (${moved.toFixed(3)})`);
+    expectEqual(abilityCalls, ticks, `${physics}: AbilitySystem не опрашивает порт`);
+    expect(shots > 0, `${physics}: firing из порта не дошёл до оружия`);
+  }
 });
 
 check("10 прогонов с одним seed → одинаковое состояние на каждом 60-м тике", () => {

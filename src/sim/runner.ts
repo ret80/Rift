@@ -6,14 +6,15 @@
  * Никакой `GameContext`, `requestAnimationFrame` и `performance.now`.
  */
 
-import type { PersistencePort } from "../game/core/PersistencePort";
-import { GameWorld, createGameWorld, type GameWorldConfig } from "../game/core/GameWorld";
-import type { PhysicsEngineId } from "../game/physics";
-import { FIXED_DT, SimulationClock } from "../game/core/SimulationClock";
-import { createSeedSet, type Rng, type SeedSet } from "../game/core/rng";
-import type { PlayerAgent } from "../game/sim/agents/PlayerAgent";
-import { nullPorts, type WorldView } from "../game/core/WorldPorts";
 import type { WaveCompositionOverride } from "../game/balance/waves";
+import { GameWorld, createGameWorld, type GameWorldConfig } from "../game/core/GameWorld";
+import type { PersistencePort } from "../game/core/PersistencePort";
+import type { PlayerControls } from "../game/core/PlayerControls";
+import { createSeedSet, type Rng, type SeedSet } from "../game/core/rng";
+import { FIXED_DT, SimulationClock } from "../game/core/SimulationClock";
+import { nullPorts, type WorldView } from "../game/core/WorldPorts";
+import type { PhysicsEngineId } from "../game/physics";
+import type { PlayerAgent } from "../game/sim/agents/PlayerAgent";
 
 /** Хранилище в памяти: симуляция не пишет в localStorage. */
 export function createMemoryStorage(initial: Record<string, string> = {}): PersistencePort {
@@ -42,6 +43,11 @@ export interface HeadlessRunConfig {
   testMode?: boolean;
   /** Фабрика агента игрока (получает seeded-поток `agent`). */
   agent?: (rng: Rng) => PlayerAgent;
+  /**
+   * Внешний порт управления (эмуляция человеческих контроллов).
+   * По умолчанию мир создаёт `AgentControls`; с агентом передавать нельзя.
+   */
+  controls?: PlayerControls;
   /** Точный состав волны вместо случайных весов (тестовый режим). */
   waveComposition?: WaveCompositionOverride;
   /** Колбэк на каждом тике (снапшоты, метрики). */
@@ -63,6 +69,7 @@ export function createHeadlessWorld(
     skipCountdown: true,
     testMode: config.testMode ?? true,
     agent: config.agent,
+    controls: config.controls,
   };
   const world = createGameWorld(worldConfig);
   world.startRun();

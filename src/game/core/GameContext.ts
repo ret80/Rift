@@ -10,6 +10,7 @@
  * презентационные файлы не пришлось переписывать в том же шаге.
  */
 
+import { t } from "../../i18n";
 import { AbilitySystem } from "../abilities/AbilitySystem";
 import { AsteroidField } from "../asteroids";
 import type { EnemyKind, PickupKind } from "../balance";
@@ -22,8 +23,7 @@ import { GAMEPAD_CODES, GamepadManager } from "../gamepad";
 import { InputManager } from "../input";
 import type { LoadoutSystem } from "../loadout/LoadoutSystem";
 import type { BonusManager } from "../loadout/bonuses/BonusManager";
-import type { PhysicsEngineId } from "../physics/index";
-import type { PhysicsSystem } from "../physics/index";
+import type { PhysicsEngineId, PhysicsSystem } from "../physics/index";
 import { MenuScene } from "../presentation/menu/MenuScene";
 import { getDpr, NullRenderer, PicoGLRenderer, type IRenderer } from "../render/index";
 import { RiftField } from "../rifts";
@@ -57,16 +57,15 @@ import { GameLoop } from "./GameLoop";
 import { GameRender } from "./GameRender";
 import { GameStart } from "./GameStart";
 import { GameUpgrades } from "./GameUpgrades";
-import { GameWorld, createGameWorld } from "./GameWorld";
-import { t } from "../../i18n";
+import { createGameWorld, GameWorld } from "./GameWorld";
 import type { PersistencePort } from "./PersistencePort";
 import { HumanControls } from "./PlayerControls";
 import { PresentationFrame } from "./PresentationFrame";
-import { createRandomSeed, createSeedSet } from "./rng";
 import { SimulationClock } from "./SimulationClock";
 import type { GameStateMachine } from "./StateMachine";
 import type { WorldFrame } from "./WorldFrame";
 import { getViewport, readUrlParam } from "./env";
+import { createRandomSeed, createSeedSet } from "./rng";
 
 export class GameContext {
   readonly hooks: Hooks;
@@ -136,10 +135,25 @@ export class GameContext {
     this.viewport.width = width;
     this.viewport.height = height;
 
+    // Ввод и порт управления создаются ДО мира: GameWorld принимает
+    // PlayerControls в конфиге, иначе он подставляет AgentControls и игрок
+    // остаётся без человеческого управления (ось всегда 0).
+    this.input = new InputManager({
+      onPauseKey: () => this.togglePause(),
+      onLoseFocus: () => {
+        if (this.fsm.is("playing", "active", "dying") && !this._paused) {
+          this.togglePause();
+          this.audio.setSuspended(true);
+        }
+      },
+    });
+    this.controls = new HumanControls(this.input);
+
     this.world = createGameWorld({
       seed: this.seedSet,
       startWave: 1,
       physics: (physicsParam as PhysicsEngineId | null) ?? "planck",
+      controls: this.controls,
       ports: {
         audio: this.audio,
         storage,
@@ -165,17 +179,6 @@ export class GameContext {
     });
 
     console.info(`[Rift] seed ${this.seedSet.master}`);
-
-    this.input = new InputManager({
-      onPauseKey: () => this.togglePause(),
-      onLoseFocus: () => {
-        if (this.fsm.is("playing", "active", "dying") && !this._paused) {
-          this.togglePause();
-          this.audio.setSuspended(true);
-        }
-      },
-    });
-    this.controls = new HumanControls(this.input);
 
     this.inputSystem = new InputSystem(canvas, {
       onAimUpdate: (mouseX, mouseY, winW, winH) => this.handleAim(mouseX, mouseY, winW, winH),
