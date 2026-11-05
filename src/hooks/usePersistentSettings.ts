@@ -73,7 +73,14 @@ export function usePersistentSettings(): PersistentSettings {
   const [debugDetails, setDebugDetails] = usePersistedState(STORAGE_KEYS.debugDetails, false);
   const [enabledEnemies, setEnabledEnemies] = usePersistedState<EnemyKind[]>(
     STORAGE_KEYS.debugEnemies,
-    [EnemyKind.Drone, EnemyKind.Hunter, EnemyKind.Fighter, EnemyKind.Cruiser, EnemyKind.Carrier]
+    [
+      EnemyKind.Drone,
+      EnemyKind.Hunter,
+      EnemyKind.Fighter,
+      EnemyKind.Cruiser,
+      EnemyKind.Carrier,
+      EnemyKind.Miner,
+    ]
   );
   const [enabledPickups, setEnabledPickups] = usePersistedState<PickupKind[]>(
     STORAGE_KEYS.debugPickups,

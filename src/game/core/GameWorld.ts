@@ -24,6 +24,7 @@ import { EcsWorld, resetGameEntityIds } from "../ecs";
 import type { EnemyRef, PlayerRef } from "../ecs";
 import { SystemSchedule } from "../ecs/SystemSchedule";
 import { AllyDroneSystem } from "../ecs/systems/AllyDroneSystem";
+import type { DroneOrder } from "../ecs/components/AllyDroneComponent";
 import { Fx } from "../fx";
 import { LoadoutSystem } from "../loadout/LoadoutSystem";
 import { BonusManager } from "../loadout/bonuses/BonusManager";
@@ -125,6 +126,8 @@ export class GameWorld {
   readonly playerSystem: PlayerSystem;
   readonly abilitySystem: AbilitySystem;
   readonly spawnSystem: SpawnSystem;
+  /** Рой дронов игрока: принимает приказы из тактического режима. */
+  readonly allyDroneSystem: AllyDroneSystem;
   readonly weaponManager: WeaponManager;
   readonly countdownSystem: CountdownSystem;
   readonly applyPickupSystem: ApplyPickupSystem;
@@ -314,7 +317,7 @@ export class GameWorld {
       this.rng("fx"),
     );
 
-    const allyDroneSystem = new AllyDroneSystem({
+    this.allyDroneSystem = new AllyDroneSystem({
       getPlayer: () => this.ecs.playerRef(),
       getRateMult: () => this.bonusManager.getRateMult(),
       getHitChance: () => this.weaponManager.getHitChance(),
@@ -389,7 +392,7 @@ export class GameWorld {
     this.schedule.add(this.playerSystem);
     for (const system of this.ecs.systems) this.schedule.add(system);
     this.schedule.add(this.riftField);
-    this.schedule.add(allyDroneSystem);
+    this.schedule.add(this.allyDroneSystem);
     this.schedule.add(this.weaponManager);
     this.schedule.add(this.physics);
     this.schedule.add(this.collisionSystem);
@@ -536,6 +539,7 @@ export class GameWorld {
     this.ecs.clearEnemyBullets();
     this.ecs.clearPickups();
     this.ecs.clearAllyDrones();
+    this.allyDroneSystem.reset();
     this.loadoutSystem.reset();
     this.weaponManager.reset();
     this.bonusManager.reset();
@@ -576,6 +580,16 @@ export class GameWorld {
 
     // Запись стартует с нулевого тика; взведённый рекордер включается здесь.
     this.recorder?.onRunStart(this);
+  }
+
+  /** Приказ рою дронов из тактического режима. */
+  setDroneOrder(order: DroneOrder, focusTargetId: number | string | null = null): void {
+    this.allyDroneSystem.setOrder(order, focusTargetId);
+  }
+
+  /** Текущий приказ роя — для HUD и символов в тактическом режиме. */
+  get droneOrder(): DroneOrder {
+    return this.allyDroneSystem.currentOrder;
   }
 
   /** Пропускается ли обратный отсчёт (нужно записи и повтору). */

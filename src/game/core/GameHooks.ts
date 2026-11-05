@@ -13,6 +13,8 @@ export interface Hooks {
   onCountdown: (c: CountData | null) => void;
   onStats: (s: StatsData) => void;
   onPause: (p: boolean) => void;
+  /** Тактический режим включён/выключен (мир стоит, доступны приказы). */
+  onTactical?: (active: boolean) => void;
   onGameOver: () => void;
   /** Нажатие кнопки подтверждения геймпада (A/Cross). */
   onGamepadConfirm?: () => void;

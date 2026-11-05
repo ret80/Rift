@@ -15,6 +15,9 @@ const TOAST_KEY: Record<EnemyKind, TKey> = {
   [EnemyKind.Fighter]: "toast.fighter",
   [EnemyKind.Cruiser]: "toast.cruiser",
   [EnemyKind.Carrier]: "toast.carrier",
+  [EnemyKind.Miner]: "toast.miner",
+  [EnemyKind.Boss]: "toast.boss",
+  [EnemyKind.Mine]: "toast.mine",
 };
 
 /** Получатель тостов (GameHooks.onToast). */
@@ -24,11 +27,19 @@ export interface ToastSink {
 
 export class WaveAnnouncements {
   private readonly announcedKinds = new Set<EnemyKind>();
+  private readonly announcedBossWaves = new Set<number>();
 
   /** Показать тост для каждого ещё не объявленного вида. */
-  announce(queue: EnemyKind[], sink: ToastSink): void {
+  announce(queue: EnemyKind[], sink: ToastSink, wave: number): void {
     for (const kind of queue) {
-      if (this.announcedKinds.has(kind)) continue;
+      // Босс — событие каждой 10-й волны, поэтому объявляем его заново,
+      // но только один раз на волну (announce вызывается каждый кадр).
+      if (kind === EnemyKind.Boss) {
+        if (this.announcedBossWaves.has(wave)) continue;
+        this.announcedBossWaves.add(wave);
+      } else if (this.announcedKinds.has(kind)) {
+        continue;
+      }
       this.announcedKinds.add(kind);
       sink.onToast?.({ text: t(TOAST_KEY[kind]), color: C.rift });
     }
@@ -37,5 +48,6 @@ export class WaveAnnouncements {
   /** Сбросить историю объявлений (новый забег). */
   clear(): void {
     this.announcedKinds.clear();
+    this.announcedBossWaves.clear();
   }
 }

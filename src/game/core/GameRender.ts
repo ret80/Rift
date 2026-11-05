@@ -68,6 +68,7 @@ export class GameRender {
       shield: ctx.shieldSystem.getSnapshot(),
       loadout: ctx.loadoutSystem.getSlots(),
       recording: ctx.recorder.status,
+      droneOrder: ctx.world.droneOrder,
     });
   }
 

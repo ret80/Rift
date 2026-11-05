@@ -12,6 +12,9 @@ import { HunterStrategy } from './strategies/HunterStrategy';
 import { FighterStrategy } from './strategies/FighterStrategy';
 import { CruiserStrategy } from './strategies/CruiserStrategy';
 import { CarrierStrategy } from './strategies/CarrierStrategy';
+import { MinerStrategy } from './strategies/MinerStrategy';
+import { MineStrategy } from './strategies/MineStrategy';
+import { BossStrategy } from './strategies/BossStrategy';
 import { angleTo, smoothVelocity } from '../math';
 
 export class EnemyAI {
@@ -30,6 +33,9 @@ export class EnemyAI {
     this.strategies.set(EnemyKind.Fighter, new FighterStrategy());
     this.strategies.set(EnemyKind.Cruiser, new CruiserStrategy());
     this.strategies.set(EnemyKind.Carrier, new CarrierStrategy());
+    this.strategies.set(EnemyKind.Miner, new MinerStrategy());
+    this.strategies.set(EnemyKind.Boss, new BossStrategy());
+    this.strategies.set(EnemyKind.Mine, new MineStrategy());
   }
 
   /**

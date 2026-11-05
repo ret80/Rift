@@ -57,6 +57,9 @@ export class GameContext {
   /** Выходной буфер CarrierStrategy — спавн дронов. */
   public carrierSpawns: Array<{ x: number; y: number }> = [];
 
+  /** Выходной буфер MinerStrategy — постановка мин. */
+  public mineSpawns: Array<{ x: number; y: number }> = [];
+
   /**
    * Синхронизировать контекст с текущим состоянием мира.
    * Вызывается один раз за кадр перед AI pass.
@@ -73,5 +76,6 @@ export class GameContext {
     this.playerOutsideZone = input.playerOutsideZone ?? false;
     this.wave = input.wave;
     this.carrierSpawns = [];
+    this.mineSpawns = [];
   }
 }

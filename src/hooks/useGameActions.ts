@@ -19,12 +19,17 @@ import { ALL_PICKUP_KINDS } from "../game/balance/drops";
 import { ENEMY_KIND_COUNT } from "../game/balance/enemies";
 import type { MenuTrackId, CombatTrackId } from "../game/audio/tracks";
 import type { PhysicsEngineId } from "../game/physics";
+import type { DroneOrder } from "../game/ecs/components/AllyDroneComponent";
 
 export interface GameActions {
   startGame(): void;
   toMenu(): void;
   /** Начать/остановить запись забега (`?record`). */
   toggleRecording(): void;
+  /** Войти в тактический режим или выйти из него. */
+  toggleTactical(): void;
+  /** Приказ рою дронов в тактическом режиме. */
+  setDroneOrder(order: DroneOrder): void;
   changeVols(v: { master: number; sfx: number; music: number }): void;
   changeMenuTrack(id: MenuTrackId): void;
   changeCombatTrack(id: CombatTrackId): void;
@@ -226,6 +231,8 @@ export function useGameActions(options: GameActionsOptions): GameActions {
       gameRef.current?.setStartWave(n);
     },
     toggleRecording: () => gameRef.current?.toggleRecording(),
+    toggleTactical: () => gameRef.current?.toggleTactical(),
+    setDroneOrder: (order) => gameRef.current?.setDroneOrder(order),
     toggleDebugDetails: () => settings.setDebugDetails(!settings.debugDetails),
   };
 }

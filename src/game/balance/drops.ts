@@ -49,6 +49,12 @@ export function dropChanceFor(kind: EnemyKind): number {
       return 0.25;
     case "carrier":
       return 0.7;
+    case "miner":
+      return 0.3;
+    case "boss":
+      return 0.9;
+    case "mine":
+      return 0;
     /* c8 ignore next 2 */
     default:
       return 0;

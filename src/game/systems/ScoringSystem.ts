@@ -69,6 +69,9 @@ export class ScoringSystem extends PhasedSystem {
   /** Subscribe to enemy_killed events and auto-update score/kills/combo */
   subscribeToEvents(eventBus: EventBus): void {
     eventBus.subscribe('enemy_killed', (event) => {
+      // Мины — расходуемое препятствие, а не враг волны: они не должны давать
+      // очки, комбо и засчитываться в счётчик зачистки.
+      if (event.payload.kind === "mine") return;
       const scoreValue = event.payload.score;
       this._killedWave = this.onKill(scoreValue, this._killedWave);
     });

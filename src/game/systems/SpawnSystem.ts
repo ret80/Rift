@@ -9,7 +9,7 @@
  */
 
 import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
-import { EnemyKind } from "../balance";
+import { EnemyKind, isBossWave } from "../balance";
 import type { WaveCompositionOverride } from "../balance/waves";
 import type { RandomSource } from "../math";
 import type { RiftField } from "../rifts";
@@ -180,6 +180,10 @@ export class SpawnSystem extends PhasedSystem {
   private initWave(deps: SpawnDependencies): void {
     const override = this.composition ? this.expandComposition(this.composition) : null;
     this.total = override ? override.length : waveTotal(deps.wave);
+    // Босс — отдельная цель события: он входит в total, но не в случайный
+    // состав и не размазывается по подкреплениям.
+    const bossWave = !override && isBossWave(deps.wave);
+    const normalTotal = this.total - (bossWave ? 1 : 0);
     this.spawned = 0;
     this.killed = 0;
     this.nextThreshold = killThreshold(this.total);
@@ -191,9 +195,10 @@ export class SpawnSystem extends PhasedSystem {
     const zoneY = zone?.y ?? 0;
     const zoneR = zone?.radius ?? zoneRadius(deps.wave);
 
-    // Размещаем все стартовые точки разом (разводим друг от друга)
+    // Размещаем все стартовые точки разом (разводим друг от друга).
+    // На волне босса добавляем отдельный разлом, чтобы событие читалось.
     const points = placeRiftPoints(
-      this.startRifts,
+      this.startRifts + (bossWave ? 1 : 0),
       zoneX,
       zoneY,
       zoneR,
@@ -203,7 +208,14 @@ export class SpawnSystem extends PhasedSystem {
       MIN_RIFT_DIST,
     );
 
-    const startCount = startSpawnCount(this.total);
+    let pointOffset = 0;
+    if (bossWave) {
+      this.spawnRiftAt(deps, [EnemyKind.Boss], points[0]!);
+      this.spawned++;
+      pointOffset = 1;
+    }
+
+    const startCount = startSpawnCount(normalTotal);
     const perRift = Math.floor(startCount / this.startRifts);
     const remainder = startCount % this.startRifts;
 
@@ -214,7 +226,7 @@ export class SpawnSystem extends PhasedSystem {
       const queue = override
         ? override.splice(0, count)
         : buildWaveQueue(count, deps.wave, this.enabledEnemies, this.random);
-      this.spawnRiftAt(deps, queue, points[i]);
+      this.spawnRiftAt(deps, queue, points[pointOffset + i]!);
       this.spawned += count;
     }
   }
@@ -284,7 +296,7 @@ export class SpawnSystem extends PhasedSystem {
   /** Показать тосты для новых видов врагов из очередей разломов. */
   private announce(deps: SpawnDependencies, hooks: SpawnDependencies["hooks"]): void {
     const queue = this.riftField.riftList.flatMap((r) => r.queue);
-    this.announcements.announce(queue, hooks);
+    this.announcements.announce(queue, hooks, deps.wave);
   }
 
   /**

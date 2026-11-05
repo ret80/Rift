@@ -19,6 +19,9 @@ export const C = {
   fighter: "#ff8c42",
   cruiser: "#b06bff",
   carrier: "#ff5da2",
+  boss: "#ff3355",
+  miner: "#ffb84d",
+  mine: "#ff6b3d",
   rift: "#c06bff",
   riftCore: "#e6c8ff",
   zone: "#ff3b52",
@@ -34,8 +37,12 @@ export const C = {
 export const PLAYER_RADIUS = 13;
 /** Базовый запас корпуса без апгрейдов. */
 export const PLAYER_BASE_HP = 120;
-/** Reduced by 15% (310→248→211) then -20% more (211*0.8=169). */
-export const PLAYER_MAX_SPEED = 600;
+/**
+ * Предел скорости корабля. Снижен с 600 до 480: на экране шириной
+ * ~1300 px корабль пересекал арену за 2.2 с, и игрок не успевал читать
+ * угрозы; теперь на манёвр есть на 25 % больше времени.
+ */
+export const PLAYER_MAX_SPEED = 480;
 /** Drone base speed = 0.93 × player max speed. */
 export const DRONE_BASE_SPEED = PLAYER_MAX_SPEED * 0.93;
 /**
@@ -56,8 +63,10 @@ export const FIGHTER_BASE_SPEED = PLAYER_MAX_SPEED * 0.9;
 export const CRUISER_BASE_SPEED = PLAYER_MAX_SPEED * 0.5;
 /** Carrier speed = 0.3 × player max speed. */
 export const CARRIER_BASE_SPEED = PLAYER_MAX_SPEED * 0.3;
+/** Miner speed = 0.55 × player max speed: догоняет, но не обгоняет на прямой. */
+export const MINER_BASE_SPEED = PLAYER_MAX_SPEED * 0.55;
 /** Thrust applied per second while the player holds a direction. */
-export const PLAYER_ACCEL = 1500;
+export const PLAYER_ACCEL = 1240;
 /** Показатель экспоненциального трения скорости игрока, 1/с. */
 export const PLAYER_FRICTION_EXP = 2.4;
 /** Zone expansion multiplier × текущая максимальная скорость игрока — игрок не может её догнать. */

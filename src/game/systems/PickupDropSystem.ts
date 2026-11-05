@@ -65,12 +65,17 @@ export class PickupDropSystem {
       case "fighter": return 7;
       case "cruiser": return 16;
       case "carrier": return 32;
+      case "miner": return 12;
+      case "boss": return 100;
+      case "mine": return 0;
       default: return 1;
     }
   }
 
   /** Determine what kind of bonus drops from a destroyed enemy */
   generateDrop(enemyKind: string, seed: number): PickupKind | null {
+    // Мина — препятствие, а не добыча.
+    if (enemyKind === "mine") return null;
     // Random roll using seed + deterministic offset
     const roll = (seed * PSEUDO_RNG_A + PSEUDO_RNG_B) % 1;
     const chance = dropChanceFor(enemyKind as never);
@@ -95,6 +100,11 @@ export class PickupDropSystem {
         kind = normalized < 0.5 ? "drone" : "shield";
         break;
       case "carrier": {
+        const types: PickupKind[] = ["drone", "gun", "shield", "missile", "laser", "quantum_swap"];
+        kind = types[Math.floor(normalized * types.length)];
+        break;
+      }
+      case "boss": {
         const types: PickupKind[] = ["drone", "gun", "shield", "missile", "laser", "quantum_swap"];
         kind = types[Math.floor(normalized * types.length)];
         break;

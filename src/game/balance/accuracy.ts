@@ -35,6 +35,7 @@ export const ENEMY_AIM_KIND_MULT: Partial<Record<EnemyKind, number>> = {
   fighter: 1,
   cruiser: 0.8,
   carrier: 0.7,
+  boss: 0.75,
 };
 
 /**

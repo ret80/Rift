@@ -149,6 +149,10 @@ export class EnemyShootingSystem extends PhasedSystem {
       // Орудия крейсера — отдельная турель: стволы следят за игроком даже
       // вне дистанции огня, иначе к моменту выстрела они смотрели бы в сторону.
       if (marker.kind === EnemyKind.Cruiser) this.aimTurret(marker, position, player, dt);
+      if (marker.kind === EnemyKind.Boss) {
+        this.fireBoss(marker, position, player, dt);
+        continue;
+      }
 
       const weapon = TURRETS[marker.kind];
       if (!weapon) continue;
@@ -199,6 +203,58 @@ export class EnemyShootingSystem extends PhasedSystem {
       result.push({ marker, position });
     }
     return result;
+  }
+
+  /**
+   * Босс: чередует круговой залп и прицельный тяжёлый выстрел.
+   * Фаза 0/1/2 приходит из BossStrategy через marker.mode.
+   */
+  private fireBoss(
+    e: EnemyComponent,
+    position: PositionComponent,
+    player: PlayerMotion,
+    dt: number,
+  ): void {
+    const phase = Math.max(0, Math.min(2, Math.floor(e.mode)));
+    const radialRate = BOSS_RADIAL_RATE[phase] ?? BOSS_RADIAL_RATE[0];
+    const aimedRate = BOSS_AIMED_RATE[phase] ?? BOSS_AIMED_RATE[0];
+    const radialCount = BOSS_RADIAL_COUNT[phase] ?? BOSS_RADIAL_COUNT[0];
+
+    // Круговой залп: один раз на фазу с поворотом рисунка.
+    e.tCd1 = (e.tCd1 ?? 1.2) - dt;
+    if (e.tCd1 <= 0) {
+      e.tCd1 = radialRate;
+      e.lockAngle += BOSS_RADIAL_STEP;
+      for (let i = 0; i < radialCount; i++) {
+        const angle = e.lockAngle + (i / radialCount) * Math.PI * 2;
+        this.spawnBolt({
+          sx: position.x + Math.cos(angle) * BOSS_MUZZLE_OFFSET,
+          sy: position.y + Math.sin(angle) * BOSS_MUZZLE_OFFSET,
+          angle,
+          boltDmg: e.boltDmg * 0.65,
+          heavy: true,
+          cruiser: false,
+          boltSpeed: BOSS_RADIAL_SPEED + phase * 28,
+        });
+      }
+      this.audio.playHeavyShoot();
+    }
+
+    // Прицельный тяжёлый болт: наказывает стояние на месте.
+    e.tCd2 = (e.tCd2 ?? 0.9) - dt;
+    const inRange =
+      Math.hypot(player.x - position.x, player.y - position.y) <
+      this.getZoneRadius() * BOSS_AIMED_RANGE_R;
+    if (e.tCd2 <= 0 && inRange) {
+      e.tCd2 = aimedRate;
+      const weapon: EnemyWeapon = {
+        boltSpeed: BOSS_AIMED_SPEED + phase * 35,
+        leadTime: 1.5,
+        heavy: true,
+      };
+      this.fire(e, position.x, position.y, player, weapon, enemyHitChance(this.wave, e.kind));
+      this.audio.playHeavyShoot();
+    }
   }
 
   /** Двуствольный Cruiser: две независимые турели с таймерами tCd1/tCd2 */
@@ -369,3 +425,13 @@ const CRUISER_TURRET_TURN_RATE = 3.2;
 const CRUISER_MUZZLE_FORWARD = 20;
 /** Полуразнесение стволов поперёк оси наведения турели. */
 const CRUISER_MUZZLE_GAP = 8;
+
+/* ---- Босс ---- */
+const BOSS_RADIAL_RATE = [3.0, 2.4, 1.8] as const;
+const BOSS_AIMED_RATE = [2.2, 1.7, 1.2] as const;
+const BOSS_RADIAL_COUNT = [12, 18, 24] as const;
+const BOSS_RADIAL_STEP = 0.37;
+const BOSS_MUZZLE_OFFSET = 48;
+const BOSS_RADIAL_SPEED = 285;
+const BOSS_AIMED_SPEED = 430;
+const BOSS_AIMED_RANGE_R = 1.25;

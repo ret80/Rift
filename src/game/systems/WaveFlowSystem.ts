@@ -11,6 +11,7 @@
  * Зависимости описаны узкими портами: системе не нужны целые классы.
  */
 
+import { EnemyKind } from "../balance";
 import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import type { AppliedUpgrades } from "../upgrades";
 import type { WaveOrchestrator } from "./WaveOrchestrator";
@@ -49,7 +50,7 @@ export interface WaveFlowDeps {
   spawnSystem: SpawnPort;
   upgradeSystem: UpgradePort;
   countdownSystem: CountdownPort;
-  getEnemyList: () => Array<{ marker: { dead: boolean } }>;
+  getEnemyList: () => Array<{ marker: { dead: boolean; kind: EnemyKind } }>;
   getPlayerPosition: () => PlayerPosition;
 }
 
@@ -100,8 +101,11 @@ export class WaveFlowSystem extends PhasedSystem {
     // Не проверяем если волна не активна
     if (orchestrator.waveState !== "active") return;
 
-    // Проверяем что все враги убиты
-    const alive = getEnemyList().filter((e) => !e.marker.dead).length;
+    // Проверяем что все враги убиты. Мины — препятствие, а не состав волны:
+    // оставшаяся мина не должна задерживать зачистку.
+    const alive = getEnemyList().filter(
+      (e) => !e.marker.dead && e.marker.kind !== EnemyKind.Mine,
+    ).length;
     if (alive > 0) return;
 
     // Проверяем что все враги спавнятся и убиты

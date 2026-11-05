@@ -16,6 +16,7 @@ import { AsteroidField } from "../asteroids";
 import type { EnemyKind, PickupKind } from "../balance";
 import type { WaveCompositionOverride } from "../balance/waves";
 import type { EnemyRef, PlayerRef } from "../ecs";
+import type { DroneOrder } from "../ecs/components/AllyDroneComponent";
 import { EcsWorld } from "../ecs";
 import type { SystemSchedule } from "../ecs/SystemSchedule";
 import { Fx } from "../fx";
@@ -114,6 +115,8 @@ export class GameContext {
   readonly viewport = { width: 0, height: 0 };
 
   private _paused = false;
+  /** Тактический режим: мир стоит, игрок отдаёт приказы дронам. */
+  private _tactical = false;
 
   /** Текущее направление навигации (стик или D-pad). */
   private _navDir: "up" | "down" | "left" | "right" | null = null;
@@ -164,6 +167,7 @@ export class GameContext {
         }
       },
       ...(dev ? { onRecordKey: () => this.toggleRecording() } : {}),
+      onTacticalKey: () => this.toggleTactical(),
     });
     this.humanControls = new HumanControls(this.input);
     // Обёртка нужна и для кнопки `?record`: способность пишется по факту
@@ -309,6 +313,84 @@ export class GameContext {
     return this._paused;
   }
 
+  /** Тактический режим включён. */
+  get tactical(): boolean {
+    return this._tactical;
+  }
+
+  /**
+   * Войти в тактический режим или выйти из него.
+   *
+   * Мир замирает через ту же паузу, что и Esc, но без экрана паузы:
+   * открывается тактический оверлей с приказами рою. Вход во время паузы
+   * игнорируется, чтобы два оверлея не спорили за экран.
+   */
+  toggleTactical(): void {
+    if (!this.fsm.is("playing", "active")) return;
+    if (this._paused && !this._tactical) return;
+    this._tactical = !this._tactical;
+    this.setPaused(this._tactical);
+    this.audio.setSuspended(this._tactical);
+    this.hooks.onTactical?.(this._tactical);
+  }
+
+  /** Выйти из тактического режима (смена экрана, смерть, Esc). */
+  private exitTactical(): void {
+    if (!this._tactical) return;
+    this._tactical = false;
+    this.setPaused(false);
+    this.audio.setSuspended(false);
+    this.hooks.onTactical?.(false);
+  }
+
+  /**
+   * Приказ рою дронов. В фокусе целью становится враг под прицелом
+   * игрока (или ближайший к линии прицела); без цели приказ не меняется.
+   */
+  setDroneOrder(order: DroneOrder): void {
+    if (order === "focus") {
+      const target = this.pickFocusTarget();
+      if (!target) {
+        this.hooks.onToast({ text: t("hud.orderNoTarget"), color: "#ffb84d" });
+        return;
+      }
+      this.world.setDroneOrder(order, target.marker.ecsId ?? null);
+    } else {
+      this.world.setDroneOrder(order);
+    }
+    const key = order === "escort"
+      ? "hud.orderEscort"
+      : order === "assault"
+        ? "hud.orderAssault"
+        : "hud.orderFocus";
+    this.hooks.onToast({ text: t(key), color: "#7dff9e" });
+  }
+
+  /** Ближайший к линии прицела враг в пределах досягаемости. */
+  private pickFocusTarget(): EnemyRef | null {
+    const player = this.ecs.playerRef();
+    if (!player) return null;
+    const aim = this.humanControls.aimAngle ?? player.marker.angle;
+    let best: EnemyRef | null = null;
+    let bestScore = Infinity;
+    for (const enemy of this.ecs.enemies()) {
+      if (enemy.marker.dead) continue;
+      const dx = enemy.position.x - player.position.x;
+      const dy = enemy.position.y - player.position.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 800) continue;
+      let delta = Math.abs(Math.atan2(dy, dx) - aim);
+      if (delta > Math.PI) delta = Math.PI * 2 - delta;
+      if (delta > 0.6) continue;
+      const score = dist * (1 + delta * 2);
+      if (score < bestScore) {
+        bestScore = score;
+        best = enemy;
+      }
+    }
+    return best;
+  }
+
   setPaused(paused: boolean): void {
     this._paused = paused;
     // На паузе время мира не идёт: накопитель не должен «догонять» после снятия.
@@ -362,6 +444,11 @@ export class GameContext {
 
   togglePause(): void {
     if (this.fsm.is("menu", "over")) return;
+    // Esc в тактике закрывает тактику, а не открывает экран паузы.
+    if (this._tactical) {
+      this.exitTactical();
+      return;
+    }
     this.setPaused(!this._paused);
     this.hooks.onPause(this._paused);
     this.audio.setSuspended(this._paused);
@@ -493,6 +580,7 @@ export class GameContext {
   // ============================== Run lifecycle ==============================
 
   startRun(): void {
+    this.exitTactical();
     if (this.fsm.is("menu", "over")) {
       this.fsm.fire("start");
     }
@@ -500,6 +588,7 @@ export class GameContext {
   }
 
   toMenu(): void {
+    this.exitTactical();
     this.start.toMenu();
   }
 
@@ -572,6 +661,7 @@ export class GameContext {
   }
 
   destroy(): void {
+    this.exitTactical();
     if (this.recorder.status === "recording") this.stopRecording("user_stop");
     this.world.destroy();
     this.loop.destroy();

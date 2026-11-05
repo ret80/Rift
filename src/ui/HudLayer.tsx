@@ -1,5 +1,6 @@
 import React from "react";
 import { useT } from "../i18n";
+import { Icon } from "./components/Icon";
 import { LoadoutBar } from "./components/LoadoutBar";
 import { RecordButton } from "./components/RecordButton";
 import { useHudData, type HudStore } from "./hud/HudStore";
@@ -35,6 +36,8 @@ export function HudLayer(props: {
   recordEnabled: boolean;
   /** Начать/остановить запись забега. */
   onToggleRecord: () => void;
+  /** Войти в тактический режим. */
+  onToggleTactical: () => void;
 }) {
   const t = useT();
   const data = useHudData(props.store);
@@ -150,6 +153,22 @@ export function HudLayer(props: {
           />
         </div>
       )}
+
+      {/* тактический режим: мир замирает, дронам можно отдать приказ */}
+      <button
+        type="button"
+        onClick={props.onToggleTactical}
+        aria-label={t("hud.tactical")}
+        title={t("hud.tactical")}
+        className={
+          "pointer-events-auto absolute right-2 flex h-8 w-8 items-center justify-center border " +
+          "border-[#7dff9e]/40 bg-[#0b1420]/70 text-[#7dff9e] " +
+          "hover:border-[#7dff9e] hover:bg-[#7dff9e]/10 sm:right-4"
+        }
+        style={{ top: "calc(env(safe-area-inset-top) + 156px)" }}
+      >
+        <Icon kind="tactical" size={16} />
+      </button>
 
       {/* recording chip: только dev/`?debug`, не поверх тач-зоны */}
       {data?.recording && data.recording !== "off" && (

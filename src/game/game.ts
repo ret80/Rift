@@ -16,6 +16,7 @@ import { GameContext } from "./core/GameContext";
 import type { Hooks } from "./core/GameHooks";
 import type { PhysicsEngineId } from "./physics";
 import type { WaveCompositionOverride } from "./balance/waves";
+import type { DroneOrder } from "./ecs/components/AllyDroneComponent";
 
 /* UI types — единый источник правды */
 export type { BannerData, CountData, HudData, StatsData, ToastData } from "./types/ui";
@@ -191,5 +192,15 @@ export class Game {
   /** Кнопка `?record`: начать/остановить запись забега. */
   toggleRecording(): void {
     this.ctx.toggleRecordButton();
+  }
+
+  /** Войти в тактический режим или выйти из него. */
+  toggleTactical(): void {
+    this.ctx.toggleTactical();
+  }
+
+  /** Приказ рою дронов (эскорт / штурм / фокус). */
+  setDroneOrder(order: DroneOrder): void {
+    this.ctx.setDroneOrder(order);
   }
 }

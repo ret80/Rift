@@ -647,10 +647,17 @@ check("compare: одинаковые прогоны → нет регресси�
 });
 
 check("compare: больше fireRate → DPS растёт на большинстве seed", () => {
-  const base = smokeScenario();
-  const boosted = parseScenario({ ...smokeScenarioRaw(), upgrades: { fireRate: 3 } });
-  const baseline = fakeRunResult(base, [1, 2, 3, 4], 600);
-  const current = fakeRunResult(boosted, [1, 2, 3, 4], 600);
+  // Волна выше стартовой и 20 с боя: на 1-й волне 24 врага умирают за
+  // время прогона при любом темпе огня, и разница DPS схлопывается в ноль
+  // не из-за баланса, а из-за нехватки целей.
+  const base = parseScenario({ ...smokeScenarioRaw(), startWave: 10 });
+  const boosted = parseScenario({
+    ...smokeScenarioRaw(),
+    startWave: 10,
+    upgrades: { fireRate: 3 },
+  });
+  const baseline = fakeRunResult(base, [1, 2, 3, 4], 1200);
+  const current = fakeRunResult(boosted, [1, 2, 3, 4], 1200);
   const report = compareResults(baseline, current);
   const dps = report.diffs.find((diff) => diff.metric === "dps")!;
   expect(dps.meanDelta > 0, `ΔDPS=${dps.meanDelta}`);

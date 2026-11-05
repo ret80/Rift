@@ -21,6 +21,8 @@ import {
     CARRIER_DRONE_ORBIT_GAP,
     ENEMY_MAX_DRONES,
     EnemyKind,
+    MINE_LIFETIME,
+    MINE_MAX_ALIVE,
     enemyDefFor,
     massForRadius
 } from "../balance";
@@ -36,6 +38,8 @@ import { TAU } from "../math";
 export interface EnemySpawnPort {
   addEnemy(enemy: EnemySpawn): void;
   enemyRefByEntity(entity: GameEntity): EnemyRef | null;
+  /** Мгновенная гибель — истёкшая мина убирается без урона. */
+  forceKillEnemy(enemy: EnemyRef): void;
 }
 
 /**
@@ -160,6 +164,15 @@ export class EnemySystem extends PhasedSystem {
       const marker = ref.marker;
       if (marker.dead) continue;
 
+      // Мина живёт ограниченное время: иначе старые мины копятся на арене.
+      if (marker.kind === EnemyKind.Mine) {
+        marker.modeT -= dt;
+        if (marker.modeT <= 0) {
+          this.ecs.forceKillEnemy(ref);
+          continue;
+        }
+      }
+
       marker.flash = Math.max(0, marker.flash - dt * 5);
       marker.hitCd = Math.max(0, marker.hitCd - dt);
 
@@ -199,6 +212,22 @@ export class EnemySystem extends PhasedSystem {
       this.ecs.addEnemy(drone);
     }
 
+    // Постановка мин: не больше MINE_MAX_ALIVE одновременно на арене.
+    if (this.context.mineSpawns.length > 0) {
+      const aliveMines = enemyRefs.filter(
+        (e) => !e.marker.dead && e.marker.kind === EnemyKind.Mine,
+      ).length;
+      let free = Math.max(0, MINE_MAX_ALIVE - aliveMines);
+      for (const spawn of this.context.mineSpawns) {
+        if (free <= 0) break;
+        const def = this.getEnemyDef(EnemyKind.Mine);
+        this.ecs.addEnemy(
+          this.createEnemy(EnemyKind.Mine, spawn.x, spawn.y, def, playerPos, null),
+        );
+        free--;
+      }
+    }
+
     // Расталкивание вынесено в сменный решатель (см. EnemyAvoidance).
     this.avoidance.solve(enemyRefs);
   }
@@ -229,11 +258,16 @@ export class EnemySystem extends PhasedSystem {
       ? Math.atan2(playerPos.y - y, playerPos.x - x)
       : this.rngSpawn.range(0, TAU);
     // Турель крейсера изначально наведена на игрока: корпус смотрит по курсу.
-    const turretAngle = kind === EnemyKind.Cruiser && playerPos
-      ? Math.atan2(playerPos.y - y, playerPos.x - x)
-      : angle;
+    const turretAngle =
+      (kind === EnemyKind.Cruiser || kind === EnemyKind.Boss) && playerPos
+        ? Math.atan2(playerPos.y - y, playerPos.x - x)
+        : angle;
     const mass = massForRadius(def.r);
     const tStagger = this.rngSpawn.range(-0.5, 0.5);
+    // Мина получает modeT как таймер жизни, минёр — паузу до первого захода.
+    const freshModeT = kind === EnemyKind.Mine ? MINE_LIFETIME : 0;
+    const initialOrbit = this.rngSpawn.range(0, TAU);
+    const firstDive = kind === EnemyKind.Miner ? this.rngSpawn.range(3, 6) : 0;
     const carrierBurstActive = this.rngSpawn.next() < 0.5;
     const carrierBurstSpawned = carrierBurstActive ? 10 : 0;
 
@@ -252,7 +286,7 @@ export class EnemySystem extends PhasedSystem {
       kind, x, y, vx: 0, vy: 0, angle, turretAngle,
       hp: def.hp * hpMult, maxHp: def.hp * hpMult, r: def.r, speed: def.speed,
       contact: def.contact * damageMult, score: def.score, boltDmg: def.bolt * damageMult,
-      fireCd: this.rngSpawn.range(0.3, 1), mode: 0, modeT: 0,
+      fireCd: this.rngSpawn.range(0.3, 1), mode: 0, modeT: freshModeT,
       strafeDir: this.rngSpawn.next() < 0.5 ? -1 : 1,
       seed: this.rngSpawn.next() * 100, spawnCd: this.rngSpawn.range(1, 2),
       flash: 0, hitCd: 0, dead: false,
@@ -262,9 +296,9 @@ export class EnemySystem extends PhasedSystem {
       burstSpawned: carrierBurstSpawned, burstActive: carrierBurstActive,
       burstRestT: carrierBurstActive ? 0 : this.rngSpawn.range(6, 10),
       burstCd: 0.5, dodgeDir: 0, dodgeTimer: 0,
-      droneState, orbitAngle, orbitRadius,
+      droneState, orbitAngle: kind === EnemyKind.Miner ? initialOrbit : orbitAngle, orbitRadius,
       orbitTimer: carrierBurstActive ? 0 : this.rngSpawn.range(5, 8),
-      waitTimer: 0,
+      waitTimer: firstDive,
       phaseDrones: 0,
       carrierChildren: 0,
     };

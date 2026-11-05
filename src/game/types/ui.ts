@@ -5,6 +5,7 @@
 
 import type { LoadoutSlotData } from "../loadout/LoadoutTypes";
 import type { SessionRecorderStatus } from "../core/SessionRecord";
+import type { DroneOrder } from "../ecs/components/AllyDroneComponent";
 import type { ShieldRenderState } from "./render";
 
 /* ============================== HUD ============================== */
@@ -31,6 +32,8 @@ export interface HudData {
   loadout: LoadoutSlotData[];
   /** Состояние записи: индикатор виден только в dev/`?debug`. */
   recording: SessionRecorderStatus;
+  /** Текущий приказ рою дронов (тактический режим). */
+  droneOrder: DroneOrder;
 }
 
 /* ============================== Banners / Toasts / Countdown ============================== */

@@ -22,6 +22,9 @@ const ENEMY_LABEL: Record<EnemyKind, TKey> = {
   [EnemyKind.Fighter]: "debug.fighter",
   [EnemyKind.Cruiser]: "debug.cruiser",
   [EnemyKind.Carrier]: "debug.carrier",
+  [EnemyKind.Miner]: "debug.miner",
+  [EnemyKind.Boss]: "debug.boss",
+  [EnemyKind.Mine]: "debug.mine",
 };
 
 const PICKUP_LABEL: Record<PickupDisplay, TKey> = {
@@ -90,6 +93,7 @@ function EnemyDropdown(props: {
     EnemyKind.Fighter,
     EnemyKind.Cruiser,
     EnemyKind.Carrier,
+    EnemyKind.Miner,
   ];
   const enabledCount = allKinds.filter((k) => props.enabledEnemies.includes(k)).length;
 

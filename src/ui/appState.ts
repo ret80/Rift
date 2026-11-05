@@ -15,6 +15,8 @@ export type Screen = "menu" | "settings" | "help" | "debug" | "upgrade" | "game"
 export interface AppState {
   screen: Screen;
   paused: boolean;
+  /** Тактический режим: мир замер, открыт оверлей приказов дронам. */
+  tactical: boolean;
   stats: StatsData | null;
   banner: (BannerData & { id: number }) | null;
   toast: (ToastData & { id: number }) | null;
@@ -24,6 +26,7 @@ export interface AppState {
 export type AppAction =
   | { type: "SET_SCREEN"; screen: Screen }
   | { type: "SET_PAUSED"; paused: boolean }
+  | { type: "SET_TACTICAL"; tactical: boolean }
   | { type: "SET_STATS"; stats: StatsData | null }
   | { type: "SET_BANNER"; banner: (BannerData & { id: number }) | null }
   | { type: "SET_TOAST"; toast: (ToastData & { id: number }) | null }
@@ -32,6 +35,7 @@ export type AppAction =
 export const INITIAL_APP_STATE: AppState = {
   screen: "menu",
   paused: false,
+  tactical: false,
   stats: null,
   banner: null,
   toast: null,
@@ -44,6 +48,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, screen: action.screen };
     case "SET_PAUSED":
       return { ...state, paused: action.paused };
+    case "SET_TACTICAL":
+      return { ...state, tactical: action.tactical };
     case "SET_STATS":
       return { ...state, stats: action.stats };
     case "SET_BANNER":

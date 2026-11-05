@@ -5,7 +5,7 @@
 
 import type { RandomSource } from "../math";
 import { clamp, ramp01 } from "../math";
-import { ENEMY_BASES, EnemyKind, massForRadius } from "./enemies";
+import { BOSS_WAVE_INTERVAL, ENEMY_BASES, EnemyKind, massForRadius } from "./enemies";
 
 /** Состав тестовой волны: вид → количество. */
 export type WaveCompositionOverride = Partial<Record<EnemyKind, number>>;
@@ -117,14 +117,65 @@ export function enemyDefFor(kind: EnemyKind, w: number): import("./enemies").Ene
         mass: massForRadius(base.r),
       };
     }
+    case EnemyKind.Miner: {
+      return {
+        r: base.r,
+        hp: base.hpBase * hpS,
+        // Медленнее игрока: он угрожает пространством, а не погоней.
+        speed: base.speed + w * 1.2,
+        contact: base.contactBase * dmgS,
+        score: base.score,
+        bolt: base.boltBase,
+        mass: massForRadius(base.r),
+      };
+    }
+    case EnemyKind.Boss: {
+      return {
+        r: base.r,
+        hp: base.hpBase * hpS,
+        // Босс медленнее игрока: его давление — залпы, а не погоня.
+        speed: base.speed + w * 0.5,
+        contact: base.contactBase * dmgS,
+        score: base.score,
+        bolt: base.boltBase * dmgS,
+        mass: massForRadius(base.r),
+      };
+    }
+    case EnemyKind.Mine: {
+      return {
+        r: base.r,
+        hp: base.hpBase * hpS,
+        speed: 0,
+        contact: base.contactBase * dmgS,
+        score: 0,
+        bolt: 0,
+        mass: massForRadius(base.r),
+      };
+    }
   }
 }
 
 /* ------------------------------- waves ------------------------------- */
 
-/** 30 ships on wave 1, ~91 by wave 30 (hard cap at 100). */
+/**
+ * Врагов на волне: 24 на первой, рост медленнее прежнего, потолок 64
+ * плюс отдельный босс на каждой 10-й волне.
+ *
+ * Прежние 100 врагов заполняли арену и не оставляли места для манёвра;
+ * давление теперь идёт от состава (минёр, тяжёлые цели), а не от массы.
+ */
 export function waveTotalFor(w: number): number {
-  return Math.min(100, Math.round(30 + (w - 1) * 2.1));
+  return Math.min(64, Math.round(24 + (w - 1) * 1.35)) + bossCountForWave(w);
+}
+
+/** Волна босса: каждая 10-я, начиная с 10-й. */
+export function isBossWave(w: number): boolean {
+  return w > 0 && w % BOSS_WAVE_INTERVAL === 0;
+}
+
+/** Добавка к обычному составу волны: один босс. */
+export function bossCountForWave(w: number): number {
+  return isBossWave(w) ? 1 : 0;
 }
 
 export function zoneRadiusFor(w: number): number {
@@ -154,6 +205,8 @@ export function kindWeights(w: number): Array<[EnemyKind, number]> {
     [EnemyKind.Cruiser, 0.18 * ramp01(w, 8, 20)],
     // Носитель — матка (редкое событие): 12–25 волна
     [EnemyKind.Carrier, 0.05 * ramp01(w, 12, 25)],
+    // Минёр — угроза пространству: появляется с 9-й, ~8 %
+    [EnemyKind.Miner, 0.08 * ramp01(w, 9, 18)],
   ];
 }
 

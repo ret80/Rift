@@ -13,6 +13,9 @@
 import type { Component } from "@trixt0r/ecs";
 import type { DroneCombatSpec, DroneId } from "../../drones/Drone";
 
+/** Приказ рою, который игрок отдаёт в тактическом режиме. */
+export type DroneOrder = "escort" | "assault" | "focus";
+
 export class AllyDroneComponent implements Component {
   readonly type = "AllyDrone";
   readonly id = "AllyDrone";

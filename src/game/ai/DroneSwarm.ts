@@ -20,12 +20,15 @@ const MAX_GROUP_SIZE = 20;
 const MAX_GROUPS = 6;
 /** Зазор между корпусами соседей в строю, px. */
 const SLOT_GAP = 10;
-/** Полуразнос дорожек строя, px. */
-const SLOT_LANE_OFFSET = 12;
-/** Радиус патруля — доля радиуса зоны. */
-const PATROL_RADIUS_R = 0.55;
-const PATROL_RADIUS_MIN = 180;
-const PATROL_RADIUS_MAX = 420;
+/**
+ * Кольца патруля: группы расходятся по разным радиусам от центра зоны.
+ * Внутреннее кольцо — около 0.5R, внешнее — около 0.8R. Так рой покрывает
+ * площадь, а не летит одной каруселью на одной высоте.
+ */
+const PATROL_RADIUS_BASE_R = 0.45;
+const PATROL_RADIUS_OUTER_R = 0.84;
+const PATROL_RADIUS_MIN = 170;
+const PATROL_RADIUS_MAX = 500;
 /** Угловая скорость патруля, рад/с. */
 const PATROL_OMEGA = 0.4;
 /** Дальность отделения: не меньше 220 px и не меньше 0.35R. */
@@ -43,6 +46,8 @@ interface DroneGroup {
   id: number;
   /** +1 — по часовой, −1 — против. */
   dir: 1 | -1;
+  /** Номер концентрического кольца; задаёт высоту/радиус группы. */
+  ringIndex: number;
   /** Текущий угол якоря группы, радианы. */
   phase: number;
   /** Живые участники (объектная идентичность стабильна). */
@@ -103,7 +108,7 @@ export class DroneSwarm {
     const group = this.groups.get(marker.swarmGroupId);
     if (!group) return false;
 
-    const radius = this.patrolRadius(context);
+    const radius = this.patrolRadius(group, context);
     const count = Math.max(1, group.members.size);
     const center = (count - 1) / 2;
     // Шаг считаем по дуге: соседние корпуса не должны попадать в зону
@@ -111,8 +116,8 @@ export class DroneSwarm {
     const slotArc = enemy.radius.r * 2 + SLOT_GAP;
     const slotOffset = (marker.swarmSlot - center) * (slotArc / radius);
     const angle = group.phase + group.dir * slotOffset;
-    const lane = marker.swarmSlot % 2 === 0 ? -1 : 1;
-    const radial = radius + lane * SLOT_LANE_OFFSET;
+    // Группы держат строго своё кольцо; соседние слоты разводит дуга.
+    const radial = radius;
 
     out.x = context.zoneX + Math.cos(angle) * radial;
     out.y = context.zoneY + Math.sin(angle) * radial;
@@ -152,11 +157,23 @@ export class DroneSwarm {
 
   // ============================== internal ==============================
 
-  private patrolRadius(context: GameContext): number {
-    return Math.max(
+  /**
+   * Радиус кольца группы. Кольца равномерно распределены между внутренним
+   * и внешним пределом зоны; при изменении числа групп они плавно
+   * перестраиваются, а не слипаются в одно кольцо.
+   */
+  private patrolRadius(group: DroneGroup, context: GameContext): number {
+    const base = Math.max(
       PATROL_RADIUS_MIN,
-      Math.min(PATROL_RADIUS_MAX, context.zoneRadius * PATROL_RADIUS_R),
+      Math.min(PATROL_RADIUS_MAX, context.zoneRadius * PATROL_RADIUS_BASE_R),
     );
+    const outer = Math.max(
+      base,
+      Math.min(PATROL_RADIUS_MAX, context.zoneRadius * PATROL_RADIUS_OUTER_R),
+    );
+    const count = Math.max(1, this.groups.size);
+    const t = count <= 1 ? 0 : group.ringIndex / (count - 1);
+    return base + (outer - base) * Math.max(0, Math.min(1, t));
   }
 
   private ensureGroups(count: number): void {
@@ -174,11 +191,19 @@ export class DroneSwarm {
   }
 
   private createGroup(): DroneGroup {
-    const index = this.groups.size;
+    // Свободное кольцо: после потерь группы не должны делить один радиус.
+    const usedRings = new Set(
+      Array.from(this.groups.values()).map((group) => group.ringIndex),
+    );
+    let ringIndex = 0;
+    while (usedRings.has(ringIndex)) ringIndex++;
+
     const group: DroneGroup = {
       id: this.nextId++,
-      dir: index % 2 === 0 ? 1 : -1,
-      phase: (index * Math.PI) / 2,
+      dir: ringIndex % 2 === 0 ? 1 : -1,
+      ringIndex,
+      // Соседние группы стартуют с противоположных сторон кольца.
+      phase: ringIndex * Math.PI,
       members: new Set(),
       slots: new Set(),
       cooldown: 0,
@@ -251,11 +276,11 @@ export class DroneSwarm {
   }
 
   private detachAttackers(drones: EnemyRef[], context: GameContext): void {
-    const radius = this.patrolRadius(context);
     const range = Math.max(DETACH_MIN_RANGE, context.zoneRadius * DETACH_RANGE_R);
 
     for (const group of this.groups.values()) {
       if (group.cooldown > 0) continue;
+      const radius = this.patrolRadius(group, context);
       const anchorX = context.zoneX + Math.cos(group.phase) * radius;
       const anchorY = context.zoneY + Math.sin(group.phase) * radius;
       if (Math.hypot(anchorX - context.playerX, anchorY - context.playerY) > range) continue;
@@ -309,13 +334,13 @@ export class DroneSwarm {
   }
 
   private returnToGroup(drone: EnemyRef, context: GameContext): void {
-    const radius = this.patrolRadius(context);
     let best: DroneGroup | null = null;
     let bestDist = Infinity;
     for (const group of this.groups.values()) {
       if (group.members.size >= MAX_GROUP_SIZE) continue;
       // Близость считаем по якорю группы, а не по случайному первому
       // участнику: иначе дрон может уйти в дальнюю группу.
+      const radius = this.patrolRadius(group, context);
       const anchorX = context.zoneX + Math.cos(group.phase) * radius;
       const anchorY = context.zoneY + Math.sin(group.phase) * radius;
       const d = Math.hypot(drone.position.x - anchorX, drone.position.y - anchorY);

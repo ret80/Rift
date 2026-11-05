@@ -8,6 +8,9 @@ export const ru = {
   fighter: "НОВАЯ ЦЕЛЬ: ИСТРЕБИТЕЛЬ",
   cruiser: "НОВАЯ ЦЕЛЬ: КРЕЙСЕР",
   carrier: "НОВАЯ ЦЕЛЬ: ДРОНОНОСЕЦ",
+  miner: "НОВАЯ ЦЕЛЬ: МИНЁР",
+  boss: "ВОЛНА БОССА",
+  mine: "МИНА",
 };
 
 export const en: typeof ru = {
@@ -16,4 +19,7 @@ export const en: typeof ru = {
   fighter: "NEW TARGET: FIGHTER",
   cruiser: "NEW TARGET: CRUISER",
   carrier: "NEW TARGET: CARRIER",
+  miner: "NEW TARGET: MINER",
+  boss: "BOSS WAVE",
+  mine: "MINE",
 };

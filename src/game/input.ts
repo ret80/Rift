@@ -10,6 +10,8 @@ export interface InputHooks {
   onLoseFocus(): void;
   /** F9: включить/выключить запись (только dev/`?debug`). */
   onRecordKey?(): void;
+  /** T: тактический режим (мир замирает, дронам можно отдать приказ). */
+  onTacticalKey?(): void;
 }
 
 /** Movement vector in -1..1 on each axis (keyboard + touch combined). */
@@ -47,6 +49,11 @@ export class InputManager {
     // F9 не попадает в pressed: это команда хоста, а не игровое действие.
     if (e.code === "KeyF9" && !e.repeat) {
       this.hooks.onRecordKey?.();
+      return;
+    }
+    // Тактика — команда хоста: в pressed не нужна, игра сама ставит паузу.
+    if (e.code === "KeyT" && !e.repeat) {
+      this.hooks.onTacticalKey?.();
       return;
     }
     // Автоповтор удерживаемой клавиши не должен считаться новым нажатием.

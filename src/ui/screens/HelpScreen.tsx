@@ -74,6 +74,10 @@ export default function HelpScreen(props: {
               <span>— {t("help.pause")}</span>
             </div>
             <div className="flex items-center gap-2">
+              <span className="kbd">T</span>
+              <span>— {t("help.tactical")}</span>
+            </div>
+            <div className="flex items-center gap-2">
               <span className="kbd">L</span>
               <span className="kbd">R</span>
               <span>— {t("help.tabs")}</span>
@@ -109,6 +113,14 @@ export default function HelpScreen(props: {
             <div className="flex items-center gap-3 text-[13px] text-[#9db4d6]">
               <Icon kind="enemy-carrier" />
               <span>{t("help.carrier")}</span>
+            </div>
+            <div className="flex items-center gap-3 text-[13px] text-[#9db4d6]">
+              <span className="w-4 text-center text-[#ffb84d]">▲</span>
+              <span>{t("help.miner")}</span>
+            </div>
+            <div className="flex items-center gap-3 text-[13px] text-[#9db4d6]">
+              <span className="w-4 text-center text-[#ff6b3d]">✳</span>
+              <span>{t("help.mine")}</span>
             </div>
           </div>
 

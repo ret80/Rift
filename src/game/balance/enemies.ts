@@ -8,6 +8,7 @@ import {
     DRONE_BASE_SPEED,
     FIGHTER_BASE_SPEED,
     HUNTER_SPEED,
+    MINER_BASE_SPEED,
 } from "./player";
 
 /* ------------------------------- enemies ------------------------------- */
@@ -18,6 +19,11 @@ export enum EnemyKind {
   Fighter = "fighter",
   Cruiser = "cruiser",
   Carrier = "carrier",
+  Miner = "miner",
+  /** Босс: арена-событие каждые 10 волн, не входит в случайные веса. */
+  Boss = "boss",
+  /** Мина минёра: не входит в состав волны, спавнится только стратегией. */
+  Mine = "mine",
 }
 
 export const ENEMY_KIND_COUNT = Object.keys(EnemyKind).length;
@@ -54,6 +60,24 @@ export const CARRIER_RETREAT_R = 0.5;
 export const CRUISER_ESCORT_ARC_OFFSET = 0.3;
 /** Отступ точки манёвра от края зоны, в радиусах крейсера (1.5 корпуса). */
 export const CRUISER_ZONE_EDGE_MARGIN_RADII = 1.5;
+
+/* ------------------------------- boss ------------------------------- */
+
+/** Каждая N-я волна — волна босса. */
+export const BOSS_WAVE_INTERVAL = 10;
+/** Доля радиуса зоны, на которой босс держит дистанцию. */
+export const BOSS_HOLD_R = 0.58;
+/** Дальше этой доли игрок — босс сближается. */
+export const BOSS_ADVANCE_R = 0.9;
+/** Скорость бокового стрейфа босса, доля от базовой. */
+export const BOSS_STRAFE_SPEED_MULT = 0.55;
+/** Порог HP для второй и третьей фаз. */
+export const BOSS_PHASE2_RATIO = 0.66;
+export const BOSS_PHASE3_RATIO = 0.33;
+/** Период смены направления стрейфа, секунды. */
+export const BOSS_STRAFE_CHANGE_INTERVAL = 3.2;
+/** Скорость доворота корпуса/турели босса, рад/с. */
+export const BOSS_TURN_RATE = 2.4;
 
 /* --------------------------- enemy bolts --------------------------- */
 
@@ -134,7 +158,36 @@ export const ENEMY_BASES: Record<EnemyKind, EnemyBaseDef> = {
     r: 41, hpBase: 350, speed: CARRIER_BASE_SPEED,
     contactBase: 26, score: 100, boltBase: 0, mass: 0,
   },
+  [EnemyKind.Miner]: {
+    r: 15, hpBase: 52, speed: MINER_BASE_SPEED,
+    contactBase: 14, score: 55, boltBase: 0, mass: 0,
+  },
+  [EnemyKind.Boss]: {
+    r: 54, hpBase: 900, speed: CARRIER_BASE_SPEED * 0.9,
+    contactBase: 42, score: 1200, boltBase: 9, mass: 0,
+  },
+  [EnemyKind.Mine]: {
+    r: 7, hpBase: 3, speed: 0,
+    contactBase: 22, score: 0, boltBase: 0, mass: 0,
+  },
 };
+
+/* ------------------------------ miner ------------------------------ */
+
+/** Доля радиуса зоны: внешняя орбита, на которой минёр ждёт. */
+export const MINER_HOLD_R = 0.78;
+/** Радиус орбиты вокруг игрока, на которой ставится мина. */
+export const MINER_DIVE_RADIUS = 150;
+/** Угловая скорость облёта, рад/с. */
+export const MINER_ORBIT_SPEED = 0.45;
+/** Пауза между заходами на игрока, секунды. */
+export const MINER_DIVE_COOLDOWN = 7;
+/** Сколько секунд минёр отходит после постановки мины. */
+export const MINER_RETREAT_TIME = 3;
+/** Сколько живёт мина до самоподрыва, секунды. */
+export const MINE_LIFETIME = 18;
+/** Предел одновременных мин в мире: защита от заполнения арены. */
+export const MINE_MAX_ALIVE = 6;
 
 /* ------------------------------ mass ------------------------------ */
 

@@ -77,13 +77,12 @@ export class AudioEngine {
     this.delaySend.connect(delay);
 
     // Wire up composited modules (combat needs ambient, ambient needs combat callbacks)
-    this.combatMusic = new CombatMusic(ctx, this.musicBus);
+    this.combatMusic = new CombatMusic(ctx, this.musicBus, this.delaySend);
     this.combatMusic.setCombatTrack(this.pendingCombatTrack);
     this.ambientMusic = new AmbientMusic(
       ctx,
       this.musicBus,
-      this.delaySend!,
-      () => this.combatMusic.setCombat(false),
+      this.delaySend,
       () => this.combatMusic.combat,
       () => this.ctxSuspended,
     );
@@ -207,7 +206,7 @@ export class AudioEngine {
         this.previewTimer = null;
         this.previewRestore = null;
         restore();
-      }, 2600);
+      }, 5200);
     } else {
       // Короткий боевой бит без включения полноценного combat-состояния.
       this.combatMusic.preview();
@@ -216,7 +215,7 @@ export class AudioEngine {
         this.previewTimer = null;
         this.previewRestore = null;
         restore();
-      }, 2800);
+      }, 4200);
     }
   }
 

@@ -1,8 +1,7 @@
 export { AudioEngine } from './audio/AudioEngine';
 export type { Volumes } from './audio/AudioEngine';
 export { SfxSynth } from './audio/SfxSynth';
-export { AmbientMusic, SCENES, BASS_SEMI, ARP_SCALE, MENU_TRACKS } from './audio/AmbientMusic';
-export type { AmbientScene, MenuTrackDef } from './audio/AmbientMusic';
+export { AmbientMusic } from './audio/AmbientMusic';
 export { CombatMusic, COMBAT_TRACKS } from './audio/CombatMusic';
 export type { CombatTrackDef } from './audio/CombatMusic';
 export {

@@ -1,124 +1,211 @@
 import type { AmbientMusic } from "./AmbientMusic";
-import { BASS_SEMI, ARP_SCALE } from "./AmbientMusic";
 import type { CombatTrackId } from "./tracks";
-import { COMBAT_TRACK_IDS, DEFAULT_COMBAT_TRACK } from "./tracks";
+import { DEFAULT_COMBAT_TRACK } from "./tracks";
+import { midiToHz, chordTones, chordVoicing, type ChordSpec } from "./musicTheory";
+import { playNoise, playTone } from "./musicSynth";
+import { StepScheduler } from "./StepScheduler";
 
 /**
- * Combat music engine.
- * Handles the driving combat grooves for all combat tracks.
- * Each track has its own BPM, bass line and percussion pattern;
- * intensity still scales with the wave number.
+ * Боевая музыка: четыре разных грува с гармонической прогрессией.
+ *
+ * Каждый трек — 4 аккорда, свой басовый рисунок, арпеджио, лид и рисунок
+ * ударных. Внутри 8-тактовой секции бас и арпеджио меняются (A/B), на границе
+ * секций звучит райзер и краткий брейк, в конце 4-тактовых фраз — филл.
+ * Интенсивность растёт с волной: добавляются слои, а не только громкость.
  */
 
-/** Громкость отдельных слоёв трека. */
-interface CombatLayerVol {
-  bass: number;
-  kick: number;
-  snare: number;
-  hat: number;
-  lead: number;
-}
-
-/** Параметры боевого трека: темп, акценты, агрессивность. */
 export interface CombatTrackDef {
   bpm: number;
-  /** Включить/выключить отдельные элементы. */
-  useKick: boolean;
-  useSnare: boolean;
-  useHats: boolean;
-  useLead: boolean;
-  /** Больше пустот = тяжелее/агрессивнее звук. */
-  fill: number;
-  vol: CombatLayerVol;
-  /** Акцент (четверть) для басовой линии — 0..1*раз. */
-  bassOctave: boolean;
+  /** Четыре аккорда секции A — по одному на такт. */
+  progression: ChordSpec[];
+  /** Четыре аккорда секции B: гармония меняется каждые 8 тактов. */
+  progressionB: ChordSpec[];
+  /** 16 шагов: x — корень, o — октава, f — квинта, . — пауза. */
+  bassA: string;
+  bassB: string;
+  bassTone: OscillatorType;
+  bassCutoff: number;
+  /** 16 шагов, индекс тона аккорда (0 — корень, 1 — терция, ...). */
+  arpA: (number | null)[];
+  arpB: (number | null)[];
+  arpTone: OscillatorType;
+  /** Разреженный лид; вступает во второй половине 8-тактовой секции. */
+  lead: (number | null)[];
+  leadTone: OscillatorType;
+  kick: string;
+  snare: string;
+  hat: string;
+  openHat: boolean;
+  accent: "clap" | "tom" | "none";
 }
 
 export const COMBAT_TRACKS: Record<CombatTrackId, CombatTrackDef> = {
+  // Тёмный darksynth: редкие акценты, широкий бас, злой лид.
   rift: {
     bpm: 132,
-    useKick: true,
-    useSnare: true,
-    useHats: true,
-    useLead: true,
-    fill: 0.16,
-    vol: { bass: 0.14, kick: 0.68, snare: 0.19, hat: 0.062, lead: 0.058 },
-    bassOctave: false,
+    progression: [
+      { root: 38, quality: "min" }, // Dm
+      { root: 34, quality: "maj" }, // Bb
+      { root: 41, quality: "maj" }, // F
+      { root: 36, quality: "maj" }, // C
+    ],
+    progressionB: [
+      { root: 38, quality: "min" }, // Dm
+      { root: 41, quality: "maj" }, // F
+      { root: 36, quality: "maj" }, // C
+      { root: 43, quality: "min" }, // Gm
+    ],
+    bassA: "x..x..x.x..x..x.",
+    bassB: "x.x..x.xx..x.x..",
+    bassTone: "sawtooth",
+    bassCutoff: 380,
+    arpA: [0, null, 2, null, 1, null, 3, null, 2, null, 0, null, 1, null, 2, null],
+    arpB: [2, null, 3, 2, null, 1, null, 0, 1, null, 2, 3, null, 2, null, 1],
+    arpTone: "square",
+    lead: [0, null, null, null, null, null, 2, null, null, null, 1, null, null, null, null, null],
+    leadTone: "triangle",
+    kick: "x...x...x...x...",
+    snare: "....x.......x...",
+    hat: "..x...x...x...x.",
+    openHat: true,
+    accent: "clap",
   },
+  // Быстрый галоп: плотный бас, пружинистые ударные, больше движения.
   vanguard: {
     bpm: 146,
-    useKick: true,
-    useSnare: true,
-    useHats: true,
-    useLead: false,
-    fill: 0.2,
-    vol: { bass: 0.16, kick: 0.74, snare: 0.17, hat: 0.058, lead: 0 },
-    bassOctave: true,
+    progression: [
+      { root: 40, quality: "min" }, // Em
+      { root: 36, quality: "maj" }, // C
+      { root: 43, quality: "maj" }, // G
+      { root: 38, quality: "maj" }, // D
+    ],
+    progressionB: [
+      { root: 40, quality: "min" }, // Em
+      { root: 43, quality: "maj" }, // G
+      { root: 38, quality: "maj" }, // D
+      { root: 45, quality: "min" }, // Am
+    ],
+    bassA: "x.xx..x.x.xx..x.",
+    bassB: "x.xxx.x.x.xxx.x.",
+    bassTone: "square",
+    bassCutoff: 620,
+    arpA: [0, 2, 1, 2, 3, 2, 1, 2, 0, 2, 1, 3, 2, 1, 2, 3],
+    arpB: [2, 3, 2, 1, 0, 1, 2, 3, 2, 3, 2, 1, 0, 2, 1, 2],
+    arpTone: "sawtooth",
+    lead: [null, null, 2, null, null, null, null, null, 1, null, null, null, 3, null, null, null],
+    leadTone: "square",
+    kick: "x...x..x.x..x...",
+    snare: "....x.......x...",
+    hat: "x.x.x.x.x.x.x.x.",
+    openHat: false,
+    accent: "tom",
   },
+  // Тяжёлый полутемп: удары в пол, минимум суеты, максимум веса.
   onslaught: {
     bpm: 124,
-    useKick: true,
-    useSnare: true,
-    useHats: false,
-    useLead: true,
-    fill: 0.32,
-    vol: { bass: 0.18, kick: 0.8, snare: 0.22, hat: 0, lead: 0.064 },
-    bassOctave: true,
+    progression: [
+      { root: 36, quality: "min" }, // Cm
+      { root: 32, quality: "maj" }, // Ab
+      { root: 39, quality: "maj" }, // Eb
+      { root: 34, quality: "maj" }, // Bb
+    ],
+    progressionB: [
+      { root: 36, quality: "min" }, // Cm
+      { root: 34, quality: "maj" }, // Bb
+      { root: 32, quality: "maj" }, // Ab
+      { root: 39, quality: "maj" }, // Eb
+    ],
+    bassA: "x.......x...x...",
+    bassB: "x...x.......x...",
+    bassTone: "sawtooth",
+    bassCutoff: 240,
+    arpA: [0, null, null, null, 2, null, null, null, 1, null, null, null, null, null, null, null],
+    arpB: [2, null, null, null, 1, null, null, null, 0, null, null, 2, null, null, null, null],
+    arpTone: "triangle",
+    lead: [null, null, null, null, null, null, null, null, 0, null, null, null, null, null, null, null],
+    leadTone: "sawtooth",
+    kick: "x.......x.......",
+    snare: "........x.......",
+    hat: "..x...x...x...x.",
+    openHat: true,
+    accent: "tom",
   },
+  // Скоростной трек: 16-е, ломаный кик, яркое арпеджио.
   overdrive: {
     bpm: 158,
-    useKick: true,
-    useSnare: false,
-    useHats: true,
-    useLead: true,
-    fill: 0.12,
-    vol: { bass: 0.15, kick: 0.82, snare: 0, hat: 0.078, lead: 0.052 },
-    bassOctave: false,
+    progression: [
+      { root: 42, quality: "min" }, // F#m
+      { root: 38, quality: "maj" }, // D
+      { root: 45, quality: "maj" }, // A
+      { root: 40, quality: "maj" }, // E
+    ],
+    progressionB: [
+      { root: 42, quality: "min" }, // F#m
+      { root: 45, quality: "maj" }, // A
+      { root: 40, quality: "maj" }, // E
+      { root: 47, quality: "min" }, // Bm
+    ],
+    bassA: "x.x.x.xxx.x.x.x.",
+    bassB: "x.x.xxx.x.x.xxx.",
+    bassTone: "sawtooth",
+    bassCutoff: 900,
+    arpA: [0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 2, 3, 2],
+    arpB: [3, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 3, 2],
+    arpTone: "square",
+    lead: [0, null, null, 2, null, null, 3, null, null, 1, null, null, 2, null, null, null],
+    leadTone: "sine",
+    kick: "x.....x...x.....",
+    snare: "....x.......x...",
+    hat: "xxxxxxxxxxxxxxxx",
+    openHat: false,
+    accent: "clap",
   },
 };
 
 export class CombatMusic {
-  private _combat = false;
+  private combatState = false;
   private combatLvl = 0;
-  private combatGain: GainNode | null = null;
-  private combatTimer: number | null = null;
-  private combatStep = 0;
-  private combatPadNodes: OscillatorNode[] = [];
-  /** Временный гейн для превью трека в настройках. */
+  /** Новый уровень волны: на ближайшем сильном такте сыграем акцент. */
+  private waveLift = false;
+
+  private gain: GainNode | null = null;
+  private padGain: GainNode | null = null;
+  private padFilter: BiquadFilterNode | null = null;
+  private padOsc: OscillatorNode[] = [];
+  private scheduler: StepScheduler | null = null;
+
   private previewGain: GainNode | null = null;
-  private previewTimer: number | null = null;
-  /** Активный боевой трек (выбор пользователя). */
+  private previewScheduler: StepScheduler | null = null;
+
   private trackId: CombatTrackId = DEFAULT_COMBAT_TRACK;
-  private waveChangeCount = 0;
 
   constructor(
-    private ctx: AudioContext,
-    private musicBus: GainNode,
-    private _ambientMusic: AmbientMusic | null = null,
+    private readonly ctx: AudioContext,
+    private readonly musicBus: GainNode,
+    private readonly delaySend: GainNode | null = null,
+    private ambientMusic: AmbientMusic | null = null,
   ) {}
 
-  get ambientMusic() { return this._ambientMusic!; }
-  setAmbientMusic(ambientMusic: AmbientMusic) {
-    this._ambientMusic = ambientMusic;
+  get combat(): boolean {
+    return this.combatState;
   }
 
-  get combat() { return this._combat; }
-  set combat(v: boolean) { this._combat = v; }
+  setAmbientMusic(ambientMusic: AmbientMusic): void {
+    this.ambientMusic = ambientMusic;
+  }
 
-  /** Активный боевой трек. */
   getTrack(): CombatTrackId {
     return this.trackId;
   }
 
-  /** Переключить боевой трек; работающий гроув пересобирается на лету. */
-  setCombatTrack(id: CombatTrackId) {
+  /** Сменить боевой трек; живой грув пересобирается на лету. */
+  setCombatTrack(id: CombatTrackId): void {
     if (id === this.trackId) return;
     this.trackId = id;
-    if (this.combat) {
-      // Пересобрать гроув с новым темпом/паттерном.
-      this.combat = false;
-      this.stopCombat();
-      this.setCombat(true);
+    this.stopPreview();
+    if (this.combatState) {
+      this.stopGroove();
+      this.startGroove();
     }
   }
 
@@ -126,303 +213,396 @@ export class CombatMusic {
     return COMBAT_TRACKS[this.trackId];
   }
 
-  /** Scale combat groove intensity with the wave (0 at wave 1 → 1 at 13+). */
-  setCombatWave(wave: number) {
-    this.combatLvl = Math.max(0, Math.min(1, (wave - 1) / 12));
-    if (this.combat) {
-      const others = (COMBAT_TRACK_IDS as CombatTrackId[]).filter((id) => id !== this.trackId);
-      if (others.length > 0) {
-        // Меняем трек с каждой новой волной для разнообразия
-        const pick = others[Math.floor(Math.random() * others.length)];
-        this.setCombatTrack(pick);
-      }
-    }
+  /** Уровень интенсивности 0..1; смена волны даёт акцент, но не меняет трек. */
+  setCombatWave(wave: number): void {
+    this.combatLvl = clamp01((wave - 1) / 12);
+    if (this.combatState) this.waveLift = true;
   }
 
-  /** Короткое превью трека: несколько шагов гроува без смены состояния боя. */
-  preview() {
+  /**
+   * Включить/выключить бой. Повторный вызов при уже играющем груве — это
+   * новая волна, поэтому ставим акцент и не перезапускаем музыку.
+   */
+  setCombat(on: boolean): void {
+    if (!this.ctx || !this.musicBus) return;
+    if (on === this.combatState) {
+      if (on) this.waveLift = true;
+      return;
+    }
+    this.combatState = on;
+    if (on) this.startGroove();
+    else this.stopGroove();
+  }
+
+  private startGroove(): void {
+    if (!this.ctx || !this.musicBus) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime + 0.03;
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.setTargetAtTime(1, now, 0.22);
+    gain.connect(this.musicBus);
+    this.gain = gain;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = this.padCutoff();
+    filter.Q.value = 0.9;
+    const padGain = ctx.createGain();
+    padGain.gain.setValueAtTime(0.0001, now);
+    padGain.gain.setTargetAtTime(0.055, now, 0.5);
+    filter.connect(padGain);
+    padGain.connect(gain);
+    this.padFilter = filter;
+    this.padGain = padGain;
+
+    const chord = this.track.progression[0]!;
+    const padNotes = padVoicing(chord);
+    const waves: OscillatorType[] = ["sine", "sawtooth", "sawtooth", "triangle"];
+    this.padOsc = padNotes.map((midi, index) => {
+      const osc = ctx.createOscillator();
+      osc.type = waves[index] ?? "sawtooth";
+      osc.frequency.value = midiToHz(midi);
+      osc.detune.value = (index - 1.5) * 4;
+      osc.connect(filter);
+      osc.start(now);
+      return osc;
+    });
+    this.morphPad(chord, now);
+
+    this.scheduler = new StepScheduler(
+      ctx,
+      60 / this.track.bpm / 4,
+      (step, when) => {
+        if (this.gain) this.scheduleStep(step, when, this.gain, true);
+      },
+    );
+    this.scheduler.start();
+    this.ambientMusic?.setDucked(true);
+    this.playImpact(now, gain, 0.45);
+  }
+
+  private stopGroove(): void {
+    this.scheduler?.stop();
+    this.scheduler = null;
+    const ctx = this.ctx;
+    const gain = this.gain;
+    this.gain = null;
+    const padOsc = this.padOsc;
+    this.padOsc = [];
+    this.padGain = null;
+    this.padFilter = null;
+    this.ambientMusic?.setDucked(false);
+
+    if (!gain || !ctx) return;
+    gain.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.3);
+    const stopAt = ctx.currentTime + 1.4;
+    padOsc.forEach((osc) => {
+      try {
+        osc.stop(stopAt);
+      } catch {
+        /* уже остановлен */
+      }
+    });
+    window.setTimeout(() => {
+      try {
+        gain.disconnect();
+      } catch {
+        /* уже отключён */
+      }
+    }, 1800);
+  }
+
+  /** Короткое превью трека в настройках: два такта без пэда и смены боя. */
+  preview(): void {
     if (!this.ctx || !this.musicBus) return;
     this.stopPreview();
     const ctx = this.ctx;
-    const g = ctx.createGain();
-    g.gain.value = 0.0001;
-    g.gain.setTargetAtTime(0.5, ctx.currentTime, 0.05);
-    g.connect(this.musicBus);
-    this.previewGain = g;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.setTargetAtTime(0.5, ctx.currentTime, 0.04);
+    gain.connect(this.musicBus);
+    this.previewGain = gain;
 
-    const def = this.track;
-    const vol = def.vol;
-    const SIXTEENTH = 60 / def.bpm / 4;
-    let s = 0;
-    this.previewTimer = window.setInterval(() => {
-      if (!this.ctx || this.ctx.state !== "running") return;
-      s++;
-      const bar = Math.floor(s / 16) % 2;
-      const lvl = 0.35;
-
-      if (s % 2 === 0) {
-        if (Math.random() >= def.fill * 0.5 || s % 8 === 0) {
-          const semi = BASS_SEMI[Math.floor(s / 2 + bar * 4) % 8];
-          const f = 55 * Math.pow(2, semi / 12);
-          this.previewTone("sawtooth", f, f, 0.12, vol.bass + lvl * 0.06);
-          if (def.bassOctave && s % 4 === 2) {
-            this.previewTone("sawtooth", f * 2, f * 2, 0.07, vol.bass * 0.7 + lvl * 0.05);
-          }
+    this.previewScheduler = new StepScheduler(
+      ctx,
+      60 / this.track.bpm / 4,
+      (step, when) => {
+        if (step >= 32) {
+          this.stopPreview();
+          return;
         }
-      }
-      if (def.useKick && s % 4 === 0) this.previewTone("sine", 160, 42, 0.13, vol.kick + lvl * 0.15);
-      if (def.useSnare && s % 8 === 4) {
-        this.previewNoise(0.09, vol.snare + lvl * 0.05, 2400, 500);
-        this.previewTone("triangle", 210, 120, 0.08, 0.1);
-      }
-      if (def.useHats && s % 2 === 0) {
-        this.previewNoise(0.03, s % 4 === 2 ? vol.hat * 1.5 : vol.hat, 8000, 5000);
-      }
-      if (def.useLead && s % 8 === 0) {
-        const n = ARP_SCALE[Math.floor(Math.random() * ARP_SCALE.length)];
-        this.previewTone("square", n * 2, n * 2, 0.09, vol.lead);
-      }
-      // ~2.4s: 4 bars at most bpm (150 ≈ 2.56s)
-      if (s >= 32) this.stopPreview();
-    }, SIXTEENTH * 1000);
+        this.scheduleStep(step, when, gain, false);
+      },
+    );
+    this.previewScheduler.start();
   }
 
-  private previewTone(type: OscillatorType, f0: number, f1: number, dur: number, vol: number) {
-    if (!this.ctx || !this.previewGain) return;
-    const t = this.ctx.currentTime;
-    const o = this.ctx.createOscillator();
-    o.type = type;
-    o.frequency.setValueAtTime(Math.max(20, f0), t);
-    o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
-    const g = this.ctx.createGain();
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(vol, t + 0.006);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g);
-    g.connect(this.previewGain);
-    o.start(t);
-    o.stop(t + dur + 0.03);
+  private stopPreview(): void {
+    this.previewScheduler?.stop();
+    this.previewScheduler = null;
+    const gain = this.previewGain;
+    this.previewGain = null;
+    if (!gain) return;
+    gain.gain.setTargetAtTime(0.0001, this.ctx.currentTime, 0.12);
+    window.setTimeout(() => {
+      try {
+        gain.disconnect();
+      } catch {
+        /* уже отключён */
+      }
+    }, 700);
   }
 
-  private previewNoise(dur: number, vol: number, f0: number, f1: number) {
-    if (!this.ctx || !this.previewGain) return;
-    const t = this.ctx.currentTime;
-    const len = Math.max(1, Math.floor(this.ctx.sampleRate * dur));
-    const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-    const src = this.ctx.createBufferSource();
-    src.buffer = buf;
-    const flt = this.ctx.createBiquadFilter();
-    flt.type = "lowpass";
-    flt.frequency.setValueAtTime(f0, t);
-    flt.frequency.exponentialRampToValueAtTime(Math.max(60, f1), t + dur);
-    const g = this.ctx.createGain();
-    g.gain.setValueAtTime(vol, t);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(flt);
-    flt.connect(g);
-    g.connect(this.previewGain);
-    src.start(t);
-    src.stop(t + dur + 0.03);
-  }
-
-  private stopPreview() {
-    if (this.previewTimer !== null) {
-      clearInterval(this.previewTimer);
-      this.previewTimer = null;
-    }
-    if (this.previewGain) {
-      this.previewGain.gain.setTargetAtTime(0.0001, this.ctx.currentTime, 0.15);
-      const g = this.previewGain;
-      this.previewGain = null;
-      window.setTimeout(() => {
-        try {
-          g.disconnect();
-        } catch {
-          /* ignore */
-        }
-      }, 700);
-    }
-  }
-
-  /** Публичный вызов stopPreview для AudioEngine.dispose. */
-  stopPreviewPublic() {
+  /** Публичная остановка превью для AudioEngine.dispose. */
+  stopPreviewPublic(): void {
     this.stopPreview();
   }
 
-  /** Crossfade into/out of the driving combat groove. */
-  setCombat(on: boolean) {
-    if (on === this.combat || !this.ctx || !this.musicBus) return;
-    /* safety: clean up any lingering combat resources before proceeding */
-    if (on && this.combatTimer !== null) {
-      clearInterval(this.combatTimer);
-      this.combatTimer = null;
-    }
-    if (on && this.combatGain) {
-      try { this.combatGain.disconnect(); } catch { /* already disconnected */ }
-    }
-    this.combat = on;
-    const ctx = this.ctx;
+  /**
+   * Один шаг аранжировки. `live` включает пэд, реакцию на волну и брейки;
+   * превью играет только ритмические слои.
+   */
+  private scheduleStep(step: number, when: number, out: GainNode, live: boolean): void {
+    const def = this.track;
+    const bar = Math.floor(step / 16);
+    const s = step % 16;
+    const lvl = live ? this.combatLvl : 0.55;
+    const section = Math.floor(bar / 8) % 2;
+    const progression = section === 0 ? def.progression : def.progressionB;
+    const chord = progression[bar % progression.length]!;
+    const phraseBar = bar % 4;
+    const fill = phraseBar === 3 && s >= 12;
+    const breakdown = live && bar % 8 === 7 && s >= 8;
 
-    const padGain = this.ambientMusic.getPadGain();
-    const padFilter = this.ambientMusic.getPadFilter();
-    if (padGain && padFilter) {
-      const scene = this.ambientMusic.getScene();
-      padFilter.frequency.setTargetAtTime(on ? scene.filter * 2.4 : scene.filter, ctx.currentTime, 0.5);
-      padGain.gain.setTargetAtTime(on ? scene.gain * 0.35 : scene.gain, ctx.currentTime, 0.5);
-    }
-
-    if (on) {
-      const g = ctx.createGain();
-      g.gain.value = 0.0001;
-      g.gain.setTargetAtTime(1.0, ctx.currentTime, 0.35);
-      g.connect(this.musicBus);
-      this.combatGain = g;
-
-      const lp = ctx.createBiquadFilter();
-      lp.type = "lowpass";
-      lp.frequency.value = 1100 + this.combatLvl * 800;
-      lp.Q.value = 0.8;
-      lp.connect(g);
-      const padG = ctx.createGain();
-      padG.gain.value = 0.0001;
-      padG.gain.setTargetAtTime(0.06, ctx.currentTime, 0.8);
-      padG.connect(lp);
-      this.combatPadNodes = [220, 261.63, 329.63].map((f, i) => {
-        const o = ctx.createOscillator();
-        o.type = "sawtooth";
-        o.frequency.value = f * (1 + (i - 1) * 0.004);
-        o.connect(padG);
-        o.start();
-        return o;
-      });
-
-      this.combatStep = 0;
-      const SIXTEENTH = 60 / this.track.bpm / 4;
-      this.combatTimer = window.setInterval(() => {
-        if (!this.ctx || !this.combat || this.ctx.state !== "running") return;
-        this.combatStep++;
-        const s = this.combatStep;
-        const bar = Math.floor(s / 16) % 2;
-        const lvl = this.combatLvl;
-        const def = this.track;
-        const vol = def.vol;
-
-        // bass — drive the groove
-        if (s % 2 === 0) {
-          if (Math.random() < def.fill * 0.5 && s % 8 !== 0) {
-            // fill: occasional rest for a heavier feel
-          } else {
-            const semi = BASS_SEMI[Math.floor(s / 2 + bar * 4) % 8];
-            const f = 55 * Math.pow(2, semi / 12);
-            this.musicTone("sawtooth", f, f, 0.12, vol.bass + lvl * 0.06);
-            if (def.bassOctave && (lvl > 0.3 || s % 4 === 2)) {
-              this.musicTone("sawtooth", f * 2, f * 2, 0.07, vol.bass * 0.7 + lvl * 0.05);
-            }
-          }
-        }
-        // kick — four on the floor
-        if (def.useKick && s % 4 === 0) this.musicTone("sine", 160, 42, 0.13, vol.kick + lvl * 0.15);
-        if (def.useKick && lvl > 0.5 && s % 16 === 14) this.musicTone("sine", 130, 45, 0.09, vol.kick * 0.65);
-        // snare on 2 & 4
-        if (def.useSnare && s % 8 === 4) {
-          this.musicNoise(0.09, vol.snare + lvl * 0.05, 2400, 500);
-          this.musicTone("triangle", 210, 120, 0.08, 0.1);
-        }
-        if (def.useSnare && lvl > 0.4 && s % 16 === 12) this.musicNoise(0.05, vol.snare * 0.5, 1800, 400);
-        // hats
-        if (def.useHats && s % 2 === 0) {
-          this.musicNoise(0.03, s % 4 === 2 ? vol.hat * 1.5 : vol.hat, 8000, 5000);
-        }
-        if (def.useHats && lvl > 0.25 && s % 2 === 1) {
-          this.musicNoise(0.025, vol.hat * 0.7 + lvl * 0.035, 9000 + lvl * 2000, 6000);
-        }
-        // lead / arp sparkle
-        if (def.useLead && (s % 16 === 0 || (lvl > 0.6 && s % 8 === 0))) {
-          const n = ARP_SCALE[Math.floor(Math.random() * ARP_SCALE.length)];
-          this.musicTone("square", n * 2, n * 2, 0.09, vol.lead * (1 + lvl));
-        }
-      }, SIXTEENTH * 1000);
-    } else {
-      this.stopCombat();
-    }
-  }
-
-  private stopCombat() {
-    if (this.combatTimer !== null) {
-      clearInterval(this.combatTimer);
-      this.combatTimer = null;
-    }
-    if (this.combatGain) {
-      this.combatGain.gain.setTargetAtTime(0.0001, this.ctx.currentTime, 0.5);
-    }
-    const nodes = this.combatPadNodes;
-    this.combatPadNodes = [];
-    const stopAt = this.ctx.currentTime + 1.8;
-    nodes.forEach((n) => {
-      try {
-        n.stop(stopAt);
-      } catch {
-        /* ignore */
+    if (live && s === 0) {
+      this.morphPad(chord, when);
+      if (bar % 8 === 0) this.playCrash(when, out, lvl);
+      if (bar % 8 === 7) this.playRiser(when, 16 * (60 / def.bpm / 4), out);
+      if (this.waveLift) {
+        this.waveLift = false;
+        this.playImpact(when, out, 0.55 + lvl * 0.25);
+        this.playCrash(when, out, lvl + 0.2);
       }
-    });
-    const g = this.combatGain;
-    this.combatGain = null;
-    if (g) {
-      window.setTimeout(() => {
-        try {
-          g.disconnect();
-        } catch {
-          /* ignore */
-        }
-      }, 2200);
+    }
+
+    if (breakdown) return;
+
+    // Бас: рисунок меняется между A и B секциями.
+    const bassPattern = section === 0 ? def.bassA : def.bassB;
+    const bassSymbol = bassPattern[s];
+    if (bassSymbol === "x" || bassSymbol === "o" || bassSymbol === "f") {
+      const offset = bassSymbol === "x" ? 0 : bassSymbol === "o" ? 12 : 7;
+      const midi = chord.root + offset;
+      playTone(this.ctx, out, when, {
+        type: def.bassTone,
+        freq: midiToHz(midi),
+        dur: 0.11,
+        gain: 0.115,
+        filter: {
+          type: "lowpass",
+          freq: def.bassCutoff + lvl * 320,
+          q: 1.5,
+        },
+      });
+      playTone(this.ctx, out, when, {
+        type: "sine",
+        freq: midiToHz(midi),
+        dur: 0.13,
+        gain: 0.05,
+      });
+    }
+
+    // Бочка + редкий призвук на высокой интенсивности.
+    if (def.kick[s] === "x") this.playKick(when, out, 0.62);
+    if (lvl > 0.45 && s === 14 && phraseBar !== 3) this.playKick(when, out, 0.25);
+    if (fill && s >= 12) this.playKick(when + 0.01, out, 0.3);
+
+    // Снейр и филл.
+    if (def.snare[s] === "x") this.playSnare(when, out, 0.14);
+    if (fill) {
+      const progress = (s - 12) / 4;
+      this.playSnare(when, out, 0.05 + progress * 0.09);
+    }
+    if (lvl > 0.5 && s === 7) this.playSnare(when, out, 0.04);
+    if (def.accent === "clap" && lvl > 0.35 && s === 12 && bar % 4 === 1) {
+      this.playClap(when, out, 0.07);
+    }
+    if (def.accent === "tom" && fill) this.playTom(when, out, 0.06 + (s - 12) * 0.012);
+
+    // Хэты: 8-е всегда, 16-е и открытый — по интенсивности.
+    if (def.hat[s] === "x") this.playHat(when, out, 0.028, false);
+    if (lvl > 0.3 && s % 2 === 1) this.playHat(when, out, 0.015 + lvl * 0.01, false);
+    if (def.openHat && s === 6 && lvl > 0.2) this.playHat(when, out, 0.035, true);
+
+    // Арпеджио: во второй секции уходит на октаву выше.
+    const arpPattern = section === 0 ? def.arpA : def.arpB;
+    const degree = arpPattern[s];
+    if (degree !== null && degree !== undefined) {
+      const tones = chordVoicing(chord, 1, 4);
+      const midi = (tones[degree % tones.length] ?? chord.root + 12) + (section === 1 ? 12 : 0);
+      playTone(this.ctx, out, when, {
+        type: def.arpTone,
+        freq: midiToHz(midi),
+        dur: 0.07,
+        gain: 0.028 + lvl * 0.012,
+        pan: s % 2 === 0 ? -0.18 : 0.18,
+        send: this.delaySend ? { node: this.delaySend, amount: 0.16 } : undefined,
+      });
+    }
+
+    // Лид вступает только во второй половине 8-тактовой секции.
+    const leadDegree = def.lead[s];
+    const leadActive = live ? lvl > 0.2 && bar % 8 >= 4 : bar >= 1;
+    if (leadActive && leadDegree !== null && leadDegree !== undefined) {
+      const tones = chordVoicing(chord, 2, 4);
+      const midi = tones[leadDegree % tones.length] ?? chord.root + 24;
+      playTone(this.ctx, out, when, {
+        type: def.leadTone,
+        freq: midiToHz(midi),
+        dur: 0.24,
+        gain: 0.032,
+        pan: 0.22,
+        filter: { type: "lowpass", freq: 2600, q: 0.6 },
+        send: this.delaySend ? { node: this.delaySend, amount: 0.28 } : undefined,
+      });
     }
   }
 
-  private musicTone(
-    type: OscillatorType,
-    f0: number,
-    f1: number,
-    dur: number,
-    vol: number
-  ) {
-    if (!this.ctx || !this.combatGain) return;
-    const t = this.ctx.currentTime;
-    const o = this.ctx.createOscillator();
-    o.type = type;
-    o.frequency.setValueAtTime(Math.max(20, f0), t);
-    o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
-    const g = this.ctx.createGain();
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(vol, t + 0.006);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g);
-    g.connect(this.combatGain);
-    o.start(t);
-    o.stop(t + dur + 0.03);
+  private morphPad(chord: ChordSpec, when: number): void {
+    const notes = padVoicing(chord);
+    this.padOsc.forEach((osc, index) => {
+      const midi = notes[index];
+      if (midi === undefined) return;
+      osc.frequency.setTargetAtTime(midiToHz(midi), when, 0.35);
+    });
+    this.padFilter?.frequency.setTargetAtTime(this.padCutoff(), when, 0.8);
   }
 
-  private musicNoise(dur: number, vol: number, f0: number, f1: number) {
-    if (!this.ctx || !this.combatGain) return;
-    const t = this.ctx.currentTime;
-    const len = Math.max(1, Math.floor(this.ctx.sampleRate * dur));
-    const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-    const src = this.ctx.createBufferSource();
-    src.buffer = buf;
-    const flt = this.ctx.createBiquadFilter();
-    flt.type = "lowpass";
-    flt.frequency.setValueAtTime(f0, t);
-    flt.frequency.exponentialRampToValueAtTime(Math.max(60, f1), t + dur);
-    const g = this.ctx.createGain();
-    g.gain.setValueAtTime(vol, t);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(flt);
-    flt.connect(g);
-    g.connect(this.combatGain);
-    src.start(t);
-    src.stop(t + dur + 0.03);
+  private padCutoff(): number {
+    return 620 + this.combatLvl * 1100;
   }
+
+  private playKick(when: number, out: GainNode, gain: number): void {
+    playTone(this.ctx, out, when, {
+      type: "sine",
+      freq: 160,
+      endFreq: 44,
+      dur: 0.14,
+      gain,
+      attack: 0.002,
+    });
+    playNoise(this.ctx, out, when, {
+      dur: 0.014,
+      gain: gain * 0.12,
+      freq: 2200,
+      filterType: "highpass",
+      q: 0.7,
+    });
+  }
+
+  private playSnare(when: number, out: GainNode, gain: number): void {
+    playNoise(this.ctx, out, when, {
+      dur: 0.12,
+      gain,
+      freq: 1900,
+      endFreq: 900,
+      q: 0.9,
+    });
+    playTone(this.ctx, out, when, {
+      type: "triangle",
+      freq: 190,
+      endFreq: 120,
+      dur: 0.08,
+      gain: gain * 0.45,
+    });
+  }
+
+  private playClap(when: number, out: GainNode, gain: number): void {
+    for (let i = 0; i < 2; i++) {
+      playNoise(this.ctx, out, when + i * 0.012, {
+        dur: 0.055,
+        gain: gain * (i === 0 ? 1 : 0.7),
+        freq: 1500,
+        q: 1.1,
+      });
+    }
+  }
+
+  private playTom(when: number, out: GainNode, gain: number): void {
+    playTone(this.ctx, out, when, {
+      type: "triangle",
+      freq: 180,
+      endFreq: 110,
+      dur: 0.1,
+      gain,
+    });
+  }
+
+  private playHat(when: number, out: GainNode, gain: number, open: boolean): void {
+    playNoise(this.ctx, out, when, {
+      dur: open ? 0.13 : 0.028,
+      gain,
+      freq: 7800,
+      endFreq: open ? 6200 : 9000,
+      filterType: "highpass",
+      q: 0.8,
+      pan: open ? 0.25 : -0.15,
+    });
+  }
+
+  private playCrash(when: number, out: GainNode, level: number): void {
+    playNoise(this.ctx, out, when, {
+      dur: 1.05,
+      gain: 0.02 + level * 0.012,
+      attack: 0.005,
+      freq: 5200,
+      endFreq: 3600,
+      filterType: "highpass",
+      q: 0.6,
+      pan: 0.2,
+    });
+  }
+
+  private playImpact(when: number, out: GainNode, amount: number): void {
+    playTone(this.ctx, out, when, {
+      type: "sine",
+      freq: 105,
+      endFreq: 32,
+      dur: 0.42,
+      gain: 0.32 * amount,
+      attack: 0.002,
+    });
+    playNoise(this.ctx, out, when, {
+      dur: 0.3,
+      gain: 0.09 * amount,
+      freq: 500,
+      endFreq: 80,
+      filterType: "lowpass",
+      q: 0.9,
+    });
+  }
+
+  private playRiser(when: number, dur: number, out: GainNode): void {
+    playNoise(this.ctx, out, when, {
+      dur,
+      gain: 0.032,
+      attack: dur * 0.82,
+      freq: 320,
+      endFreq: 5200,
+      q: 1.4,
+      pan: -0.1,
+    });
+  }
+}
+
+/** Пэд: низкий корень, октава, терция и квинта в верхнем регистре. */
+function padVoicing(chord: ChordSpec): number[] {
+  const tones = chordTones(chord);
+  return [tones[0]!, tones[0]! + 12, tones[1]! + 24, tones[2]! + 24];
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
 }

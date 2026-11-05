@@ -42,6 +42,12 @@ const DEFAULT_PROFILES: Record<EnemyKind, AvoidanceProfile> = {
   [EnemyKind.Cruiser]: { padding: 16, mobility: 0.3, maxStep: 5 },
   // Носитель почти не смещается, его обходят остальные.
   [EnemyKind.Carrier]: { padding: 26, mobility: 0.08, maxStep: 4 },
+  // Минёр — средний корпус, но держится в стороне от толпы.
+  [EnemyKind.Miner]: { padding: 10, mobility: 0.7, maxStep: 5 },
+  // Босс — почти неподвижная масса: его обходят остальные.
+  [EnemyKind.Boss]: { padding: 34, mobility: 0.04, maxStep: 3 },
+  // Мина неподвижна: её обходят, а не она.
+  [EnemyKind.Mine]: { padding: 0, mobility: 0, maxStep: 0 },
 };
 
 /** Доля перекрытия, которая исправляется за один кадр. */

@@ -5,7 +5,7 @@
 
 import { C, EnemyKind } from "../../balance";
 import type { EnemyRef } from "../../ecs";
-import { clamp, rgba } from "../../math";
+import { TAU, clamp, rgba } from "../../math";
 import type { IRenderer, RGBA } from "../../render/index";
 import { drawShipPoly } from "./ShipRenderer";
 
@@ -153,8 +153,64 @@ export function renderEnemies(
         R.dashedCircle(e.x, e.y, e.orbitRadius || 121, rgba(base, 0.15), 12, _time * 0.3);
         break;
       }
+      case EnemyKind.Miner: {
+        // Корпус-дрель: нос с буром, сзади контейнер с минами.
+        drawShipPoly(R, e.x, e.y, e.angle, [[16, 0], [4, 11], [-12, 9], [-12, -9], [4, -11]], col);
+        R.pushLine(
+          e.x + Math.cos(e.angle) * 16,
+          e.y + Math.sin(e.angle) * 16,
+          e.x + Math.cos(e.angle) * 23,
+          e.y + Math.sin(e.angle) * 23,
+          rgba(C.mine, 0.9),
+        );
+        R.circle(e.x, e.y, 4, rgba(C.mine, 0.85), 10);
+        break;
+      }
+      case EnemyKind.Boss: {
+        // Босс: тяжёлый корпус, вращающиеся кольца и дуга прочности.
+        drawShipPoly(
+          R, e.x, e.y, e.angle,
+          [[46, 0], [24, 28], [-30, 24], [-42, 0], [-30, -24], [24, -28]],
+          col,
+        );
+        R.circle(e.x, e.y, 17, rgba(base, 0.55), 24);
+        R.dashedCircle(e.x, e.y, 30 + e.mode * 4, rgba(base, 0.4), 10, _time * (0.7 + e.mode * 0.25));
+        R.circle(e.x, e.y, 5 + e.mode * 1.5, rgba(C.white, 0.8), 12);
+        // Дуга остатка прочности: читается без отдельного HUD-бара.
+        const arc = clamp(e.hp / Math.max(1, e.maxHp), 0, 1) * TAU;
+        const segments = Math.max(2, Math.round(36 * (arc / TAU)));
+        const hr = e.r + 12;
+        for (let i = 0; i < segments; i++) {
+          const a0 = -Math.PI / 2 + (i / segments) * arc;
+          const a1 = -Math.PI / 2 + ((i + 1) / segments) * arc;
+          R.pushLine(
+            e.x + Math.cos(a0) * hr,
+            e.y + Math.sin(a0) * hr,
+            e.x + Math.cos(a1) * hr,
+            e.y + Math.sin(a1) * hr,
+            rgba(base, 0.95),
+          );
+        }
+        break;
+      }
+      case EnemyKind.Mine: {
+        // Мина: корпус, четыре шипа и пульсирующий взрыватель.
+        R.circle(e.x, e.y, e.r, rgba(base, 0.35), 12);
+        for (let i = 0; i < 4; i++) {
+          const a = e.angle + (i * Math.PI) / 2;
+          R.pushLine(
+            e.x + Math.cos(a) * 4,
+            e.y + Math.sin(a) * 4,
+            e.x + Math.cos(a) * (e.r + 5),
+            e.y + Math.sin(a) * (e.r + 5),
+            rgba(base, 0.9),
+          );
+        }
+        R.circle(e.x, e.y, 2.2, rgba(C.mine, 0.6 + 0.4 * Math.sin(_time * 5)), 8);
+        break;
+      }
     }
-    if (e.maxHp > 40 && e.hp < e.maxHp) {
+    if (e.kind !== EnemyKind.Boss && e.maxHp > 40 && e.hp < e.maxHp) {
       const f = clamp(e.hp / e.maxHp, 0, 1);
       R.dashedCircle(e.x, e.y, e.r + 6, rgba(base, 0.4), Math.max(3, Math.round(10 * f)), _time, 0.4);
     }
@@ -168,5 +224,8 @@ function kindColor(kind: EnemyKind): string {
     case EnemyKind.Fighter: return C.fighter;
     case EnemyKind.Cruiser: return C.cruiser;
     case EnemyKind.Carrier: return C.carrier;
+    case EnemyKind.Miner: return C.miner;
+    case EnemyKind.Boss: return C.boss;
+    case EnemyKind.Mine: return C.mine;
   }
 }

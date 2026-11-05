@@ -41,6 +41,8 @@ export interface GameLifecycleCallbacks {
   onCountdown: (c: CountData | null) => void;
   onStats: (s: StatsData | null) => void;
   onPause: (p: boolean) => void;
+  /** Тактический режим включён/выключен. */
+  onTactical: (active: boolean) => void;
   /** Игра создана и готова принимать команды. */
   onReady: (game: Game) => void;
   /** URL-параметр `?wave` запустил забег — нужно открыть игровой экран. */
@@ -98,6 +100,7 @@ export function useGameLifecycle(
       onCountdown: events.onCountdown,
       onStats: events.onStats,
       onPause: events.onPause,
+      onTactical: events.onTactical,
       onGameOver: () => {
         // Итоги придут через onStats после перехода dying → over.
       },
