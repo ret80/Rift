@@ -44,7 +44,12 @@ export default function App() {
     () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches
   );
 
-  const { debug: urlDebug, wave: urlWave, waveOverride } = useMemo(() => parseUrlParams(), []);
+  const {
+    debug: urlDebug,
+    wave: urlWave,
+    waveOverride,
+    record: urlRecord,
+  } = useMemo(() => parseUrlParams(), []);
 
   /* Refs для доступа к actions/gameRef из замыканий. */
   const actionsRef = useRef<any>(null);
@@ -207,7 +212,14 @@ export default function App() {
         gamepadNavRef={gamepadNavRef}
       />
 
-      {screen === "game" && <HudLayer store={hudStore} godOn={settings.debugGod} />}
+      {screen === "game" && (
+        <HudLayer
+          store={hudStore}
+          godOn={settings.debugGod}
+          recordEnabled={urlRecord}
+          onToggleRecord={actions.toggleRecording}
+        />
+      )}
 
       <GameOverlays
         screen={screen}

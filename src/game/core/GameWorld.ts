@@ -54,6 +54,7 @@ import { WeaponManager } from "../weapons/WeaponManager";
 import { EventBus } from "./EventBus";
 import type { GameFSMContext } from "./GameFSM";
 import { GAME_TRANSITIONS } from "./GameFSM";
+import type { IntentRecorder } from "./IntentRecorder";
 import { AgentControls, type PlayerControls } from "./PlayerControls";
 import type { PlayerAgent, PlayerView, PlayerViewBullet, PlayerViewEnemy } from "../sim/agents/PlayerAgent";
 import {
@@ -86,6 +87,8 @@ export interface GameWorldConfig {
   testMode?: boolean;
   /** Порт управления; по умолчанию — AgentControls (агент задаёт намерения). */
   controls?: PlayerControls;
+  /** Запись намерений игрока по тикам (браузерный `?record`). */
+  recorder?: IntentRecorder;
   /**
    * Фабрика агента игрока. Получает поток `agent` из SeedSet, поэтому
    * решения агента не сдвигают боевые броски и считаются в rngDraws.
@@ -99,6 +102,8 @@ export class GameWorld {
   readonly rngStreams: RngStreams;
   readonly eventBus: EventBus;
   readonly controls: PlayerControls;
+  /** Рекордер браузерного забега; в headless-мире отсутствует. */
+  readonly recorder: IntentRecorder | null;
   /** Агент игрока (null — управляет человек). */
   readonly agent: PlayerAgent | null;
   private readonly agentControls: AgentControls | null;
@@ -150,13 +155,14 @@ export class GameWorld {
   private worldFrame: WorldFrame | null = null;
   private readonly unsubscribers: Array<() => void> = [];
 
-  private readonly physicsEngineId: PhysicsEngineId;
+  private physicsEngineId: PhysicsEngineId;
 
   constructor(config: GameWorldConfig) {
     this.ports = config.ports;
     this.seedSet = config.seed;
     this.rngStreams = createRngStreams(config.seed);
     this.controls = config.controls ?? new AgentControls();
+    this.recorder = config.recorder ?? null;
     this.agent = config.agent ? config.agent(this.rng("agent")) : null;
     this.agentControls = this.controls instanceof AgentControls ? this.controls : null;
     if (this.agent && !this.agentControls) {
@@ -169,6 +175,14 @@ export class GameWorld {
 
     // Часы мира — время тика, а не стенное время: события детерминированы.
     this.eventBus = new EventBus(() => this.time);
+
+    // Способность пишется по факту срабатывания, а не по нажатию: реплей
+    // иначе активировал бы её повторно после перезарядки.
+    if (this.recorder) {
+      this.unsubscribers.push(
+        this.eventBus.subscribe("ability_used", () => this.recorder?.markAbilityUsed()),
+      );
+    }
 
     this.physics = new PhysicsSystem(
       createPhysicsEngine(this.physicsEngineId),
@@ -198,7 +212,7 @@ export class GameWorld {
 
     this.waveOrchestrator = new WaveOrchestrator({
       hooks: {
-        onBanner: (title, sub, color) => this.ports.hooks.onBanner({ title, sub, color }),
+        onBanner: (banner) => this.ports.hooks.onBanner(banner),
         onToast: (text, color) => this.ports.hooks.onToast({ text, color }),
         hitPlayerRaw: (amount) => this.playerSystem.hitRaw(amount),
         shakeScreen: (strength) => fxPort.addShake(strength),
@@ -408,11 +422,11 @@ export class GameWorld {
     this.setupListeners();
 
     this.deathSystem = this.createDeathSystem();
-    this.skipCountdown = config.skipCountdown ?? false;
+    this.autoSkipCountdown = config.skipCountdown ?? false;
   }
 
   /** Пропускать ли обратный отсчёт (headless). */
-  private readonly skipCountdown: boolean;
+  private readonly autoSkipCountdown: boolean;
 
   // ============================== RNG / время ==============================
 
@@ -475,6 +489,10 @@ export class GameWorld {
 
     // Пояс астероидов — часть мира, а не презентации.
     this.asteroidField.update(FIXED_DT, this.asteroidEnv());
+
+    // Намерение снимается в конце тика: способность успевает сработать,
+    // а ось/прицел/огонь за тик не меняются.
+    this.recorder?.sample(this.controls);
   }
 
   /** Окружение пояса астероидов из сечения мира и зоны. */
@@ -549,7 +567,12 @@ export class GameWorld {
 
     this.countdownSystem.startWave(this.waveOrchestrator.wave);
     // Headless: волна стартует сразу, без отсчёта и баннеров.
-    if (this.skipCountdown) this.countdownSystem.skip();
+    if (this.autoSkipCountdown) this.countdownSystem.skip();
+  }
+
+  /** Пропустить отсчёт текущей волны (запись стартует с чистого тика). */
+  skipCountdown(): void {
+    this.countdownSystem.skip();
   }
 
   /** Вернуть мир в состояние «до забега» (без презентационных сбросов). */
@@ -608,7 +631,13 @@ export class GameWorld {
 
   /** Сменить физический движок (только до первых тиков). */
   setPhysicsEngine(id: PhysicsEngineId): void {
+    this.physicsEngineId = id;
     this.physics.setEngine(createPhysicsEngine(id));
+  }
+
+  /** Физический движок забега: входит в сценарий записи. */
+  get physicsEngine(): PhysicsEngineId {
+    return this.physicsEngineId;
   }
 
   // ============================== Reads ==============================

@@ -13,6 +13,10 @@ export const ru = {
   status: "ОРУДИЯ {g} · ДРОНЫ {d}/8",
   statusBoost: "ТЕМП ОГНЯ +{p}% · {s}С",
   godChip: "БЕССМЕРТИЕ",
+  recordStart: "НАЧАТЬ ЗАПИСЬ",
+  recordStop: "ОСТАНОВИТЬ ЗАПИСЬ",
+  recordStarted: "ЗАПИСЬ НАЧАТА · ЗАБЕГ ПЕРЕЗАПУЩЕН",
+  recordSaved: "ЗАПИСЬ СОХРАНЕНА · СЦЕНАРИЙ СИМУЛЯТОРА",
   loadout: {
     cannon: "ПУШКА",
     missile: "РАКЕТОМЁТ",
@@ -37,6 +41,10 @@ export const en: typeof ru = {
   status: "GUNS {g} · DRONES {d}/8",
   statusBoost: "FIRE RATE +{p}% · {s}S",
   godChip: "GOD MODE",
+  recordStart: "START RECORDING",
+  recordStop: "STOP RECORDING",
+  recordStarted: "RECORDING STARTED · RUN RESTARTED",
+  recordSaved: "RECORDING SAVED · SIMULATOR SCENARIO",
   loadout: {
     cannon: "CANNON",
     missile: "MISSILE POD",

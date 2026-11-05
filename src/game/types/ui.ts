@@ -28,6 +28,8 @@ export interface HudData {
   shield: ShieldRenderState;
   /** Weapon + bonus slots rendered in the HUD loadout row. */
   loadout: LoadoutSlotData[];
+  /** Идёт запись забега для симулятора (`?record`). */
+  recording: boolean;
 }
 
 /* ============================== Banners / Toasts / Countdown ============================== */

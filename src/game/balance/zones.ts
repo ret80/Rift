@@ -46,7 +46,13 @@ export const ZONE_ENEMY_PULL_TANGENT_DAMPING = 0.8;
 export const ZONE_ENEMY_PULL_MAX_SPEED = 700;
 
 export const ZONE_CLEAR_BANNER_DELAY = 1.5; // seconds before showing wave clear banner
-export const ZONE_CLEAR_NEXT_WAVE = 3.0; // seconds before next wave
+/** Сколько секунд баннер «волна зачищена» висит после появления. */
+export const ZONE_CLEAR_BANNER_HOLD = 2.0;
+/**
+ * Следующая волна стартует только после исчезновения баннера зачистки:
+ * задержка + удержание баннера + пауза, чтобы отсчёт не наложился на него.
+ */
+export const ZONE_CLEAR_NEXT_WAVE = 4.0; // seconds before next wave
 /** Секунды, за которые зона гаснет в альфу 0 после зачистки волны. */
 export const ZONE_CLEAR_FADE_TIME = 0.5;
 

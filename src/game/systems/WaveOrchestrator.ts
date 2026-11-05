@@ -12,15 +12,18 @@
 import { t } from "../../i18n";
 import {
   ZONE_CLEAR_BANNER_DELAY,
+  ZONE_CLEAR_BANNER_HOLD,
   ZONE_CLEAR_NEXT_WAVE,
 } from "../balance";
 import type { ZoneData } from "../core/ZoneTypes";
+import type { BannerData } from "../types/ui";
 import { ZoneEdgeDamage, type PlayerPosition } from "../waves/ZoneEdgeDamage";
 import { ZoneModel } from "../waves/ZoneModel";
 import { WaveStateMachine, type WaveStateId } from "../waves/WaveStateMachine";
 
 export interface WaveOrchestratorHooks {
-  onBanner: (title: string, sub?: string, color?: string) => void;
+  /** Показать баннер или погасить его (`null`). */
+  onBanner: (banner: BannerData | null) => void;
   onToast: (text: string, color?: string) => void;
   /** Урон за краем зоны — в обход щита. */
   hitPlayerRaw: (amount: number) => void;
@@ -55,6 +58,8 @@ export class WaveOrchestrator {
 
   /** Баннер «волна зачищена» уже показан. */
   private waveClearSent = false;
+  /** Остаток жизни баннера зачистки; > 0 — баннер ещё на экране. */
+  private bannerTimer = 0;
   /** Таймер очистки тоста; тикает только в cleared-состоянии. */
   private toastClearTimer = 0;
 
@@ -94,6 +99,7 @@ export class WaveOrchestrator {
     this.zone.prepare(playerX, playerY);
     this.edge.reset();
     this.waveClearSent = false;
+    this.bannerTimer = 0;
   }
 
   activateZone(playerX: number, playerY: number): void {
@@ -164,6 +170,7 @@ export class WaveOrchestrator {
     this.waves.reset(targetWave);
     this.edge.reset();
     this.waveClearSent = false;
+    this.bannerTimer = 0;
     this.toastClearTimer = 0;
   }
 
@@ -179,24 +186,37 @@ export class WaveOrchestrator {
     }
   }
 
+  /** Отсчитать время жизни баннера зачистки и погасить его. */
+  private tickBanner(dt: number): void {
+    if (this.bannerTimer <= 0) return;
+    this.bannerTimer -= dt;
+    if (this.bannerTimer > 0) return;
+    this.bannerTimer = 0;
+    this.hooks.onBanner(null);
+  }
+
   private updateClearTransition(dt: number): void {
     const clearT = this.waves.addClearTime(dt);
 
+    this.tickBanner(dt);
+
     if (clearT >= ZONE_CLEAR_BANNER_DELAY && !this.waveClearSent) {
       this.waveClearSent = true;
-      this.hooks.onBanner(
-        t("game.waveCleared"),
-        t("game.nextWave", { wave: this.waves.wave + 1 }),
-        "#6f6",
-      );
+      this.hooks.onBanner({
+        title: t("game.waveCleared"),
+        sub: t("game.nextWave", { wave: this.waves.wave + 1 }),
+        color: "#6f6",
+      });
       // Баннер зачистки держится дольше обычного тоста.
+      this.bannerTimer = ZONE_CLEAR_BANNER_HOLD;
       this.toastClearTimer = TOAST_CLEAR_LONG;
     }
 
     this.zone.applyClearExpansion(dt, clearT, this.speedMult, this.playerMaxSpeed);
 
-    // Переходим к следующей волне только после полного исчезновения зоны.
-    if (clearT >= ZONE_CLEAR_NEXT_WAVE) {
+    // Следующая волна — только после исчезновения баннера зачистки,
+    // иначе отсчёт новой волны рисуется поверх старого баннера.
+    if (clearT >= ZONE_CLEAR_NEXT_WAVE && this.bannerTimer <= 0) {
       this.advanceWave();
     }
   }

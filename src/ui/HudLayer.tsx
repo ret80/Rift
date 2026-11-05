@@ -1,6 +1,7 @@
 import React from "react";
 import { useT } from "../i18n";
 import { LoadoutBar } from "./components/LoadoutBar";
+import { RecordButton } from "./components/RecordButton";
 import { useHudData, type HudStore } from "./hud/HudStore";
 import { formatTime } from "./utils/formatTime";
 
@@ -27,7 +28,15 @@ function PartsGlyph() {
  * Читает снимки из `HudStore` (≈15 Гц), поэтому перерисовывается только
  * само дерево HUD, а не всё приложение.
  */
-export function HudLayer(props: { store: HudStore; godOn: boolean }) {
+export interface HudLayerProps {
+  store: HudStore;
+  godOn: boolean;
+  /** Показывать кнопку записи (`?record`). */
+  recordEnabled: boolean;
+  onToggleRecord: () => void;
+}
+
+export function HudLayer(props: HudLayerProps) {
   const t = useT();
   const data = useHudData(props.store);
 
@@ -129,6 +138,19 @@ export function HudLayer(props: { store: HudStore; godOn: boolean }) {
           {t("hud.status", { g: String(data?.guns ?? 0), d: String(data?.drones ?? 0) })}
         </div>
       </div>
+
+      {/* запись забега для симулятора */}
+      {props.recordEnabled && (
+        <div
+          className="absolute right-2 sm:right-4"
+          style={{ top: "calc(env(safe-area-inset-top) + 112px)" }}
+        >
+          <RecordButton
+            recording={data?.recording ?? false}
+            onToggle={props.onToggleRecord}
+          />
+        </div>
+      )}
 
       {/* god-mode chip */}
       {props.godOn && (

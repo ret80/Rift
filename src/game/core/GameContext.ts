@@ -21,6 +21,12 @@ import type { SystemSchedule } from "../ecs/SystemSchedule";
 import { Fx } from "../fx";
 import { GAMEPAD_CODES, GamepadManager } from "../gamepad";
 import { InputManager } from "../input";
+import {
+  IntentRecorder,
+  type RecordingMeta,
+  type RecordingWeaponLevels,
+  type RunRecording,
+} from "./IntentRecorder";
 import type { LoadoutSystem } from "../loadout/LoadoutSystem";
 import type { BonusManager } from "../loadout/bonuses/BonusManager";
 import type { PhysicsEngineId, PhysicsSystem } from "../physics/index";
@@ -89,6 +95,9 @@ export class GameContext {
   /** Порт управления игроком в браузере. */
   readonly controls: HumanControls;
 
+  /** Запись забега для симулятора (`?record`). */
+  readonly recorder = new IntentRecorder();
+
   readonly starfield: Starfield;
   readonly rendererSystem: RendererSystem;
   readonly menuScene: MenuScene;
@@ -154,6 +163,7 @@ export class GameContext {
       startWave: 1,
       physics: (physicsParam as PhysicsEngineId | null) ?? "planck",
       controls: this.controls,
+      recorder: this.recorder,
       ports: {
         audio: this.audio,
         storage,
@@ -424,13 +434,66 @@ export class GameContext {
   // ============================== Run lifecycle ==============================
 
   startRun(): void {
+    // Новый забег не может продолжаться в старой записи: её метаданные врут.
+    this.recorder.cancel();
     if (this.fsm.is("menu", "over")) {
       this.fsm.fire("start");
     }
     this.start.startRun();
   }
 
+  /**
+   * Начать запись забега для симулятора.
+   *
+   * Забег перезапускается без отсчёта: headless-прогон всегда стартует с
+   * первого тика волны, а снятая посреди отсчёта запись не совпала бы с ним.
+   */
+  startRecording(): void {
+    this.startRun();
+    this.world.skipCountdown();
+    this.recorder.start(this.buildRecordingMeta());
+    this.hooks.onBanner(null);
+    this.hooks.onToast({ text: t("hud.recordStarted"), color: "#ff5c54" });
+  }
+
+  /** Остановить запись и забрать её. */
+  stopRecording(): RunRecording | null {
+    return this.recorder.stop();
+  }
+
+  isRecording(): boolean {
+    return this.recorder.recording;
+  }
+
+  /** Метаданные забега для сценария: снимаются после его сброса. */
+  private buildRecordingMeta(): RecordingMeta {
+    const upgrades: Record<string, number> = {};
+    for (const [key, value] of Object.entries(this.upgradeSystem.playerUpgrades)) {
+      if (typeof value === "number") upgrades[key] = value;
+    }
+
+    const weapons: Partial<Record<WeaponId, RecordingWeaponLevels>> = {};
+    for (const [id, entry] of Object.entries(this.upgradeSystem.loadout)) {
+      weapons[id as WeaponId] = {
+        owned: entry.owned,
+        reload: entry.model.reload,
+        damage: entry.model.damage,
+        accuracy: entry.model.accuracy,
+      };
+    }
+
+    return {
+      seed: this.seedSet.master,
+      physics: this.world.physicsEngine,
+      startWave: this.waveOrchestrator.wave,
+      viewport: { width: this.viewport.width, height: this.viewport.height },
+      upgrades,
+      weapons,
+    };
+  }
+
   toMenu(): void {
+    this.recorder.cancel();
     this.start.toMenu();
   }
 

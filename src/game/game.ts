@@ -16,6 +16,8 @@ import { GameContext } from "./core/GameContext";
 import type { Hooks } from "./core/GameHooks";
 import type { PhysicsEngineId } from "./physics";
 import type { WaveCompositionOverride } from "./balance/waves";
+import { buildReplayScenario } from "./sim/ReplayScenario";
+import type { Scenario } from "./sim/Scenario";
 
 /* UI types — единый источник правды */
 export type { BannerData, CountData, HudData, StatsData, ToastData } from "./types/ui";
@@ -186,5 +188,22 @@ export class Game {
 
   startRun(): void {
     this.ctx.startRun();
+  }
+
+  /* ===== Recording for the simulator (`?record`) ===== */
+
+  /** Начать запись: забег перезапускается без отсчёта. */
+  startRecording(): void {
+    this.ctx.startRecording();
+  }
+
+  /** Остановить запись и получить готовый сценарий симулятора. */
+  stopRecording(): Scenario | null {
+    const recording = this.ctx.stopRecording();
+    return recording ? buildReplayScenario(recording) : null;
+  }
+
+  isRecording(): boolean {
+    return this.ctx.isRecording();
   }
 }

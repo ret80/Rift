@@ -67,6 +67,7 @@ export class GameRender {
       parts: ctx.upgradeSystem.getParts(),
       shield: ctx.shieldSystem.getSnapshot(),
       loadout: ctx.loadoutSystem.getSlots(),
+      recording: ctx.isRecording(),
     });
   }
 
