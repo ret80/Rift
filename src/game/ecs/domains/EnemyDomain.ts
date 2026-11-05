@@ -57,6 +57,10 @@ export interface EnemySystemDeps {
   rngCombat: Rng;
   /** Поток спавна (seed врага, страйф, стартовые таймеры). */
   rngSpawn: Rng;
+  /** Множитель здоровья врагов. */
+  getEnemyHpMult: () => number;
+  /** Множитель урона врагов. */
+  getEnemyDamageMult: () => number;
 }
 
 export class EnemyDomain {
@@ -94,6 +98,9 @@ export class EnemyDomain {
       deps.getIntegrate,
       deps.rngCombat,
       deps.rngSpawn,
+      undefined,
+      deps.getEnemyHpMult,
+      deps.getEnemyDamageMult,
     );
     const shootingSystem = new EnemyShootingSystem(
       deps.audio,

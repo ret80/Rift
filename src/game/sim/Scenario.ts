@@ -11,6 +11,12 @@
 
 import { EnemyKind, isEnemyKind } from "../balance";
 import type { WaveCompositionOverride } from "../balance/waves";
+import {
+  hasBalanceOverride,
+  validateBalanceOverrides,
+  type BalanceOverrides,
+} from "../balance/BalanceOverrides";
+import type { DroneLoadout } from "../drones/Drone";
 import { isPhysicsEngineId, type PhysicsEngineId } from "../physics/index";
 import { WEAPON_IDS, type WeaponId } from "../weapons/WeaponCatalog";
 import { WEAPON_STAT_MAX_LEVEL } from "../upgrades";
@@ -61,6 +67,10 @@ export interface Scenario {
   duration: number;
   physics?: PhysicsEngineId;
   startWave?: number;
+  /** Пропустить отсчёт волны (headless и повтор записи). */
+  skipCountdown?: boolean;
+  /** Множители баланса; отсутствие поля — мир без изменений. */
+  balance?: BalanceOverrides;
   viewport?: { width: number; height: number };
   player: ScenarioPlayer;
   enemies?: ScenarioEnemy[];
@@ -68,6 +78,8 @@ export interface Scenario {
   upgrades?: Record<string, number>;
   /** Купленное оружие и уровни его линий (пушка куплена всегда). */
   weapons?: Partial<Record<WeaponId, ScenarioWeapon>>;
+  /** Ангар дронов из записи (счётчики и модели). */
+  droneLoadout?: DroneLoadout;
   /** Какие метрики печатать в отчёте. */
   metrics?: string[];
 }
@@ -174,6 +186,21 @@ export function parseScenario(raw: unknown): Scenario {
       ? (data.upgrades as Record<string, number>)
       : undefined;
 
+  if (data.skipCountdown !== undefined && typeof data.skipCountdown !== "boolean") {
+    issues.push("skipCountdown: ожидается boolean");
+  }
+
+  issues.push(...validateBalanceOverrides(data.balance));
+
+  let droneLoadout: DroneLoadout | undefined;
+  if (data.droneLoadout !== undefined) {
+    if (typeof data.droneLoadout !== "object" || data.droneLoadout === null) {
+      issues.push("droneLoadout: ожидается объект ангара");
+    } else {
+      droneLoadout = data.droneLoadout as DroneLoadout;
+    }
+  }
+
   const weapons: Partial<Record<WeaponId, ScenarioWeapon>> = {};
   if (data.weapons !== undefined) {
     if (typeof data.weapons !== "object" || data.weapons === null) {
@@ -219,6 +246,13 @@ export function parseScenario(raw: unknown): Scenario {
     duration: duration as number,
     physics,
     startWave: typeof data.startWave === "number" ? Math.max(1, Math.floor(data.startWave)) : 1,
+    // Поля с нейтральным значением не попадают в объект: хэш старого
+    // сценария не должен меняться от появления новых возможностей.
+    ...(data.skipCountdown === true ? { skipCountdown: true } : {}),
+    ...(hasBalanceOverride(data.balance as BalanceOverrides | undefined)
+      ? { balance: data.balance as BalanceOverrides }
+      : {}),
+    ...(droneLoadout ? { droneLoadout } : {}),
     viewport:
       typeof data.viewport === "object" && data.viewport !== null
         ? {

@@ -28,15 +28,14 @@ function PartsGlyph() {
  * Читает снимки из `HudStore` (≈15 Гц), поэтому перерисовывается только
  * само дерево HUD, а не всё приложение.
  */
-export interface HudLayerProps {
+export function HudLayer(props: {
   store: HudStore;
   godOn: boolean;
   /** Показывать кнопку записи (`?record`). */
   recordEnabled: boolean;
+  /** Начать/остановить запись забега. */
   onToggleRecord: () => void;
-}
-
-export function HudLayer(props: HudLayerProps) {
+}) {
   const t = useT();
   const data = useHudData(props.store);
 
@@ -139,16 +138,29 @@ export function HudLayer(props: HudLayerProps) {
         </div>
       </div>
 
-      {/* запись забега для симулятора */}
+      {/* запись забега для симулятора (`?record`) */}
       {props.recordEnabled && (
         <div
           className="absolute right-2 sm:right-4"
           style={{ top: "calc(env(safe-area-inset-top) + 112px)" }}
         >
           <RecordButton
-            recording={data?.recording ?? false}
+            recording={data?.recording === "recording"}
             onToggle={props.onToggleRecord}
           />
+        </div>
+      )}
+
+      {/* recording chip: только dev/`?debug`, не поверх тач-зоны */}
+      {data?.recording && data.recording !== "off" && (
+        <div
+          className={
+            "absolute left-1/2 -translate-x-1/2 border border-[#ff3b52]/60 " +
+            "bg-[#ff3b52]/10 px-3 py-0.5 font-mono text-[9px] tracking-[0.25em] text-[#ff8a96]"
+          }
+          style={{ top: "calc(env(safe-area-inset-top) + 132px)" }}
+        >
+          ● {data.recording === "armed" ? t("hud.recArmed") : t("hud.recActive")}
         </div>
       )}
 

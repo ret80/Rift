@@ -9,6 +9,7 @@
 import { defaultUpgrades, defaultWeaponLoadout } from "../upgrades";
 import type { WeaponId } from "../weapons/Weapon";
 import { STORAGE_KEYS } from "../core/storageKeys";
+import { sampleBehavior, type BehaviorSample } from "../core/SessionRecord";
 import type { SeedSet } from "../core/rng";
 import { SimulationClock } from "../core/SimulationClock";
 import type { GameWorld } from "../core/GameWorld";
@@ -19,6 +20,7 @@ import {
   hashSnapshot,
   takeSnapshot,
   type Divergence,
+  type DivergenceOptions,
   type Snapshot,
 } from "./Snapshot";
 import {
@@ -39,6 +41,8 @@ export interface ExecuteOptions {
   ticks?: number;
   /** Интервал снимков в тиках. */
   snapshotInterval?: number;
+  /** Собирать сэмплы поведения для профиля агента. */
+  collectSamples?: boolean;
 }
 
 export interface ExecuteResult {
@@ -46,6 +50,8 @@ export interface ExecuteResult {
   snapshots: Snapshot[];
   snapshotHashes: string[];
   ticks: number;
+  /** Сэмплы поведения (только при `collectSamples`). */
+  samples?: BehaviorSample[];
   /** Мир после последнего тика: для сравнения и отладки. */
   world: GameWorld;
   dispose(): void;
@@ -67,6 +73,14 @@ function scenarioStorage(scenario: Scenario): Record<string, string> {
   return {
     [STORAGE_KEYS.upgrades]: JSON.stringify(upgrades),
     [STORAGE_KEYS.weaponLoadout]: JSON.stringify(loadout),
+    ...(scenario.droneLoadout
+      ? {
+          [STORAGE_KEYS.droneLoadout]: JSON.stringify({
+            v: 2,
+            ...scenario.droneLoadout,
+          }),
+        }
+      : {}),
   };
 }
 
@@ -84,6 +98,8 @@ export function executeScenario(scenario: Scenario, options: ExecuteOptions = {}
     storage: scenarioStorage(scenario),
     agent: scenarioAgentFactory(scenario),
     waveComposition: scenarioComposition(scenario) ?? undefined,
+    balance: scenario.balance,
+    skipCountdown: scenario.skipCountdown ?? true,
   });
 
   const sink = new MetricsSink(world);
@@ -91,10 +107,16 @@ export function executeScenario(scenario: Scenario, options: ExecuteOptions = {}
   const snapshotHashes: string[] = [];
 
   const clock = new SimulationClock();
+  const samples: BehaviorSample[] | undefined = options.collectSamples ? [] : undefined;
   let tick = 0;
   clock.runTicks(totalTicks, (dt) => {
     world.tick(dt);
     sink.sample();
+    if (samples) {
+      const controls = world.controls;
+      const ability = controls.lastConsumedAbility === true;
+      samples.push(sampleBehavior(world, tick, controls, ability));
+    }
     tick++;
     if (tick % snapshotInterval === 0 || tick === totalTicks) {
       const snapshot = takeSnapshot(world);
@@ -109,12 +131,17 @@ export function executeScenario(scenario: Scenario, options: ExecuteOptions = {}
     snapshots,
     snapshotHashes,
     ticks: totalTicks,
+    ...(samples ? { samples } : {}),
     world,
     dispose: () => sink.dispose(),
   };
 }
 
 /** Первое расхождение двух прогонов (null — бит-в-бит одинаковы). */
-export function compareSnapshots(a: readonly Snapshot[], b: readonly Snapshot[]): Divergence | null {
-  return firstDivergence(a, b);
+export function compareSnapshots(
+  a: readonly Snapshot[],
+  b: readonly Snapshot[],
+  options: DivergenceOptions = {},
+): Divergence | null {
+  return firstDivergence(a, b, options);
 }

@@ -8,6 +8,8 @@ export interface InputHooks {
   onPauseKey(): void;
   /** Window blurred or hidden — the game decides whether to auto-pause. */
   onLoseFocus(): void;
+  /** F9: включить/выключить запись (только dev/`?debug`). */
+  onRecordKey?(): void;
 }
 
 /** Movement vector in -1..1 on each axis (keyboard + touch combined). */
@@ -40,6 +42,11 @@ export class InputManager {
   private onKeyDown = (e: KeyboardEvent) => {
     if (e.code === "KeyP" || e.code === "Escape") {
       this.hooks.onPauseKey();
+      return;
+    }
+    // F9 не попадает в pressed: это команда хоста, а не игровое действие.
+    if (e.code === "KeyF9" && !e.repeat) {
+      this.hooks.onRecordKey?.();
       return;
     }
     // Автоповтор удерживаемой клавиши не должен считаться новым нажатием.

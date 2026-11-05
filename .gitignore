@@ -8,7 +8,10 @@ node_modules/
 dist/
 
 # Local simulation results (baselines live in sim/baselines/)
-sim-results/
+sim-results/*
+!sim-results/sessions/
+sim-results/sessions/*
+!sim-results/sessions/.gitkeep
 
 # Environment
 .env

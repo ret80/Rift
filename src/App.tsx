@@ -44,12 +44,10 @@ export default function App() {
     () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches
   );
 
-  const {
-    debug: urlDebug,
-    wave: urlWave,
-    waveOverride,
-    record: urlRecord,
-  } = useMemo(() => parseUrlParams(), []);
+  const { debug: urlDebug, wave: urlWave, waveOverride, record: urlRecord } = useMemo(
+    () => parseUrlParams(),
+    []
+  );
 
   /* Refs для доступа к actions/gameRef из замыканий. */
   const actionsRef = useRef<any>(null);

@@ -83,16 +83,12 @@ function parseWaveOverride(raw: string | null): WaveCompositionOverride | null {
   return total > 0 ? result : null;
 }
 
-/**
- * Разбор `?debug`, `?wave=N`, `?record` и `?test=<вид>:<кол-во>,...` из URL.
- *
- * Запись включается самим фактом параметра: `?record`, `?record=1` и
- * `?record=0` одинаково показывают кнопку — значение здесь не важно.
- */
+/** Разбор `?debug`, `?wave=N`, `?record` и `?test=<вид>:<кол-во>,...` из URL. */
 export function parseUrlParams(): {
   debug: boolean;
   wave: number | null;
   waveOverride: WaveCompositionOverride | null;
+  /** Показывать кнопку записи: сам факт параметра важен, значение — нет. */
   record: boolean;
 } {
   const debug = readUrlParam("debug") !== null;

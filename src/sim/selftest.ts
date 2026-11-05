@@ -6,8 +6,23 @@
  * Любая упавшая проверка даёт ненулевой код выхода.
  */
 
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import type { GameWorld } from "../game/core/GameWorld";
 import type { PlayerControls } from "../game/core/PlayerControls";
+import { SessionRecorder } from "../game/core/SessionRecorder";
+import {
+  parseSessionJsonl,
+  recordToJsonl,
+  SessionRecordError,
+  type BehaviorSample,
+  type SessionRecordV1,
+} from "../game/core/SessionRecord";
+import { extractProfile } from "../game/sim/BehaviorProfile";
+import { CALIBRATION_DEFAULTS, calibrate } from "../game/sim/Calibrate";
+import { profileDistance } from "../game/sim/ProfileDistance";
+import { scenarioFromSession } from "../game/sim/SessionStore";
+import { hashSnapshot, takeSnapshot } from "../game/sim/Snapshot";
 import {
   RNG_STREAMS,
   createRandomSeed,
@@ -21,7 +36,7 @@ import {
 import { FIXED_DT, MAX_CATCH_UP, SimulationClock } from "../game/core/SimulationClock";
 import { PLAYER_AGENT_KINDS, ReplayAgent, createPlayerAgent } from "../game/sim/agents";
 import { compareResults } from "../game/sim/Compare";
-import { executeScenario } from "../game/sim/execute";
+import { compareSnapshots, executeScenario } from "../game/sim/execute";
 import { aggregateMetrics, type RunResult } from "../game/sim/RunResult";
 import {
   ScenarioError,
@@ -30,7 +45,7 @@ import {
   scenarioSeedSet,
   type Scenario,
 } from "../game/sim/Scenario";
-import { createHeadlessWorld, ticksForSeconds } from "./runner";
+import { createHeadlessWorld, runHeadless, ticksForSeconds } from "./runner";
 
 type CheckFn = () => void | Promise<void>;
 
@@ -670,6 +685,459 @@ check("compare: другой runtime → предупреждение, а не b
     report.warnings.some((warning) => warning.includes("Разные runtime")),
     "ожидалось предупреждение о runtime",
   );
+});
+
+/* ============================== Session records ============================== */
+
+const FIXTURE_PATH = fileURLToPath(
+  new URL("../game/sim/__fixtures__/session-600.jsonl", import.meta.url),
+);
+
+function readFixture(): SessionRecordV1 {
+  return parseSessionJsonl(readFileSync(FIXTURE_PATH, "utf8"));
+}
+
+/** Ожидать `SessionRecordError` на испорченной записи. */
+function expectRecordError(text: string, message: string): void {
+  try {
+    parseSessionJsonl(text);
+  } catch (error) {
+    expect(error instanceof SessionRecordError, `${message}: ${String(error)}`);
+    return;
+  }
+  throw new Error(`${message}: ошибки не было`);
+}
+
+/** Строки JSONL фикстуры как объекты. */
+function fixtureEvents(): Record<string, unknown>[] {
+  return readFileSync(FIXTURE_PATH, "utf8")
+    .trimEnd()
+    .split("\n")
+    .map((line) => JSON.parse(line) as Record<string, unknown>);
+}
+
+function eventsToJsonl(events: readonly Record<string, unknown>[]): string {
+  return `${events.map((event) => JSON.stringify(event)).join("\n")}\n`;
+}
+
+check("SessionRecord: JSONL round-trip сохраняет запись", () => {
+  const original = readFixture();
+  const again = parseSessionJsonl(recordToJsonl(original));
+  expectEqual(again.sessionId, original.sessionId, "sessionId");
+  expectEqual(again.run.ticks, original.run.ticks, "ticks");
+  expectEqual(again.intents.length, original.intents.length, "intents");
+  expectEqual(again.samples.length, original.samples.length, "samples");
+  expectEqual(
+    again.checkpoints.map((cp) => `${cp.tick}:${cp.hash}`).join(","),
+    original.checkpoints.map((cp) => `${cp.tick}:${cp.hash}`).join(","),
+    "checkpoints",
+  );
+  expectEqual(
+    JSON.stringify(again.meta.upgrades),
+    JSON.stringify(original.meta.upgrades),
+    "upgrades",
+  );
+});
+
+check("SessionRecorder: onFinalize срабатывает один раз при stop", () => {
+  let saved: SessionRecordV1 | null = null;
+  const recorder = new SessionRecorder({
+    gitSha: "test",
+    sessionId: "selftest",
+    onFinalize: (record) => {
+      saved = record;
+    },
+  });
+  recorder.arm();
+  const world = createHeadlessWorld({
+    seed: 1,
+    recorder,
+    agent: (rng) => createPlayerAgent("evade", {}, rng),
+  });
+  clockTicks(world, 10);
+  recorder.stop(world, "user_stop");
+  recorder.stop(world, "user_stop");
+  world.destroy();
+
+  expect(saved !== null, "onFinalize не вызван");
+  expectEqual(saved!.run.ticks, 10, "тиков в записи");
+  expectEqual(saved!.run.startTick, 0, "startTick armed-записи");
+  expectEqual(saved!.run.replayable, true, "armed-запись должна быть replayable");
+  expectEqual(saved!.end?.reason, "user_stop", "причина завершения");
+});
+
+check("SessionRecorder: partial-запись помечается replayable=false", () => {
+  let saved: SessionRecordV1 | null = null;
+  const recorder = new SessionRecorder({
+    gitSha: "test",
+    sessionId: "partial",
+    onFinalize: (record) => {
+      saved = record;
+    },
+  });
+  const world = createHeadlessWorld({
+    seed: 2,
+    recorder,
+    agent: (rng) => createPlayerAgent("evade", {}, rng),
+  });
+  clockTicks(world, 5);
+  recorder.start(world);
+  clockTicks(world, 5);
+  recorder.stop(world, "user_stop");
+  world.destroy();
+
+  expect(saved !== null, "onFinalize не вызван");
+  expectEqual(saved!.run.startTick, 5, "startTick partial-записи");
+  expectEqual(saved!.run.replayable, false, "partial-запись не должна быть replayable");
+});
+
+check("SessionRecord: валидатор ловит мутации схемы", () => {
+  const original = fixtureEvents();
+
+  const unknownVersion = original.map((event) => ({ ...event }));
+  unknownVersion[0].schemaVersion = 2;
+  expectRecordError(eventsToJsonl(unknownVersion), "неизвестная schemaVersion");
+
+  const brokenReplay = original.map((event) => ({ ...event }));
+  const run = brokenReplay.find((event) => event.type === "run")!;
+  run.startTick = 1;
+  run.replayable = true;
+  expectRecordError(eventsToJsonl(brokenReplay), "replayable при startTick>0");
+
+  const missingChunk = original.filter(
+    (event) => !(event.type === "intents" && event.fromTick === 0),
+  );
+  expectRecordError(eventsToJsonl(missingChunk), "пропуск чанка интентов");
+
+  const decreasingSamples = original.map((event) => ({ ...event }));
+  const samples = decreasingSamples.find((event) => event.type === "samples")!;
+  const items = samples.items as BehaviorSample[];
+  expect(items.length > 1, "в фикстуре должно быть больше одного сэмпла");
+  const mutated = items.map((item, index) =>
+    index === 1 ? { ...item, tick: -1 } : item,
+  );
+  samples.items = mutated;
+  expectRecordError(eventsToJsonl(decreasingSamples), "убывающие сэмплы");
+
+  const unknownEvent = [...original, { type: "mystery" }];
+  expectRecordError(eventsToJsonl(unknownEvent), "неизвестный тип события");
+
+  const noVersion = original.map((event) => ({ ...event }));
+  delete noVersion[0].schemaVersion;
+  expectRecordError(eventsToJsonl(noVersion), "нет schemaVersion");
+
+  expectRecordError('{"type":"session",\n', "битый JSON");
+
+  const wrongTicks = original.map((event) => ({ ...event }));
+  const runEvent = wrongTicks.find((event) => event.type === "run")!;
+  runEvent.ticks = Number(runEvent.ticks) + 1;
+  expectRecordError(eventsToJsonl(wrongTicks), "ticks не совпадает с концами интентов");
+
+  const shortIntents = original.map((event) => ({ ...event }));
+  const lastChunk = [...shortIntents]
+    .reverse()
+    .find((event) => event.type === "intents")!;
+  lastChunk.items = (lastChunk.items as unknown[]).slice(0, -1);
+  expectRecordError(eventsToJsonl(shortIntents), "интентов меньше ticks");
+});
+
+check("SessionRecorder: запись не меняет мир", () => {
+  // Миры создаются последовательно: id сущностей сбрасываются на каждом мире.
+  const clean = createHeadlessWorld({
+    seed: 777,
+    agent: (rng) => createPlayerAgent("evade", {}, rng),
+  });
+  clockTicks(clean, 300);
+  const cleanHash = hashSnapshot(takeSnapshot(clean));
+  clean.destroy();
+
+  const recorder = new SessionRecorder({ gitSha: "test", sessionId: "noop" });
+  recorder.arm();
+  const recorded = createHeadlessWorld({
+    seed: 777,
+    recorder,
+    agent: (rng) => createPlayerAgent("evade", {}, rng),
+  });
+  clockTicks(recorded, 300);
+  const recordedHash = hashSnapshot(takeSnapshot(recorded));
+  recorded.destroy();
+
+  expectEqual(recordedHash, cleanHash, "мир с записью и без");
+});
+
+check("BalanceOverrides: нейтральные множители не меняют прогон", () => {
+  const plain = parseScenario(smokeScenarioRaw());
+  const neutral = parseScenario({
+    ...smokeScenarioRaw(),
+    balance: { enemyHpMult: 1, enemyDamageMult: 1 },
+  });
+  const first = executeScenario(plain, { ticks: 300 });
+  const second = executeScenario(neutral, { ticks: 300 });
+  try {
+    expectEqual(
+      first.snapshotHashes.join(","),
+      second.snapshotHashes.join(","),
+      "хэши при balance=1.0",
+    );
+  } finally {
+    first.dispose();
+    second.dispose();
+  }
+});
+
+/** Параметры врагов в первом тике, где они появились. */
+interface EnemySpawnStats {
+  hp: number[];
+  contact: number[];
+  bolt: number[];
+}
+
+function firstEnemyStats(mult: number): EnemySpawnStats {
+  const empty: EnemySpawnStats = { hp: [], contact: [], bolt: [] };
+  const world = runHeadless({
+    seed: 12345,
+    ticks: 300,
+    balance: { enemyHpMult: mult, enemyDamageMult: mult },
+    waveComposition: { drone: 1 },
+    onTick: (current) => {
+      if (empty.hp.length > 0) return;
+      const enemies = current.ecs.enemies();
+      if (enemies.length === 0) return;
+      empty.hp = enemies.map((enemy) => enemy.life.max);
+      empty.contact = enemies.map((enemy) => enemy.marker.contact);
+      empty.bolt = enemies.map((enemy) => enemy.marker.boltDmg);
+    },
+  });
+  world.destroy();
+  return empty;
+}
+
+check("BalanceOverrides: множители повышают HP и урон врагов", () => {
+  const base = firstEnemyStats(1);
+  const boosted = firstEnemyStats(1.1);
+  expect(base.hp.length > 0, "на первом тике волны не появилось врагов");
+  expectEqual(boosted.hp.length, base.hp.length, "число врагов");
+  for (let i = 0; i < base.hp.length; i++) {
+    expect(
+      Math.abs(boosted.hp[i] - base.hp[i] * 1.1) < 1e-9,
+      `HP ${boosted.hp[i]} вместо ${base.hp[i] * 1.1}`,
+    );
+    expect(
+      Math.abs(boosted.contact[i] - base.contact[i] * 1.1) < 1e-9,
+      `contact ${boosted.contact[i]} вместо ${base.contact[i] * 1.1}`,
+    );
+    // Болт есть не у всех видов; сравниваем только непустые значения.
+    if (base.bolt[i] > 0) {
+      expect(
+        Math.abs(boosted.bolt[i] - base.bolt[i] * 1.1) < 1e-9,
+        `bolt ${boosted.bolt[i]} вместо ${base.bolt[i] * 1.1}`,
+      );
+    }
+  }
+});
+
+/** Прогнать запись через ReplayAgent и вернуть снимки с балансом. */
+function replayResult(record: SessionRecordV1, enemyHpMult = 1) {
+  const base = scenarioFromSession(record, {
+    balance: { enemyHpMult, enemyDamageMult: 1 },
+  });
+  const scenario: Scenario = {
+    ...base,
+    player: { agent: "replay", replay: record.intents },
+  };
+  return executeScenario(scenario, { ticks: record.run.ticks });
+}
+
+check("Replay: запись воспроизводится бит-в-бит при том же балансе", () => {
+  const record = readFixture();
+  const result = replayResult(record, 1);
+  try {
+    // `agent` — вход реплея, а не состояние мира: его счётчик не сравниваем.
+    const divergence = compareSnapshots(
+      record.checkpoints.map((checkpoint) => checkpoint.snapshot),
+      result.snapshots,
+      { ignoreStreams: ["agent"] },
+    );
+    expectEqual(divergence, null, `расхождение ${JSON.stringify(divergence)}`);
+  } finally {
+    result.dispose();
+  }
+});
+
+check("Replay: enemyHpMult=1.1 расходится до 600-го тика", () => {
+  const record = readFixture();
+  const result = replayResult(record, 1.1);
+  try {
+    const divergence = compareSnapshots(
+      record.checkpoints.map((checkpoint) => checkpoint.snapshot),
+      result.snapshots,
+      { ignoreStreams: ["agent"] },
+    );
+    expect(divergence !== null, "реплей с другим HP не разошёлся");
+    expect(divergence!.tick <= 600, `первое расхождение на тике ${divergence!.tick}`);
+  } finally {
+    result.dispose();
+  }
+});
+
+/* ============================== Профиль и калибровка ============================== */
+
+/** Синтетические сэмплы с известными ставками и дистанцией. */
+function syntheticSamples(count = 300): BehaviorSample[] {
+  const samples: BehaviorSample[] = [];
+  for (let tick = 0; tick < count; tick++) {
+    samples.push({
+      tick,
+      player: { x: 960, y: 540, vx: 0, vy: 0, hp: 100 },
+      nearestEnemy: { dx: 400, dy: 0, dist: 400 },
+      threat: null,
+      zone: { dist: 342, radius: 360, active: true },
+      aimAngle: 0,
+      firing: true,
+      ability: tick % 30 === 0,
+      axis: { x: 0.5, y: 0 },
+    });
+  }
+  return samples;
+}
+
+check("BehaviorProfile: синтетические сэмплы дают ожидаемые ставки", () => {
+  const profile = extractProfile(syntheticSamples(), "synthetic");
+  expect(profile.manualAim, "manualAim должен быть true");
+  expectEqual(profile.fireRatio.value, 1, "fireRatio");
+  expect(Math.abs(profile.preferredRange.p50 - 400) < 1e-6, `range=${profile.preferredRange.p50}`);
+  expect(profile.zoneEdgeRatio.value > 0.99, `zoneEdge=${profile.zoneEdgeRatio.value}`);
+  expect(Math.abs(profile.moveIntensity.value - 0.5) < 0.01, `move=${profile.moveIntensity.value}`);
+  expect(
+    Math.abs(profile.abilityPerMinute.value - 120) < 1e-6,
+    `ability=${profile.abilityPerMinute.value}`,
+  );
+});
+
+check("Calibrate: детерминирован и уважает границы", () => {
+  const profile = extractProfile(syntheticSamples(), "synthetic");
+  const first = calibrate(profile);
+  const second = calibrate(profile);
+  expectEqual(JSON.stringify(first), JSON.stringify(second), "два вызова calibrate");
+  expect(first.agent.params.fireRange >= 180 && first.agent.params.fireRange <= 900, "fireRange");
+  expect(first.agent.params.aimJitter >= 0.005 && first.agent.params.aimJitter <= 0.25, "aimJitter");
+
+  const noisier = calibrate({
+    ...profile,
+    aimError: { ...profile.aimError, p50: profile.aimError.p50 + 0.1 },
+  });
+  expect(
+    noisier.agent.params.aimJitter > first.agent.params.aimJitter,
+    "рост aimError не увеличил aimJitter",
+  );
+
+  const farther = calibrate({
+    ...profile,
+    preferredRange: { ...profile.preferredRange, p90: profile.preferredRange.p90 + 200 },
+  });
+  expect(
+    farther.agent.params.fireRange > first.agent.params.fireRange,
+    "рост preferredRange не увеличил fireRange",
+  );
+
+  const empty = calibrate(extractProfile([], "empty"));
+  expectEqual(empty.agent.params.reactionTime, 0.15, "дефолт reactionTime на пустом профиле");
+});
+
+check("BehaviorProfile: детерминирован, без NaN, пустой — low", () => {
+  const profile = extractProfile(syntheticSamples(), "synthetic");
+  expectEqual(
+    JSON.stringify(profile),
+    JSON.stringify(extractProfile(syntheticSamples(), "synthetic")),
+    "два извлечения профиля",
+  );
+  const walk = (value: unknown, path: string): void => {
+    if (typeof value === "number") {
+      expect(Number.isFinite(value), `${path} = ${value}`);
+      return;
+    }
+    if (value && typeof value === "object") {
+      for (const [key, child] of Object.entries(value)) walk(child, `${path}.${key}`);
+    }
+  };
+  walk(profile, "profile");
+
+  const empty = extractProfile([], "empty");
+  expectEqual(empty.fireRatio.confidence, "low", "confidence пустого профиля");
+  expect(empty.warnings.length > 0, "пустой профиль должен предупреждать");
+});
+
+check("ProfileDistance: идентичные профили → 0, разные → > 0", () => {
+  const base = extractProfile(syntheticSamples(), "synthetic");
+  const shifted = extractProfile(
+    syntheticSamples().map((sample) => ({ ...sample, firing: false })),
+    "synthetic",
+  );
+  expectEqual(profileDistance(base, base), 0, "расстояние до себя");
+  expect(profileDistance(base, shifted) > 0.1, `расстояние=${profileDistance(base, shifted)}`);
+
+  const reactionShift = {
+    ...base,
+    reactionTime: {
+      ...base.reactionTime,
+      p50: base.reactionTime.p50 + 0.2,
+      p90: base.reactionTime.p90 + 0.2,
+    },
+  };
+  expect(
+    profileDistance(base, reactionShift) >= 0.15,
+    `сдвиг reactionTime дал ${profileDistance(base, reactionShift)}`,
+  );
+});
+
+check("EvadeAgent: явные дефолты не меняют поведение", () => {
+  const raw = smokeScenarioRaw();
+  const implicit = parseScenario({ ...raw, player: { agent: "evade" } });
+  const explicit = parseScenario({
+    ...raw,
+    player: { agent: "evade", ...CALIBRATION_DEFAULTS },
+  });
+  const first = executeScenario(implicit, { ticks: 600 });
+  const second = executeScenario(explicit, { ticks: 600 });
+  try {
+    expectEqual(
+      first.snapshotHashes.join(","),
+      second.snapshotHashes.join(","),
+      "дефолты EvadeAgent",
+    );
+  } finally {
+    first.dispose();
+    second.dispose();
+  }
+});
+
+check("Scenario: balance 1.0 не меняет хэш, 1.1 — меняет", async () => {
+  const base = smokeScenario();
+  const neutral = parseScenario({
+    ...smokeScenarioRaw(),
+    balance: { enemyHpMult: 1, enemyDamageMult: 1 },
+  });
+  const boosted = parseScenario({
+    ...smokeScenarioRaw(),
+    balance: { enemyHpMult: 1.1 },
+  });
+  expectEqual(await scenarioHash(base), await scenarioHash(neutral), "нейтральный баланс");
+  expect(
+    (await scenarioHash(base)) !== (await scenarioHash(boosted)),
+    "хэш не изменился при enemyHpMult=1.1",
+  );
+});
+
+check("Scenario: невалидные множители баланса отклоняются", () => {
+  for (const bad of [0, Number.NaN, 5]) {
+    let failed = false;
+    try {
+      parseScenario({ ...smokeScenarioRaw(), balance: { enemyHpMult: bad } });
+    } catch (error) {
+      failed = error instanceof ScenarioError;
+    }
+    expect(failed, `enemyHpMult=${bad} должен быть отклонён`);
+  }
 });
 
 /* ============================== Runner ============================== */

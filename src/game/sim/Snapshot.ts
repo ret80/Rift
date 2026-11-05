@@ -198,13 +198,40 @@ export interface Divergence {
   field: string;
 }
 
+export interface DivergenceOptions {
+  /**
+   * Потоки, которые не являются состоянием мира.
+   *
+   * В реплее `agent` — это вход (записанные намерения), а не результат:
+   * ReplayAgent не бросает кубики, и сравнивать его счётчик нельзя.
+   */
+  ignoreStreams?: readonly RngStream[];
+}
+
+/** Канонический вид мира без потоков, которые не влияют на состояние. */
+function canonicalWorld(snapshot: Snapshot, ignored: ReadonlySet<RngStream>): string {
+  if (ignored.size === 0) return snapshotToCanonical(snapshot);
+  return snapshotToCanonical({
+    ...snapshot,
+    rngDraws: { ...snapshot.rngDraws, ...Object.fromEntries([...ignored].map((s) => [s, 0])) } as Record<
+      RngStream,
+      number
+    >,
+  });
+}
+
 /**
  * Первое расхождение двух серий снимков.
  *
  * Сначала ищется разошедшийся поток случайности — это быстрее объясняет
  * причину, чем диф сущностей.
  */
-export function firstDivergence(a: readonly Snapshot[], b: readonly Snapshot[]): Divergence | null {
+export function firstDivergence(
+  a: readonly Snapshot[],
+  b: readonly Snapshot[],
+  options: DivergenceOptions = {},
+): Divergence | null {
+  const ignored = new Set<RngStream>(options.ignoreStreams ?? []);
   const length = Math.min(a.length, b.length);
   for (let i = 0; i < length; i++) {
     const left = a[i];
@@ -212,13 +239,14 @@ export function firstDivergence(a: readonly Snapshot[], b: readonly Snapshot[]):
     if (left.tick !== right.tick) return { tick: left.tick, field: "tick" };
 
     for (const stream of RNG_STREAMS) {
+      if (ignored.has(stream)) continue;
       if (left.rngDraws[stream] !== right.rngDraws[stream]) {
         return { tick: left.tick, field: `rngDraws.${stream}` };
       }
     }
     if (left.score !== right.score) return { tick: left.tick, field: "score" };
     if (left.wave !== right.wave) return { tick: left.tick, field: "wave" };
-    if (snapshotToCanonical(left) !== snapshotToCanonical(right)) {
+    if (canonicalWorld(left, ignored) !== canonicalWorld(right, ignored)) {
       return { tick: left.tick, field: "entities" };
     }
   }

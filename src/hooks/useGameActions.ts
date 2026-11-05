@@ -23,7 +23,7 @@ import type { PhysicsEngineId } from "../game/physics";
 export interface GameActions {
   startGame(): void;
   toMenu(): void;
-  /** Начать/остановить запись забега для симулятора (`?record`). */
+  /** Начать/остановить запись забега (`?record`). */
   toggleRecording(): void;
   changeVols(v: { master: number; sfx: number; music: number }): void;
   changeMenuTrack(id: MenuTrackId): void;
@@ -100,37 +100,6 @@ export function useGameActions(options: GameActionsOptions): GameActions {
     dispatch({ type: "SET_SCREEN", screen: "menu" });
   };
 
-  const toggleRecording = () => {
-    const game = gameRef.current;
-    if (!game) return;
-
-    if (!game.isRecording()) {
-      game.audio.init();
-      game.startRecording();
-      return;
-    }
-
-    const scenario = game.stopRecording();
-    if (!scenario) return;
-
-    // Сценарий скачивается файлом: его кладут в `scenarios/` и прогоняют
-    // через `npm run sim -- run <файл>`.
-    const blob = new Blob([JSON.stringify(scenario, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${scenario.name}.json`;
-    link.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 0);
-
-    dispatch({
-      type: "SET_TOAST",
-      toast: { id: Date.now(), text: t("hud.recordSaved"), color: "#ffb84d" },
-    });
-  };
-
   // При открытии отладки применяем актуальные наборы врагов/пикапов.
   useEffect(() => {
     if (screen !== "debug") return;
@@ -177,7 +146,6 @@ export function useGameActions(options: GameActionsOptions): GameActions {
   return {
     startGame,
     toMenu,
-    toggleRecording,
     changeVols: (v) => {
       settings.setVols(v);
       gameRef.current?.setVolumes(v);
@@ -257,6 +225,7 @@ export function useGameActions(options: GameActionsOptions): GameActions {
       settings.setDebugWave(n);
       gameRef.current?.setStartWave(n);
     },
+    toggleRecording: () => gameRef.current?.toggleRecording(),
     toggleDebugDetails: () => settings.setDebugDetails(!settings.debugDetails),
   };
 }

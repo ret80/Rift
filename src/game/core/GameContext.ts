@@ -21,12 +21,6 @@ import type { SystemSchedule } from "../ecs/SystemSchedule";
 import { Fx } from "../fx";
 import { GAMEPAD_CODES, GamepadManager } from "../gamepad";
 import { InputManager } from "../input";
-import {
-  IntentRecorder,
-  type RecordingMeta,
-  type RecordingWeaponLevels,
-  type RunRecording,
-} from "./IntentRecorder";
 import type { LoadoutSystem } from "../loadout/LoadoutSystem";
 import type { BonusManager } from "../loadout/bonuses/BonusManager";
 import type { PhysicsEngineId, PhysicsSystem } from "../physics/index";
@@ -65,7 +59,10 @@ import { GameStart } from "./GameStart";
 import { GameUpgrades } from "./GameUpgrades";
 import { createGameWorld, GameWorld } from "./GameWorld";
 import type { PersistencePort } from "./PersistencePort";
-import { HumanControls } from "./PlayerControls";
+import { HumanControls, type PlayerControls } from "./PlayerControls";
+import { RecordingControls } from "./RecordingControls";
+import { SessionRecorder } from "./SessionRecorder";
+import { recordToJsonl, type SessionRecordV1 } from "./SessionRecord";
 import { PresentationFrame } from "./PresentationFrame";
 import { SimulationClock } from "./SimulationClock";
 import type { GameStateMachine } from "./StateMachine";
@@ -92,11 +89,12 @@ export class GameContext {
   readonly input: InputManager;
   readonly inputSystem: InputSystem;
   readonly gamepad = new GamepadManager();
-  /** Порт управления игроком в браузере. */
-  readonly controls: HumanControls;
-
-  /** Запись забега для симулятора (`?record`). */
-  readonly recorder = new IntentRecorder();
+  /** Человеческий ввод без обёрток: сюда пишут мышь/тач/геймпад. */
+  readonly humanControls: HumanControls;
+  /** Пассивная запись забега (работает только в dev/`?debug`). */
+  readonly recorder: SessionRecorder;
+  /** Порт управления игроком; в dev — с записью способности. */
+  readonly controls: PlayerControls;
 
   readonly starfield: Starfield;
   readonly rendererSystem: RendererSystem;
@@ -134,6 +132,14 @@ export class GameContext {
     this.hooks = hooks;
     this.storage = storage;
 
+    // Запись — только dev или явный ?debug=1. В прод-сборке F9 не
+    // перехватывается, а рекордер никогда не включается.
+    const dev = import.meta.env.DEV || readUrlParam("debug") === "1";
+    this.recorder = new SessionRecorder({
+      gitSha: "dev",
+      onFinalize: (record) => this.downloadRecord(record),
+    });
+
     // Рендер-бэкенд: PicoGL; NullRenderer — через URL-параметр ?renderer=null.
     const useNull = readUrlParam("renderer") === "null";
     this.renderer = useNull ? new NullRenderer(canvas) : new PicoGLRenderer(canvas);
@@ -150,20 +156,28 @@ export class GameContext {
     this.input = new InputManager({
       onPauseKey: () => this.togglePause(),
       onLoseFocus: () => {
+        // Потеря фокуса сохраняет уже записанное: иначе запись молча теряется.
+        if (this.recorder.status === "recording") this.stopRecording("focus_lost");
         if (this.fsm.is("playing", "active", "dying") && !this._paused) {
           this.togglePause();
           this.audio.setSuspended(true);
         }
       },
+      ...(dev ? { onRecordKey: () => this.toggleRecording() } : {}),
     });
-    this.controls = new HumanControls(this.input);
+    this.humanControls = new HumanControls(this.input);
+    // Обёртка нужна и для кнопки `?record`: способность пишется по факту
+    // срабатывания, а рекордер сам игнорирует вызовы вне записи.
+    this.controls = new RecordingControls(
+      this.humanControls,
+      () => this.recorder.noteAbility(),
+    );
 
     this.world = createGameWorld({
       seed: this.seedSet,
       startWave: 1,
       physics: (physicsParam as PhysicsEngineId | null) ?? "planck",
       controls: this.controls,
-      recorder: this.recorder,
       ports: {
         audio: this.audio,
         storage,
@@ -192,7 +206,7 @@ export class GameContext {
 
     this.inputSystem = new InputSystem(canvas, {
       onAimUpdate: (mouseX, mouseY, winW, winH) => this.handleAim(mouseX, mouseY, winW, winH),
-      onFiringChanged: (firing) => this.controls.setFiring(firing),
+      onFiringChanged: (firing) => this.humanControls.setFiring(firing),
     });
 
     // Геймпад: создаём и подключаем к InputManager.
@@ -299,6 +313,51 @@ export class GameContext {
     this._paused = paused;
     // На паузе время мира не идёт: накопитель не должен «догонять» после снятия.
     if (paused) this.clock.reset();
+  }
+
+  // ============================== Recording ==============================
+
+  /** F9: взвести до старта, начать/остановить во время забега. */
+  private toggleRecording(): void {
+    if (this.fsm.is("menu", "over")) {
+      if (this.recorder.status === "off") this.recorder.arm();
+      else this.recorder.discard();
+      return;
+    }
+    if (this.recorder.status === "recording") this.stopRecording("user_stop");
+    else this.recorder.start(this.world);
+  }
+
+  /** Остановить запись; сохранение сделает `onFinalize` рекордера. */
+  private stopRecording(reason: "user_stop" | "focus_lost"): void {
+    this.recorder.stop(this.world, reason);
+  }
+
+  /**
+   * Кнопка `?record` в HUD: начать запись с нового забега или остановить её.
+   *
+   * Запись взводится до старта, поэтому начинается с нулевого тика и
+   * остаётся пригодной для точного реплея.
+   */
+  toggleRecordButton(): void {
+    if (this.recorder.status === "recording") {
+      this.stopRecording("user_stop");
+      return;
+    }
+    this.recorder.arm();
+    this.startRun();
+  }
+
+  /** Скачать готовую запись JSONL (dev-инструмент, не геймплей). */
+  private downloadRecord(record: SessionRecordV1): void {
+    const blob = new Blob([recordToJsonl(record)], { type: "application/x-ndjson" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `rift-session-${record.sessionId}.jsonl`;
+    link.click();
+    URL.revokeObjectURL(url);
+    this.hooks.onToast({ text: t("hud.recordSaved"), color: "#ffb84d" });
   }
 
   togglePause(): void {
@@ -434,66 +493,13 @@ export class GameContext {
   // ============================== Run lifecycle ==============================
 
   startRun(): void {
-    // Новый забег не может продолжаться в старой записи: её метаданные врут.
-    this.recorder.cancel();
     if (this.fsm.is("menu", "over")) {
       this.fsm.fire("start");
     }
     this.start.startRun();
   }
 
-  /**
-   * Начать запись забега для симулятора.
-   *
-   * Забег перезапускается без отсчёта: headless-прогон всегда стартует с
-   * первого тика волны, а снятая посреди отсчёта запись не совпала бы с ним.
-   */
-  startRecording(): void {
-    this.startRun();
-    this.world.skipCountdown();
-    this.recorder.start(this.buildRecordingMeta());
-    this.hooks.onBanner(null);
-    this.hooks.onToast({ text: t("hud.recordStarted"), color: "#ff5c54" });
-  }
-
-  /** Остановить запись и забрать её. */
-  stopRecording(): RunRecording | null {
-    return this.recorder.stop();
-  }
-
-  isRecording(): boolean {
-    return this.recorder.recording;
-  }
-
-  /** Метаданные забега для сценария: снимаются после его сброса. */
-  private buildRecordingMeta(): RecordingMeta {
-    const upgrades: Record<string, number> = {};
-    for (const [key, value] of Object.entries(this.upgradeSystem.playerUpgrades)) {
-      if (typeof value === "number") upgrades[key] = value;
-    }
-
-    const weapons: Partial<Record<WeaponId, RecordingWeaponLevels>> = {};
-    for (const [id, entry] of Object.entries(this.upgradeSystem.loadout)) {
-      weapons[id as WeaponId] = {
-        owned: entry.owned,
-        reload: entry.model.reload,
-        damage: entry.model.damage,
-        accuracy: entry.model.accuracy,
-      };
-    }
-
-    return {
-      seed: this.seedSet.master,
-      physics: this.world.physicsEngine,
-      startWave: this.waveOrchestrator.wave,
-      viewport: { width: this.viewport.width, height: this.viewport.height },
-      upgrades,
-      weapons,
-    };
-  }
-
   toMenu(): void {
-    this.recorder.cancel();
     this.start.toMenu();
   }
 
@@ -556,7 +562,7 @@ export class GameContext {
     const player = this.ecs.playerRef();
     if (!player) return;
     const angle = Math.atan2(worldY - player.position.y, worldX - player.position.x);
-    this.controls.setAim(angle);
+    this.humanControls.setAim(angle);
   }
 
   /** Звук выстрела для презентационных вызовов (menu/debug). */
@@ -566,6 +572,7 @@ export class GameContext {
   }
 
   destroy(): void {
+    if (this.recorder.status === "recording") this.stopRecording("user_stop");
     this.world.destroy();
     this.loop.destroy();
     this.inputSystem.destroy();

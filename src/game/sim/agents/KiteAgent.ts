@@ -24,17 +24,21 @@ export interface KiteAgentOptions extends Partial<AgentParams> {
   maxRange?: number;
   /** Направление страйфа. */
   direction?: 1 | -1;
+  /** Доля радиуса зоны, до которой разрешена тактика (default 0.82). */
+  zoneMargin?: number;
 }
 
 export class KiteAgent extends AbstractPlayerAgent {
   protected readonly minRange: number;
   protected readonly maxRange: number;
+  protected readonly zoneMargin: number;
   protected direction: 1 | -1;
 
   constructor(options: KiteAgentOptions, rng: Rng) {
     super(options, rng);
     this.minRange = options.minRange ?? 240;
     this.maxRange = options.maxRange ?? 420;
+    this.zoneMargin = options.zoneMargin ?? 0.82;
     this.direction = options.direction ?? 1;
   }
 
@@ -101,7 +105,7 @@ export class KiteAgent extends AbstractPlayerAgent {
     const dx = view.player.x - view.zone.x;
     const dy = view.player.y - view.zone.y;
     const dist = Math.hypot(dx, dy);
-    const limit = view.zone.radius * 0.82;
+    const limit = view.zone.radius * this.zoneMargin;
     if (dist <= limit || dist < 1e-3) return move;
 
     const inward = { x: -dx / dist, y: -dy / dist };

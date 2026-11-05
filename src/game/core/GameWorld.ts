@@ -11,10 +11,7 @@
  */
 
 import { AbilitySystem } from "../abilities/AbilitySystem";
-import { AsteroidField } from "../asteroids";
-import {
-  EnemyKind,
-  PLAYER_HITBOX_RADIUS,
+import { AsteroidField } from "../asteroids";import { EnemyKind, PLAYER_HITBOX_RADIUS,
   PLAYER_MAX_SPEED,
   SURVIVAL_PARTS_CAP,
   SURVIVAL_PARTS_INTERVAL,
@@ -54,8 +51,13 @@ import { WeaponManager } from "../weapons/WeaponManager";
 import { EventBus } from "./EventBus";
 import type { GameFSMContext } from "./GameFSM";
 import { GAME_TRANSITIONS } from "./GameFSM";
-import type { IntentRecorder } from "./IntentRecorder";
 import { AgentControls, type PlayerControls } from "./PlayerControls";
+import {
+  resolveBalanceOverrides,
+  type BalanceOverrides,
+  type ResolvedBalanceOverrides,
+} from "../balance/BalanceOverrides";
+import type { SessionRecorderPort } from "./SessionRecord";
 import type { PlayerAgent, PlayerView, PlayerViewBullet, PlayerViewEnemy } from "../sim/agents/PlayerAgent";
 import {
   createRngStreams,
@@ -85,10 +87,12 @@ export interface GameWorldConfig {
   skipCountdown?: boolean;
   /** Тестовый режим: без сохранений и начисления деталей. */
   testMode?: boolean;
+  /** Явные множители баланса; при 1.0 поведение бит-в-бит прежнее. */
+  balance?: BalanceOverrides;
+  /** Пассивный рекордер: только читает мир и не влияет на тики. */
+  recorder?: SessionRecorderPort;
   /** Порт управления; по умолчанию — AgentControls (агент задаёт намерения). */
   controls?: PlayerControls;
-  /** Запись намерений игрока по тикам (браузерный `?record`). */
-  recorder?: IntentRecorder;
   /**
    * Фабрика агента игрока. Получает поток `agent` из SeedSet, поэтому
    * решения агента не сдвигают боевые броски и считаются в rngDraws.
@@ -102,8 +106,6 @@ export class GameWorld {
   readonly rngStreams: RngStreams;
   readonly eventBus: EventBus;
   readonly controls: PlayerControls;
-  /** Рекордер браузерного забега; в headless-мире отсутствует. */
-  readonly recorder: IntentRecorder | null;
   /** Агент игрока (null — управляет человек). */
   readonly agent: PlayerAgent | null;
   private readonly agentControls: AgentControls | null;
@@ -144,6 +146,10 @@ export class GameWorld {
   startWave: number;
   /** Тестовый режим `?test=...`: не сохранять рекорд и не начислять детали. */
   testMode: boolean;
+  /** Множители баланса прогона. */
+  readonly balance: ResolvedBalanceOverrides;
+  /** Пассивный рекордер сессии (null — запись выключена). */
+  readonly recorder: SessionRecorderPort | null;
 
   /** Сечение камеры/вьюпорта (обновляется хостом или сценарием). */
   private _view: WorldView;
@@ -155,14 +161,13 @@ export class GameWorld {
   private worldFrame: WorldFrame | null = null;
   private readonly unsubscribers: Array<() => void> = [];
 
-  private physicsEngineId: PhysicsEngineId;
+  readonly physicsEngineId: PhysicsEngineId;
 
   constructor(config: GameWorldConfig) {
     this.ports = config.ports;
     this.seedSet = config.seed;
     this.rngStreams = createRngStreams(config.seed);
     this.controls = config.controls ?? new AgentControls();
-    this.recorder = config.recorder ?? null;
     this.agent = config.agent ? config.agent(this.rng("agent")) : null;
     this.agentControls = this.controls instanceof AgentControls ? this.controls : null;
     if (this.agent && !this.agentControls) {
@@ -170,19 +175,13 @@ export class GameWorld {
     }
     this.startWave = config.startWave ?? 1;
     this.testMode = config.testMode ?? false;
+    this.balance = resolveBalanceOverrides(config.balance);
+    this.recorder = config.recorder ?? null;
     this.physicsEngineId = config.physics ?? "planck";
     this._view = { ...DEFAULT_WORLD_VIEW, ...(config.view ?? {}) };
 
     // Часы мира — время тика, а не стенное время: события детерминированы.
     this.eventBus = new EventBus(() => this.time);
-
-    // Способность пишется по факту срабатывания, а не по нажатию: реплей
-    // иначе активировал бы её повторно после перезарядки.
-    if (this.recorder) {
-      this.unsubscribers.push(
-        this.eventBus.subscribe("ability_used", () => this.recorder?.markAbilityUsed()),
-      );
-    }
 
     this.physics = new PhysicsSystem(
       createPhysicsEngine(this.physicsEngineId),
@@ -204,6 +203,8 @@ export class GameWorld {
         audio: this.ports.audio,
         rngCombat: this.rng("combat"),
         rngSpawn: this.rng("spawn"),
+        getEnemyHpMult: () => this.balance.enemyHpMult,
+        getEnemyDamageMult: () => this.balance.enemyDamageMult,
       },
     );
 
@@ -422,11 +423,11 @@ export class GameWorld {
     this.setupListeners();
 
     this.deathSystem = this.createDeathSystem();
-    this.autoSkipCountdown = config.skipCountdown ?? false;
+    this.skipCountdown = config.skipCountdown ?? false;
   }
 
   /** Пропускать ли обратный отсчёт (headless). */
-  private readonly autoSkipCountdown: boolean;
+  private readonly skipCountdown: boolean;
 
   // ============================== RNG / время ==============================
 
@@ -475,6 +476,10 @@ export class GameWorld {
       this.agentControls.setIntent(this.agent.update(this.buildPlayerView(), FIXED_DT));
     }
 
+    // Рекордер снимает намерение ПОСЛЕ решения агента: иначе запись
+    // агентского прогона отставала бы от мира на один тик.
+    this.recorder?.beginTick(this, this.controls);
+
     // Управление применяется до тика систем, иначе оно попадёт в следующий тик.
     this.weaponManager.setManualAim(this.controls.aimAngle);
     this.weaponManager.setManualFiring(this.controls.firing);
@@ -490,9 +495,9 @@ export class GameWorld {
     // Пояс астероидов — часть мира, а не презентации.
     this.asteroidField.update(FIXED_DT, this.asteroidEnv());
 
-    // Намерение снимается в конце тика: способность успевает сработать,
-    // а ось/прицел/огонь за тик не меняются.
-    this.recorder?.sample(this.controls);
+    // Сэмпл и checkpoint снимаются после всех систем: позиция/HP уже
+    // отражают результат тика.
+    this.recorder?.endTick(this);
   }
 
   /** Окружение пояса астероидов из сечения мира и зоны. */
@@ -567,12 +572,15 @@ export class GameWorld {
 
     this.countdownSystem.startWave(this.waveOrchestrator.wave);
     // Headless: волна стартует сразу, без отсчёта и баннеров.
-    if (this.autoSkipCountdown) this.countdownSystem.skip();
+    if (this.skipCountdown) this.countdownSystem.skip();
+
+    // Запись стартует с нулевого тика; взведённый рекордер включается здесь.
+    this.recorder?.onRunStart(this);
   }
 
-  /** Пропустить отсчёт текущей волны (запись стартует с чистого тика). */
-  skipCountdown(): void {
-    this.countdownSystem.skip();
+  /** Пропускается ли обратный отсчёт (нужно записи и повтору). */
+  get skipCountdownEnabled(): boolean {
+    return this.skipCountdown;
   }
 
   /** Вернуть мир в состояние «до забега» (без презентационных сбросов). */
@@ -631,13 +639,7 @@ export class GameWorld {
 
   /** Сменить физический движок (только до первых тиков). */
   setPhysicsEngine(id: PhysicsEngineId): void {
-    this.physicsEngineId = id;
     this.physics.setEngine(createPhysicsEngine(id));
-  }
-
-  /** Физический движок забега: входит в сценарий записи. */
-  get physicsEngine(): PhysicsEngineId {
-    return this.physicsEngineId;
   }
 
   // ============================== Reads ==============================
@@ -859,6 +861,9 @@ export class GameWorld {
         this.ports.audio.setCombat(false);
         this.ports.hooks.onToast(null);
         this.fsm.fire("player_died");
+        // Рекордер финализирует запись в конце текущего тика, когда
+        // tickIndex уже отражает полный тик смерти.
+        this.recorder?.onRunEnd("game_over", this);
       }),
     );
 

@@ -4,6 +4,7 @@
  */
 
 import type { LoadoutSlotData } from "../loadout/LoadoutTypes";
+import type { SessionRecorderStatus } from "../core/SessionRecord";
 import type { ShieldRenderState } from "./render";
 
 /* ============================== HUD ============================== */
@@ -28,8 +29,8 @@ export interface HudData {
   shield: ShieldRenderState;
   /** Weapon + bonus slots rendered in the HUD loadout row. */
   loadout: LoadoutSlotData[];
-  /** Идёт запись забега для симулятора (`?record`). */
-  recording: boolean;
+  /** Состояние записи: индикатор виден только в dev/`?debug`. */
+  recording: SessionRecorderStatus;
 }
 
 /* ============================== Banners / Toasts / Countdown ============================== */
