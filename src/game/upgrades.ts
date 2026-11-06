@@ -51,7 +51,7 @@ export interface PlayerUpgrades {
   parts: number;          // доступные детали (валюта)
   hull: number;           // уровень прокачки корпуса (+20 HP за уровень)
   speed: number;          // уровень скорости (+5% за уровень)
-  guns: number;           // уровень орудий (+1 слот оружия за уровень, макс 5)
+  guns: number;           // уровень орудий (+1 слот оружия за уровень, макс 2)
   drones: number;         // уровень дронов (+1 дрон за уровень, макс 8)
   shield: number;         // щит куплен (1) или ещё нет (0) — базовые 5% и 9 ед/с
   shieldPercent: number;  // процент блокировки урона щитом (5% + 5% за уровень)
@@ -128,9 +128,15 @@ export function weaponUpgradeCost(level: number): number {
   return 180 + 140 * Math.max(0, level);
 }
 
-/** Стоимость покупки оружия. Пушка стартовое — стоимость 0. */
+/**
+ * Стоимость покупки оружия. Пушка стартовая — стоимость 0.
+ *
+ * Ракета и лазер стоят 420 (было 900): первая покупка должна менять игру за
+ * 1–2 забега, а не за 4–10. Это новая механика (самонаведение, мгновенный
+ * луч), поэтому она дешёвая, а линии прокачки остаются дорогими.
+ */
 export function weaponCost(id: WeaponId): number {
-  return id === "cannon" ? 0 : 900;
+  return id === "cannon" ? 0 : 420;
 }
 
 /* ======================== Default state ======================== */
@@ -167,15 +173,21 @@ export function defaultUpgrades(): PlayerUpgrades {
  *  - guns (×1.15) — мультипликативный рост урона;
  *  - shieldRegen (×1.1) — защита: быстрее возвращается щит;
  *  - hull (×1.0) — защита;
- *  - speed (×0.45) — чистая мобильность, самый дешёвый.
+ *  - speed (×0.6) — мобильность: самая влиятельная на выживаемость линия
+ *    после пересмотра цены (было ×0.45: 460 деталей за +40 % скорости
+ *    делали обгон врагов бесплатным билетом в безопасность).
  *
  * Щит покупается один раз (линия shield, maxLevel 1) и открывает две
  * под-линии: процент блокировки и скорость восстановления.
  */
 export const UPGRADE_TIERS: Record<UpgradeKey, UpgradeTier> = {
   hull:          { baseCost: 81,  costStep: 60,  maxLevel: 10 },
-  speed:         { baseCost: 16,  costStep: 12,  maxLevel: 8  },
-  guns:          { baseCost: 214, costStep: 160, maxLevel: 4  },
+  // Скорость: 8 уровней дают в сумме ~2 080 деталей вместо 460. Мобильность
+  // должна быть выбором с ценой, а не бесплатным билетом в безопасность.
+  speed:         { baseCost: 160, costStep: 30,  maxLevel: 8  },
+  // Орудия: 1 + уровень слотов, но в арсенале ровно 3 оружия (пушка,
+  // ракета, лазер). Уровни 3–4 ничего не давали и удалены (мёртвая покупка).
+  guns:          { baseCost: 214, costStep: 160, maxLevel: 2  },
   drones:        { baseCost: 341, costStep: 239, maxLevel: 7  },
   shield:        { baseCost: 420, costStep: 0,   maxLevel: 1  },
   shieldPercent: { baseCost: 160, costStep: 120, maxLevel: 7  },
@@ -241,6 +253,9 @@ function migrate(parsed: Partial<PlayerUpgrades>): PlayerUpgrades {
     migrated.shield = 1;
   }
   migrated.shield = Math.min(UPGRADE_TIERS.shield.maxLevel, migrated.shield);
+  // Линия «орудия» урезана до 2 уровней (третьего оружия в арсенале нет):
+  // старые сейвы с уровнями 3–4 подрезаются, а не показывают мёртвые слоты.
+  migrated.guns = Math.min(UPGRADE_TIERS.guns.maxLevel, migrated.guns);
   return migrated;
 }
 
@@ -355,7 +370,7 @@ export interface AppliedUpgrades {
   healRateMult: number;
   /** Множитель скорости: 1.0 база + 0.05 за уровень. */
   speedMult: number;
-  /** Число слотов оружия корабля: 1 база + уровень, макс 5. */
+  /** Число слотов оружия корабля: 1 база + уровень, макс 3 (пушка, ракета, лазер). */
   weaponSlots: number;
   /** Число слотов под дроны корабля: 1 база + уровень, макс 8. */
   droneSlots: number;
@@ -386,8 +401,8 @@ export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
   // speed: 1.0 base + 0.05 per level
   const speedMult = 1.0 + upgrades.speed * 0.05;
 
-  // weapon slots: base 1 + level, capped at 5
-  const weaponSlots = Math.min(1 + upgrades.guns, 5);
+  // weapon slots: base 1 + level, но не больше числа оружий в арсенале (3)
+  const weaponSlots = Math.min(1 + upgrades.guns, 3);
 
   // drone slots: base 1 + level, capped at 8
   const droneSlots = Math.min(1 + upgrades.drones, 8);

@@ -35,4 +35,9 @@ export class RecordingControls implements PlayerControls {
     if (consumed) this.onAbility();
     return consumed;
   }
+
+  /** Рывок проксируется без записи: он не входит в формат интентов. */
+  consumeDash(): boolean {
+    return this.inner.consumeDash();
+  }
 }

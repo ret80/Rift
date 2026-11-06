@@ -11,10 +11,11 @@
  */
 
 import { AbilitySystem } from "../abilities/AbilitySystem";
-import { AsteroidField } from "../asteroids";import { EnemyKind, PLAYER_HITBOX_RADIUS,
+import { AsteroidField } from "../asteroids";import { EnemyKind, GRAZE_PARTS_PER_COIN, GRAZE_PARTS_WAVE_CAP,
+  PLAYER_HITBOX_RADIUS,
   PLAYER_MAX_SPEED,
-  SURVIVAL_PARTS_CAP,
-  SURVIVAL_PARTS_INTERVAL,
+  WAVE_CLEAN_CLEAR_MULT,
+  killPartsMultiplier,
   waveClearParts,
   waveTotalFor,
 } from "../balance";
@@ -157,9 +158,12 @@ export class GameWorld {
   /** Сечение камеры/вьюпорта (обновляется хостом или сценарием). */
   private _view: WorldView;
 
-  /** Накопитель страховки за выживание и уже выданное количество. */
-  private survivalTimer = 0;
-  private survivalAwarded = 0;
+  /** Касания (graze) с последней выданной деталью — источник награды за риск. */
+  private grazePartsProgress = 0;
+  /** Сколько деталей за graze уже выдано на этой волне. */
+  private grazePartsAwarded = 0;
+  /** Игрок получил урон на текущей волне (чистая зачистка уже невозможна). */
+  private waveDamaged = false;
 
   private worldFrame: WorldFrame | null = null;
   private readonly unsubscribers: Array<() => void> = [];
@@ -218,10 +222,18 @@ export class GameWorld {
       hooks: {
         onBanner: (banner) => this.ports.hooks.onBanner(banner),
         onToast: (text, color) => this.ports.hooks.onToast({ text, color }),
-        hitPlayerRaw: (amount) => this.playerSystem.hitRaw(amount),
+        hitPlayerRaw: (amount) => {
+          this.waveDamaged = true;
+          this.playerSystem.hitRaw(amount);
+        },
+        hitPlayerShielded: (amount) => this.hitPlayerByEnvironment(amount),
         shakeScreen: (strength) => fxPort.addShake(strength),
         onWaveCleared: (wave) => {
-          if (!this.testMode) this.upgradeSystem.addParts(waveClearParts(wave));
+          if (this.testMode) return;
+          // Чистая зачистка (ни одного полученного удара) платит больше:
+          // награда за мастерство, а не за время в бою.
+          const mult = this.waveDamaged ? 1 : WAVE_CLEAN_CLEAR_MULT;
+          this.upgradeSystem.addParts(Math.round(waveClearParts(wave) * mult));
         },
         onWaveAdvanced: () => {
           const nextWave = this.waveOrchestrator.wave;
@@ -362,6 +374,9 @@ export class GameWorld {
       addParts: (n) => {
         if (!this.testMode) this.upgradeSystem.addParts(n);
       },
+      // Комбо множит детали за убийство: серия убийств — это мастерство,
+      // а не количество врагов на карте.
+      getPartsMultiplier: () => killPartsMultiplier(this.scoringSystem.comboMult),
     }, this.rng("drops"));
 
     this.collisionSystem = new CollisionSystem(
@@ -487,8 +502,6 @@ export class GameWorld {
     this.weaponManager.setManualAim(this.controls.aimAngle);
     this.weaponManager.setManualFiring(this.controls.firing);
 
-    if (this.fsm.is("playing", "active")) this.updateSurvivalStipend(FIXED_DT);
-
     // В dying/over игровые системы не тикают, чтобы не оставлять «сиротские» пули.
     if (!this.fsm.is("dying", "over")) {
       this.ecs.update(FIXED_DT);
@@ -529,7 +542,7 @@ export class GameWorld {
     this.agentControls?.reset();
     this.tickIndex = 0;
     this.scoringSystem.reset();
-    this.resetSurvivalStipend();
+    this.resetWaveEconomy();
     this.scoringSystem.setKilledWave(0);
 
     this.playerSystem.reset();
@@ -625,24 +638,22 @@ export class GameWorld {
     });
   }
 
-  /** Сбросить страховку за выживание в начале забега. */
-  resetSurvivalStipend(): void {
-    this.survivalTimer = 0;
-    this.survivalAwarded = 0;
+  /** Сбросить награду за мастерство к началу забега/волны. */
+  resetWaveEconomy(): void {
+    this.grazePartsProgress = 0;
+    this.grazePartsAwarded = 0;
+    this.waveDamaged = false;
   }
 
-  /** Начислить страховку за выживание: 1 деталь за 3 с, максимум 30. */
-  updateSurvivalStipend(dt: number): void {
-    if (this.testMode || this.survivalAwarded >= SURVIVAL_PARTS_CAP) return;
-    this.survivalTimer += dt;
-    while (
-      this.survivalTimer >= SURVIVAL_PARTS_INTERVAL &&
-      this.survivalAwarded < SURVIVAL_PARTS_CAP
-    ) {
-      this.survivalTimer -= SURVIVAL_PARTS_INTERVAL;
-      this.survivalAwarded++;
-      this.upgradeSystem.addParts(1);
-    }
+  /**
+   * Урон от среды (буря на кромке): проходит через щит, но без кадров
+   * неуязвимости и с отдельным источником в метриках.
+   */
+  hitPlayerByEnvironment(amount: number): void {
+    if (amount <= 0) return;
+    const afterShield = this.shieldSystem.absorb(amount);
+    this.playerSystem.hitRaw(afterShield);
+    this.eventBus.publish("player_zone_damaged", { dmg: afterShield, source: "zone_storm" });
   }
 
   /** Включить тестовую волну точного состава. */
@@ -862,6 +873,7 @@ export class GameWorld {
         this.ports.audio.setCombatWave(wave);
         this.ports.audio.setCombat(true);
         this.scoringSystem.setKilledWave(0);
+        this.resetWaveEconomy();
         this.spawnSystem.reset();
         const pos = this.getPlayerPosition();
         const total = this.spawnSystem.compositionTotal ?? waveTotalFor(wave);
@@ -896,6 +908,26 @@ export class GameWorld {
       }),
     );
 
+    // Любой полученный урон отменяет бонус за чистую зачистку волны.
+    this.unsubscribers.push(
+      bus.subscribe("player_damaged", () => {
+        this.waveDamaged = true;
+      }),
+    );
+    this.unsubscribers.push(
+      bus.subscribe("player_zone_damaged", () => {
+        this.waveDamaged = true;
+      }),
+    );
+
+    // Graze — риск, а не просто очки: каждые GRAZE_PARTS_PER_COIN касаний
+    // дают деталь, но с потолком на волну.
+    this.unsubscribers.push(
+      bus.subscribe("bullet_grazed", (event) => {
+        this.awardGrazeParts(event.payload.count);
+      }),
+    );
+
     this.unsubscribers.push(
       bus.subscribe("pickup_collected", (event) => {
         this.applyPickupSystem.apply(event.payload.kind as PickupKind);
@@ -909,6 +941,20 @@ export class GameWorld {
       this.ports.audio.playDroneShot();
     } else {
       this.ports.audio.playShoot();
+    }
+  }
+
+  /** Детали за касания снарядов: 1 за каждые GRAZE_PARTS_PER_COIN, с потолком на волну. */
+  private awardGrazeParts(count: number): void {
+    if (this.testMode) return;
+    this.grazePartsProgress += count;
+    while (
+      this.grazePartsProgress >= GRAZE_PARTS_PER_COIN &&
+      this.grazePartsAwarded < GRAZE_PARTS_WAVE_CAP
+    ) {
+      this.grazePartsProgress -= GRAZE_PARTS_PER_COIN;
+      this.grazePartsAwarded++;
+      this.upgradeSystem.addParts(1);
     }
   }
 

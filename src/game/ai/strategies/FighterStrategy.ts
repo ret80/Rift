@@ -69,11 +69,14 @@ import {
   FIGHTER_STANDOFF_R,
   FIGHTER_STANDOFF_BAND,
   PLAYER_HIT_RADIUS,
+  ZONE_EDGE_AVOID_HARD,
+  ZONE_EDGE_AVOID_RADIUS,
 } from '../../balance';
 import type { EnemyRef } from '../../ecs';
 import type { EnemyComponent } from '../../ecs/components/EnemyComponent';
 import { clamp, lerpAngle, smoothVelocity } from '../../math';
 import type { GameContext } from '../GameContext';
+import { edgeAvoidScale } from '../ZoneEdgePolicy';
 import type { IEnemyStrategy } from '../IEnemyStrategy';
 
 /** Состояния поведения истребителя. */
@@ -88,9 +91,6 @@ const CUT = 6;
 /** Минимальный радиус зоны, при котором она считается действующей границей. */
 const MIN_ZONE_RADIUS = 40;
 
-// Отворачивание от края зоны
-const AVOID_ZONE_RADIUS = 160; // радиус, на котором начинается избегание
-const AVOID_HARD = 60;         // ближе — движение у края полностью по касательной
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 // Сглаживание рампы (smoothstep)
@@ -366,6 +366,9 @@ export class FighterStrategy implements IEnemyStrategy {
    */
   private tryFire(enemy: EnemyRef, context: GameContext): boolean {
     const marker = enemy.marker;
+    // Стреляет только тот истребитель, у которого есть жетон атаки:
+    // это ограничивает одновременные угрозы (см. ThreatDirector).
+    if (!marker.attackAllowed) return false;
     // Очередь уже идёт или держится пауза между очередями.
     if (marker.burstLeft > 0 || marker.fireCd > 0) return false;
     if (!this.fireWindow(enemy, context)) return false;
@@ -413,6 +416,8 @@ export class FighterStrategy implements IEnemyStrategy {
    */
   private canCommit(enemy: EnemyRef, context: GameContext, dist: number): boolean {
     const { marker, position } = enemy;
+    // Без жетона атаки истребитель остаётся в очереди: держит кольцо, не заходит.
+    if (!marker.attackAllowed) return false;
     if (dist > FIGHTER_COMMIT_RANGE) return false;
 
     const t = solveInterceptTime(
@@ -501,12 +506,13 @@ export class FighterStrategy implements IEnemyStrategy {
     const vel = enemy.velocity;
     const distToCenter = Math.hypot(pos.x - zoneX, pos.y - zoneY) || 1;
     const distToEdge = zoneRadius - distToCenter - enemy.radius.r;
-    if (distToEdge >= AVOID_ZONE_RADIUS) return targetMoveAngle;
+    if (distToEdge >= ZONE_EDGE_AVOID_RADIUS) return targetMoveAngle;
 
     const raw = clamp01(
-      (AVOID_ZONE_RADIUS - distToEdge) / (AVOID_ZONE_RADIUS - AVOID_HARD)
+      (ZONE_EDGE_AVOID_RADIUS - distToEdge) / (ZONE_EDGE_AVOID_RADIUS - ZONE_EDGE_AVOID_HARD)
     );
-    const avoidWeight = smooth01(raw);
+    // У кромки игрока отворачивание слабеет: край перестаёт быть коридором.
+    const avoidWeight = smooth01(raw) * edgeAvoidScale(context);
 
     // Доля движения, направленного внутрь зоны (к центру).
     // Если файтер уже летит от края — избегание не вмешивается.

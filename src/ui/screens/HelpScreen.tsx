@@ -74,6 +74,10 @@ export default function HelpScreen(props: {
               <span>— {t("help.pause")}</span>
             </div>
             <div className="flex items-center gap-2">
+              <span className="kbd">Shift</span>
+              <span>— {t("help.dash")}</span>
+            </div>
+            <div className="flex items-center gap-2">
               <span className="kbd">T</span>
               <span>— {t("help.tactical")}</span>
             </div>

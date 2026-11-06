@@ -34,6 +34,10 @@ export interface HudData {
   recording: SessionRecorderStatus;
   /** Текущий приказ рою дронов (тактический режим). */
   droneOrder: DroneOrder;
+  /** Рывок готов к использованию. */
+  dashReady: boolean;
+  /** Остаток перезарядки рывка, секунды. */
+  dashCooldown: number;
 }
 
 /* ============================== Banners / Toasts / Countdown ============================== */

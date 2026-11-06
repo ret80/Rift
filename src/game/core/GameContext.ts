@@ -622,14 +622,6 @@ export class GameContext {
     this.world.spawnEnemy(kind, x, y, parent);
   }
 
-  updateSurvivalStipend(dt: number): void {
-    this.world.updateSurvivalStipend(dt);
-  }
-
-  resetSurvivalStipend(): void {
-    this.world.resetSurvivalStipend();
-  }
-
   setWaveOverride(override: WaveCompositionOverride): void {
     this.world.setWaveOverride(override);
   }

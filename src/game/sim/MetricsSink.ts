@@ -76,6 +76,17 @@ export class MetricsSink {
         this.damageTakenByKind.set(source, (this.damageTakenByKind.get(source) ?? 0) + event.payload.dmg);
       }),
     );
+    // Урон среды (буря на кромке) — тот же счётчик урона, отдельный источник.
+    this.unsubscribers.push(
+      bus.subscribe("player_zone_damaged", (event) => {
+        this.damageTaken += event.payload.dmg;
+        const source = event.payload.source;
+        this.damageTakenByKind.set(
+          source,
+          (this.damageTakenByKind.get(source) ?? 0) + event.payload.dmg,
+        );
+      }),
+    );
     this.unsubscribers.push(
       bus.subscribe("bullet_grazed", (event) => {
         this.graze += event.payload.count;

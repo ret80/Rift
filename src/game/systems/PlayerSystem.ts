@@ -25,7 +25,13 @@ import { updateMovement } from './PlayerMovement';
 import type { PlayerRef } from '../ecs';
 import { PlayerComponent } from '../ecs/components/PlayerComponent';
 import { trackTurnRate } from '../aiming/AimSolver';
-import { PLAYER_HIT_INVULN } from '../balance/player';
+import {
+  PLAYER_DASH_COOLDOWN,
+  PLAYER_DASH_IFRAMES,
+  PLAYER_DASH_IMPULSE,
+  PLAYER_HIT_INVULN,
+  PLAYER_MAX_SPEED,
+} from '../balance/player';
 
 /** Флаг: должна ли система сама интегрировать позицию (true в custom-режиме). */
 export type PlayerIntegrateSource = () => boolean;
@@ -49,6 +55,8 @@ export class PlayerSystem extends PhasedSystem {
   /** Скорость игрока на прошлом кадре — для оценки угловой скорости курса. */
   private prevVx = 0;
   private prevVy = 0;
+  /** Остаток перезарядки рывка, секунды. */
+  private dashCd = 0;
 
   constructor(
     eventBus: EventBus,
@@ -122,8 +130,56 @@ export class PlayerSystem extends PhasedSystem {
     this.prevVx = velocity.vx;
     this.prevVy = velocity.vy;
 
+    // Рывок: короткий импульс по текущему курсу. Импульс важнее доворота —
+    // он выносит корабль из линии огня, поэтому применяется после
+    // движения и не ограничен пределом скорости на этом кадре.
+    this.dashCd = Math.max(0, this.dashCd - dt);
+    if (this.dashCd <= 0 && this.controls.consumeDash()) {
+      this.applyDash(ref);
+      this.dashCd = PLAYER_DASH_COOLDOWN;
+    }
+
     // Invulnerability timer
     marker.invuln = Math.max(0, marker.invuln - dt);
+  }
+
+  /**
+   * Выполнить рывок: импульс по курсу (или по вводу, если корабль стоит)
+   * и короткие кадры неуязвимости.
+   */
+  private applyDash(ref: PlayerRef): void {
+    const { velocity, marker } = ref;
+    const speed = Math.hypot(velocity.vx, velocity.vy);
+    const axis = this.controls.axis;
+    const inputLen = Math.hypot(axis.x, axis.y);
+
+    let dirX: number;
+    let dirY: number;
+    if (speed > 20) {
+      dirX = velocity.vx / speed;
+      dirY = velocity.vy / speed;
+    } else if (inputLen > 0.01) {
+      dirX = axis.x / inputLen;
+      dirY = axis.y / inputLen;
+    } else {
+      dirX = Math.cos(marker.angle);
+      dirY = Math.sin(marker.angle);
+    }
+
+    const launch = Math.max(speed, PLAYER_MAX_SPEED * this.speedMult) + PLAYER_DASH_IMPULSE;
+    velocity.vx = dirX * launch;
+    velocity.vy = dirY * launch;
+    marker.invuln = Math.max(marker.invuln, PLAYER_DASH_IFRAMES);
+  }
+
+  /** Готов ли рывок (для HUD). */
+  get dashReady(): boolean {
+    return this.dashCd <= 0;
+  }
+
+  /** Остаток перезарядки рывка, секунды. */
+  get dashCooldownLeft(): number {
+    return this.dashCd;
   }
 
   reset(): void {
@@ -137,6 +193,7 @@ export class PlayerSystem extends PhasedSystem {
     ref.marker.turnRate = 0;
     this.prevVx = 0;
     this.prevVy = 0;
+    this.dashCd = 0;
   }
 
   // ---- HP (базовый LifeComponent) ----

@@ -38,6 +38,7 @@ import {
     buildZoneState,
     renderZone,
     renderZoneReturnIndicator,
+    renderZoneStorm,
 } from "./Renderers/ZoneRenderer";
 
 /* ============================== config ============================== */
@@ -70,7 +71,7 @@ export class RendererSystem {
       state, time,
       player, aim, guns, shield,
       enemies, bullets, enemyBullets: ebullets, pickups, allyDrones: drones, beams,
-      zone: zoneState, camera, view,
+      zone: zoneState, storm, camera, view,
     } = scene;
 
     // Build render states — each renderer owns its transformation
@@ -97,8 +98,10 @@ export class RendererSystem {
       allyDrones: buildDroneState(drones),
       zone: zoneState ? buildZoneState(
         zoneState.active, zoneState.x, zoneState.y,
-        zoneState.radius, zoneState.targetRadius, zoneState.alpha
+        zoneState.radius, zoneState.targetRadius, zoneState.alpha,
+        zoneState.collapseT, zoneState.phase
       ) : null,
+      storm,
       beams,
     };
 
@@ -133,6 +136,7 @@ export class RendererSystem {
       pickups,
       allyDrones,
       zone,
+      storm,
       beams,
     } = frame;
 
@@ -152,6 +156,7 @@ export class RendererSystem {
       if (zone) {
         R.setLayer("flat");
         renderZone(R, zone, time);
+        if (storm) renderZoneStorm(R, storm, time);
         R.setLayer("scene");
       }
       this.drawRifts(R, time);

@@ -146,6 +146,16 @@ export class InputManager {
     return true;
   }
 
+  /**
+   * Зафиксировать виртуальное нажатие (кнопки тач-интерфейса).
+   *
+   * Код попадает в тот же буфер одиночных нажатий, что и клавиатура,
+   * поэтому игровые системы не различают источник ввода.
+   */
+  pressVirtual(code: string) {
+    this.pressed.add(code);
+  }
+
   /** Drop all held keys / touch (used on blur and pause). */
   clear() {
     this.keys.clear();

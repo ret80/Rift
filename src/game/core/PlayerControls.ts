@@ -44,6 +44,13 @@ export interface PlayerControls {
   /** Одноразовое нажатие способности: true ровно один тик. */
   consumeAbility(): boolean;
   /**
+   * Одноразовый запрос рывка: true ровно один тик.
+   *
+   * Рывок — базовый глагол игрока, а не способность из пикапа: он не
+   * занимает слот нагрузки и доступен всегда (ограничен только КД).
+   */
+  consumeDash(): boolean;
+  /**
    * Была ли способность потреблена на текущем тике.
    *
    * Нужно для сэмпла поведения без повторного `consumeAbility()`: второй
@@ -87,6 +94,12 @@ export class HumanControls implements PlayerControls {
 
   consumeAbility(): boolean {
     return this.input.consumePress("Space");
+  }
+
+  consumeDash(): boolean {
+    // Второй вызов consumePress выполняется только если первый не сработал:
+    // иначе одно нажатие съедало бы два запроса.
+    return this.input.consumePress("ShiftLeft") || this.input.consumePress("ShiftRight");
   }
 }
 
@@ -136,5 +149,14 @@ export class AgentControls implements PlayerControls {
     this.abilityPending = false;
     this._lastConsumedAbility = true;
     return true;
+  }
+
+  /**
+   * Агенты пока не умеют в рывок: `PlayerIntent` не содержит этого поля.
+   * Мир всё равно остаётся детерминированным, а человек получает глагол
+   * из HUD/клавиатуры.
+   */
+  consumeDash(): boolean {
+    return false;
   }
 }

@@ -1,13 +1,29 @@
 /**
- * ZoneModel — числовое состояние зоны волны и её расширение.
+ * ZoneModel — числовое состояние зоны волны и её расширение/сжатие.
  *
  * Не знает о волнах, игроке и хуках: только геометрия и тайминги зоны.
- * WaveOrchestrator читает `state` для систем/рендера и вызывает методы
- * активации/расширения в нужные моменты кадра.
+ * WaveOrchestrator читает `state` для систем/рендера и вызывает `update`
+ * каждый кадр боя.
+ *
+ * Фазы волны:
+ *   1. expand  — зона растёт из точки старта до радиуса волны;
+ *   2. hold    — держится на радиусе (по ней игрок читает арену);
+ *   3. collapse — через ZONE_COLLAPSE_DELAY секунд боя включается телеграф
+ *      на ZONE_COLLAPSE_TELEGRAPH секунд, затем зона сжимается к
+ *      ZONE_COLLAPSE_TARGET_FRACTION от радиуса волны и там останавливается.
+ *
+ * Сжатие всегда медленнее игрока: выйти из него можно, но только двигаясь
+ * внутрь, сквозь толпу. Само по себе сжатие не убивает — урон наносит
+ * только край зоны.
  */
 
 import {
   ZONE_CLEAR_FADE_TIME,
+  ZONE_COLLAPSE_DELAY,
+  ZONE_COLLAPSE_MIN_WAVE,
+  ZONE_COLLAPSE_SPEED_MULT,
+  ZONE_COLLAPSE_TARGET_FRACTION,
+  ZONE_COLLAPSE_TELEGRAPH,
   ZONE_INITIAL_RADIUS,
   ZONE_MAX_ALPHA,
   zoneRadiusFor,
@@ -26,10 +42,16 @@ export class ZoneModel {
     targetRadius: 0,
     alpha: 0,
     collapseT: ZONE_NOT_COLLAPSING,
+    phase: "expand",
   };
 
   /** Альфа в момент начала зачистки волны — от неё гасим зону. */
   private clearFromAlpha = 0;
+
+  /** Время боя с момента активации зоны, секунды. */
+  private elapsed = 0;
+  /** Номер волны, на которой сжатие разрешено. */
+  private wave = 1;
 
   /** Живое состояние зоны (единственный источник правды). */
   get state(): ZoneData {
@@ -45,6 +67,9 @@ export class ZoneModel {
     this.zone.targetRadius = 0;
     this.zone.alpha = 0;
     this.zone.collapseT = ZONE_NOT_COLLAPSING;
+    this.zone.phase = "expand";
+    this.elapsed = 0;
+    this.wave = 1;
   }
 
   /** Подготовить зону к новой волне: центр у игрока, радиус 0, выключена. */
@@ -56,6 +81,8 @@ export class ZoneModel {
     this.zone.targetRadius = 0;
     this.zone.alpha = 0;
     this.zone.collapseT = ZONE_NOT_COLLAPSING;
+    this.zone.phase = "expand";
+    this.elapsed = 0;
   }
 
   /** Скрыть зону между волнами, сохранив геометрию. */
@@ -77,18 +104,62 @@ export class ZoneModel {
     this.zone.radius = ZONE_INITIAL_RADIUS;
     this.zone.alpha = 0;
     this.zone.collapseT = ZONE_NOT_COLLAPSING;
+    this.zone.phase = "expand";
     this.zone.active = true;
+    this.wave = wave;
+    this.elapsed = 0;
   }
 
-  /** Плавное расширение до целевого радиуса во время боя. */
-  expand(dt: number, speedMult: number, playerMaxSpeed: number): void {
-    if (this.zone.radius >= this.zone.targetRadius) return;
-    const expandSpeed = zoneExpandSpeed(speedMult, playerMaxSpeed);
-    this.zone.radius = Math.min(
-      this.zone.targetRadius,
-      this.zone.radius + expandSpeed * dt,
-    );
-    this.zone.alpha = Math.min(ZONE_MAX_ALPHA, this.zone.alpha + dt * 1.2);
+  /**
+   * Один кадр боя: расширение, удержание, телеграф и сжатие.
+   * @param speedMult множитель скорости из прокачки «скорость»
+   * @param playerMaxSpeed базовая максимальная скорость игрока
+   */
+  update(dt: number, speedMult: number, playerMaxSpeed: number): void {
+    if (!this.zone.active) return;
+    this.elapsed += dt;
+
+    // 1. Расширение до радиуса волны.
+    if (this.zone.radius < this.zone.targetRadius) {
+      const expandSpeed = zoneExpandSpeed(speedMult, playerMaxSpeed);
+      this.zone.radius = Math.min(
+        this.zone.targetRadius,
+        this.zone.radius + expandSpeed * dt,
+      );
+      this.zone.alpha = Math.min(ZONE_MAX_ALPHA, this.zone.alpha + dt * 1.2);
+      this.zone.phase = "expand";
+      return;
+    }
+    if (this.zone.phase === "expand") this.zone.phase = "hold";
+
+    // 2. Телеграф сжатия: зона уже не растёт, но ещё не сжимается.
+    if (this.zone.collapseT >= 0) {
+      this.zone.collapseT -= dt;
+      if (this.zone.collapseT <= 0) {
+        this.zone.collapseT = ZONE_NOT_COLLAPSING;
+        this.zone.phase = "collapse";
+      }
+      return;
+    }
+
+    // 3. Запуск телеграфа по времени боя.
+    if (this.zone.phase === "hold") {
+      if (
+        this.wave >= ZONE_COLLAPSE_MIN_WAVE &&
+        this.elapsed >= ZONE_COLLAPSE_DELAY
+      ) {
+        this.zone.collapseT = ZONE_COLLAPSE_TELEGRAPH;
+        this.zone.phase = "collapse";
+      }
+      return;
+    }
+
+    // 4. Сжатие до нижней границы. Скорость ниже скорости игрока.
+    const floor = this.zone.targetRadius * ZONE_COLLAPSE_TARGET_FRACTION;
+    if (this.zone.radius > floor) {
+      const collapseSpeed = playerMaxSpeed * speedMult * ZONE_COLLAPSE_SPEED_MULT;
+      this.zone.radius = Math.max(floor, this.zone.radius - collapseSpeed * dt);
+    }
   }
 
   /**

@@ -26,6 +26,7 @@ import type {
 import type { PickupRenderState } from "../systems/Renderers/PickupRenderer";
 import type { AllyDroneRenderState } from "../systems/Renderers/DroneRenderer";
 import type { ZoneRenderState } from "../systems/Renderers/ZoneRenderer";
+import type { ZoneStormState } from "../waves/ZoneStorm";
 
 /** Снимок щита для рендера. */
 export interface ShieldRenderState {
@@ -62,6 +63,8 @@ export interface RenderScene {
   allyDrones: DroneRef[];
   beams: BeamRef[];
   zone: ZoneWorld | null;
+  /** Буря на кромке: сектор во внешней полосе зоны. */
+  storm: ZoneStormState | null;
   camera: CameraWorld;
   view: ViewWorld;
 }
@@ -80,5 +83,6 @@ export interface RenderFrame {
   pickups: PickupRenderState[];
   allyDrones: AllyDroneRenderState[];
   zone: ZoneRenderState | null;
+  storm: ZoneStormState | null;
   beams: BeamRef[];
 }

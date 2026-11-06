@@ -4,9 +4,11 @@ import { useT } from "../i18n";
 export interface TouchControlsProps {
   onVector: (active: boolean, x: number, y: number) => void;
   onPause: () => void;
+  /** Рывок: без тач-кнопки базовый глагол недоступен на телефоне. */
+  onDash: () => void;
 }
 
-export default function TouchControls({ onVector, onPause }: TouchControlsProps) {
+export default function TouchControls({ onVector, onPause, onDash }: TouchControlsProps) {
   const t = useT();
   const baseRef = useRef<HTMLDivElement | null>(null);
   const knobRef = useRef<HTMLDivElement | null>(null);
@@ -119,6 +121,23 @@ export default function TouchControls({ onVector, onPause }: TouchControlsProps)
           {t("help.touch")}
         </div>
       </div>
+      <button
+        className={
+          "absolute z-[35] flex h-12 w-12 items-center justify-center border " +
+          "border-[#7dff9e]/40 bg-[#050b16]/65 font-mono text-[9px] font-bold " +
+          "tracking-[0.08em] text-[#7dff9e] active:bg-[#7dff9e]/20"
+        }
+        style={{
+          right: "calc(env(safe-area-inset-right) + 70px)",
+          bottom: "calc(env(safe-area-inset-bottom) + 12px)",
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={() => onDash()}
+        aria-label={t("hud.dash")}
+        type="button"
+      >
+        {t("hud.dash")}
+      </button>
       <button
         className={
           "absolute z-[35] flex h-11 w-11 items-center justify-center " +

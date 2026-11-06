@@ -43,6 +43,7 @@ import type { EnemyRef } from '../../ecs';
 import { lerpAngle, smoothVelocity } from '../../math';
 import type { GameContext } from '../GameContext';
 import type { IEnemyStrategy } from '../IEnemyStrategy';
+import { edgeAvoidScale } from '../ZoneEdgePolicy';
 
 /** Точка манёвра крейсера в мировых координатах. */
 interface CruiserTarget {
@@ -128,7 +129,9 @@ export class CruiserStrategy implements IEnemyStrategy {
         const nearPlayer = dist < CHARGE_TRIGGER_DIST;
         const facingPlayer = angleDiff < CHARGE_ANGLE_THRESHOLD;
 
-        if (nearPlayer && facingPlayer && this.chargeCooldown <= 0) {
+        // Таран — только с жетоном атаки: иначе один крейсер занимал бы
+        // весь бюджет угроз и его разгон читался бы как постоянный шум.
+        if (nearPlayer && facingPlayer && this.chargeCooldown <= 0 && marker.attackAllowed) {
           this.holdTime += dt;
           if (this.holdTime >= CHARGE_HOLD_TIME_REQ) {
             // Запускаем таран
@@ -343,7 +346,9 @@ export class CruiserStrategy implements IEnemyStrategy {
     if (context.playerOutsideZone) return;
     const { zoneX, zoneY, zoneRadius } = context;
     if (zoneRadius <= 0) return;
-    const limit = Math.max(0, zoneRadius - margin);
+    // У кромки игрока отступ сжимается: крейсер не держит внутреннее кольцо,
+    // пока цель прячется снаружи.
+    const limit = Math.max(0, zoneRadius - margin * edgeAvoidScale(context));
     const dx = point.x - zoneX;
     const dy = point.y - zoneY;
     const dist = Math.hypot(dx, dy);

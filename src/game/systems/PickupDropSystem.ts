@@ -24,6 +24,8 @@ export interface PickupDropHooks {
   spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number): void;
   /** Начислить детали прокачки. */
   addParts(amount: number): void;
+  /** Множитель деталей за убийство (комбо, серия); по умолчанию 1. */
+  getPartsMultiplier?: () => number;
 }
 
 export class PickupDropSystem {
@@ -125,9 +127,11 @@ export class PickupDropSystem {
    * Handle enemy death — spawn parts and optionally a pickup.
    */
   private onEnemyKilled(enemy: Enemy): void {
-    // Always drop parts (currency for upgrades)
+    // Always drop parts (currency for upgrades). Комбо множит награду:
+    // убийства в серии ценятся выше, чем те же убийства по одному.
     const parts = this.partsAmountFor(enemy.kind);
-    this.hooks.addParts(parts);
+    const multiplier = this.hooks.getPartsMultiplier?.() ?? 1;
+    this.hooks.addParts(Math.round(parts * multiplier));
 
     // Occasionally drop special pickups too
     const kind = this.generateDrop(enemy.kind, enemy.seed);

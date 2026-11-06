@@ -81,6 +81,14 @@ export interface PlayerShotPayload {
 export type GameEventMap = {
   enemy_killed: EnemyKilledPayload;
   player_damaged: { dmg: number; source?: string };
+  /**
+   * Урон среды (буря на кромке) — отдельный канал.
+   *
+   * `player_damaged` применяется через PlayerSystem.hit: кадры
+   * неуязвимости и щит. Для непрерывного урона среды это не подходит —
+   * он уже прошёл через щит и не должен давать неуязвимость.
+   */
+  player_zone_damaged: { dmg: number; source: string };
   wave_started: WaveStartedPayload;
   pickup_collected: PickupCollectedPayload;
   asteroid_hit: AsteroidHitPayload;

@@ -68,9 +68,33 @@ export function dropChanceFor(kind: EnemyKind): number {
 /** Бонус за зачистку волны: база и прибавка за номер волны. */
 export const WAVE_CLEAR_PARTS_BASE = 15;
 export const WAVE_CLEAR_PARTS_PER_WAVE = 6;
-/** Страховка за выживание: одна деталь за интервал и потолок за забег. */
-export const SURVIVAL_PARTS_INTERVAL = 3;
-export const SURVIVAL_PARTS_CAP = 30;
+/**
+ * Множитель бонуса зачистки, если волна закрыта без единого полученного удара.
+ *
+ * Награда должна зависеть от того, как игрок сыграл, а не от того, сколько
+ * времени он провёл в бою: раньше за простой платила «страховка за выживание»,
+ * теперь — только чистая работа.
+ */
+export const WAVE_CLEAN_CLEAR_MULT = 1.5;
+/** Сколько касаний (graze) дают одну деталь. */
+export const GRAZE_PARTS_PER_COIN = 5;
+/** Потолок деталей за graze на одной волне. */
+export const GRAZE_PARTS_WAVE_CAP = 20;
+/** Прибавка к деталям за убийство за каждую ступень комбо. */
+export const KILL_PARTS_COMBO_STEP = 0.15;
+/** Потолок множителя деталей за комбо. */
+export const KILL_PARTS_COMBO_CAP = 2;
+
+/**
+ * Множитель деталей за убийство по текущему комбо.
+ *
+ * Комбо считается от 1.0 (без серии) до 10.0: за серию платим до ×2, но не
+ * больше, иначе один удачный рой перекрывает всю волну.
+ */
+export function killPartsMultiplier(comboMult: number): number {
+  const steps = Math.max(0, comboMult - 1);
+  return Math.min(KILL_PARTS_COMBO_CAP, 1 + steps * KILL_PARTS_COMBO_STEP);
+}
 
 /** Детали за зачистку волны. */
 export function waveClearParts(wave: number): number {

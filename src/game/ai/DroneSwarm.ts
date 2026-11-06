@@ -286,7 +286,12 @@ export class DroneSwarm {
       if (Math.hypot(anchorX - context.playerX, anchorY - context.playerY) > range) continue;
 
       const ready = Array.from(group.members).filter(
-        (m) => !m.marker.dead && m.marker.swarmState === "formation",
+        (m) =>
+          !m.marker.dead &&
+          m.marker.swarmState === "formation" &&
+          // Отделяются только дроны с жетоном атаки (см. ThreatDirector):
+          // одновременно на игрока идёт ограниченное число целей.
+          m.marker.attackAllowed,
       );
       if (ready.length < 4) continue;
 

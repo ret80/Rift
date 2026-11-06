@@ -15,6 +15,7 @@ import { Aspect, type Engine } from "@trixt0r/ecs";
 import { EnemyAI } from "../ai/EnemyAI";
 import { GameContext } from "../ai/GameContext";
 import { DroneSwarm } from "../ai/DroneSwarm";
+import { ThreatDirector } from "../ai/ThreatDirector";
 import { EnemyAvoidance, type IEnemyAvoidance } from "../ai/EnemyAvoidance";
 import type { EnemyDef } from "../balance";
 import {
@@ -63,6 +64,8 @@ export class EnemySystem extends PhasedSystem {
   private ai: EnemyAI;
   private context: GameContext;
   private swarm = new DroneSwarm();
+  /** Координатор одновременно атакующих: жетоны атаки по классам. */
+  private threatDirector = new ThreatDirector();
   /** Последний срез врагов — только для диагностики роя. */
   private lastEnemyRefs: EnemyRef[] = [];
 
@@ -93,6 +96,7 @@ export class EnemySystem extends PhasedSystem {
     this.wave = 1;
     this.lastEnemyRefs = [];
     this.swarm.clear();
+    this.threatDirector.reset();
   }
 
   /** Диагностика: число групп роя. */
@@ -155,6 +159,8 @@ export class EnemySystem extends PhasedSystem {
     this.context.enemies = enemyRefs;
     this.context.swarm = this.swarm;
     this.context.rng = this.rng;
+    // Жетоны атаки раздаются до AI pass: стратегии читают attackAllowed.
+    this.threatDirector.update(enemyRefs, playerX, playerY, dt);
     this.swarm.update(enemyRefs, this.context, dt);
     this.ai.updateAI(enemyRefs, this.context, dt);
 

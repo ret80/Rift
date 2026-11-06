@@ -7,6 +7,7 @@
  * значения без копирования DTO каждый кадр.
  */
 
+import type { ZonePhase } from "./ZoneTypes";
 import type {
   AsteroidRef,
   BeamRef,
@@ -26,6 +27,10 @@ export interface ZoneWorld {
   radius: number;
   targetRadius: number;
   alpha: number;
+  /** Остаток телеграфа сжатия; < 0 — телеграфа нет. */
+  collapseT: number;
+  /** Фаза зоны внутри волны. */
+  phase: ZonePhase;
 }
 
 /** Камера: позиция и масштаб мировых координат. */

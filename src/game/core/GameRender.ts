@@ -38,6 +38,7 @@ export class GameRender {
       allyDrones: world.allyDrones,
       beams: world.beams,
       zone: world.zone,
+      storm: ctx.waveOrchestrator.zoneState.active ? ctx.waveOrchestrator.stormState : null,
       camera: { x: pos.x, y: pos.y, zoom: pos.zoom },
       view: ctx.viewport,
     };
@@ -69,6 +70,8 @@ export class GameRender {
       loadout: ctx.loadoutSystem.getSlots(),
       recording: ctx.recorder.status,
       droneOrder: ctx.world.droneOrder,
+      dashReady: ctx.playerSystem.dashReady,
+      dashCooldown: ctx.playerSystem.dashCooldownLeft,
     });
   }
 

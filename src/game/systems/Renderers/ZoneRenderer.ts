@@ -14,6 +14,7 @@
 
 import {
     C,
+    ZONE_COLLAPSE_TARGET_FRACTION,
     ZONE_EDGE_ALPHA,
     ZONE_FILL_ALPHA,
     ZONE_FILL_INNER_FADE,
@@ -21,8 +22,10 @@ import {
     ZONE_OUTER_EDGE_ALPHA,
     ZONE_WARNING_BAND,
 } from "../../balance";
+import type { ZonePhase } from "../../core/ZoneTypes";
 import { rgba } from "../../math";
 import type { IRenderer } from "../../render/index";
+import type { ZoneStormState } from "../../waves/ZoneStorm";
 
 export interface ZoneRenderState {
   active: boolean;
@@ -31,6 +34,10 @@ export interface ZoneRenderState {
   radius: number;
   targetRadius: number;
   alpha: number;
+  /** Остаток телеграфа сжатия; < 0 — телеграфа нет. */
+  collapseT: number;
+  /** Фаза зоны внутри волны. */
+  phase: ZonePhase;
 }
 
 /**
@@ -42,10 +49,12 @@ export function buildZoneState(
   y: number,
   radius: number,
   targetRadius: number,
-  alpha: number
+  alpha: number,
+  collapseT: number,
+  phase: ZonePhase
 ): ZoneRenderState {
   return {
-    active, x, y, radius, targetRadius, alpha,
+    active, x, y, radius, targetRadius, alpha, collapseT, phase,
   };
 }
 
@@ -82,12 +91,81 @@ export function renderZone(
 
   // Внутренний круг — реальная граница зоны. Пульс минимальной амплитуды:
   // зона должна быть еле заметной, а не мигающим «неоновым» ободком.
-  const pulse = 0.9 + 0.1 * Math.sin(time * 2);
-  R.circle(zone.x, zone.y, zr, rgba(C.zone, ZONE_EDGE_ALPHA * a * pulse), 128);
+  // Во время сжатия пульс быстрее и ярче: это телеграф, его нужно заметить.
+  const collapsing = zone.phase === "collapse" && zone.collapseT < 0;
+  const pulse = collapsing
+    ? 0.85 + 0.35 * Math.sin(time * 9)
+    : 0.9 + 0.1 * Math.sin(time * 2);
+  const edgeAlpha = ZONE_EDGE_ALPHA * a * pulse * (collapsing ? 2.2 : 1);
+  R.circle(zone.x, zone.y, zr, rgba(C.zone, edgeAlpha), 128);
+
+  // Телеграф: пунктирное кольцо на радиусе, до которого зона сожмётся.
+  // Игрок заранее видит, сколько места останется, и успевает сместиться.
+  if (zone.collapseT >= 0 && zone.targetRadius > 0) {
+    const floor = zone.targetRadius * ZONE_COLLAPSE_TARGET_FRACTION;
+    const blink = 0.5 + 0.5 * Math.sin(time * 14);
+    R.dashedCircle(
+      zone.x, zone.y, floor,
+      rgba(C.zone, (0.35 + 0.45 * blink) * a), 26, time * 1.6, 0.45,
+    );
+  }
 
   // Внешняя граница полосы — только намёк, чтобы полоса не «висела» в пустоте.
   if (band > 0.5) {
     R.circle(zone.x, zone.y, zr + band, rgba(C.zone, ZONE_OUTER_EDGE_ALPHA * a), 96);
+  }
+}
+
+/** Дуговых примитивов в рендере нет — сектор собирается ломаной. */
+const STORM_ARC_SEGMENTS = 18;
+
+/**
+ * Нарисовать бурю на кромке: сектор во внешней полосе зоны.
+ *
+ * Сектор обведён ломаной по дугам и расчерчен радиальными штрихами — это
+ * читаемое «штрихованное» предупреждение без новых примитивов рендера.
+ * Телеграф пульсирует и ускоряется к моменту удара, сам удар горит ровно.
+ */
+export function renderZoneStorm(
+  R: IRenderer,
+  storm: ZoneStormState,
+  time: number,
+): void {
+  if (!storm.active || storm.outerRadius <= 0) return;
+  const cx = storm.cx;
+  const cy = storm.cy;
+  const from = storm.angle - storm.halfAngle;
+  const to = storm.angle + storm.halfAngle;
+  const step = (to - from) / STORM_ARC_SEGMENTS;
+
+  const alpha =
+    storm.phase === "telegraph"
+      ? 0.22 + 0.5 * storm.telegraph * (0.65 + 0.35 * Math.sin(time * 18))
+      : 0.42;
+  const color = storm.phase === "telegraph" ? "#ffd23e" : "#ff8a3d";
+  const line = rgba(color, alpha);
+
+  const pts: Array<[number, number]> = [];
+  for (let i = 0; i <= STORM_ARC_SEGMENTS; i++) {
+    const a = from + step * i;
+    pts.push([cx + Math.cos(a) * storm.innerRadius, cy + Math.sin(a) * storm.innerRadius]);
+  }
+  for (let i = STORM_ARC_SEGMENTS; i >= 0; i--) {
+    const a = from + step * i;
+    pts.push([cx + Math.cos(a) * storm.outerRadius, cy + Math.sin(a) * storm.outerRadius]);
+  }
+  R.polyline(pts, true, line);
+
+  // Радиальные штрихи: показывают, что опасна вся полоса, а не только контур.
+  for (let i = 0; i <= 6; i++) {
+    const a = from + ((to - from) * i) / 6;
+    R.pushLine(
+      cx + Math.cos(a) * storm.innerRadius,
+      cy + Math.sin(a) * storm.innerRadius,
+      cx + Math.cos(a) * storm.outerRadius,
+      cy + Math.sin(a) * storm.outerRadius,
+      line,
+    );
   }
 }
 

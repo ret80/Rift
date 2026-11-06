@@ -19,6 +19,7 @@ import type { ZoneData } from "../core/ZoneTypes";
 import type { BannerData } from "../types/ui";
 import { ZoneEdgeDamage, type PlayerPosition } from "../waves/ZoneEdgeDamage";
 import { ZoneModel } from "../waves/ZoneModel";
+import { ZoneStorm, type ZoneStormState } from "../waves/ZoneStorm";
 import { WaveStateMachine, type WaveStateId } from "../waves/WaveStateMachine";
 
 export interface WaveOrchestratorHooks {
@@ -27,6 +28,8 @@ export interface WaveOrchestratorHooks {
   onToast: (text: string, color?: string) => void;
   /** Урон за краем зоны — в обход щита. */
   hitPlayerRaw: (amount: number) => void;
+  /** Урон бури на кромке — через щит. */
+  hitPlayerShielded: (amount: number) => void;
   shakeScreen: (strength: number, duration: number) => void;
   onWaveAdvanced: (wave: number) => void;
   /** Волна зачищена (один раз за волну). */
@@ -54,6 +57,7 @@ export class WaveOrchestrator {
   private readonly waves = new WaveStateMachine();
   private readonly zone = new ZoneModel();
   private readonly edge = new ZoneEdgeDamage();
+  private readonly storm = new ZoneStorm();
   private speedMult = 1.0;
 
   /** Баннер «волна зачищена» уже показан. */
@@ -62,6 +66,8 @@ export class WaveOrchestrator {
   private bannerTimer = 0;
   /** Таймер очистки тоста; тикает только в cleared-состоянии. */
   private toastClearTimer = 0;
+  /** Предупреждение о сжатии зоны уже показано на этой волне. */
+  private collapseAnnounced = false;
 
   constructor(config: WaveOrchestratorConfig) {
     this.hooks = config.hooks;
@@ -77,6 +83,11 @@ export class WaveOrchestrator {
 
   get waveState(): WaveStateId {
     return this.waves.state;
+  }
+
+  /** Снимок бури на кромке для рендера. */
+  get stormState(): ZoneStormState {
+    return this.storm.state;
   }
 
   /** Текущий номер волны (источник правды). */
@@ -98,8 +109,10 @@ export class WaveOrchestrator {
     this.waves.init(wave, waveTotal);
     this.zone.prepare(playerX, playerY);
     this.edge.reset();
+    this.storm.reset();
     this.waveClearSent = false;
     this.bannerTimer = 0;
+    this.collapseAnnounced = false;
   }
 
   activateZone(playerX: number, playerY: number): void {
@@ -148,7 +161,17 @@ export class WaveOrchestrator {
     }
 
     if (state === "active") {
-      this.zone.expand(dt, this.speedMult, this.playerMaxSpeed);
+      this.zone.update(dt, this.speedMult, this.playerMaxSpeed);
+      this.storm.update(
+        dt,
+        this.zone.state,
+        playerPos,
+        this.getPlayerMaxHp(),
+        this.waves.wave,
+        { hitPlayerShielded: this.hooks.hitPlayerShielded },
+      );
+      this.announceCollapse();
+
       this.edge.update(
         dt,
         this.zone.state,
@@ -169,9 +192,24 @@ export class WaveOrchestrator {
     this.zone.reset();
     this.waves.reset(targetWave);
     this.edge.reset();
+    this.storm.reset();
     this.waveClearSent = false;
     this.bannerTimer = 0;
     this.toastClearTimer = 0;
+    this.collapseAnnounced = false;
+  }
+
+  /**
+   * Один раз за волну предупредить о сжатии зоны.
+   *
+   * Телеграф виден и на арене (пульсирующее кольцо), но тост объясняет
+   * новичку, что происходит и что делать: двигаться внутрь.
+   */
+  private announceCollapse(): void {
+    if (this.collapseAnnounced) return;
+    if (this.zone.state.collapseT < 0) return;
+    this.collapseAnnounced = true;
+    this.hooks.onToast(t("game.zoneCollapsing"), "#ff8a8a");
   }
 
   // ============================== Private methods ==============================

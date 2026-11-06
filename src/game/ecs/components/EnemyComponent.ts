@@ -51,6 +51,11 @@ export class EnemyComponent implements Component {
    */
   fireGate = false;
   /**
+   * Жетон атаки от ThreatDirector: без него враг держит дистанцию и не
+   * открывает огонь. Изначально true — враг вне системы угроз активен.
+   */
+  attackAllowed = true;
+  /**
    * Очередь болтов истребителя: сколько болтов осталось выстрелить.
    * Ставится стратегией при открытии окна огня, EnemyShootingSystem
    * добивает очередь по burstTimer с интервалом 0.15 с.

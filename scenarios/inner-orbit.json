@@ -1,0 +1,19 @@
+{
+  "name": "inner-orbit-w70",
+  "seed": { "master": 1001 },
+  "tickRate": 60,
+  "duration": 120,
+  "physics": "planck",
+  "startWave": 70,
+  "viewport": { "width": 1600, "height": 900 },
+  "player": { "agent": "orbit", "radius": 160, "direction": 1, "reactionTime": 0.2, "aimJitter": 0.05 },
+  "upgrades": {
+    "hull": 10, "speed": 8, "guns": 4, "drones": 7,
+    "shield": 1, "shieldPercent": 7, "shieldRegen": 5,
+    "fireRate": 10, "rateDuration": 5, "healDuration": 5, "healRate": 10
+  },
+  "weapons": {
+    "missile": { "owned": true, "reload": 5, "damage": 5 },
+    "laser": { "owned": true, "reload": 5, "damage": 5, "accuracy": 5 }
+  }
+}

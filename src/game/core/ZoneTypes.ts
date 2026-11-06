@@ -6,6 +6,14 @@
 /** Sentinel value: zone is not collapsing */
 export const ZONE_NOT_COLLAPSING = -1;
 
+/**
+ * Фаза зоны внутри волны:
+ *  • expand — зона растёт из точки старта до радиуса волны;
+ *  • hold — держится на радиусе волны (фаза «чтения» арены);
+ *  • collapse — телеграф и сжатие к доле целевого радиуса.
+ */
+export type ZonePhase = "expand" | "hold" | "collapse";
+
 export interface ZoneData {
   active: boolean;
   x: number;
@@ -13,6 +21,11 @@ export interface ZoneData {
   radius: number;
   targetRadius: number;
   alpha: number;
-  /** Time until zone collapse; -1 means not collapsing */
+  /**
+   * Остаток телеграфа перед сжатием; ZONE_NOT_COLLAPSING, когда
+   * телеграфа нет (зона не сжимается или уже сжимается).
+   */
   collapseT: number;
+  /** Текущая фаза зоны внутри волны. */
+  phase: ZonePhase;
 }

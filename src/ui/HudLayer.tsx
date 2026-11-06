@@ -170,6 +170,21 @@ export function HudLayer(props: {
         <Icon kind="tactical" size={16} />
       </button>
 
+      {/* рывок: готовность базового защитного глагола */}
+      <div
+        className={
+          "absolute right-2 flex h-8 min-w-[52px] items-center justify-center border px-1 " +
+          "font-mono text-[8px] font-bold tracking-[0.08em] transition-colors sm:right-4 sm:text-[9px] " +
+          (data?.dashReady
+            ? "border-[#5ef2ff]/50 bg-[#5ef2ff]/10 text-[#9df1ff]"
+            : "border-[#6f86a8]/30 bg-[#0b1420]/50 text-[#6f86a8]")
+        }
+        style={{ top: "calc(env(safe-area-inset-top) + 192px)" }}
+        aria-label={t("hud.dash")}
+      >
+        {data?.dashReady ? t("hud.dash") : `${(data?.dashCooldown ?? 0).toFixed(1)}s`}
+      </div>
+
       {/* recording chip: только dev/`?debug`, не поверх тач-зоны */}
       {data?.recording && data.recording !== "off" && (
         <div

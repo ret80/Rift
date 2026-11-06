@@ -19,10 +19,16 @@
  */
 
 import { solveInterceptTime } from '../../aiming/AimSolver';
+import {
+  HUNTER_WALL_MARGIN,
+  HUNTER_ZONE_KEEP_MARGIN,
+  THREAT_HUNTER_STANDOFF,
+} from '../../balance';
 import type { EnemyRef } from '../../ecs';
 import { clamp, lerpAngle } from '../../math';
 import type { GameContext } from '../GameContext';
 import type { IEnemyStrategy } from '../IEnemyStrategy';
+import { edgeAvoidScale } from '../ZoneEdgePolicy';
 
 // === Состояния ===
 const HUNT = 0;
@@ -61,9 +67,9 @@ const TURN_CHARGE = 1.2;
 /** Скорость доворота в восстановлении. */
 const TURN_RECOVER = 4.0;
 /** Полоса у барьера, в которой хантер уходит от стены. */
-const WALL_MARGIN = 90;
+const WALL_MARGIN = HUNTER_WALL_MARGIN;
 /** Отступ внутрь зоны для точки перехвата. */
-const ZONE_KEEP_MARGIN = 60;
+const ZONE_KEEP_MARGIN = HUNTER_ZONE_KEEP_MARGIN;
 /** Разгон/торможение хантера по модулю скорости, px/с². */
 const HUNTER_ACCEL = 1800;
 
@@ -86,6 +92,14 @@ export class HunterStrategy implements IEnemyStrategy {
 
     switch (marker.mode) {
       case HUNT: {
+        // Без жетона атаки хантер в очереди: держит дистанцию и облетает
+        // игрока, а не идёт на замах. Иначе лимит атакующих обходился бы
+        // одним накоплением таранов.
+        if (!marker.attackAllowed) {
+          this.holdStandoff(enemy, context, dist, angleToPlayer, dt);
+          break;
+        }
+
         // Текущий перехват
         const aim = this.computeIntercept(
           pos.x, pos.y,
@@ -94,7 +108,9 @@ export class HunterStrategy implements IEnemyStrategy {
           marker.speed
         );
         if (!context.playerOutsideZone) {
-          this.keepInsideZonePoint(aim, context.zoneX, context.zoneY, context.zoneRadius);
+          this.keepInsideZonePoint(
+            aim, context.zoneX, context.zoneY, context.zoneRadius, edgeAvoidScale(context),
+          );
         }
 
         let desired = Math.atan2(aim.y - pos.y, aim.x - pos.x);
@@ -238,16 +254,43 @@ export class HunterStrategy implements IEnemyStrategy {
     return { x: px + pvx * lead, y: py + pvy * lead };
   }
 
+  /**
+   * Держать дистанцию, пока нет жетона атаки.
+   *
+   * Хантер — самая опасная контактная угроза, поэтому именно его таран
+   * ограничивается директором: очередь выглядит как облёт по кольцу на
+   * дистанции ~520 px с последующим замахом, когда жетон достался.
+   */
+  private holdStandoff(
+    enemy: EnemyRef,
+    context: GameContext,
+    dist: number,
+    angleToPlayer: number,
+    dt: number,
+  ): void {
+    const marker = enemy.marker;
+    const err = dist - THREAT_HUNTER_STANDOFF;
+    const mix = clamp(Math.abs(err) / 200, 0, 1);
+    const radial = angleToPlayer + (err > 0 ? 0 : Math.PI);
+    const tangent = angleToPlayer + (Math.PI / 2) * marker.strafeDir;
+    let desired = lerpAngle(tangent, radial, mix);
+    if (!context.playerOutsideZone) {
+      desired = this.avoidWallAngle(enemy, context, desired);
+    }
+    this.steerNose(enemy, desired, marker.speed, TURN_CRUISE, dt);
+  }
+
   private keepInsideZonePoint(
     point: { x: number; y: number },
-    zoneX: number, zoneY: number, zoneRadius: number
+    zoneX: number, zoneY: number, zoneRadius: number,
+    avoidScale: number = 1,
   ): void {
     if (zoneRadius <= 40) return;
 
     const ax = point.x - zoneX;
     const ay = point.y - zoneY;
     const ad = Math.hypot(ax, ay);
-    const limit = zoneRadius - ZONE_KEEP_MARGIN;
+    const limit = zoneRadius - ZONE_KEEP_MARGIN * avoidScale;
     if (ad > limit && ad > 0.001) {
       const k = limit / ad;
       point.x = zoneX + ax * k;
@@ -285,7 +328,8 @@ export class HunterStrategy implements IEnemyStrategy {
         ? tangentA
         : tangentB;
 
-    const weight = clamp(1 - toEdge / WALL_MARGIN, 0, 1) * 0.85;
+    // У кромки игрока отступ слабеет: хантер идёт вплоть до границы.
+    const weight = clamp(1 - toEdge / WALL_MARGIN, 0, 1) * 0.85 * edgeAvoidScale(context);
     return lerpAngle(desired, tangent, weight);
   }
 }
