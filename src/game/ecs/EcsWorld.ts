@@ -69,7 +69,7 @@ export class EcsWorld {
 
     // Порядок важен для систем с одинаковой фазой: внутри фазы он сохраняется.
     this.systems = [
-      new PickupMovementSystem(getPlayer),
+      new PickupMovementSystem(getPlayer, deps.isPickupMagnetDisabled),
       new PickupCollectionSystem(eventBus, getPlayer),
       new ParticleSystem(),
       new RingSystem(),

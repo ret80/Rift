@@ -19,7 +19,13 @@ export interface EnemyDamagePort {
 }
 
 export class EnemyLifecycle implements EnemyDamagePort {
-  constructor(private readonly eventBus: EventBus) {}
+  constructor(
+    private readonly eventBus: EventBus,
+    /** Множитель входящего урона (аура Щитоносца). */
+    private readonly damageMultiplier?: (enemy: EnemyRef) => number,
+    /** Побочный эффект смерти (деление Делителя). */
+    private readonly onDeath?: (enemy: EnemyRef) => void,
+  ) {}
 
   /**
    * Нанести урон и, если HP закончилось, завершить жизненный цикл врага.
@@ -27,14 +33,15 @@ export class EnemyLifecycle implements EnemyDamagePort {
    */
   damageEnemy(enemy: EnemyRef, dmg: number): boolean {
     if (enemy.marker.dead) return false;
-    enemy.life.remaining -= dmg;
+    const finalDmg = dmg * (this.damageMultiplier?.(enemy) ?? 1);
+    enemy.life.remaining -= finalDmg;
     enemy.marker.flash = 1;
     const killed = enemy.life.remaining <= 0;
     if (killed) this.die(enemy);
     // Единственная точка публикации урона: сюда приходят и пули, и лазер,
     // и всё остальное, поэтому метрики не зависят от пути выстрела.
     this.eventBus.publish("enemy_damaged", {
-      dmg,
+      dmg: finalDmg,
       kind: String(enemy.marker.kind),
       killed,
     });
@@ -56,6 +63,7 @@ export class EnemyLifecycle implements EnemyDamagePort {
   /** Единственная точка публикации `enemy_killed` (дроп, счёт, волна). */
   private die(enemy: EnemyRef): void {
     enemy.marker.dead = true;
+    this.onDeath?.(enemy);
     this.eventBus.publish("enemy_killed", {
       score: enemy.marker.score,
       kind: enemy.marker.kind,

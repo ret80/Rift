@@ -58,6 +58,10 @@ export interface EnemySpawn {
   waitTimer: number;
   phaseDrones: number;
   carrierChildren: number;
+  /** Глубина деления Делителя. */
+  splitDepth: number;
+  /** Гарпунёр натянул трос. */
+  tetherActive: boolean;
 }
 
 /** Данные для создания снаряда игрока. */

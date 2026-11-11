@@ -32,6 +32,12 @@ import {
     enemyHitChance,
     EnemyKind,
     FIGHTER_BOLT_SPEED,
+    HIVE_BOLT_SPEED,
+    HIVE_FIRE_CD,
+    NEEDLE_BOLT_SPEED,
+    NEEDLE_FIRE_CD,
+    NEEDLE_RANGE,
+    NEEDLE_TELEGRAPH_TIME,
     FIGHTER_BURST_COOLDOWN,
     FIGHTER_BURST_DISPERSION,
     FIGHTER_BURST_INTERVAL,
@@ -174,6 +180,14 @@ export class EnemyShootingSystem extends PhasedSystem {
         this.fireBoss(marker, position, player, dt);
         continue;
       }
+      if (marker.kind === EnemyKind.Needle) {
+        this.fireNeedle(marker, position, player, dt);
+        continue;
+      }
+      if (marker.kind === EnemyKind.HiveMother) {
+        this.fireHive(marker, position, player, dt);
+        continue;
+      }
 
       const weapon = TURRETS[marker.kind];
       if (!weapon) continue;
@@ -286,6 +300,87 @@ export class EnemyShootingSystem extends PhasedSystem {
       this.fire(e, position.x, position.y, player, weapon, enemyHitChance(this.wave, e.kind));
       this.audio.playHeavyShoot();
     }
+  }
+
+  /**
+   * Игла: выстрел по заявке AI после зарядки. Телеграф длиннее обычного —
+   * игрок должен успеть сменить радиус облёта.
+   */
+  private fireNeedle(
+    e: EnemyComponent,
+    position: PositionComponent,
+    player: PlayerMotion,
+    dt: number,
+  ): void {
+    if (e.fireCd > 0) {
+      e.fireCd = Math.max(0, e.fireCd - dt);
+      return;
+    }
+    if (!e.fireGate) return;
+
+    const dist = Math.hypot(player.x - position.x, player.y - position.y) || 1;
+    if (dist > NEEDLE_RANGE) return;
+
+    e.fireGate = false;
+    e.fireCd = NEEDLE_FIRE_CD;
+
+    const params = {
+      sx: position.x,
+      sy: position.y,
+      target: { x: player.x, y: player.y, vx: player.vx, vy: player.vy, r: PLAYER_HIT_RADIUS },
+      bulletSpeed: NEEDLE_BOLT_SPEED,
+      maxFlightTime: 1.2,
+    };
+    const angle = aimAtTarget(
+      params,
+      enemyHitChance(this.wave, e.kind),
+      PLAYER_HIT_RADIUS,
+      this.rng,
+    );
+
+    e.telegraphActive = true;
+    e.telegraphType = "line";
+    e.telegraphTimer = NEEDLE_TELEGRAPH_TIME;
+    e.telegraphAngle = angle;
+    this.pendingShots.push({
+      e,
+      shot: {
+        sx: position.x,
+        sy: position.y,
+        angle,
+        boltDmg: e.boltDmg,
+        heavy: false,
+        cruiser: false,
+        boltSpeed: NEEDLE_BOLT_SPEED,
+      },
+      timer: NEEDLE_TELEGRAPH_TIME,
+      type: "line",
+    });
+    this.audio.playEnemyShoot();
+  }
+
+  /** Мать-улей: медленный тяжёлый болт по таймеру. */
+  private fireHive(
+    e: EnemyComponent,
+    position: PositionComponent,
+    player: PlayerMotion,
+    dt: number,
+  ): void {
+    if (e.fireCd > 0) {
+      e.fireCd = Math.max(0, e.fireCd - dt);
+      return;
+    }
+    const dist = Math.hypot(player.x - position.x, player.y - position.y) || 1;
+    if (dist >= ENEMY_SHOOT_RANGE) return;
+
+    e.fireCd = HIVE_FIRE_CD;
+    const weapon: EnemyWeapon = {
+      boltSpeed: HIVE_BOLT_SPEED,
+      leadTime: 1.2,
+      heavy: false,
+    };
+    this.fire(e, position.x, position.y, player, weapon, enemyHitChance(this.wave, e.kind));
+    this.audio.playHeavyShoot();
   }
 
   /** Двуствольный Cruiser: две независимые турели с таймерами tCd1/tCd2 */

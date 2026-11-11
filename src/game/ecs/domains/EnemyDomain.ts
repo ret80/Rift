@@ -7,7 +7,15 @@
  * типам сущностей.
  */
 
-import type { EnemyKind } from "../../balance";
+import {
+  EnemyKind,
+  SPLITTER_CHILD_COUNT,
+  SPLITTER_CHILD_HP_RATIO,
+  SPLITTER_CHILD_MAX_DEPTH,
+  SPLITTER_CHILD_RADIUS_RATIO,
+  SHIELDBEARER_AURA_RADIUS,
+  SHIELDBEARER_DAMAGE_MULT,
+} from "../../balance";
 import type { EventBus } from "../../core/EventBus";
 import type { Rng } from "../../core/rng";
 import type { AudioPort } from "../../core/WorldPorts";
@@ -61,6 +69,12 @@ export interface EnemySystemDeps {
   getEnemyHpMult: () => number;
   /** Множитель урона врагов. */
   getEnemyDamageMult: () => number;
+  /** Импульс игроку от гарпуна. */
+  pullPlayer?: (vx: number, vy: number) => void;
+  /** Урон игроку от непрерывных атак. */
+  damagePlayer?: (dmg: number, source?: string) => void;
+  /** Зона глушилки: магнит пикапов отключён. */
+  isPickupMagnetDisabled?: (x: number, y: number) => boolean;
 }
 
 export class EnemyDomain {
@@ -87,10 +101,14 @@ export class EnemyDomain {
   constructor(
     private readonly ecs: EcsEngine,
     eventBus: EventBus,
-    deps: EnemySystemDeps,
+    private readonly deps: EnemySystemDeps,
     spawnShot: EnemyShotSink,
   ) {
-    this.lifecycle = new EnemyLifecycle(eventBus);
+    this.lifecycle = new EnemyLifecycle(
+      eventBus,
+      (enemy) => this.damageTakenMultiplier(enemy),
+      (enemy) => this.handleEnemyDeath(enemy),
+    );
     this.enemySystem = new EnemySystem(
       this,
       deps.getPlayer,
@@ -101,6 +119,8 @@ export class EnemyDomain {
       undefined,
       deps.getEnemyHpMult,
       deps.getEnemyDamageMult,
+      deps.pullPlayer,
+      deps.damagePlayer,
     );
     const shootingSystem = new EnemyShootingSystem(
       deps.audio,
@@ -163,6 +183,8 @@ export class EnemyDomain {
       waitTimer: enemy.waitTimer,
       phaseDrones: enemy.phaseDrones,
       carrierChildren: enemy.carrierChildren,
+      splitDepth: enemy.splitDepth,
+      tetherActive: enemy.tetherActive,
     }));
     this.ecs.add(entity);
   }
@@ -225,6 +247,44 @@ export class EnemyDomain {
   clear(): void {
     for (const entity of [...this.ecs.entitiesWith(EnemyComponent)]) {
       this.ecs.remove(entity);
+    }
+  }
+
+  /**
+   * Аура Щитоносца: союзники в радиусе получают 60% урона.
+   * Ауры не складываются — важен сам факт наличия щитоносца рядом.
+   */
+  private damageTakenMultiplier(enemy: EnemyRef): number {
+    if (enemy.marker.kind === EnemyKind.Shieldbearer) return 1;
+    for (const ally of this.enemies()) {
+      if (ally.marker.dead || ally.marker.kind !== EnemyKind.Shieldbearer) continue;
+      const dist = Math.hypot(
+        ally.position.x - enemy.position.x,
+        ally.position.y - enemy.position.y,
+      );
+      if (dist <= SHIELDBEARER_AURA_RADIUS) return SHIELDBEARER_DAMAGE_MULT;
+    }
+    return 1;
+  }
+
+  /** Побочный эффект смерти: Делитель выпускает двух осколков. */
+  private handleEnemyDeath(enemy: EnemyRef): void {
+    if (enemy.marker.kind !== EnemyKind.Splitter) return;
+    if (enemy.marker.splitDepth >= SPLITTER_CHILD_MAX_DEPTH) return;
+
+    const player = this.deps.getPlayer();
+    const baseAngle = enemy.marker.seed;
+    for (let i = 0; i < SPLITTER_CHILD_COUNT; i++) {
+      const angle = baseAngle + (i / SPLITTER_CHILD_COUNT) * Math.PI * 2;
+      this.enemySystem.spawnChild(
+        EnemyKind.Splitter,
+        enemy.position.x + Math.cos(angle) * 10,
+        enemy.position.y + Math.sin(angle) * 10,
+        SPLITTER_CHILD_HP_RATIO,
+        SPLITTER_CHILD_RADIUS_RATIO,
+        1,
+        { x: player.x, y: player.y },
+      );
     }
   }
 

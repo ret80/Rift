@@ -114,6 +114,10 @@ export class EnemyComponent implements Component {
   waitTimer = 0;
   phaseDrones = 0;
   carrierChildren = 0;
+  /** Глубина деления: 0 — обычный Делитель, 1 — осколок без деления. */
+  splitDepth = 0;
+  /** Гарпунёр натянул трос (визуальный признак). */
+  tetherActive = false;
 
   constructor(state: Partial<EnemyComponent> = {}) {
     Object.assign(this, state);

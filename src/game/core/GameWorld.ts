@@ -13,7 +13,12 @@
 import { AbilitySystem } from "../abilities/AbilitySystem";
 import { CreditSystem } from "../systems/CreditSystem";
 import { AnchorSystem } from "../systems/AnchorSystem";
-import { AsteroidField } from "../asteroids";import { EnemyKind, GRAZE_PARTS_PER_COIN, GRAZE_PARTS_WAVE_CAP,
+import { AsteroidField } from "../asteroids";
+import {
+  EnemyKind,
+  GRAZE_PARTS_PER_COIN,
+  GRAZE_PARTS_WAVE_CAP,
+  JAMMER_RADIUS,
   PLAYER_HITBOX_RADIUS,
   PLAYER_MAX_SPEED,
   WAVE_CLEAN_CLEAR_MULT,
@@ -225,6 +230,9 @@ export class GameWorld {
         rngSpawn: this.rng("spawn"),
         getEnemyHpMult: () => this.balance.enemyHpMult,
         getEnemyDamageMult: () => this.balance.enemyDamageMult,
+        pullPlayer: (vx, vy) => this.eventBus.publish("drone_push_player", { vx, vy }),
+        damagePlayer: (dmg, source) => this.eventBus.publish("player_damaged", { dmg, source }),
+        isPickupMagnetDisabled: (x, y) => this.isJammedAt(x, y),
       },
     );
 
@@ -345,6 +353,8 @@ export class GameWorld {
       this.rng("combat"),
       this.rng("fx"),
     );
+    // Глушилка отключает автонаведение, пока игрок в её зоне.
+    this.weaponManager.setJammerSource((x, y) => this.isJammedAt(x, y));
 
     this.allyDroneSystem = new AllyDroneSystem({
       getPlayer: () => this.ecs.playerRef(),
@@ -865,6 +875,17 @@ export class GameWorld {
   }
 
   // ============================== Internal ==============================
+
+  /** Игрок в зоне хотя бы одной живой Глушилки. */
+  private isJammedAt(x: number, y: number): boolean {
+    for (const enemy of this.ecs.enemies()) {
+      if (enemy.marker.dead || enemy.marker.kind !== EnemyKind.Jammer) continue;
+      if (Math.hypot(enemy.position.x - x, enemy.position.y - y) <= JAMMER_RADIUS) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   /** DeathSystem создаётся на каждый забег: он держит свой таймер анимации. */
   private createDeathSystem(): DeathSystem {

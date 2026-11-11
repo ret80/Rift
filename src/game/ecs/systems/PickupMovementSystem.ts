@@ -22,7 +22,11 @@ export type PlayerPositionSource = () => { x: number; y: number };
 export class PickupMovementSystem extends PhasedSystem {
   private aspect: Aspect | null = null;
 
-  constructor(private readonly getPlayer: PlayerPositionSource) {
+  constructor(
+    private readonly getPlayer: PlayerPositionSource,
+    /** Зона глушилки: в ней магнит пикапов отключён. */
+    private readonly isMagnetDisabled?: (x: number, y: number) => boolean,
+  ) {
     super(Phase.Enemies);
   }
 
@@ -51,7 +55,8 @@ export class PickupMovementSystem extends PhasedSystem {
       const dx = player.x - position.x;
       const dy = player.y - position.y;
       const dist = Math.hypot(dx, dy);
-      if (dist < ZONE_PICKUP_MAGNET && dist > 2) {
+      const magnetOff = this.isMagnetDisabled?.(player.x, player.y) ?? false;
+      if (!magnetOff && dist < ZONE_PICKUP_MAGNET && dist > 2) {
         const fraction = Math.pow(1 - dist / ZONE_PICKUP_MAGNET, 0.5) * 25;
         position.x += dx * fraction * dt;
         position.y += dy * fraction * dt;

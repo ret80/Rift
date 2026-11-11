@@ -220,6 +220,15 @@ export function kindWeights(w: number): Array<[EnemyKind, number]> {
     [EnemyKind.Carrier, 0.05 * ramp01(w, 12, 25)],
     // Минёр — угроза пространству: появляется с 9-й, ~8 %
     [EnemyKind.Miner, 0.08 * ramp01(w, 9, 18)],
+    // Новые архетипы Mechanic 3: каждый входит своим окном, чтобы
+    // игрок успевал выучить угрозу до следующей.
+    [EnemyKind.Splitter, 0.15 * ramp01(w, 5, 14)],
+    [EnemyKind.Needle, 0.1 * ramp01(w, 6, 16)],
+    [EnemyKind.Harpooner, 0.12 * ramp01(w, 7, 17)],
+    [EnemyKind.Shieldbearer, 0.1 * ramp01(w, 8, 18)],
+    [EnemyKind.Jammer, 0.06 * ramp01(w, 11, 22)],
+    [EnemyKind.Vortex, 0.07 * ramp01(w, 12, 24)],
+    [EnemyKind.HiveMother, 0.02 * ramp01(w, 18, 30)],
   ];
 }
 

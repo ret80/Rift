@@ -15,6 +15,13 @@ import { CarrierStrategy } from './strategies/CarrierStrategy';
 import { MinerStrategy } from './strategies/MinerStrategy';
 import { MineStrategy } from './strategies/MineStrategy';
 import { BossStrategy } from './strategies/BossStrategy';
+import { NeedleStrategy } from './strategies/NeedleStrategy';
+import { ShieldbearerStrategy } from './strategies/ShieldbearerStrategy';
+import { HarpoonerStrategy } from './strategies/HarpoonerStrategy';
+import { SplitterStrategy } from './strategies/SplitterStrategy';
+import { JammerStrategy } from './strategies/JammerStrategy';
+import { VortexStrategy } from './strategies/VortexStrategy';
+import { HiveMotherStrategy } from './strategies/HiveMotherStrategy';
 import { angleTo, smoothVelocity } from '../math';
 
 export class EnemyAI {
@@ -36,6 +43,13 @@ export class EnemyAI {
     this.strategies.set(EnemyKind.Miner, new MinerStrategy());
     this.strategies.set(EnemyKind.Boss, new BossStrategy());
     this.strategies.set(EnemyKind.Mine, new MineStrategy());
+    this.strategies.set(EnemyKind.Needle, new NeedleStrategy());
+    this.strategies.set(EnemyKind.Shieldbearer, new ShieldbearerStrategy());
+    this.strategies.set(EnemyKind.Harpooner, new HarpoonerStrategy());
+    this.strategies.set(EnemyKind.Splitter, new SplitterStrategy());
+    this.strategies.set(EnemyKind.Jammer, new JammerStrategy());
+    this.strategies.set(EnemyKind.Vortex, new VortexStrategy());
+    this.strategies.set(EnemyKind.HiveMother, new HiveMotherStrategy());
   }
 
   /**

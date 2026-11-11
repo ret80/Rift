@@ -184,6 +184,11 @@ export class WeaponManager extends PhasedSystem {
     this.targeting.setManualAim(angle);
   }
 
+  /** Подключить проверку зоны глушилки. */
+  setJammerSource(source: (x: number, y: number) => boolean): void {
+    this.targeting.setJammerSource(source);
+  }
+
   /** Сообщить, что игрок держит огонь. */
   setManualFiring(firing: boolean): void {
     this.targeting.setManualFiring(firing);

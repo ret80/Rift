@@ -274,6 +274,87 @@ export const MINE_LIFETIME = 18;
 /** Предел одновременных мин в мире: защита от заполнения арены. */
 export const MINE_MAX_ALIVE = 6;
 
+/* ---------------------- Mechanic 3 archetypes ---------------------- */
+
+/** Дальность прицельного выстрела Иглы, px. */
+export const NEEDLE_RANGE = 520;
+/** Дистанция, которую Игла держит до игрока, px. */
+export const NEEDLE_STANDOFF = 340;
+/** Время зарядки луча, секунды. */
+export const NEEDLE_CHARGE_TIME = 1.1;
+/** Пауза между выстрелами Иглы, секунды. */
+export const NEEDLE_FIRE_CD = 3.2;
+/** Скорость снаряда Иглы, px/s. */
+export const NEEDLE_BOLT_SPEED = 980;
+/** Телеграф выстрела Иглы, секунды. */
+export const NEEDLE_TELEGRAPH_TIME = 0.55;
+
+/** Радиус ауры Щитоносца, px. */
+export const SHIELDBEARER_AURA_RADIUS = 120;
+/** Множитель входящего урона союзникам в ауре. */
+export const SHIELDBEARER_DAMAGE_MULT = 0.6;
+/** Дистанция удержания Щитоносца от игрока, px. */
+export const SHIELDBEARER_STANDOFF = 260;
+/** Дистанция, на которой Щитоносец держится от союзника, px. */
+export const SHIELDBEARER_FOLLOW_DIST = 110;
+
+/** Дальность гарпуна, px. */
+export const HARPOONER_TETHER_RANGE = 300;
+/** Дистанция удержания Гарпунёра, px. */
+export const HARPOONER_STANDOFF = 240;
+/** Ускорение, с которым гарпун тянет игрока, px/с². */
+export const HARPOONER_PULL_ACCEL = 220;
+/** Пауза после разрыва троса, секунды. */
+export const HARPOONER_TETHER_COOLDOWN = 2.0;
+/** Дистанция, дальше которой трос рвётся, px. */
+export const HARPOONER_BREAK_RANGE = 360;
+
+/** Доля HP, которую получает осколок Делителя. */
+export const SPLITTER_CHILD_HP_RATIO = 0.4;
+/** Доля радиуса осколка Делителя. */
+export const SPLITTER_CHILD_RADIUS_RATIO = 0.65;
+/** Сколько осколков появляется при смерти Делителя. */
+export const SPLITTER_CHILD_COUNT = 2;
+/** Максимальная глубина деления (дети больше не делятся). */
+export const SPLITTER_CHILD_MAX_DEPTH = 1;
+
+/** Радиус зоны Глушилки, px. */
+export const JAMMER_RADIUS = 150;
+/** Дистанция удержания Глушилки, px. */
+export const JAMMER_STANDOFF = 320;
+/** Угловая скорость облёта Глушилки, рад/с. */
+export const JAMMER_ORBIT_SPEED = 0.35;
+
+/** Радиус лазерной руки Вихря, px. */
+export const VORTEX_RADIUS = 200;
+/** Период полного оборота руки Вихря, секунды. */
+export const VORTEX_PERIOD = 4;
+/** Полуширина луча Вихря, радианы. */
+export const VORTEX_HALF_WIDTH = 0.14;
+/** Урон одного касания луча Вихря. */
+export const VORTEX_DAMAGE = 10;
+/** Пауза между касаниями луча Вихря, секунды. */
+export const VORTEX_HIT_CD = 0.55;
+/** Дистанция удержания Вихря, px. */
+export const VORTEX_STANDOFF = 250;
+
+/** Доля радиуса зоны, на которой держится Мать-улей. */
+export const HIVE_STANDOFF_R = 0.55;
+/** Интервал выпуска роя, секунды. */
+export const HIVE_SPAWN_INTERVAL = 6;
+/** Сколько дронов выходит за один выпуск. */
+export const HIVE_SPAWN_BATCH = 2;
+/** Радиус выпуска дронов вокруг Матери, px. */
+export const HIVE_SPAWN_RADIUS = 70;
+/** Пауза между выстрелами Матери, секунды. */
+export const HIVE_FIRE_CD = 1.9;
+/** Скорость снаряда Матери, px/s. */
+export const HIVE_BOLT_SPEED = 320;
+/** Порог второй фазы Матери. */
+export const HIVE_PHASE2_RATIO = 0.66;
+/** Порог третьей фазы Матери. */
+export const HIVE_PHASE3_RATIO = 0.33;
+
 /* ------------------------------ mass ------------------------------ */
 
 export function massForRadius(r: number): number {

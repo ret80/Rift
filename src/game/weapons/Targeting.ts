@@ -24,6 +24,8 @@ export class Targeting {
   private target: EnemyRef | null = null;
   /** Угол до автоцели. */
   private autoAngle: number | null = null;
+  /** Зона глушилки: в ней автонаведение отключено. */
+  private isJammed?: (x: number, y: number) => boolean;
 
   constructor(private range: number) {}
 
@@ -37,8 +39,20 @@ export class Targeting {
     this.manualFiring = firing;
   }
 
+  /** Подключить проверку зоны глушилки. */
+  setJammerSource(source: (x: number, y: number) => boolean): void {
+    this.isJammed = source;
+  }
+
   /** Обновить автоцель: ближайший живой враг в зоне поражения. */
   update(player: PlayerSnapshot, enemies: readonly EnemyRef[]): void {
+    // В зоне глушилки автонаведение выключено; ручной прицел остаётся.
+    if (this.isJammed?.(player.x, player.y)) {
+      this.target = null;
+      this.autoAngle = null;
+      return;
+    }
+
     let nearest: EnemyRef | null = null;
     let nearestDist = this.range;
 

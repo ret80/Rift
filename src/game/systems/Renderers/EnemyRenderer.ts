@@ -3,7 +3,13 @@
  * Извлечён из RendererSystem (drawEnemies).
  */
 
-import { C, EnemyKind } from "../../balance";
+import {
+  C,
+  EnemyKind,
+  JAMMER_RADIUS,
+  SHIELDBEARER_AURA_RADIUS,
+  VORTEX_RADIUS,
+} from "../../balance";
 import type { EnemyRef } from "../../ecs";
 import { TAU, clamp, rgba } from "../../math";
 import type { IRenderer, RGBA } from "../../render/index";
@@ -16,6 +22,8 @@ export interface EnemyRenderState {
   vx: number;
   vy: number;
   angle: number;
+  /** Угол лазерной руки Вихря / зафиксированный угол атаки. */
+  lockAngle: number;
   /** Угол орудийной турели (Cruiser): стволы наведены отдельно от корпуса. */
   turretAngle: number;
   hp: number;
@@ -38,6 +46,8 @@ export interface EnemyRenderState {
   telegraphAngle: number;
   telegraphType: "line" | "cone" | "flash" | "arc";
   dead: boolean;
+  /** Гарпунёр натянул трос. */
+  tetherActive: boolean;
   droneState?: 'orbiting' | 'attacking' | 'none' | 'accumulating' | 'waiting';
   orbitRadius?: number;
   parent?: EnemyRenderState | null;
@@ -55,6 +65,7 @@ export function buildEnemyState(enemies: EnemyRef[]): EnemyRenderState[] {
     vx: e.velocity.vx,
     vy: e.velocity.vy,
     angle: e.marker.angle,
+    lockAngle: e.marker.lockAngle,
     turretAngle: e.marker.turretAngle,
     hp: e.life.remaining,
     maxHp: e.life.max,
@@ -76,6 +87,7 @@ export function buildEnemyState(enemies: EnemyRef[]): EnemyRenderState[] {
     telegraphAngle: e.marker.telegraphAngle,
     telegraphType: e.marker.telegraphType,
     dead: e.marker.dead,
+    tetherActive: e.marker.tetherActive,
     droneState: e.marker.droneState,
     orbitRadius: e.marker.orbitRadius,
   }));
@@ -201,8 +213,87 @@ export function renderEnemies(
         }
         break;
       }
+      case EnemyKind.Needle: {
+        // Тонкий клин с иглой на носу.
+        drawShipPoly(R, e.x, e.y, e.angle, [[17, 0], [2, 5], [-10, 4], [-10, -4], [2, -5]], col);
+        R.pushLine(
+          e.x + Math.cos(e.angle) * 15,
+          e.y + Math.sin(e.angle) * 15,
+          e.x + Math.cos(e.angle) * 26,
+          e.y + Math.sin(e.angle) * 26,
+          rgba(base, 0.85),
+        );
+        break;
+      }
+      case EnemyKind.Shieldbearer: {
+        drawShipPoly(
+          R, e.x, e.y, e.angle,
+          [[18, 0], [10, 13], [-10, 13], [-16, 0], [-10, -13], [10, -13]],
+          col,
+        );
+        R.circle(e.x, e.y, 6, rgba(base, 0.55), 14);
+        R.dashedCircle(e.x, e.y, SHIELDBEARER_AURA_RADIUS, rgba(base, 0.16), 18, _time * 0.4);
+        break;
+      }
+      case EnemyKind.Harpooner: {
+        drawShipPoly(R, e.x, e.y, e.angle, [[15, 0], [4, 9], [-12, 7], [-12, -7], [4, -9]], col);
+        if (e.tetherActive) {
+          R.pushLine(
+            e.x + Math.cos(e.angle) * 12,
+            e.y + Math.sin(e.angle) * 12,
+            e.x + Math.cos(e.angle) * 38,
+            e.y + Math.sin(e.angle) * 38,
+            rgba(base, 0.85),
+          );
+        }
+        break;
+      }
+      case EnemyKind.Splitter: {
+        drawShipPoly(R, e.x, e.y, e.angle, [[13, 0], [0, 11], [-13, 0], [0, -11]], col);
+        R.circle(e.x, e.y, 4, rgba(base, 0.8), 10);
+        break;
+      }
+      case EnemyKind.Jammer: {
+        R.circle(e.x, e.y, e.r, rgba(base, 0.35), 16);
+        R.dashedCircle(e.x, e.y, JAMMER_RADIUS, rgba(base, 0.22), 20, -_time * 0.6);
+        for (let i = 0; i < 4; i++) {
+          const a = e.angle + (i * Math.PI) / 2;
+          R.pushLine(
+            e.x + Math.cos(a) * 8,
+            e.y + Math.sin(a) * 8,
+            e.x + Math.cos(a) * 20,
+            e.y + Math.sin(a) * 20,
+            rgba(base, 0.85),
+          );
+        }
+        break;
+      }
+      case EnemyKind.Vortex: {
+        R.circle(e.x, e.y, e.r, rgba(base, 0.35), 16);
+        R.dashedCircle(e.x, e.y, VORTEX_RADIUS, rgba(base, 0.2), 24, _time * 0.5);
+        R.pushLine(
+          e.x,
+          e.y,
+          e.x + Math.cos(e.lockAngle) * VORTEX_RADIUS,
+          e.y + Math.sin(e.lockAngle) * VORTEX_RADIUS,
+          rgba(base, 0.75),
+        );
+        R.circle(e.x, e.y, 5, rgba(C.white, 0.8), 12);
+        break;
+      }
+      case EnemyKind.HiveMother: {
+        drawShipPoly(
+          R, e.x, e.y, e.angle,
+          [[34, 0], [16, 22], [-20, 18], [-30, 0], [-20, -18], [16, -22]],
+          col,
+        );
+        R.circle(e.x, e.y, 10, rgba(base, 0.5), 20);
+        R.dashedCircle(e.x, e.y, 40 + e.mode * 6, rgba(base, 0.35), 14, _time * (0.6 + e.mode * 0.2));
+        R.dashedCircle(e.x, e.y, 68, rgba(base, 0.14), 18, -_time * 0.35);
+        break;
+      }
       default: {
-        // Новые архетипы (заглушка рендера): простой круг.
+        // Новые архетипы без отдельной формы: простой круг.
         R.circle(e.x, e.y, e.r, rgba(base, 0.6), 12);
         break;
       }
@@ -276,6 +367,13 @@ function kindColor(kind: EnemyKind): string {
     case EnemyKind.Miner: return C.miner;
     case EnemyKind.Boss: return C.boss;
     case EnemyKind.Mine: return C.mine;
+    case EnemyKind.Needle: return "#ffd166";
+    case EnemyKind.Shieldbearer: return "#4cc9f0";
+    case EnemyKind.Harpooner: return "#c77dff";
+    case EnemyKind.Splitter: return "#90be6d";
+    case EnemyKind.Jammer: return "#f72585";
+    case EnemyKind.Vortex: return "#ff9f1c";
+    case EnemyKind.HiveMother: return "#b5179e";
     default: return C.drone;
   }
 }

@@ -85,6 +85,10 @@ export class EnemySystem extends PhasedSystem {
     private readonly getHpMult: () => number = () => 1,
     /** Множитель урона врагов (болты и контакт) из `BalanceOverrides`. */
     private readonly getDamageMult: () => number = () => 1,
+    /** Импульс игроку от гарпунёра. */
+    private readonly pullPlayer?: (vx: number, vy: number) => void,
+    /** Урон игроку от непрерывных атак (вихрь). */
+    private readonly damagePlayer?: (dmg: number, source?: string) => void,
   ) {
     super(Phase.Enemies);
     this.ai = new EnemyAI();
@@ -151,6 +155,8 @@ export class EnemySystem extends PhasedSystem {
       zoneX, zoneY, zoneRadius,
       playerOutsideZone,
       wave: this.wave,
+      pullPlayer: this.pullPlayer,
+      damagePlayer: this.damagePlayer,
     });
 
     // AI movement via strategy pattern (стратегии мутируют базовые компоненты).
@@ -199,8 +205,9 @@ export class EnemySystem extends PhasedSystem {
     for (const spawn of carrierSpawns) {
       const droneDef = this.getEnemyDef(EnemyKind.Drone);
       const drone = this.createEnemy(EnemyKind.Drone, spawn.x, spawn.y, droneDef, playerPos, null);
-      // Set parent to carrier for proper tracking
-      const carrier = this.findCarrierForDrone(enemyRefs, spawn);
+      // Дроны Матери-улья не привязаны к носителю: иначе ближайший Carrier
+      // забирал бы их на свою орбиту.
+      const carrier = spawn.hive ? null : this.findCarrierForDrone(enemyRefs, spawn);
       if (carrier) {
         drone.parentId = carrier.marker.ecsId ?? null;
         // Дрон начинается на орбите вокруг Carrier
@@ -253,7 +260,8 @@ export class EnemySystem extends PhasedSystem {
   private createEnemy(
     kind: EnemyKind, x: number, y: number, def: EnemyDef,
     playerPos?: { x: number; y: number },
-    parent: EnemyRef | null = null
+    parent: EnemyRef | null = null,
+    splitDepth = 0,
   ): EnemySpawn {
     // Балансные множители применяются здесь — в единственной точке создания
     // врага. Так игрок, дроны и метрики видят одно и то же значение урона,
@@ -307,7 +315,35 @@ export class EnemySystem extends PhasedSystem {
       waitTimer: firstDive,
       phaseDrones: 0,
       carrierChildren: 0,
+      splitDepth,
+      tetherActive: false,
     };
+  }
+
+  /**
+   * Осколок Делителя: та же видовая стратегия, но меньше корпус, HP и
+   * очки. Глубина 1 запрещает дальнейшее деление.
+   */
+  spawnChild(
+    kind: EnemyKind,
+    x: number,
+    y: number,
+    hpRatio: number,
+    radiusRatio: number,
+    splitDepth: number,
+    playerPos?: { x: number; y: number },
+  ): void {
+    const base = this.getEnemyDef(kind);
+    const def: EnemyDef = {
+      ...base,
+      hp: base.hp * hpRatio,
+      r: base.r * radiusRatio,
+      score: base.score * 0.35,
+      contact: base.contact * 0.7,
+      bolt: base.bolt * 0.7,
+      speed: base.speed * 1.15,
+    };
+    this.ecs.addEnemy(this.createEnemy(kind, x, y, def, playerPos, null, splitDepth));
   }
 
   spawn(kind: EnemyKind, x: number, y: number, parent: EnemyRef | null, playerPos?: { x: number; y: number }): void {

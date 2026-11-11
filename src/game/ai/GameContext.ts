@@ -21,6 +21,10 @@ export interface GameContextInput {
   /** Игрок вне активной зоны: зонные ограничения ИИ можно не применять. */
   playerOutsideZone?: boolean;
   wave: number;
+  /** Импульс игроку от гарпуна (px/с). */
+  pullPlayer?: (vx: number, vy: number) => void;
+  /** Урон игроку от непрерывных атак (вращающийся лазер). */
+  damagePlayer?: (dmg: number, source?: string) => void;
 }
 
 export class GameContext {
@@ -54,11 +58,16 @@ export class GameContext {
    */
   public rng!: Rng;
 
-  /** Выходной буфер CarrierStrategy — спавн дронов. */
-  public carrierSpawns: Array<{ x: number; y: number }> = [];
+  /** Выходной буфер CarrierStrategy/HiveMother — спавн дронов. */
+  public carrierSpawns: Array<{ x: number; y: number; hive?: boolean }> = [];
 
   /** Выходной буфер MinerStrategy — постановка мин. */
   public mineSpawns: Array<{ x: number; y: number }> = [];
+
+  /** Импульс игроку (гарпунёр). */
+  public pullPlayer?: (vx: number, vy: number) => void;
+  /** Урон игроку от непрерывных атак (вихрь). */
+  public damagePlayer?: (dmg: number, source?: string) => void;
 
   /**
    * Синхронизировать контекст с текущим состоянием мира.
@@ -75,6 +84,8 @@ export class GameContext {
     this.zoneRadius = input.zoneRadius;
     this.playerOutsideZone = input.playerOutsideZone ?? false;
     this.wave = input.wave;
+    this.pullPlayer = input.pullPlayer;
+    this.damagePlayer = input.damagePlayer;
     this.carrierSpawns = [];
     this.mineSpawns = [];
   }
