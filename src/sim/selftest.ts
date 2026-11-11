@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import type { GameWorld } from "../game/core/GameWorld";
 import { AFFIXES } from "../game/balance/affixes";
 import { EnemyKind, enemyDefFor } from "../game/balance";
-import type { PlayerControls } from "../game/core/PlayerControls";
+import { AgentControls, emptyPlayerIntent, type PlayerControls } from "../game/core/PlayerControls";
 import { SessionRecorder } from "../game/core/SessionRecorder";
 import {
   parseSessionJsonl,
@@ -53,6 +53,11 @@ import {
   type Scenario,
 } from "../game/sim/Scenario";
 import { createHeadlessWorld, runHeadless, ticksForSeconds } from "./runner";
+import { WeaponManager } from "../game/weapons/WeaponManager";
+import { createWeaponRegistry } from "../game/weapons/WeaponRegistry";
+import { WEAPON_CATALOG, WEAPON_IDS } from "../game/weapons/WeaponCatalog";
+import { applyUpgrades, defaultUpgrades } from "../game/upgrades";
+import type { BulletSpawn } from "../game/ecs";
 
 type CheckFn = () => void | Promise<void>;
 
@@ -396,6 +401,7 @@ check("GameWorld использует переданный PlayerControls (custo
       axis,
       aimAngle: 0,
       firing: true,
+      altFiring: false,
       consumeAbility() {
         abilityCalls++;
         return false;
@@ -1229,6 +1235,64 @@ check("Scenario: невалидные множители баланса откл
     }
     expect(failed, `enemyHpMult=${bad} должен быть отклонён`);
   }
+});
+
+check("WeaponCatalog: реестр покрывает все виды оружия", () => {
+  const registry = createWeaponRegistry();
+  expectEqual(Object.keys(registry).length, WEAPON_IDS.length, "число видов оружия");
+  for (const id of WEAPON_IDS) {
+    expectEqual(registry[id].id, id, `оружие ${id}`);
+    expectEqual(registry[id].meta.icon, WEAPON_CATALOG[id].icon, `иконка ${id}`);
+  }
+  expect(WEAPON_IDS.length >= 8, "в каталоге меньше 8 видов оружия");
+});
+
+check("Орудия: слотов хватает на весь арсенал", () => {
+  expectEqual(applyUpgrades(defaultUpgrades()).weaponSlots, 1, "стартовые слоты");
+  expectEqual(
+    applyUpgrades({ ...defaultUpgrades(), guns: 6 }).weaponSlots,
+    WEAPON_IDS.length - 1,
+    "слоты при максимуме орудий",
+  );
+});
+
+check("Альтернативный огонь: интент агента и залп пушки", () => {
+  const agent = new AgentControls();
+  expectEqual(agent.altFiring, false, "altFiring по умолчанию");
+  agent.setIntent({ ...emptyPlayerIntent(), altFiring: true });
+  expectEqual(agent.altFiring, true, "altFiring из намерения агента");
+
+  const bullets: BulletSpawn[] = [];
+  const manager = new WeaponManager(
+    {
+      getPlayer: () => ({ x: 0, y: 0, vx: 0, vy: 0, hp: 100, maxHp: 100 }),
+      getEnemies: () => [],
+      addBullet: (b) => bullets.push(b),
+      getDrones: () => [],
+      addAllyDrone: () => {},
+      getBonuses: () => ({ rateMult: 1, rateT: 0, extraBarrels: 0 }),
+      damageEnemy: () => false,
+    },
+    () => {},
+    createRngStream(11),
+    createRngStream(12),
+  );
+
+  manager.setManualAim(0);
+  manager.setManualAltFiring(true);
+  manager.process(FIXED_DT);
+
+  expect(bullets.length >= 5, `альтернативный огонь дал ${bullets.length} снарядов`);
+  expect(
+    bullets.every((b) => b.life !== undefined && b.life > 0),
+    "у картечи не ограничена дальность",
+  );
+
+  const salvo = bullets.length;
+  bullets.length = 0;
+  manager.process(FIXED_DT);
+  expectEqual(bullets.length, 0, "залп повторился до перезарядки");
+  expect(salvo >= 5, `в залпе ${salvo} снарядов`);
 });
 
 /* ============================== Runner ============================== */

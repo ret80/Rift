@@ -24,13 +24,20 @@ export interface PlayerIntent {
   aimAngle: number | null;
   /** Готовность стрелять. */
   firing: boolean;
+  /**
+   * Альтернативный огонь.
+   *
+   * Необязателен: записи сессий v1 сняты до появления alt-fire, и повтор
+   * такого забега не должен падать. Отсутствие поля — «не нажат».
+   */
+  altFiring?: boolean;
   /** Запрос способности: живёт ровно один тик. */
   ability: boolean;
 }
 
 /** Пустое намерение (стоит на месте, не стреляет). */
 export function emptyPlayerIntent(): PlayerIntent {
-  return { moveX: 0, moveY: 0, aimAngle: null, firing: false, ability: false };
+  return { moveX: 0, moveY: 0, aimAngle: null, firing: false, altFiring: false, ability: false };
 }
 
 /** Управление игроком, доступное игровым системам. */
@@ -41,6 +48,8 @@ export interface PlayerControls {
   readonly aimAngle: number | null;
   /** Игрок держит огонь. */
   readonly firing: boolean;
+  /** Игрок держит альтернативный огонь (правая кнопка мыши). */
+  readonly altFiring: boolean;
   /** Одноразовое нажатие способности: true ровно один тик. */
   consumeAbility(): boolean;
   /**
@@ -67,6 +76,7 @@ export interface PlayerControls {
 export class HumanControls implements PlayerControls {
   private manualAim: number | null = null;
   private manualFiring = false;
+  private manualAltFiring = false;
 
   constructor(private readonly input: InputManager) {}
 
@@ -82,6 +92,10 @@ export class HumanControls implements PlayerControls {
     return this.manualFiring;
   }
 
+  get altFiring(): boolean {
+    return this.manualAltFiring;
+  }
+
   /** Прицел из мыши/тача (угол в мировых координатах). */
   setAim(angle: number | null): void {
     this.manualAim = angle;
@@ -90,6 +104,11 @@ export class HumanControls implements PlayerControls {
   /** Кнопка огня (мышь/тач/геймпад). */
   setFiring(firing: boolean): void {
     this.manualFiring = firing;
+  }
+
+  /** Кнопка альтернативного огня (правая кнопка мыши). */
+  setAltFiring(altFiring: boolean): void {
+    this.manualAltFiring = altFiring;
   }
 
   consumeAbility(): boolean {
@@ -124,6 +143,10 @@ export class AgentControls implements PlayerControls {
 
   get firing(): boolean {
     return this.intent.firing;
+  }
+
+  get altFiring(): boolean {
+    return this.intent.altFiring === true;
   }
 
   get lastConsumedAbility(): boolean {

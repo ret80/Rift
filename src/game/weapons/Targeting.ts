@@ -20,6 +20,8 @@ export class Targeting {
   private manualAngle: number | null = null;
   /** Игрок держит огонь. */
   private manualFiring = false;
+  /** Игрок запросил альтернативный огонь (правая кнопка). */
+  private manualAltFiring = false;
   /** Текущая автоцель. */
   private target: EnemyRef | null = null;
   /** Угол до автоцели. */
@@ -37,6 +39,11 @@ export class Targeting {
   /** Сообщить, что игрок держит огонь. */
   setManualFiring(firing: boolean): void {
     this.manualFiring = firing;
+  }
+
+  /** Сообщить, что игрок держит альтернативный огонь. */
+  setManualAltFiring(altFiring: boolean): void {
+    this.manualAltFiring = altFiring;
   }
 
   /** Подключить проверку зоны глушилки. */
@@ -76,9 +83,14 @@ export class Targeting {
     return this.autoAngle ?? this.manualAngle;
   }
 
-  /** Оружие стреляет: есть автоцель либо игрок держит огонь. */
+  /** Оружие стреляет: есть автоцель либо игрок держит огонь (основной или альтернативный). */
   get firing(): boolean {
-    return this.target !== null || this.manualFiring;
+    return this.target !== null || this.manualFiring || this.manualAltFiring;
+  }
+
+  /** Игрок держит альтернативный огонь. */
+  get altFiring(): boolean {
+    return this.manualAltFiring;
   }
 
   /** Текущая автоцель (null — цели нет). */

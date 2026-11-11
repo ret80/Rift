@@ -10,6 +10,7 @@
  * если луч с рассеянным углом прошёл по цели — цель получает урон.
  */
 import { aimAtTarget } from "../aiming/AimSolver";
+import { rayCircleEntryDistance } from "./raycast";
 import type { EnemyRef } from "../ecs";
 import type {
   Weapon,
@@ -34,28 +35,14 @@ const LASER_MUZZLE_OFFSET = 14;
 const LASER_BEAM_LENGTH = 1200;
 /** Время работы лазера после подбора, секунды. */
 const LASER_DURATION = 30;
-
-/** Расстояние до точки входа луча в круг (null — луч не попадает в круг). */
-function rayCircleEntryDistance(
-  ox: number,
-  oy: number,
-  dx: number,
-  dy: number,
-  hx: number,
-  hy: number,
-  r: number
-): number | null {
-  const fx = ox - hx;
-  const fy = oy - hy;
-  const b = fx * dx + fy * dy;
-  const c = fx * fx + fy * fy - r * r;
-  const disc = b * b - c;
-  if (disc < 0) return null;
-  const t = -b - Math.sqrt(disc);
-  if (t >= 0) return t;
-  // Круг цели впереди, но источник уже внутри него — стартуем сразу.
-  return c <= 0 ? 0 : null;
-}
+/** Полуугол широкого луча альтернативного огня, радианы. */
+const LASER_ALT_SPREAD = 0.22;
+/** Дальность широкого луча альтернативного огня. */
+const LASER_ALT_RANGE = 520;
+/** Множитель урона широкого луча. */
+const LASER_ALT_DAMAGE = 0.7;
+/** Перезарядка широкого луча, секунды. */
+const LASER_ALT_CD = 1.3;
 
 export class LaserWeapon implements Weapon {
   readonly id: WeaponId = "laser";
@@ -115,6 +102,15 @@ export class LaserWeapon implements Weapon {
     }
 
     this.fireCd = Math.max(0, this.fireCd - dt);
+
+    // Альтернативный огонь: широкий луч по конусу, а не по одной цели.
+    if (ctx.aim.altFiring) {
+      if (this.fireCd > 0 || ctx.aim.angle === null) return;
+      this.fireSweep(ctx);
+      this.fireCd = (LASER_ALT_CD * this.reloadMult) / ctx.bonuses.rateMult;
+      return;
+    }
+
     if (this.fireCd > 0) return;
     if (!ctx.aim.firing || ctx.aim.angle === null) return;
 
@@ -234,6 +230,42 @@ export class LaserWeapon implements Weapon {
       seed: ctx.rngFx.next() * 100,
       // Не занята ли цель, видно по живым лучам: своя цель — «занята».
       targetId: target.marker.ecsId ?? null,
+    });
+
+    ctx.onFired(this.id);
+  }
+
+  /** Альтернативный огонь: широкий луч бьёт всех врагов в конусе. */
+  private fireSweep(ctx: WeaponContext): void {
+    const angle = ctx.aim.angle ?? 0;
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
+    const muzzleX = ctx.player.x + dx * LASER_MUZZLE_OFFSET;
+    const muzzleY = ctx.player.y + dy * LASER_MUZZLE_OFFSET;
+    const dmg = LASER_DMG * LASER_ALT_DAMAGE * this.damageMult;
+
+    let end = 0;
+    for (const e of ctx.enemies) {
+      if (e.marker.dead) continue;
+      const dist = Math.hypot(e.position.x - muzzleX, e.position.y - muzzleY);
+      if (dist > LASER_ALT_RANGE) continue;
+      const toEnemy = Math.atan2(e.position.y - muzzleY, e.position.x - muzzleX);
+      const diff = Math.atan2(Math.sin(toEnemy - angle), Math.cos(toEnemy - angle));
+      if (Math.abs(diff) > LASER_ALT_SPREAD) continue;
+      ctx.damageEnemy(e, dmg);
+      if (dist > end) end = dist;
+    }
+
+    const length = end > 0 ? end : LASER_BEAM_LENGTH;
+    ctx.addBeam({
+      x1: muzzleX,
+      y1: muzzleY,
+      x2: muzzleX + dx * length,
+      y2: muzzleY + dy * length,
+      life: LASER_BEAM_LIFE,
+      maxLife: LASER_BEAM_LIFE,
+      seed: ctx.rngFx.next() * 100,
+      targetId: null,
     });
 
     ctx.onFired(this.id);

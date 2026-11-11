@@ -199,6 +199,7 @@ export class SessionRecorder implements SessionRecorderPort {
       moveY: controls.axis.y,
       aimAngle: controls.aimAngle,
       firing: controls.firing,
+      altFiring: controls.altFiring,
       ability: false,
     };
     this.abilityThisTick = false;

@@ -38,6 +38,12 @@ const MISSILE_DURATION = 30;
 const MISSILE_PORT_OFFSET = 12;
 /** Максимальная дистанция наведения ракеты. */
 const MISSILE_LOCK_RANGE = 600;
+/** Число ракет в альтернативном залпе. */
+const MISSILE_ALT_SALVO = 3;
+/** Множитель урона ракеты в залпе. */
+const MISSILE_ALT_DAMAGE = 0.6;
+/** Перезарядка залпа, секунды. */
+const MISSILE_ALT_CD = 1.6;
 
 export class MissileWeapon implements Weapon {
   readonly id: WeaponId = "missile";
@@ -54,6 +60,8 @@ export class MissileWeapon implements Weapon {
   private timeLeft = 0;
   /** Остаток перезарядки до следующего пуска. */
   private cooldown = 0;
+  /** Остаток перезарядки альтернативного залпа. */
+  private altCd = 0;
   /** Борт, из которого вылетает следующая ракета (0 — левый, 1 — правый). */
   private port: 0 | 1 = 0;
   /** Персональный множитель перезарядки (арсенал). */
@@ -66,6 +74,7 @@ export class MissileWeapon implements Weapon {
     this.active = false;
     this.timeLeft = 0;
     this.cooldown = 0;
+    this.altCd = 0;
     this.port = 0;
     this.reloadMult = 1;
     this.damageMult = 1;
@@ -98,6 +107,22 @@ export class MissileWeapon implements Weapon {
     }
 
     this.cooldown = Math.max(0, this.cooldown - dt);
+    this.altCd = Math.max(0, this.altCd - dt);
+
+    // Альтернативный огонь: залп из трёх ракет по одной цели.
+    if (ctx.aim.altFiring) {
+      if (this.altCd > 0) return;
+      const salvoTarget = this.findTarget(ctx.enemies, ctx.player.x, ctx.player.y);
+      if (!salvoTarget) return;
+      this.altCd = MISSILE_ALT_CD;
+      for (let i = 0; i < MISSILE_ALT_SALVO; i++) {
+        this.fire(ctx, salvoTarget, MISSILE_ALT_DAMAGE, false);
+        this.port = this.port === 0 ? 1 : 0;
+      }
+      ctx.onFired(this.id);
+      return;
+    }
+
     if (this.cooldown > 0) return;
 
     const target = this.findTarget(ctx.enemies, ctx.player.x, ctx.player.y);
@@ -164,7 +189,12 @@ export class MissileWeapon implements Weapon {
   }
 
   /** Пул самонаводящейся ракеты. */
-  private fire(ctx: WeaponContext, target: EnemyRef): void {
+  private fire(
+    ctx: WeaponContext,
+    target: EnemyRef,
+    damageMult = 1,
+    notify = true,
+  ): void {
     // Борт пуска: перпендикулярно направлению на цель, поэтому ракеты
     // вылетают то с левого, то с правого борта корабля.
     const dx = target.position.x - ctx.player.x;
@@ -181,10 +211,10 @@ export class MissileWeapon implements Weapon {
       vx: (dx / dist) * MISSILE_SPEED + ctx.player.vx * 0.25,
       vy: (dy / dist) * MISSILE_SPEED + ctx.player.vy * 0.25,
       life: MISSILE_LIFE,
-      dmg: MISSILE_DMG * this.damageMult,
+      dmg: MISSILE_DMG * this.damageMult * damageMult,
       homing: { target, turnRate: MISSILE_TURN_RATE, lockRange: MISSILE_LOCK_RANGE },
     });
 
-    ctx.onFired(this.id);
+    if (notify) ctx.onFired(this.id);
   }
 }

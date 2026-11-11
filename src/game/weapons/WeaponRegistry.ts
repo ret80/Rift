@@ -7,9 +7,13 @@
  */
 
 import { CannonWeapon } from "./CannonWeapon";
+import { DevourerWeapon } from "./DevourerWeapon";
 import { DroneWeapon } from "./DroneWeapon";
+import { FlakWeapon } from "./FlakWeapon";
 import { LaserWeapon } from "./LaserWeapon";
 import { MissileWeapon } from "./MissileWeapon";
+import { RailgunWeapon } from "./RailgunWeapon";
+import { TetherWeapon } from "./TetherWeapon";
 import type { Weapon, WeaponId } from "./Weapon";
 import { WEAPON_IDS } from "./WeaponCatalog";
 
@@ -19,6 +23,10 @@ const WEAPON_FACTORIES: Record<WeaponId, () => Weapon> = {
   missile: () => new MissileWeapon(),
   drone: () => new DroneWeapon(),
   laser: () => new LaserWeapon(),
+  railgun: () => new RailgunWeapon(),
+  flak: () => new FlakWeapon(),
+  tether: () => new TetherWeapon(),
+  devourer: () => new DevourerWeapon(),
 };
 
 /** Создать свежий набор экземпляров всех видов оружия из каталога. */

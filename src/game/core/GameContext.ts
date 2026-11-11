@@ -241,6 +241,7 @@ export class GameContext {
     this.inputSystem = new InputSystem(canvas, {
       onAimUpdate: (mouseX, mouseY, winW, winH) => this.handleAim(mouseX, mouseY, winW, winH),
       onFiringChanged: (firing) => this.humanControls.setFiring(firing),
+      onAltFiringChanged: (altFiring) => this.humanControls.setAltFiring(altFiring),
     });
 
     // Геймпад: создаём и подключаем к InputManager.

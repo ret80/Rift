@@ -164,6 +164,8 @@ export abstract class AbstractPlayerAgent implements PlayerAgent {
       moveY: this.move.y,
       aimAngle: angle,
       firing: inCone && view.player.hp > 0,
+      // Агенты пока не пользуются альтернативным огнём.
+      altFiring: false,
       ability: this.wantAbility(view),
     };
   }

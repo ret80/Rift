@@ -14,6 +14,7 @@ import {
   type WeaponLoadoutEntry,
   type WeaponModelUpgrades,
 } from "./weapons/Weapon";
+import { ARMORY_WEAPON_COUNT } from "./weapons/WeaponCatalog";
 import type { TKey } from "../i18n";
 import type { PersistencePort } from "./core/PersistencePort";
 import { STORAGE_KEYS } from "./core/storageKeys";
@@ -79,6 +80,10 @@ export function defaultWeaponLoadout(): WeaponLoadout {
     missile: emptyWeaponEntry(),
     drone: emptyWeaponEntry(),
     laser: emptyWeaponEntry(),
+    railgun: emptyWeaponEntry(),
+    flak: emptyWeaponEntry(),
+    tether: emptyWeaponEntry(),
+    devourer: emptyWeaponEntry(),
   };
 }
 
@@ -116,7 +121,7 @@ export function weaponDamageMult(model: WeaponModelUpgrades): number {
  * персональная линия «точность» арсенала добавляется поверх базового шанса.
  */
 export function weaponHitChance(id: WeaponId, model: WeaponModelUpgrades): number {
-  if (id === "cannon" || id === "laser") {
+  if (id === "cannon" || id === "laser" || id === "railgun" || id === "flak") {
     const level = Math.max(0, Math.min(WEAPON_STAT_MAX_LEVEL, model.accuracy));
     return Math.min(WEAPON_ACCURACY_MAX, PLAYER_AIM_BASE_CHANCE + level * WEAPON_ACCURACY_PER_LEVEL);
   }
@@ -185,9 +190,10 @@ export const UPGRADE_TIERS: Record<UpgradeKey, UpgradeTier> = {
   // Скорость: 8 уровней дают в сумме ~2 080 деталей вместо 460. Мобильность
   // должна быть выбором с ценой, а не бесплатным билетом в безопасность.
   speed:         { baseCost: 160, costStep: 30,  maxLevel: 8  },
-  // Орудия: 1 + уровень слотов, но в арсенале ровно 3 оружия (пушка,
-  // ракета, лазер). Уровни 3–4 ничего не давали и удалены (мёртвая покупка).
-  guns:          { baseCost: 214, costStep: 160, maxLevel: 2  },
+  // Орудия: 1 + уровень слотов, всего 7 оружий в арсенале (пушка, ракета,
+  // лазер, рельса, картечница, цепь, пожиратель), поэтому 6 уровней —
+  // последний открывает всё.
+  guns:          { baseCost: 214, costStep: 160, maxLevel: 6  },
   drones:        { baseCost: 341, costStep: 239, maxLevel: 7  },
   shield:        { baseCost: 420, costStep: 0,   maxLevel: 1  },
   shieldPercent: { baseCost: 160, costStep: 120, maxLevel: 7  },
@@ -253,8 +259,8 @@ function migrate(parsed: Partial<PlayerUpgrades>): PlayerUpgrades {
     migrated.shield = 1;
   }
   migrated.shield = Math.min(UPGRADE_TIERS.shield.maxLevel, migrated.shield);
-  // Линия «орудия» урезана до 2 уровней (третьего оружия в арсенале нет):
-  // старые сейвы с уровнями 3–4 подрезаются, а не показывают мёртвые слоты.
+  // Линия «орудия» ограничена числом оружий в арсенале: старые сейвы
+  // с большими уровнями подрезаются, а не показывают мёртвые слоты.
   migrated.guns = Math.min(UPGRADE_TIERS.guns.maxLevel, migrated.guns);
   return migrated;
 }
@@ -370,7 +376,7 @@ export interface AppliedUpgrades {
   healRateMult: number;
   /** Множитель скорости: 1.0 база + 0.05 за уровень. */
   speedMult: number;
-  /** Число слотов оружия корабля: 1 база + уровень, макс 3 (пушка, ракета, лазер). */
+  /** Число слотов оружия корабля: 1 база + уровень, макс — число оружий в арсенале. */
   weaponSlots: number;
   /** Число слотов под дроны корабля: 1 база + уровень, макс 8. */
   droneSlots: number;
@@ -401,8 +407,8 @@ export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
   // speed: 1.0 base + 0.05 per level
   const speedMult = 1.0 + upgrades.speed * 0.05;
 
-  // weapon slots: base 1 + level, но не больше числа оружий в арсенале (3)
-  const weaponSlots = Math.min(1 + upgrades.guns, 3);
+  // weapon slots: base 1 + level, но не больше числа оружий в арсенале
+  const weaponSlots = Math.min(1 + upgrades.guns, ARMORY_WEAPON_COUNT);
 
   // drone slots: base 1 + level, capped at 8
   const droneSlots = Math.min(1 + upgrades.drones, 8);

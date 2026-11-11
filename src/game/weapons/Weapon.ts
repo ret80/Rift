@@ -15,7 +15,7 @@ import type { Rng } from "../core/rng";
 import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
 import type { DroneFleetSpec } from "../drones/Drone";
 import type { BeamSpawn, BulletSpawn } from "../ecs/spawn";
-import type { DroneRef, EnemyRef, AllyDroneSpawn, BeamRef } from "../ecs";
+import type { DroneRef, EnemyBulletRef, EnemyRef, AllyDroneSpawn, BeamRef } from "../ecs";
 import type { EnemyDamagePort } from "../ecs/EnemyLifecycle";
 import type { WeaponId, WeaponMeta } from "./WeaponCatalog";
 
@@ -37,6 +37,14 @@ export interface AimState {
   angle: number | null;
   /** Готовность стрелять. */
   firing: boolean;
+  /**
+   * Альтернативный огонь.
+   *
+   * Каждое оружие само решает, что делает его alt-fire: веер, залп,
+   * разрыв цепи или выброс заряда. Общий контракт один — режим
+   * запрашивается игроком и обрабатывается вместо основного выстрела.
+   */
+  altFiring: boolean;
   /** Автоцель — враг, на который наведено орудие (null — ручной прицел). */
   target: EnemyRef | null;
   /** Шанс попадания автонаведения (0..1, всегда < 1). */
@@ -53,6 +61,10 @@ export interface WeaponContext extends EnemyDamagePort {
   readonly aim: AimState;
   /** Враги — цели для наведения. */
   readonly enemies: readonly EnemyRef[];
+  /** Вражеские снаряды: их поглощает оружие вроде пожирателя. */
+  readonly enemyBullets: readonly EnemyBulletRef[];
+  /** Удалить вражеский снаряд (поглощение, не урон игроку). */
+  removeEnemyBullet(bullet: EnemyBulletRef): void;
   /** Зарегистрировать новый снаряд игрока в ECS-мире. */
   addBullet(bullet: BulletSpawn): void;
   /** Пул дронов-компаньонов (живые связки компонентов). */

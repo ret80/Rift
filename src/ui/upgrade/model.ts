@@ -92,8 +92,9 @@ export const ARMORY_WEAPONS: Array<{
     color: entry.color,
     titleKey,
     descKey,
-    // У ракетницы нет линии точности: наведение самонаводящееся.
-    stats: id === "missile"
+    // У оружия с самонаведением или постоянным сцеплением линии
+    // точности нет: шанс попадания там ни на что не влияет.
+    stats: id === "missile" || id === "tether" || id === "devourer"
       ? WEAPON_STATS.filter((row) => row.stat !== "accuracy")
       : undefined,
   };

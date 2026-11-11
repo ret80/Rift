@@ -11,12 +11,15 @@ export interface InputSystemHooks {
   onAimUpdate(mouseX: number, mouseY: number, winW: number, winH: number): void;
   /** Вызывается при изменении состояния стрельбы. */
   onFiringChanged(firing: boolean): void;
+  /** Вызывается при изменении состояния альтернативного огня (правая кнопка). */
+  onAltFiringChanged(altFiring: boolean): void;
 }
 
 export class InputSystem {
   private mouseX = 0;
   private mouseY = 0;
   private mouseDown = false;
+  private altDown = false;
 
   private onMouseMove = (e: MouseEvent) => {
     const rect = this.canvas.getBoundingClientRect();
@@ -26,12 +29,25 @@ export class InputSystem {
     this.hooks.onAimUpdate(this.mouseX, this.mouseY, width, height);
   };
 
-  private onMouseDown = (_e: MouseEvent) => {
+  private onMouseDown = (e: MouseEvent) => {
+    // Правая кнопка — альтернативный огонь, левая — основной.
+    if (e.button === 2) {
+      this.altDown = true;
+      this.hooks.onAltFiringChanged(true);
+      return;
+    }
+    if (e.button !== 0) return;
     this.mouseDown = true;
     this.hooks.onFiringChanged(true);
   };
 
-  private onMouseUp = () => {
+  private onMouseUp = (e: MouseEvent) => {
+    if (e.button === 2) {
+      this.altDown = false;
+      this.hooks.onAltFiringChanged(false);
+      return;
+    }
+    if (e.button !== 0) return;
     this.mouseDown = false;
     this.hooks.onFiringChanged(false);
   };
@@ -39,6 +55,13 @@ export class InputSystem {
   private onMouseLeave = () => {
     this.mouseDown = false;
     this.hooks.onFiringChanged(false);
+    this.altDown = false;
+    this.hooks.onAltFiringChanged(false);
+  };
+
+  /** Правая кнопка не должна открывать контекстное меню браузера. */
+  private onContextMenu = (e: Event) => {
+    e.preventDefault();
   };
 
   private onTouchStart = (_e: TouchEvent) => {
@@ -60,6 +83,7 @@ export class InputSystem {
     this.canvas.addEventListener('mousedown', this.onMouseDown);
     this.canvas.addEventListener('mouseup', this.onMouseUp);
     this.canvas.addEventListener('mouseleave', this.onMouseLeave);
+    this.canvas.addEventListener('contextmenu', this.onContextMenu);
     this.canvas.addEventListener('touchstart', this.onTouchStart, { passive: true });
     this.canvas.addEventListener('touchend', this.onTouchEnd);
   }
@@ -69,6 +93,7 @@ export class InputSystem {
     this.canvas.removeEventListener('mousedown', this.onMouseDown);
     this.canvas.removeEventListener('mouseup', this.onMouseUp);
     this.canvas.removeEventListener('mouseleave', this.onMouseLeave);
+    this.canvas.removeEventListener('contextmenu', this.onContextMenu);
     this.canvas.removeEventListener('touchstart', this.onTouchStart);
     this.canvas.removeEventListener('touchend', this.onTouchEnd);
   }
@@ -79,5 +104,9 @@ export class InputSystem {
 
   get isDown(): boolean {
     return this.mouseDown;
+  }
+
+  get isAltDown(): boolean {
+    return this.altDown;
   }
 }

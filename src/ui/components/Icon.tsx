@@ -58,6 +58,16 @@ const PICKUP_COLORS: Record<string, string> = {
   tactical: "#7dff9e",
 };
 
+const WEAPON_COLORS: Record<string, string> = {
+  "weapon-cannon": "#5ef2ff",
+  "weapon-missile": "#9dffe8",
+  "weapon-laser": "#ff4d6d",
+  "weapon-railgun": "#8fd3ff",
+  "weapon-flak": "#ffb454",
+  "weapon-tether": "#c79bff",
+  "weapon-devourer": "#7dffa8",
+};
+
 const UPGRADE_COLORS: Record<string, string> = {
   "upgrade-hull": "#5ef2ff",
   "upgrade-speed": "#7dff9e",
@@ -81,6 +91,7 @@ function getIconColor(kind: IconKind): string {
   return (
     ENEMY_COLORS[kind] ??
     PICKUP_COLORS[kind] ??
+    WEAPON_COLORS[kind] ??
     UPGRADE_COLORS[kind] ??
     DRONE_COLORS[kind] ??
     "#ffffff"
@@ -256,6 +267,41 @@ function getIconPaths(kind: IconKind): React.ReactNode {
           <line x1="16" y1="12" x2="21" y2="8" strokeOpacity="0.75" />
           <line x1="16" y1="12" x2="21" y2="16" strokeOpacity="0.75" />
           <circle cx="3" cy="12" r="1.6" />
+        </>
+      );
+    case "weapon-railgun":
+      return (
+        <>
+          <line x1="3" y1="8" x2="21" y2="8" />
+          <line x1="3" y1="16" x2="21" y2="16" />
+          <circle cx="12" cy="12" r="2.4" />
+          <line x1="12" y1="12" x2="21" y2="12" strokeOpacity="0.5" />
+        </>
+      );
+    case "weapon-flak":
+      return (
+        <>
+          <path d="M4 9 L16 12 L4 15" />
+          <circle cx="19" cy="7" r="1.6" />
+          <circle cx="20" cy="12" r="1.6" />
+          <circle cx="19" cy="17" r="1.6" />
+        </>
+      );
+    case "weapon-tether":
+      return (
+        <>
+          <circle cx="6" cy="17" r="3" />
+          <circle cx="18" cy="7" r="3" />
+          <path d="M8.5 15 L15.5 9" strokeOpacity="0.7" />
+          <path d="M10 17 Q13 13 15 8" strokeOpacity="0.35" />
+        </>
+      );
+    case "weapon-devourer":
+      return (
+        <>
+          <circle cx="12" cy="12" r="8" />
+          <path d="M7 7 L12 12 L17 7" />
+          <path d="M7 17 L12 12 L17 17" />
         </>
       );
     case "pickup-shield":

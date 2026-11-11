@@ -46,6 +46,18 @@ export const CANNON_MAX_BARRELS = 5;
 export const CANNON_BARREL_OFFSETS = [0, 9, -9, 17, -17];
 /** Разброс ручного прицела — цели нет, упреждение применить не к чему. */
 const CANNON_MANUAL_SPREAD = 0.02;
+/** Число картечин в альтернативном залпе. */
+const CANNON_ALT_PELLETS = 5;
+/** Полуугол залпа картечи, радианы. */
+const CANNON_ALT_SPREAD = 0.22;
+/** Множитель урона картечины. */
+const CANNON_ALT_DAMAGE = 0.6;
+/** Скорость картечины. */
+const CANNON_ALT_SPEED = 520;
+/** Время жизни картечины: ближний бой. */
+const CANNON_ALT_LIFE = 0.3;
+/** Перезарядка альтернативного залпа, секунды. */
+const CANNON_ALT_CD = 1.3;
 
 export class CannonWeapon implements Weapon {
   readonly id: WeaponId = "cannon";
@@ -58,6 +70,8 @@ export class CannonWeapon implements Weapon {
   private owned = true;
   /** Остаток перезарядки. */
   private fireCd = 0;
+  /** Остаток перезарядки альтернативного залпа. */
+  private altCd = 0;
   /** Персональный множитель перезарядки (арсенал). */
   private reloadMult = 1;
   /** Персональный множитель урона (арсенал). */
@@ -68,6 +82,7 @@ export class CannonWeapon implements Weapon {
   reset(): void {
     this.owned = true;
     this.fireCd = 0;
+    this.altCd = 0;
     this.reloadMult = 1;
     this.damageMult = 1;
     this.personalAccuracy = null;
@@ -83,7 +98,17 @@ export class CannonWeapon implements Weapon {
 
   update(dt: number, ctx: WeaponContext): void {
     this.fireCd = Math.max(0, this.fireCd - dt);
+    this.altCd = Math.max(0, this.altCd - dt);
     if (!ctx.aim.firing || ctx.aim.angle === null) return;
+
+    // Альтернативный огонь: залп картечи вместо точных очередей.
+    if (ctx.aim.altFiring) {
+      if (this.altCd > 0) return;
+      this.altCd = (CANNON_ALT_CD * this.reloadMult) / ctx.bonuses.rateMult;
+      this.fireShotgun(ctx);
+      return;
+    }
+
     if (this.fireCd > 0) return;
     this.fireCd = this.getReloadTime(ctx);
     this.fire(ctx);
@@ -168,6 +193,29 @@ export class CannonWeapon implements Weapon {
         vy: Math.sin(barrelAngle) * CANNON_BULLET_SPEED,
         life: CANNON_BULLET_LIFE,
         dmg: CANNON_BULLET_DMG * this.damageMult,
+      });
+    }
+
+    ctx.onFired(this.id);
+  }
+
+  /** Альтернативный залп: веер картечи по направлению стволов. */
+  private fireShotgun(ctx: WeaponContext): void {
+    const turret = this.turretAngle(ctx);
+    const dmg = CANNON_BULLET_DMG * CANNON_ALT_DAMAGE * this.damageMult;
+
+    for (let i = 0; i < CANNON_ALT_PELLETS; i++) {
+      const offset = (i - (CANNON_ALT_PELLETS - 1) / 2) * CANNON_ALT_SPREAD;
+      const angle = turret + offset + (ctx.rng.next() - 0.5) * CANNON_MANUAL_SPREAD;
+      const dx = Math.cos(angle);
+      const dy = Math.sin(angle);
+      ctx.addBullet({
+        x: ctx.player.x + dx * 14,
+        y: ctx.player.y + dy * 14,
+        vx: dx * CANNON_ALT_SPEED,
+        vy: dy * CANNON_ALT_SPEED,
+        life: CANNON_ALT_LIFE,
+        dmg,
       });
     }
 

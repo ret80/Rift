@@ -345,6 +345,8 @@ export class GameWorld {
         },
         getDrones: () => this.ecs.allyDrones(),
         addAllyDrone: (d) => this.ecs.addAllyDrone(d),
+        getEnemyBullets: () => this.ecs.enemyBullets(),
+        removeEnemyBullet: (b) => this.ecs.removeEnemyBullet(b),
         getBonuses: () => this.bonusManager.getBonuses(),
         getBeams: () => this.ecs.beams(),
         addBeam: (b) => this.ecs.addBeam(b),
@@ -539,6 +541,7 @@ export class GameWorld {
     // Управление применяется до тика систем, иначе оно попадёт в следующий тик.
     this.weaponManager.setManualAim(this.controls.aimAngle);
     this.weaponManager.setManualFiring(this.controls.firing);
+    this.weaponManager.setManualAltFiring(this.controls.altFiring);
 
     // В dying/over игровые системы не тикают, чтобы не оставлять «сиротские» пули.
     if (!this.fsm.is("dying", "over")) {

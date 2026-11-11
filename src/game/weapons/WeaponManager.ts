@@ -19,7 +19,7 @@ import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
 import type { BeamSpawn, BulletSpawn } from "../ecs/spawn";
 import { Targeting, DEFAULT_TARGET_RANGE } from "./Targeting";
 import type { DroneFleetSpec } from "../drones/Drone";
-import type { AllyDroneSpawn, BeamRef, DroneRef, EnemyRef } from "../ecs";
+import type { AllyDroneSpawn, BeamRef, DroneRef, EnemyBulletRef, EnemyRef } from "../ecs";
 import type { EnemyDamagePort } from "../ecs/EnemyLifecycle";
 import type {
   AimState,
@@ -39,6 +39,10 @@ export interface WeaponWorld extends EnemyDamagePort {
   getPlayer(): PlayerSnapshot;
   /** Враги — цели для наведения. */
   getEnemies(): readonly EnemyRef[];
+  /** Вражеские снаряды — для оружия, которое их поглощает. */
+  getEnemyBullets?(): EnemyBulletRef[];
+  /** Удалить вражеский снаряд (поглощение). */
+  removeEnemyBullet?(bullet: EnemyBulletRef): void;
   /** Зарегистрировать новый снаряд игрока в ECS-мире. */
   addBullet(bullet: BulletSpawn): void;
   /** Пул дронов-компаньонов (живые связки компонентов). */
@@ -194,6 +198,11 @@ export class WeaponManager extends PhasedSystem {
     this.targeting.setManualFiring(firing);
   }
 
+  /** Сообщить, что игрок держит альтернативный огонь. */
+  setManualAltFiring(altFiring: boolean): void {
+    this.targeting.setManualAltFiring(altFiring);
+  }
+
   /** Текущий угол прицеливания (null — прицел не задан). */
   getAimAngle(): number | null {
     return this.targeting.angle;
@@ -204,10 +213,12 @@ export class WeaponManager extends PhasedSystem {
     const aim: AimState = {
       angle: this.targeting.angle,
       firing: this.targeting.firing,
+      altFiring: this.targeting.altFiring,
       target: this.targeting.currentTarget,
       hitChance: this.hitChance,
     };
     const bonuses = this.world.getBonuses();
+    const world = this.world;
 
     return {
       player: this.world.getPlayer(),
@@ -217,6 +228,11 @@ export class WeaponManager extends PhasedSystem {
       },
       aim,
       enemies: this.world.getEnemies(),
+      // Лениво: вражеские снаряды нужны только поглощающему оружию.
+      get enemyBullets() {
+        return world.getEnemyBullets?.() ?? [];
+      },
+      removeEnemyBullet: (bullet) => world.removeEnemyBullet?.(bullet),
       addBullet: (bullet) => this.world.addBullet(bullet),
       drones: this.world.getDrones(),
       addAllyDrone: (drone) => this.world.addAllyDrone(drone),
