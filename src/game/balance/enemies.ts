@@ -182,8 +182,8 @@ export interface EnemyBaseDef {
  */
 export const ENEMY_BASES: Record<EnemyKind, EnemyBaseDef> = {
   [EnemyKind.Drone]: {
-    r: 10, hpBase: 10, speed: DRONE_BASE_SPEED,
-    contactBase: 12, score: 10, boltBase: 0, mass: 0,
+    r: 10, hpBase: 2, speed: DRONE_BASE_SPEED,
+    contactBase: 30, score: 10, boltBase: 0, mass: 0,
   },
   [EnemyKind.Hunter]: {
     r: 9, hpBase: 30, speed: HUNTER_SPEED,
