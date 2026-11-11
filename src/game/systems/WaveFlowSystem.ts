@@ -109,8 +109,12 @@ export class WaveFlowSystem extends PhasedSystem {
     ).length;
     if (alive > 0) return;
 
-    // Якоря: волна с якорями завершается только при их уничтожении.
-    if (this.deps.anchorSystem?.hasAnchors() && !this.deps.anchorSystem.allDestroyed()) {
+    // Objective-волна завершается только после уничтожения всех якорей.
+    if (
+      orchestrator.waveType === "objective" &&
+      this.deps.anchorSystem?.hasAnchors() &&
+      !this.deps.anchorSystem.allDestroyed()
+    ) {
       return;
     }
 

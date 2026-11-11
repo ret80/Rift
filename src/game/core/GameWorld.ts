@@ -53,6 +53,7 @@ import { UpgradeSystem } from "../systems/UpgradeSystem";
 import { WaveFlowSystem } from "../systems/WaveFlowSystem";
 import { WaveOrchestrator } from "../systems/WaveOrchestrator";
 import { ZoneSystem } from "../systems/ZoneSystem";
+import { anchorCountFor, waveTypeFor } from "../waves/WaveStateMachine";
 import { loadBestWave, saveBestWave } from "../upgrades";
 import { STORAGE_KEYS } from "./storageKeys";
 import type { PlayerSnapshot, WeaponId } from "../weapons/Weapon";
@@ -960,16 +961,16 @@ export class GameWorld {
       bus.subscribe("wave_started", (event) => {
         if (!this.fsm.is("playing", "active")) return;
         const wave = event.payload.wave;
-        // Якоря: волны-цели (каждая 3-я) содержат 2-3 якоря.
-        if (wave % 3 === 0) {
+        const waveType = waveTypeFor(wave);
+        // Якоря: objective-волны содержат 2-3 якоря, обычные — ни одного.
+        if (waveType === "objective") {
           const zone = this.waveOrchestrator.zoneState;
-          const count = wave % 6 === 0 ? 3 : 2;
           this.anchorSystem.spawn(
             wave,
             zone.x,
             zone.y,
             zone.radius > 0 ? zone.radius : 200,
-            count,
+            anchorCountFor(wave),
             () => this.rng("spawn").next(),
           );
         }
@@ -980,7 +981,7 @@ export class GameWorld {
         this.spawnSystem.reset();
         const pos = this.getPlayerPosition();
         const total = this.spawnSystem.compositionTotal ?? waveTotalFor(wave);
-        this.waveOrchestrator.initWave(pos.x, pos.y, wave, total);
+        this.waveOrchestrator.initWave(pos.x, pos.y, wave, total, waveType);
         this.waveOrchestrator.setSpeedMult(this.upgradeSystem.getApplied("speedMult"));
       }),
     );

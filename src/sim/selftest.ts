@@ -41,6 +41,11 @@ import { compareResults } from "../game/sim/Compare";
 import { compareSnapshots, executeScenario } from "../game/sim/execute";
 import { aggregateMetrics, type RunResult } from "../game/sim/RunResult";
 import {
+  WaveStateMachine,
+  anchorCountFor,
+  waveTypeFor,
+} from "../game/waves/WaveStateMachine";
+import {
   ScenarioError,
   parseScenario,
   scenarioHash,
@@ -335,6 +340,37 @@ check("Elite affixes: на 5-й волне гарантированная эли
     expect(enemy!.marker.shieldHp < enemy!.life.max, "щит не уменьшился");
   } finally {
     world.destroy();
+  }
+});
+
+check("WaveStateMachine: objective-тип волны явный и стабильный", () => {
+  expectEqual(waveTypeFor(3), "objective", "wave 3");
+  expectEqual(waveTypeFor(6), "objective", "wave 6");
+  expectEqual(waveTypeFor(10), "combat", "wave 10");
+  expectEqual(anchorCountFor(3), 2, "anchors wave 3");
+  expectEqual(anchorCountFor(6), 3, "anchors wave 6");
+  expectEqual(anchorCountFor(4), 0, "anchors wave 4");
+
+  const machine = new WaveStateMachine();
+  machine.init(3, 30);
+  expectEqual(machine.waveType, "objective", "init wave 3");
+  machine.advance();
+  expectEqual(machine.waveType, "combat", "advance wave 4");
+  machine.reset(9);
+  expectEqual(machine.waveType, "objective", "reset wave 9");
+});
+
+check("GameWorld: objective-волна спавнит якоря, combat — нет", () => {
+  const objective = createHeadlessWorld({ seed: 1, startWave: 3 });
+  const combat = createHeadlessWorld({ seed: 1, startWave: 4 });
+  try {
+    expectEqual(objective.waveOrchestrator.waveType, "objective", "wave 3 type");
+    expectEqual(objective.anchorSystem.getAnchors().length, 2, "wave 3 anchors");
+    expectEqual(combat.waveOrchestrator.waveType, "combat", "wave 4 type");
+    expectEqual(combat.anchorSystem.getAnchors().length, 0, "wave 4 anchors");
+  } finally {
+    objective.destroy();
+    combat.destroy();
   }
 });
 

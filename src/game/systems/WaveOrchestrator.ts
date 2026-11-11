@@ -20,7 +20,12 @@ import type { BannerData } from "../types/ui";
 import { ZoneEdgeDamage, type PlayerPosition } from "../waves/ZoneEdgeDamage";
 import { ZoneModel } from "../waves/ZoneModel";
 import { ZoneStorm, type ZoneStormState } from "../waves/ZoneStorm";
-import { WaveStateMachine, type WaveStateId } from "../waves/WaveStateMachine";
+import {
+  WaveStateMachine,
+  waveTypeFor,
+  type WaveStateId,
+  type WaveType,
+} from "../waves/WaveStateMachine";
 
 export interface WaveOrchestratorHooks {
   /** Показать баннер или погасить его (`null`). */
@@ -100,13 +105,19 @@ export class WaveOrchestrator {
     return this.waves.total;
   }
 
+  /** Явный тип волны: combat или objective. */
+  get waveType(): WaveType {
+    return this.waves.waveType;
+  }
+
   initWave(
     playerX: number,
     playerY: number,
     wave: number,
     waveTotal: number,
+    waveType: WaveType = waveTypeFor(wave),
   ): void {
-    this.waves.init(wave, waveTotal);
+    this.waves.init(wave, waveTotal, waveType);
     this.zone.prepare(playerX, playerY);
     this.edge.reset();
     this.storm.reset();
