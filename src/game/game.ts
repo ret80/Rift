@@ -60,6 +60,16 @@ export class Game {
     this.ctx.spawnSystem.setEnabledEnemies(enemies);
   }
 
+  /** Тестовый режим: без рекордов и начисления деталей. */
+  setTestMode(on: boolean): void {
+    this.ctx.testMode = on;
+  }
+
+  /** Одиночный тест уровня из меню отладки. */
+  startTestLevel(wave: number, enemies: EnemyKind[]): void {
+    this.ctx.startTestLevel(wave, enemies);
+  }
+
   setEnabledPickups(pickups: PickupKind[] | null): void {
     this.ctx.dropSystem.setEnabledPickups(pickups);
   }

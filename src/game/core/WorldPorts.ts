@@ -68,6 +68,8 @@ export interface GameplayHooks {
   onCountdown(count: CountdownState | null): void;
   onGameOver(): void;
   onStats(stats: StatsData): void;
+  /** Тестовая волна завершена (зачистка или смерть). */
+  onTestRunEnd?(reason: "cleared" | "died"): void;
 }
 
 /** Полный набор портов мира. */

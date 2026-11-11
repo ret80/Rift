@@ -16,6 +16,8 @@ export interface Hooks {
   /** Тактический режим включён/выключен (мир стоит, доступны приказы). */
   onTactical?: (active: boolean) => void;
   onGameOver: () => void;
+  /** Тестовая волна завершена (зачистка или смерть) — вернуть в отладку. */
+  onTestRunEnd?: (reason: "cleared" | "died") => void;
   /** Нажатие кнопки подтверждения геймпада (A/Cross). */
   onGamepadConfirm?: () => void;
   /** Нажатие кнопки отмены геймпада (B/Circle). */

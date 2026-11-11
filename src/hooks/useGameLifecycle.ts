@@ -12,7 +12,6 @@ import { useEffect, useRef, type MutableRefObject, type RefObject } from "react"
 import { Game } from "../game/game";
 import type { PersistencePort } from "../game/core/PersistencePort";
 import type { BannerData, CountData, StatsData, ToastData } from "../game/types/ui";
-import type { EnemyKind } from "../game/balance";
 import type { MenuTrackId, CombatTrackId } from "../game/audio/tracks";
 import type { PhysicsEngineId } from "../game/physics";
 import type { HudStore } from "../ui/hud/HudStore";
@@ -26,8 +25,6 @@ export interface GameInitialSettings {
   combatTrack: CombatTrackId;
   physicsEngine: PhysicsEngineId;
   debugGod: boolean;
-  /** null — включены все виды врагов. */
-  enabledEnemies: EnemyKind[] | null;
   urlDebug: boolean;
   urlWave: number | null;
   /** Состав тестовой волны из `?test=...`; null — обычные волны. */
@@ -43,6 +40,8 @@ export interface GameLifecycleCallbacks {
   onPause: (p: boolean) => void;
   /** Тактический режим включён/выключен. */
   onTactical: (active: boolean) => void;
+  /** Одиночный тест уровня завершён — вернуть в меню отладки. */
+  onTestRunEnd?: (reason: "cleared" | "died") => void;
   /** Игра создана и готова принимать команды. */
   onReady: (game: Game) => void;
   /** URL-параметр `?wave` запустил забег — нужно открыть игровой экран. */
@@ -101,6 +100,7 @@ export function useGameLifecycle(
       onStats: events.onStats,
       onPause: events.onPause,
       onTactical: events.onTactical,
+      onTestRunEnd: events.onTestRunEnd,
       onGameOver: () => {
         // Итоги придут через onStats после перехода dying → over.
       },
@@ -115,7 +115,6 @@ export function useGameLifecycle(
     }, storage);
 
     game.setVolumes(initial.volumes);
-    game.setEnabledEnemies(initial.enabledEnemies);
     game.audio.setMenuTrack(initial.menuTrack);
     game.audio.setCombatTrack(initial.combatTrack);
     // Применить сохранённый физический движок. Конструктор стартует с

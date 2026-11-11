@@ -201,6 +201,10 @@ export class GameContext {
             ),
           onGameOver: () => hooks.onGameOver(),
           onStats: (stats) => hooks.onStats(stats),
+          // Микрозадача: не мутируем мир посреди тика/кадра, когда
+          // зачистка тестовой волны приходит из WaveFlowSystem.
+          onTestRunEnd: (reason) =>
+            queueMicrotask(() => hooks.onTestRunEnd?.(reason)),
         },
       },
       view: { width, height, cameraX: 0, cameraY: 0, zoom: 1 },
@@ -585,6 +589,21 @@ export class GameContext {
       this.fsm.fire("start");
     }
     this.start.startRun();
+  }
+
+  /**
+   * Запустить одиночный тест уровня из меню отладки.
+   *
+   * Волна берётся точно выбранная, состав — только из отладочного списка,
+   * без сохранения рекорда и начисления деталей. После зачистки или смерти
+   * мир сообщит хосту `onTestRunEnd`, и меню отладки откроется снова.
+   */
+  startTestLevel(wave: number, enemies: EnemyKind[]): void {
+    this.world.startWave = Math.max(1, Math.floor(wave));
+    this.world.testMode = true;
+    this.spawnSystem.setEnabledEnemies(enemies);
+    this.startRun();
+    this.world.singleWaveTest = true;
   }
 
   toMenu(): void {

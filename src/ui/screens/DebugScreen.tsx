@@ -327,6 +327,8 @@ export default function DebugScreen(props: {
   onToggleEnemy: (kind: EnemyKind) => void;
   enabledPickups: PickupKind[];
   onTogglePickup: (kind: PickupKind) => void;
+  /** Запустить выбранную волну с текущим отладочным списком врагов. */
+  onTestLevel: () => void;
   onBack: () => void;
 }) {
   const t = useT();
@@ -426,7 +428,10 @@ export default function DebugScreen(props: {
 
         {/* Footer — fixed */}
         <div className="shrink-0 border-t border-[#7dff9e]/15 bg-[#07130c] px-4 py-3">
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-2">
+            <GameButton onClick={props.onTestLevel} variant="cyan" small>
+              {t("debug.testLevel")}
+            </GameButton>
             <GameButton onClick={props.onBack} variant="amber" small>
               {t("debug.back")}
             </GameButton>

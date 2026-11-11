@@ -150,6 +150,10 @@ export class GameWorld {
   startWave: number;
   /** Тестовый режим `?test=...`: не сохранять рекорд и не начислять детали. */
   testMode: boolean;
+  /** Одиночный тест уровня: после зачистки/смерти вернуть в отладку. */
+  singleWaveTest = false;
+  /** Тест уже завершён: защита от повторного возврата в отладку. */
+  private testLevelEnded = false;
   /** Множители баланса прогона. */
   readonly balance: ResolvedBalanceOverrides;
   /** Пассивный рекордер сессии (null — запись выключена). */
@@ -229,6 +233,10 @@ export class GameWorld {
         hitPlayerShielded: (amount) => this.hitPlayerByEnvironment(amount),
         shakeScreen: (strength) => fxPort.addShake(strength),
         onWaveCleared: (wave) => {
+          if (this.singleWaveTest) {
+            this.endSingleWaveTest("cleared");
+            return;
+          }
           if (this.testMode) return;
           // Чистая зачистка (ни одного полученного удара) платит больше:
           // награда за мастерство, а не за время в бою.
@@ -537,6 +545,8 @@ export class GameWorld {
    * Seed-потоки сбрасываются — повторный забег на том же мире воспроизводим.
    */
   startRun(): void {
+    this.singleWaveTest = false;
+    this.testLevelEnded = false;
     this.rngStreams.reset();
     this.agent?.reset();
     this.agentControls?.reset();
@@ -612,6 +622,9 @@ export class GameWorld {
 
   /** Вернуть мир в состояние «до забега» (без презентационных сбросов). */
   reset(): void {
+    this.singleWaveTest = false;
+    this.testLevelEnded = false;
+    this.testMode = false;
     this.rngStreams.reset();
     this.tickIndex = 0;
     this.riftField.reset();
@@ -843,10 +856,16 @@ export class GameWorld {
       this.scoringSystem,
       {
         onGameOver: () => {
+          if (this.singleWaveTest) {
+            this.endSingleWaveTest("died");
+            return;
+          }
           if (!this.testMode) saveBestWave(this.waveOrchestrator.wave, this.ports.storage);
           this.ports.hooks.onGameOver();
         },
         onStats: (score, best, isBest, _wave, kills, time) => {
+          // В одиночном тесте экран итогов не нужен: хост вернёт в отладку.
+          if (this.singleWaveTest) return;
           this.ports.hooks.onStats({
             score,
             best,
@@ -860,6 +879,13 @@ export class GameWorld {
       this.rng("fx"),
       () => this.testMode,
     );
+  }
+
+  /** Завершить одиночный тест уровня ровно один раз. */
+  private endSingleWaveTest(reason: "cleared" | "died"): void {
+    if (!this.singleWaveTest || this.testLevelEnded) return;
+    this.testLevelEnded = true;
+    this.ports.hooks.onTestRunEnd?.(reason);
   }
 
   /** Игровые подписки на событийную шину (звук, волны, пикапы). */

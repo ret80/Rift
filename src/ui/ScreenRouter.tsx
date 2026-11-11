@@ -124,6 +124,7 @@ export function ScreenRouter(props: ScreenRouterProps) {
           onToggleGod={actions.toggleDebugGod}
           onChangeWave={actions.changeDebugWave}
           onToggleDetails={actions.toggleDebugDetails}
+          onTestLevel={actions.startTestLevel}
           onBack={actions.openMenu}
         />
       );

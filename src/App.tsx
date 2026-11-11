@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { ENEMY_KIND_COUNT } from "./game/balance/enemies";
 import type { PersistencePort } from "./game/core/PersistencePort";
 import { createLocalStoragePort } from "./game/core/PersistencePort";
 import { useGameActions } from "./hooks/useGameActions";
@@ -62,9 +61,6 @@ export default function App() {
       combatTrack: settings.combatTrack,
       physicsEngine: settings.physicsEngine,
       debugGod: settings.debugGod,
-      enabledEnemies: settings.enabledEnemies.length === ENEMY_KIND_COUNT
-        ? null
-        : settings.enabledEnemies,
       urlDebug,
       urlWave,
       waveOverride,
@@ -79,6 +75,7 @@ export default function App() {
       },
       onPause: (p) => dispatch({ type: "SET_PAUSED", paused: p }),
       onTactical: (active) => dispatch({ type: "SET_TACTICAL", tactical: active }),
+      onTestRunEnd: () => actionsRef.current?.finishTestLevel(),
       onReady: (game) => setBest(game.getBest()),
       onAutoStart: () => dispatch({ type: "SET_SCREEN", screen: "game" }),
       onGamepadConfirm: () => gamepadConfirmRef.current(),

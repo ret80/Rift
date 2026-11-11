@@ -16,13 +16,16 @@ import type { AppAction, Screen } from "../ui/appState";
 import type { PickupKind } from "../game/balance";
 import type { EnemyKind } from "../game/balance/enemies";
 import { ALL_PICKUP_KINDS } from "../game/balance/drops";
-import { ENEMY_KIND_COUNT } from "../game/balance/enemies";
 import type { MenuTrackId, CombatTrackId } from "../game/audio/tracks";
 import type { PhysicsEngineId } from "../game/physics";
 import type { DroneOrder } from "../game/ecs/components/AllyDroneComponent";
 
 export interface GameActions {
   startGame(): void;
+  /** Запустить выбранный в отладке уровень с отладочным списком врагов. */
+  startTestLevel(): void;
+  /** Вернуть тестовый уровень в меню отладки после зачистки/смерти. */
+  finishTestLevel(): void;
   toMenu(): void;
   /** Начать/остановить запись забега (`?record`). */
   toggleRecording(): void;
@@ -88,15 +91,30 @@ export function useGameActions(options: GameActionsOptions): GameActions {
     if (!game) return;
     game.audio.init();
     game.audio.startMusic();
-    game.setStartWave(settings.debugWave);
-    game.setEnabledEnemies(
-      settings.enabledEnemies.length === ENEMY_KIND_COUNT
-        ? null
-        : settings.enabledEnemies
-    );
+    // Обычный забег всегда начинает с доступной волны и со всеми врагами:
+    // отладочный список не должен влиять на реальную игру.
+    game.setStartWave(1);
+    game.setTestMode(false);
+    game.setEnabledEnemies(null);
     resetOverlays();
     dispatch({ type: "SET_SCREEN", screen: "game" });
     game.startRun();
+  };
+
+  const startTestLevel = () => {
+    const game = gameRef.current;
+    if (!game) return;
+    game.audio.init();
+    game.audio.startMusic();
+    game.startTestLevel(settings.debugWave, settings.enabledEnemies);
+    resetOverlays();
+    dispatch({ type: "SET_SCREEN", screen: "game" });
+  };
+
+  const finishTestLevel = () => {
+    gameRef.current?.toMenu();
+    resetOverlays();
+    dispatch({ type: "SET_SCREEN", screen: "debug" });
   };
 
   const toMenu = () => {
@@ -108,11 +126,7 @@ export function useGameActions(options: GameActionsOptions): GameActions {
   // При открытии отладки применяем актуальные наборы врагов/пикапов.
   useEffect(() => {
     if (screen !== "debug") return;
-    gameRef.current?.setEnabledEnemies(
-      settings.enabledEnemies.length === ENEMY_KIND_COUNT
-        ? null
-        : settings.enabledEnemies
-    );
+    gameRef.current?.setEnabledEnemies(settings.enabledEnemies);
     gameRef.current?.setEnabledPickups(
       settings.enabledPickups.length === ALL_PICKUP_KINDS.length
         ? null
@@ -150,6 +164,8 @@ export function useGameActions(options: GameActionsOptions): GameActions {
 
   return {
     startGame,
+    startTestLevel,
+    finishTestLevel,
     toMenu,
     changeVols: (v) => {
       settings.setVols(v);
@@ -203,9 +219,7 @@ export function useGameActions(options: GameActionsOptions): GameActions {
         const next = prev.includes(kind)
           ? prev.filter((k) => k !== kind)
           : [...prev, kind];
-        gameRef.current?.setEnabledEnemies(
-          next.length === ENEMY_KIND_COUNT ? null : next
-        );
+        gameRef.current?.setEnabledEnemies(next);
         return next;
       });
     },
