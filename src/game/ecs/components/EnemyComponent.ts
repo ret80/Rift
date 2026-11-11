@@ -91,6 +91,14 @@ export class EnemyComponent implements Component {
   burstCd = 0;
   tCd1?: number;
   tCd2?: number;
+  /** Телеграф атаки: оставшееся время предупреждения, сек. */
+  telegraphTimer = 0;
+  /** Активен ли телеграф атаки. */
+  telegraphActive = false;
+  /** Угол телеграфа, радианы. */
+  telegraphAngle = 0;
+  /** Тип телеграфа: line/cone/flash/arc. */
+  telegraphType: "line" | "cone" | "flash" | "arc" = "line";
   droneState: EnemyDroneState = "none";
   /** Группа роя дронов (−1 — не назначена). */
   swarmGroupId = -1;

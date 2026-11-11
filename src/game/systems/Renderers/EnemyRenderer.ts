@@ -33,6 +33,10 @@ export interface EnemyRenderState {
   spawnCd: number;
   flash: number;
   hitCd: number;
+  telegraphActive: boolean;
+  telegraphTimer: number;
+  telegraphAngle: number;
+  telegraphType: "line" | "cone" | "flash" | "arc";
   dead: boolean;
   droneState?: 'orbiting' | 'attacking' | 'none' | 'accumulating' | 'waiting';
   orbitRadius?: number;
@@ -67,6 +71,10 @@ export function buildEnemyState(enemies: EnemyRef[]): EnemyRenderState[] {
     spawnCd: e.marker.spawnCd,
     flash: e.marker.flash,
     hitCd: e.marker.hitCd,
+    telegraphActive: e.marker.telegraphActive,
+    telegraphTimer: e.marker.telegraphTimer,
+    telegraphAngle: e.marker.telegraphAngle,
+    telegraphType: e.marker.telegraphType,
     dead: e.marker.dead,
     droneState: e.marker.droneState,
     orbitRadius: e.marker.orbitRadius,
@@ -210,6 +218,42 @@ export function renderEnemies(
         break;
       }
     }
+    // Телеграф атаки (Stage 2)
+    if (e.telegraphActive) {
+      const alpha = clamp(e.telegraphTimer / 0.35, 0, 1);
+      const len = 180;
+      const cos = Math.cos(e.telegraphAngle);
+      const sin = Math.sin(e.telegraphAngle);
+      if (e.telegraphType === "line") {
+        R.pushLine(
+          e.x,
+          e.y,
+          e.x + cos * len,
+          e.y + sin * len,
+          rgba("#ff3b52", 0.35 + 0.45 * (1 - alpha)),
+        );
+      } else if (e.telegraphType === "cone") {
+        const spread = 0.35;
+        R.pushLine(
+          e.x, e.y,
+          e.x + Math.cos(e.telegraphAngle - spread) * len,
+          e.y + Math.sin(e.telegraphAngle - spread) * len,
+          rgba("#ff8a3d", 0.3),
+        );
+        R.pushLine(
+          e.x, e.y,
+          e.x + Math.cos(e.telegraphAngle + spread) * len,
+          e.y + Math.sin(e.telegraphAngle + spread) * len,
+          rgba("#ff8a3d", 0.3),
+        );
+        R.pushLine(e.x, e.y, e.x + cos * len, e.y + sin * len, rgba("#ff8a3d", 0.5));
+      } else if (e.telegraphType === "flash") {
+        R.circle(e.x + cos * 12, e.y + sin * 12, 6, rgba("#ffffff", 0.5 + 0.4 * (1 - alpha)), 12);
+      } else if (e.telegraphType === "arc") {
+        R.dashedCircle(e.x, e.y, 40, rgba("#a855f7", 0.4), 8, 0);
+      }
+    }
+
     if (e.kind !== EnemyKind.Boss && e.maxHp > 40 && e.hp < e.maxHp) {
       const f = clamp(e.hp / e.maxHp, 0, 1);
       R.dashedCircle(e.x, e.y, e.r + 6, rgba(base, 0.4), Math.max(3, Math.round(10 * f)), _time, 0.4);

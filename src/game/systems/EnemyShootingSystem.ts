@@ -102,6 +102,8 @@ export class EnemyShootingSystem extends PhasedSystem {
   private aspect: Aspect | null = null;
   private audio: AudioPort;
   private wave = 1;
+  /** Ожидающие выстрелы после телеграфа. */
+  private pendingShots: Array<{ e: EnemyComponent; shot: EnemyBoltShot; timer: number; type: string }> = [];
 
   constructor(
     audio: AudioPort,
@@ -118,6 +120,7 @@ export class EnemyShootingSystem extends PhasedSystem {
 
   reset(): void {
     this.wave = 1;
+    this.pendingShots = [];
   }
 
   setWave(wave: number): void {
@@ -136,8 +139,26 @@ export class EnemyShootingSystem extends PhasedSystem {
     if (!this.isCombatActive()) {
       // Бой остановлен — невыбранная заявка не должна выстрелить при возврате.
       this.clearFireGates();
+      this.pendingShots = [];
       return;
     }
+    // Обновить ожидающие выстрелы (телеграф).
+    const remaining: typeof this.pendingShots = [];
+    for (const p of this.pendingShots) {
+      p.timer -= dt;
+      if (p.timer <= 0) {
+        if (!p.e.dead) {
+          this.spawnBolt(p.shot);
+        }
+        p.e.telegraphActive = false;
+        p.e.telegraphTimer = 0;
+      } else {
+        p.e.telegraphTimer = p.timer;
+        remaining.push(p);
+      }
+    }
+    this.pendingShots = remaining;
+
     const enemies = this.collectEnemyShots();
     if (!enemies.length) return;
 
@@ -402,14 +423,27 @@ export class EnemyShootingSystem extends PhasedSystem {
       angle = aimAtTarget(params, hitChance, PLAYER_HIT_RADIUS, this.rng);
     }
 
-    this.spawnBolt({
-      sx,
-      sy,
-      angle,
-      boltDmg: e.boltDmg,
-      heavy: weapon.heavy,
-      cruiser: e.kind === EnemyKind.Cruiser,
-      boltSpeed: weapon.boltSpeed,
+    const type: "line" | "cone" | "flash" | "arc" =
+      e.kind === EnemyKind.Cruiser ? "cone" :
+      e.kind === EnemyKind.Fighter ? "flash" :
+      e.kind === EnemyKind.Hunter ? "line" : "line";
+    e.telegraphActive = true;
+    e.telegraphTimer = 0.35;
+    e.telegraphAngle = angle;
+    e.telegraphType = type;
+    this.pendingShots.push({
+      e,
+      shot: {
+        sx,
+        sy,
+        angle,
+        boltDmg: e.boltDmg,
+        heavy: weapon.heavy,
+        cruiser: e.kind === EnemyKind.Cruiser,
+        boltSpeed: weapon.boltSpeed,
+      },
+      timer: 0.35,
+      type,
     });
   }
 }
