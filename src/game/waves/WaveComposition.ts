@@ -43,6 +43,11 @@ export function riftCountFor(wave: number, random: RandomSource): number {
   return 5;
 }
 
+/** Волна-клещи: враги выходят с двух противоположных сторон. */
+export function isPincerWave(wave: number): boolean {
+  return wave >= 4 && wave % 4 === 0;
+}
+
 /** Сколько врагов выходит в стартовом залпе. */
 export function startSpawnCount(total: number): number {
   return Math.ceil(total * WAVE_START_SPAWN_PCT);

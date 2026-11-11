@@ -18,6 +18,7 @@ import {
   buildWaveQueue,
   killThreshold,
   reinforcementCount,
+  isPincerWave,
   riftCountFor,
   startSpawnCount,
   waveTotal,
@@ -188,7 +189,7 @@ export class SpawnSystem extends PhasedSystem {
     this.killed = 0;
     this.nextThreshold = killThreshold(this.total);
     this.lastTriggeredKills = 0;
-    this.startRifts = riftCountFor(deps.wave, this.random);
+    this.startRifts = isPincerWave(deps.wave) ? 2 : riftCountFor(deps.wave, this.random);
 
     const zone = deps.zoneState;
     const zoneX = zone?.x ?? 0;
