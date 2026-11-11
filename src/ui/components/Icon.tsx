@@ -34,7 +34,7 @@ export type IconKind =
   | "drone-striker"
   | "drone-sentry"
   /* HUD actions */
-  | "tactical"
+  | "dash"
   /* HUD loadout row */
   | LoadoutIcon;
 
@@ -55,7 +55,7 @@ const PICKUP_COLORS: Record<string, string> = {
   "pickup-drone": "#9dffe8",
   "pickup-shield": "#66e0ff",
   "ability-quantum-swap": "#7cf3ff",
-  tactical: "#7dff9e",
+  dash: "#9df1ff",
 };
 
 const UPGRADE_COLORS: Record<string, string> = {
@@ -219,15 +219,13 @@ function getIconPaths(kind: IconKind): React.ReactNode {
       );
 
     /* HUD actions */
-    case "tactical":
+    case "dash":
       return (
         <>
-          <circle cx="12" cy="12" r="7" />
-          <circle cx="12" cy="12" r="2" />
-          <line x1="12" y1="1" x2="12" y2="5" />
-          <line x1="12" y1="19" x2="12" y2="23" />
-          <line x1="1" y1="12" x2="5" y2="12" />
-          <line x1="19" y1="12" x2="23" y2="12" />
+          <polyline points="4,13 12,5 20,13" />
+          <polyline points="4,20 12,12 20,20" strokeOpacity="0.55" />
+          <line x1="1" y1="9" x2="4" y2="9" strokeOpacity="0.5" />
+          <line x1="20" y1="9" x2="23" y2="9" strokeOpacity="0.5" />
         </>
       );
 

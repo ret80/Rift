@@ -218,7 +218,8 @@ export default function App() {
           godOn={settings.debugGod}
           recordEnabled={urlRecord}
           onToggleRecord={actions.toggleRecording}
-          onToggleTactical={actions.toggleTactical}
+          onOrder={actions.setDroneOrder}
+          onDash={() => gameRef.current?.requestDash()}
         />
       )}
 
@@ -248,7 +249,6 @@ export default function App() {
         onUpgrade={() => actions.openUpgrade("gameover")}
         onVector={(active, x, y) => gameRef.current?.setTouch(active, x, y)}
         onPause={() => gameRef.current?.togglePause()}
-        onDash={() => gameRef.current?.requestDash()}
         gamepadNavRef={gamepadNavRef}
       />
     </div>

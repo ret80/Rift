@@ -34,8 +34,6 @@ export interface GameOverlaysProps {
   onUpgrade: () => void;
   onVector: (active: boolean, x: number, y: number) => void;
   onPause: () => void;
-  /** Рывок с тач-кнопки. */
-  onDash: () => void;
   /** Ref для навигации геймпада (общий с ScreenRouter). */
   gamepadNavRef: MutableRefObject<GamepadNavHandlers>;
 }
@@ -142,7 +140,6 @@ export function GameOverlays(props: GameOverlaysProps) {
         <TouchControls
           onVector={props.onVector}
           onPause={props.onPause}
-          onDash={props.onDash}
         />
       )}
 

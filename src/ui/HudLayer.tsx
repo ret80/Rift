@@ -1,6 +1,8 @@
 import React from "react";
+import type { DroneOrder } from "../game/ecs/components/AllyDroneComponent";
 import { useT } from "../i18n";
-import { Icon } from "./components/Icon";
+import { DashButton } from "./components/DashButton";
+import { DroneOrderSwitch } from "./components/DroneOrderSwitch";
 import { LoadoutBar } from "./components/LoadoutBar";
 import { RecordButton } from "./components/RecordButton";
 import { useHudData, type HudStore } from "./hud/HudStore";
@@ -36,8 +38,10 @@ export function HudLayer(props: {
   recordEnabled: boolean;
   /** Начать/остановить запись забега. */
   onToggleRecord: () => void;
-  /** Войти в тактический режим. */
-  onToggleTactical: () => void;
+  /** Сменить приказ рою на ходу. */
+  onOrder: (order: DroneOrder) => void;
+  /** Выполнить рывок. */
+  onDash: () => void;
 }) {
   const t = useT();
   const data = useHudData(props.store);
@@ -154,35 +158,23 @@ export function HudLayer(props: {
         </div>
       )}
 
-      {/* тактический режим: мир замирает, дронам можно отдать приказ */}
-      <button
-        type="button"
-        onClick={props.onToggleTactical}
-        aria-label={t("hud.tactical")}
-        title={t("hud.tactical")}
-        className={
-          "pointer-events-auto absolute right-2 flex h-8 w-8 items-center justify-center border " +
-          "border-[#7dff9e]/40 bg-[#0b1420]/70 text-[#7dff9e] " +
-          "hover:border-[#7dff9e] hover:bg-[#7dff9e]/10 sm:right-4"
-        }
-        style={{ top: "calc(env(safe-area-inset-top) + 156px)" }}
-      >
-        <Icon kind="tactical" size={16} />
-      </button>
+      {/* приказ рою: переключается на ходу, без остановки боя */}
+      <DroneOrderSwitch
+        order={data?.droneOrder ?? "escort"}
+        drones={data?.drones ?? 0}
+        onOrder={props.onOrder}
+      />
 
-      {/* рывок: готовность базового защитного глагола */}
+      {/* рывок: крупная кнопка над паузой, а не рядом с ней */}
       <div
-        className={
-          "absolute right-2 flex h-8 min-w-[52px] items-center justify-center border px-1 " +
-          "font-mono text-[8px] font-bold tracking-[0.08em] transition-colors sm:right-4 sm:text-[9px] " +
-          (data?.dashReady
-            ? "border-[#5ef2ff]/50 bg-[#5ef2ff]/10 text-[#9df1ff]"
-            : "border-[#6f86a8]/30 bg-[#0b1420]/50 text-[#6f86a8]")
-        }
-        style={{ top: "calc(env(safe-area-inset-top) + 192px)" }}
-        aria-label={t("hud.dash")}
+        className="absolute right-2 sm:right-4"
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 74px)" }}
       >
-        {data?.dashReady ? t("hud.dash") : `${(data?.dashCooldown ?? 0).toFixed(1)}s`}
+        <DashButton
+          ready={data?.dashReady ?? true}
+          cooldown={data?.dashCooldown ?? 0}
+          onPress={props.onDash}
+        />
       </div>
 
       {/* recording chip: только dev/`?debug`, не поверх тач-зоны */}
