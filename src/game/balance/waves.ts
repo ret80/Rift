@@ -153,6 +153,17 @@ export function enemyDefFor(kind: EnemyKind, w: number): import("./enemies").Ene
         mass: massForRadius(base.r),
       };
     }
+    default: {
+      return {
+        r: base.r,
+        hp: base.hpBase * hpS,
+        speed: base.speed,
+        contact: base.contactBase * dmgS,
+        score: base.score,
+        bolt: base.boltBase * dmgS,
+        mass: massForRadius(base.r),
+      };
+    }
   }
 }
 

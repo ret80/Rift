@@ -25,6 +25,13 @@ const ENEMY_LABEL: Record<EnemyKind, TKey> = {
   [EnemyKind.Miner]: "debug.miner",
   [EnemyKind.Boss]: "debug.boss",
   [EnemyKind.Mine]: "debug.mine",
+  [EnemyKind.Needle]: "debug.needle",
+  [EnemyKind.Shieldbearer]: "debug.shieldbearer",
+  [EnemyKind.Harpooner]: "debug.harpooner",
+  [EnemyKind.Splitter]: "debug.splitter",
+  [EnemyKind.Jammer]: "debug.jammer",
+  [EnemyKind.Vortex]: "debug.vortex",
+  [EnemyKind.HiveMother]: "debug.hivemother",
 };
 
 const PICKUP_LABEL: Record<PickupDisplay, TKey> = {

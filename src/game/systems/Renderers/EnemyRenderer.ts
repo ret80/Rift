@@ -201,6 +201,11 @@ export function renderEnemies(
         }
         break;
       }
+      default: {
+        // Новые архетипы (заглушка рендера): простой круг.
+        R.circle(e.x, e.y, e.r, rgba(base, 0.6), 12);
+        break;
+      }
       case EnemyKind.Mine: {
         // Мина: корпус, четыре шипа и пульсирующий взрыватель.
         R.circle(e.x, e.y, e.r, rgba(base, 0.35), 12);
@@ -271,5 +276,6 @@ function kindColor(kind: EnemyKind): string {
     case EnemyKind.Miner: return C.miner;
     case EnemyKind.Boss: return C.boss;
     case EnemyKind.Mine: return C.mine;
+    default: return C.drone;
   }
 }

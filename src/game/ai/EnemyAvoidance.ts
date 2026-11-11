@@ -48,6 +48,13 @@ const DEFAULT_PROFILES: Record<EnemyKind, AvoidanceProfile> = {
   [EnemyKind.Boss]: { padding: 34, mobility: 0.04, maxStep: 3 },
   // Мина неподвижна: её обходят, а не она.
   [EnemyKind.Mine]: { padding: 0, mobility: 0, maxStep: 0 },
+  [EnemyKind.Needle]: { padding: 5, mobility: 0.9, maxStep: 6 },
+  [EnemyKind.Shieldbearer]: { padding: 14, mobility: 0.4, maxStep: 5 },
+  [EnemyKind.Harpooner]: { padding: 6, mobility: 0.9, maxStep: 6 },
+  [EnemyKind.Splitter]: { padding: 4, mobility: 1, maxStep: 6 },
+  [EnemyKind.Jammer]: { padding: 18, mobility: 0.35, maxStep: 5 },
+  [EnemyKind.Vortex]: { padding: 16, mobility: 0.5, maxStep: 5 },
+  [EnemyKind.HiveMother]: { padding: 30, mobility: 0.15, maxStep: 4 },
 };
 
 /** Доля перекрытия, которая исправляется за один кадр. */

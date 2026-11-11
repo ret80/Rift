@@ -11,6 +11,13 @@ export const ru = {
   miner: "НОВАЯ ЦЕЛЬ: МИНЁР",
   boss: "ВОЛНА БОССА",
   mine: "МИНА",
+  needle: "НОВАЯ ЦЕЛЬ: СНАЙПЕР",
+  shieldbearer: "НОВАЯ ЦЕЛЬ: ЩИТОНОСЕЦ",
+  harpooner: "НОВАЯ ЦЕЛЬ: ГАРПУНЁР",
+  splitter: "НОВАЯ ЦЕЛЬ: ДЕЛИТЕЛЬ",
+  jammer: "НОВАЯ ЦЕЛЬ: ГЛУШИЛКА",
+  vortex: "НОВАЯ ЦЕЛЬ: ВИХРЬ",
+  hivemother: "НОВАЯ ЦЕЛЬ: МАТЬ-УЛЕЙ",
 };
 
 export const en: typeof ru = {
@@ -22,4 +29,11 @@ export const en: typeof ru = {
   miner: "NEW TARGET: MINER",
   boss: "BOSS WAVE",
   mine: "MINE",
+  needle: "NEW TARGET: NEEDLE",
+  shieldbearer: "NEW TARGET: SHIELDBEARER",
+  harpooner: "NEW TARGET: HARPOONER",
+  splitter: "NEW TARGET: SPLITTER",
+  jammer: "NEW TARGET: JAMMER",
+  vortex: "NEW TARGET: VORTEX",
+  hivemother: "NEW TARGET: HIVE MOTHER",
 };

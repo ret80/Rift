@@ -67,6 +67,20 @@ export enum EnemyKind {
   Boss = "boss",
   /** Мина минёра: не входит в состав волны, спавнится только стратегией. */
   Mine = "mine",
+  /** Снайпер: заряжает луч. */
+  Needle = "needle",
+  /** Щитоносец: аура −40%. */
+  Shieldbearer = "shieldbearer",
+  /** Гарпунёр: tether. */
+  Harpooner = "harpooner",
+  /** Делитель: делится при смерти. */
+  Splitter = "splitter",
+  /** Глушилка: зона отключения автонаведения. */
+  Jammer = "jammer",
+  /** Вихрь: вращающийся лазер. */
+  Vortex = "vortex",
+  /** Мать-улей: рой + босс-фаза. */
+  HiveMother = "hivemother",
 }
 
 export const ENEMY_KIND_COUNT = Object.keys(EnemyKind).length;
@@ -212,6 +226,34 @@ export const ENEMY_BASES: Record<EnemyKind, EnemyBaseDef> = {
   [EnemyKind.Mine]: {
     r: 7, hpBase: 3, speed: 0,
     contactBase: 22, score: 0, boltBase: 0, mass: 0,
+  },
+  [EnemyKind.Needle]: {
+    r: 11, hpBase: 40, speed: HUNTER_SPEED * 0.9,
+    contactBase: 18, score: 60, boltBase: 16, mass: 0,
+  },
+  [EnemyKind.Shieldbearer]: {
+    r: 16, hpBase: 90, speed: CRUISER_BASE_SPEED * 0.8,
+    contactBase: 20, score: 70, boltBase: 0, mass: 0,
+  },
+  [EnemyKind.Harpooner]: {
+    r: 14, hpBase: 55, speed: FIGHTER_BASE_SPEED,
+    contactBase: 16, score: 50, boltBase: 6, mass: 0,
+  },
+  [EnemyKind.Splitter]: {
+    r: 12, hpBase: 36, speed: DRONE_BASE_SPEED * 1.6,
+    contactBase: 14, score: 30, boltBase: 0, mass: 0,
+  },
+  [EnemyKind.Jammer]: {
+    r: 18, hpBase: 70, speed: CARRIER_BASE_SPEED * 0.6,
+    contactBase: 12, score: 80, boltBase: 0, mass: 0,
+  },
+  [EnemyKind.Vortex]: {
+    r: 20, hpBase: 110, speed: CRUISER_BASE_SPEED * 0.7,
+    contactBase: 18, score: 90, boltBase: 10, mass: 0,
+  },
+  [EnemyKind.HiveMother]: {
+    r: 44, hpBase: 500, speed: CARRIER_BASE_SPEED * 0.5,
+    contactBase: 30, score: 300, boltBase: 8, mass: 0,
   },
 };
 

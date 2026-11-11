@@ -220,22 +220,22 @@
 
 ---
 
-### Этап 4: Новые враги (2 недели)
+### Этап 4: Новые враги (2 недели) — В ПРОЦЕССЕ
 
 **Задачи:**
-1. Добавить 8 новых `EnemyKind` в `balance/enemies.ts` + базы (HP, скорость, урон).
-2. Создать 8 новых стратегий в `ai/strategies/`:
-   - `NeedleStrategy.ts` (снайпер, заряд луча).
-   - `ShieldbearerStrategy.ts` (аура −40%).
-   - `HarpoonerStrategy.ts` (tether).
-   - `SplitterStrategy.ts` (деление при смерти).
-   - `JammerStrategy.ts` (зона отключения автонаведения).
-   - `VortexStrategy.ts` (вращающийся лазер).
-   - `HiveMotherStrategy.ts` (рой + босс-фаза).
-   - `MinerStrategy.ts` (уже есть).
-3. Добавить веса спавна в `balance/waves.ts`.
-4. Добавить элитные аффиксы в `balance/affixes.ts` + применение в `EnemyLifecycle`.
-5. Добавить рендер новых врагов в `EnemyRenderer`.
+1. ✅ Добавить 8 новых `EnemyKind` в `balance/enemies.ts` + базы (HP, скорость, урон).
+2. ⏳ Создать 8 новых стратегий в `ai/strategies/` (пока fallback-движение):
+   - `NeedleStrategy.ts` (снайпер, заряд луча) — ❌.
+   - `ShieldbearerStrategy.ts` (аура −40%) — ❌.
+   - `HarpoonerStrategy.ts` (tether) — ❌.
+   - `SplitterStrategy.ts` (деление при смерти) — ❌.
+   - `JammerStrategy.ts` (зона отключения автонаведения) — ❌.
+   - `VortexStrategy.ts` (вращающийся лазер) — ❌.
+   - `HiveMotherStrategy.ts` (рой + босс-фаза) — ❌.
+   - `MinerStrategy.ts` (уже есть) — ✅.
+3. ⏳ Добавить веса спавна в `balance/waves.ts` (пока 0 — не спавнятся).
+4. ⏳ Добавить элитные аффиксы в `balance/affixes.ts` + применение в `EnemyLifecycle` (данные ✅, применение ❌).
+5. ✅ Добавить рендер-заглушку новых врагов в `EnemyRenderer` (базовый круг).
 
 **Файлы:** `balance/enemies.ts`, `balance/waves.ts`, `balance/affixes.ts`, `ai/strategies/*`, `ecs/EnemyLifecycle.ts`, `systems/Renderers/EnemyRenderer.ts`.  
 **Зависимости:** Этап 3.  

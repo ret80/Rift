@@ -18,6 +18,13 @@ const TOAST_KEY: Record<EnemyKind, TKey> = {
   [EnemyKind.Miner]: "toast.miner",
   [EnemyKind.Boss]: "toast.boss",
   [EnemyKind.Mine]: "toast.mine",
+  [EnemyKind.Needle]: "toast.needle",
+  [EnemyKind.Shieldbearer]: "toast.shieldbearer",
+  [EnemyKind.Harpooner]: "toast.harpooner",
+  [EnemyKind.Splitter]: "toast.splitter",
+  [EnemyKind.Jammer]: "toast.jammer",
+  [EnemyKind.Vortex]: "toast.vortex",
+  [EnemyKind.HiveMother]: "toast.hivemother",
 };
 
 /** Получатель тостов (GameHooks.onToast). */
