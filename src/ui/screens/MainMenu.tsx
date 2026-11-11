@@ -19,14 +19,15 @@ export default function MainMenu(props: {
   onHelp: () => void;
   onDebug: () => void;
   onUpgrade: () => void;
+  onMeta: () => void;
   showDebug?: boolean;
   isGamepad: boolean;
   gamepadNavRef: MutableRefObject<GamepadNavHandlers>;
 }) {
   const t = useT();
 
-  // Список кнопок меню (всегда 4, debug опционально).
-  const buttonCount = props.showDebug ? 5 : 4;
+  // Список кнопок меню (play, upgrade, meta, settings, help, debug опционально).
+  const buttonCount = props.showDebug ? 6 : 5;
 
   const { focusIndex, onNavUp, onNavDown, onNavLeft, onNavRight } = useGamepadFocus({
     count: buttonCount,
@@ -37,6 +38,7 @@ export default function MainMenu(props: {
   const actions = [
     props.onPlay,
     props.onUpgrade,
+    props.onMeta,
     props.onSettings,
     props.onHelp,
     ...(props.showDebug ? [props.onDebug] : []),
@@ -66,6 +68,7 @@ export default function MainMenu(props: {
   const actionKeys: TKey[] = [
     "menu.play",
     "menu.upgrade",
+    "menu.meta",
     "menu.settings",
     "menu.help",
     "menu.debug",

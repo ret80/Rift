@@ -8,6 +8,7 @@ export const ru = {
   help: "ПОМОЩЬ",
   debug: "ОТЛАДКА",
   upgrade: "ПРОКАЧКА",
+  meta: "ЗЕРКАЛО НОЧИ",
   hint: "WASD / СТРЕЛКИ — ДВИЖЕНИЕ · АВТОПУШКА ВЕДЁТ ОГОНЬ САМА",
 };
 
@@ -17,5 +18,6 @@ export const en: typeof ru = {
   help: "HELP",
   debug: "DEBUG",
   upgrade: "UPGRADES",
+  meta: "MIRROR OF NIGHT",
   hint: "WASD / ARROWS — MOVE · AUTO-TURRET FIRES ON ITS OWN",
 };

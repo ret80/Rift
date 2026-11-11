@@ -47,6 +47,8 @@ export interface GameActions {
   closeSettings(): void;
   openUpgrade(from: "menu" | "gameover"): void;
   closeUpgrade(): void;
+  openMeta(): void;
+  closeMeta(): void;
   toggleEnemy(kind: EnemyKind): void;
   togglePickup(kind: PickupKind): void;
   toggleDebugFps(): void;
@@ -138,7 +140,7 @@ export function useGameActions(options: GameActionsOptions): GameActions {
   // capture — раньше игрового слушателя.
   useEffect(() => {
     const isMenuWithBack =
-      screen === "settings" || screen === "help" || screen === "debug" || screen === "upgrade";
+      screen === "settings" || screen === "help" || screen === "debug" || screen === "upgrade" || screen === "meta";
     if (!isMenuWithBack) return;
 
     const handler = (e: KeyboardEvent) => {
@@ -154,6 +156,8 @@ export function useGameActions(options: GameActionsOptions): GameActions {
           type: "SET_SCREEN",
           screen: upgradeFromRef.current === "gameover" ? "game" : "menu",
         });
+      } else if (screen === "meta") {
+        dispatch({ type: "SET_SCREEN", screen: "menu" });
       } else {
         dispatch({ type: "SET_SCREEN", screen: "menu" });
       }
@@ -214,6 +218,8 @@ export function useGameActions(options: GameActionsOptions): GameActions {
       dispatch({ type: "SET_SCREEN", screen: "upgrade" });
     },
     closeUpgrade,
+    openMeta: () => dispatch({ type: "SET_SCREEN", screen: "meta" }),
+    closeMeta: () => dispatch({ type: "SET_SCREEN", screen: "menu" }),
     toggleEnemy: (kind) => {
       settings.setEnabledEnemies((prev) => {
         const next = prev.includes(kind)

@@ -16,6 +16,7 @@ import * as upgrade from "./upgrade.ts";
 import * as hud from "./hud.ts";
 import * as game from "./game.ts";
 import * as over from "./over.ts";
+import * as meta from "./meta.ts";
 import * as pause from "./pause.ts";
 import * as toast from "./toast.ts";
 import * as common from "./common.ts";
@@ -31,6 +32,7 @@ export const ruNested = {
   hud: hud.ru,
   game: game.ru,
   over: over.ru,
+  meta: meta.ru,
   pause: pause.ru,
   toast: toast.ru,
   common: common.ru,
@@ -47,6 +49,7 @@ export const enNested: typeof ruNested = {
   hud: hud.en,
   game: game.en,
   over: over.en,
+  meta: meta.en,
   pause: pause.en,
   toast: toast.en,
   common: common.en,

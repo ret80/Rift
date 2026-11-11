@@ -14,6 +14,7 @@ import type { Screen } from "./appState";
 import DebugScreen from "./screens/DebugScreen";
 import HelpScreen from "./screens/HelpScreen";
 import MainMenu from "./screens/MainMenu";
+import MetaScreen from "./screens/MetaScreen";
 import SettingsScreen from "./screens/SettingsScreen";
 import { UpgradeScreen } from "./upgrade/UpgradeScreen";
 
@@ -74,6 +75,7 @@ export function ScreenRouter(props: ScreenRouterProps) {
           onHelp={actions.openHelp}
           onDebug={actions.openDebug}
           onUpgrade={() => actions.openUpgrade("menu")}
+          onMeta={() => actions.openMeta()}
           showDebug={urlDebug}
           isGamepad={isGamepad}
           gamepadNavRef={gamepadNavRef}
@@ -139,6 +141,9 @@ export function ScreenRouter(props: ScreenRouterProps) {
           gamepadNavRef={gamepadNavRef}
         />
       );
+
+    case "meta":
+      return <MetaScreen onBack={actions.closeMeta} />;
 
     default:
       return null;
