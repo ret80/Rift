@@ -1,14 +1,18 @@
 import React, { useRef } from "react";
 import { useT } from "../i18n";
+import { useHudData, type HudStore } from "./hud/HudStore";
 
 export interface TouchControlsProps {
   onVector: (active: boolean, x: number, y: number) => void;
   onPause: () => void;
   /** Рывок: без тач-кнопки базовый глагол недоступен на телефоне. */
   onDash: () => void;
+  /** HUD-хранилище для индикации готовности рывка. */
+  store: HudStore;
 }
 
-export default function TouchControls({ onVector, onPause, onDash }: TouchControlsProps) {
+export default function TouchControls({ onVector, onPause, onDash, store }: TouchControlsProps) {
+  const dashData = useHudData(store);
   const t = useT();
   const baseRef = useRef<HTMLDivElement | null>(null);
   const knobRef = useRef<HTMLDivElement | null>(null);
@@ -123,20 +127,29 @@ export default function TouchControls({ onVector, onPause, onDash }: TouchContro
       </div>
       <button
         className={
-          "absolute z-[35] flex h-12 w-12 items-center justify-center border " +
-          "border-[#7dff9e]/40 bg-[#050b16]/65 font-mono text-[9px] font-bold " +
-          "tracking-[0.08em] text-[#7dff9e] active:bg-[#7dff9e]/20"
+          "absolute z-[35] flex h-14 w-14 flex-col items-center justify-center border " +
+          "font-mono text-[8px] font-bold tracking-[0.08em] transition-colors " +
+          (dashData?.dashReady
+            ? "border-[#5ef2ff]/70 bg-[#5ef2ff]/15 text-[#9df1ff] " +
+              "shadow-[0_0_14px_rgba(94,242,255,0.55)] active:bg-[#5ef2ff]/25"
+            : "border-[#6f86a8]/30 bg-[#050b16]/65 text-[#6f86a8] " +
+              "active:bg-[#6f86a8]/20")
         }
         style={{
           right: "calc(env(safe-area-inset-right) + 70px)",
-          bottom: "calc(env(safe-area-inset-bottom) + 12px)",
+          bottom: "calc(env(safe-area-inset-bottom) + 84px)",
         }}
         onPointerDown={(e) => e.stopPropagation()}
         onClick={() => onDash()}
         aria-label={t("hud.dash")}
         type="button"
       >
-        {t("hud.dash")}
+        <svg width="18" height="18" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6">
+          <polyline points="7,1 3,7 6,7 5,11 9,5 6,5" />
+        </svg>
+        <span className="mt-0.5 leading-none">
+          {dashData?.dashReady ? t("hud.dash") : `${(dashData?.dashCooldown ?? 0).toFixed(1)}s`}
+        </span>
       </button>
       <button
         className={

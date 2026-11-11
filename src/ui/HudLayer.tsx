@@ -1,6 +1,6 @@
 import React from "react";
 import { useT } from "../i18n";
-import { Icon } from "./components/Icon";
+import type { DroneOrder } from "../game/ecs/components/AllyDroneComponent";
 import { LoadoutBar } from "./components/LoadoutBar";
 import { RecordButton } from "./components/RecordButton";
 import { useHudData, type HudStore } from "./hud/HudStore";
@@ -36,8 +36,8 @@ export function HudLayer(props: {
   recordEnabled: boolean;
   /** Начать/остановить запись забега. */
   onToggleRecord: () => void;
-  /** Войти в тактический режим. */
-  onToggleTactical: () => void;
+  /** Сменить приказ рою дронов (во время боя, без паузы). */
+  onSetDroneOrder?: (order: DroneOrder) => void;
 }) {
   const t = useT();
   const data = useHudData(props.store);
@@ -154,35 +154,58 @@ export function HudLayer(props: {
         </div>
       )}
 
-      {/* тактический режим: мир замирает, дронам можно отдать приказ */}
-      <button
-        type="button"
-        onClick={props.onToggleTactical}
-        aria-label={t("hud.tactical")}
-        title={t("hud.tactical")}
-        className={
-          "pointer-events-auto absolute right-2 flex h-8 w-8 items-center justify-center border " +
-          "border-[#7dff9e]/40 bg-[#0b1420]/70 text-[#7dff9e] " +
-          "hover:border-[#7dff9e] hover:bg-[#7dff9e]/10 sm:right-4"
-        }
-        style={{ top: "calc(env(safe-area-inset-top) + 156px)" }}
-      >
-        <Icon kind="tactical" size={16} />
-      </button>
+      {/* переключатель приказа рою: три положения, смена прямо во время боя */}
+      {props.onSetDroneOrder && (
+        <div
+          className="pointer-events-auto absolute right-2 flex flex-col gap-1 sm:right-4"
+          style={{ top: "calc(env(safe-area-inset-top) + 132px)" }}
+        >
+          {([
+            { id: "escort" as DroneOrder, label: t("hud.orderEscort") },
+            { id: "assault" as DroneOrder, label: t("hud.orderAssault") },
+            { id: "focus" as DroneOrder, label: t("hud.orderFocus") },
+          ]).map((entry) => {
+            const active = data?.droneOrder === entry.id;
+            return (
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => props.onSetDroneOrder?.(entry.id)}
+                aria-label={entry.label}
+                title={entry.label}
+                className={
+                  "flex h-7 w-7 items-center justify-center border text-[9px] font-bold " +
+                  "tracking-[0.05em] transition-colors " +
+                  (active
+                    ? "border-[#7dff9e]/80 bg-[#7dff9e]/15 text-[#7dff9e]"
+                    : "border-[#5ef2ff]/25 bg-[#0b1420]/70 text-[#6f86a8] hover:border-[#5ef2ff]/60")
+                }
+              >
+                {entry.id === "escort" ? "E" : entry.id === "assault" ? "A" : "F"}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* рывок: готовность базового защитного глагола */}
       <div
         className={
-          "absolute right-2 flex h-8 min-w-[52px] items-center justify-center border px-1 " +
+          "absolute right-2 flex h-9 min-w-[44px] flex-col items-center justify-center border px-1 " +
           "font-mono text-[8px] font-bold tracking-[0.08em] transition-colors sm:right-4 sm:text-[9px] " +
           (data?.dashReady
-            ? "border-[#5ef2ff]/50 bg-[#5ef2ff]/10 text-[#9df1ff]"
+            ? "border-[#5ef2ff]/70 bg-[#5ef2ff]/15 text-[#9df1ff] shadow-[0_0_10px_rgba(94,242,255,0.5)]"
             : "border-[#6f86a8]/30 bg-[#0b1420]/50 text-[#6f86a8]")
         }
-        style={{ top: "calc(env(safe-area-inset-top) + 192px)" }}
+        style={{ top: "calc(env(safe-area-inset-top) + 228px)" }}
         aria-label={t("hud.dash")}
       >
-        {data?.dashReady ? t("hud.dash") : `${(data?.dashCooldown ?? 0).toFixed(1)}s`}
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6">
+          <polyline points="7,1 3,7 6,7 5,11 9,5 6,5" />
+        </svg>
+        <span className="mt-0.5 leading-none">
+          {data?.dashReady ? t("hud.dash") : `${(data?.dashCooldown ?? 0).toFixed(1)}s`}
+        </span>
       </div>
 
       {/* recording chip: только dev/`?debug`, не поверх тач-зоны */}

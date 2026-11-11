@@ -9,7 +9,7 @@ import { appReducer, INITIAL_APP_STATE, parseUrlParams } from "./ui/appState";
 import { GameOverlays } from "./ui/GameOverlays";
 import { HudStore } from "./ui/hud/HudStore";
 import { HudLayer } from "./ui/HudLayer";
-import { TacticalOverlay } from "./ui/TacticalOverlay";
+
 import type { GamepadNavHandlers } from "./ui/ScreenRouter";
 import { ScreenRouter } from "./ui/ScreenRouter";
 
@@ -34,7 +34,7 @@ export default function App() {
   const hudStore = hudStoreRef.current;
 
   const [state, dispatch] = useReducer(appReducer, INITIAL_APP_STATE);
-  const { screen, paused, tactical, stats, banner, toast, countdown } = state;
+  const { screen, paused, stats, banner, toast, countdown } = state;
 
   const settings = usePersistentSettings();
   const [best, setBest] = useState(0);
@@ -218,15 +218,7 @@ export default function App() {
           godOn={settings.debugGod}
           recordEnabled={urlRecord}
           onToggleRecord={actions.toggleRecording}
-          onToggleTactical={actions.toggleTactical}
-        />
-      )}
-
-      {screen === "game" && tactical && (
-        <TacticalOverlay
-          store={hudStore}
-          onOrder={actions.setDroneOrder}
-          onClose={actions.toggleTactical}
+          onSetDroneOrder={actions.setDroneOrder}
         />
       )}
 
@@ -249,6 +241,7 @@ export default function App() {
         onVector={(active, x, y) => gameRef.current?.setTouch(active, x, y)}
         onPause={() => gameRef.current?.togglePause()}
         onDash={() => gameRef.current?.requestDash()}
+        store={hudStore}
         gamepadNavRef={gamepadNavRef}
       />
     </div>

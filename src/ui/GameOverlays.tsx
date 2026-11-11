@@ -7,6 +7,7 @@
 
 import type { MutableRefObject } from "react";
 import { useEffect, useRef } from "react";
+import type { HudStore } from "./hud/HudStore";
 import type { BannerData, CountData, StatsData, ToastData } from "../game/types/ui";
 import type { Screen } from "./appState";
 import ScreenDimmer from "./components/ScreenDimmer";
@@ -36,6 +37,8 @@ export interface GameOverlaysProps {
   onPause: () => void;
   /** Рывок с тач-кнопки. */
   onDash: () => void;
+  /** Хранилище HUD (для индикации рывка на тач-кнопке). */
+  store?: HudStore;
   /** Ref для навигации геймпада (общий с ScreenRouter). */
   gamepadNavRef: MutableRefObject<GamepadNavHandlers>;
 }
@@ -143,6 +146,7 @@ export function GameOverlays(props: GameOverlaysProps) {
           onVector={props.onVector}
           onPause={props.onPause}
           onDash={props.onDash}
+          store={props.store!}
         />
       )}
 
