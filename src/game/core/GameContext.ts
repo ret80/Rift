@@ -143,9 +143,35 @@ export class GameContext {
       onFinalize: (record) => this.downloadRecord(record),
     });
 
-    // Рендер-бэкенд: PicoGL; NullRenderer — через URL-параметр ?renderer=null.
+    // Рендер-бэкенд: PicoGL; NullRenderer — через URL-параметр ?renderer=null
+    // или при отсутствии поддержки WebGL2 / сбое инициализации GPU.
     const useNull = readUrlParam("renderer") === "null";
-    this.renderer = useNull ? new NullRenderer(canvas) : new PicoGLRenderer(canvas);
+    let renderer: IRenderer;
+    if (useNull) {
+      renderer = new NullRenderer(canvas);
+    } else {
+      // Проверяем поддержку WebGL2 на свежем canvas, чтобы не «отравлять»
+      // игровой canvas запросом несовместимого типа контекста.
+      const supported = (() => {
+        try {
+          return !!document.createElement("canvas").getContext("webgl2");
+        } catch {
+          return false;
+        }
+      })();
+      if (!supported) {
+        console.warn("[Rift] WebGL2 недоступен в этом браузере — используется NullRenderer");
+        renderer = new NullRenderer(canvas);
+      } else {
+        try {
+          renderer = new PicoGLRenderer(canvas);
+        } catch (err) {
+          console.warn("[Rift] Не удалось инициализировать WebGL2 — используется NullRenderer", err);
+          renderer = new NullRenderer(canvas);
+        }
+      }
+    }
+    this.renderer = renderer;
 
     // Мир создаётся до презентации: он не зависит от canvas и DOM.
     const physicsParam = readUrlParam("physics");

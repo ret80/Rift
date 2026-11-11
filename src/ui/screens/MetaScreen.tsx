@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useT } from "../../i18n";
 import { createLocalStoragePort } from "../../game/core/PersistencePort";
 import { META_TALENTS } from "../../game/meta/metaTalents";
@@ -8,7 +8,7 @@ import GameButton from "../components/GameButton";
 
 export default function MetaScreen(props: { onBack: () => void }) {
   const t = useT();
-  const storage = createLocalStoragePort();
+  const storage = useMemo(() => createLocalStoragePort(), []);
   const [credits, setCredits] = useState(0);
   const [state, setState] = useState<MetaTreeState>({ talents: {}, credits: 0 });
 

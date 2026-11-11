@@ -246,13 +246,19 @@ export class PicoGLRenderer implements IRenderer {
   private initGL(): void {
     // Проверяем поддержку WebGL2 до создания App — понятная ошибка.
     // После восстановления getContext вернёт тот же (уже живой) контекст.
-    const gl = this.canvas.getContext("webgl2", {
+    // Сначала пробуем с желаемыми атрибутами; если браузер/контекст их не
+    // принимает (например, контекст уже создан с другими настройками),
+    // откатываемся к запросу без атрибутов — он вернёт уже живой контекст.
+    let gl = this.canvas.getContext("webgl2", {
       antialias: true,
       alpha: false,
       depth: false,
       stencil: false,
       powerPreference: "high-performance",
     });
+    if (!gl) {
+      gl = this.canvas.getContext("webgl2");
+    }
     if (!gl) throw new Error("WebGL2 не поддерживается этим браузером");
     // Повторный запрос вернёт тот же контекст; createApp берёт webgl2 у canvas.
     if (!this.app) {

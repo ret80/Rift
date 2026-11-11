@@ -52,7 +52,9 @@ export class NullRenderer implements IRenderer {
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
-    if (!this.ctx) throw new Error("NullRenderer: Canvas 2D не поддерживается");
+    if (!this.ctx) {
+      console.warn("NullRenderer: Canvas 2D не поддерживается — отрисовка отключена");
+    }
   }
 
   resize(cssW: number, cssH: number) {
