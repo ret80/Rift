@@ -35,6 +35,7 @@ import {
 } from './BulletCollision';
 import type { PlayerHitbox } from './GrazeCollision';
 import type { EcsWorld, AsteroidRef, EnemyRef } from '../ecs';
+import type { AnchorSystem, Anchor } from './AnchorSystem';
 
 /** Источник мирового сечения (buildWorld из GameContext). */
 export type WorldSource = () => WorldFrame;
@@ -47,6 +48,8 @@ export class CollisionSystem extends PhasedSystem {
   private ecs: EcsWorld;
   private getWorld: WorldSource;
   private getWave: WaveSource;
+  private anchorSystem: AnchorSystem | null;
+  private onAnchorDestroyed: (anchor: Anchor) => void;
 
   constructor(
     eventBus: EventBus,
@@ -54,6 +57,8 @@ export class CollisionSystem extends PhasedSystem {
     ecs: EcsWorld,
     getWorld: WorldSource,
     getWave: WaveSource,
+    anchorSystem: AnchorSystem | null = null,
+    onAnchorDestroyed: (anchor: Anchor) => void = () => {},
   ) {
     super(Phase.Collisions);
     this.eventBus = eventBus;
@@ -61,6 +66,8 @@ export class CollisionSystem extends PhasedSystem {
     this.ecs = ecs;
     this.getWorld = getWorld;
     this.getWave = getWave;
+    this.anchorSystem = anchorSystem;
+    this.onAnchorDestroyed = onAnchorDestroyed;
   }
 
   /** Тик коллизий внутри engine.run(dt): собрать мир, применить столкновения. */
@@ -97,6 +104,23 @@ export class CollisionSystem extends PhasedSystem {
     // Удаляем снаряды по объектной идентичности через ECS-мир.
     for (const i of bulletToRemove) {
       this.ecs.removeBullet(bullets[i]);
+    }
+
+    // === Bullet → Anchor ===
+    if (this.anchorSystem) {
+      const anchorToRemove = new Set<number>();
+      for (let i = 0; i < bullets.length; i++) {
+        const b = bullets[i];
+        if (!b) continue;
+        const anchor = this.anchorSystem.findAt(b.position.x, b.position.y, 4);
+        if (!anchor) continue;
+        const destroyed = this.anchorSystem.damage(anchor.id, b.bullet.dmg);
+        anchorToRemove.add(i);
+        if (destroyed) this.onAnchorDestroyed(anchor);
+      }
+      for (const i of anchorToRemove) {
+        if (bullets[i]) this.ecs.removeBullet(bullets[i]);
+      }
     }
 
     // Enemy bullet → player (попадание и касание считаются одним проходом)

@@ -52,6 +52,7 @@ export interface WaveFlowDeps {
   countdownSystem: CountdownPort;
   getEnemyList: () => Array<{ marker: { dead: boolean; kind: EnemyKind } }>;
   getPlayerPosition: () => PlayerPosition;
+  anchorSystem?: { hasAnchors(): boolean; allDestroyed(): boolean };
 }
 
 export class WaveFlowSystem extends PhasedSystem {
@@ -107,6 +108,11 @@ export class WaveFlowSystem extends PhasedSystem {
       (e) => !e.marker.dead && e.marker.kind !== EnemyKind.Mine,
     ).length;
     if (alive > 0) return;
+
+    // Якоря: волна с якорями завершается только при их уничтожении.
+    if (this.deps.anchorSystem?.hasAnchors() && !this.deps.anchorSystem.allDestroyed()) {
+      return;
+    }
 
     // Проверяем что все враги спавнятся и убиты
     const allSpawned = spawnSystem.allocated >= orchestrator.waveTotal;

@@ -48,6 +48,9 @@ export interface RendererSystemConfig {
   starfield: Starfield;
   asteroidField: AsteroidField;
   riftField: RiftField;
+  anchorSystem?: {
+    getAnchors(): Array<{ x: number; y: number; hp: number; maxHp: number; radius: number; alive: boolean }>;
+  };
 }
 
 /* ============================== RendererSystem ============================== */
@@ -160,6 +163,7 @@ export class RendererSystem {
         R.setLayer("scene");
       }
       this.drawRifts(R, time);
+      this.drawAnchors(R);
       renderPickups(R, pickups, time);
       renderEnemies(R, enemies, time);
       renderAllyDrones(R, allyDrones, time, player);
@@ -205,6 +209,16 @@ export class RendererSystem {
 
   private drawRifts(R: IRenderer, time: number): void {
     this.config.riftField.draw(R, time);
+  }
+
+  private drawAnchors(R: IRenderer): void {
+    const anchors = this.config.anchorSystem?.getAnchors() ?? [];
+    for (const a of anchors) {
+      if (!a.alive) continue;
+      R.circle(a.x, a.y, a.radius, rgba("#ff8a3d", 0.6), 16);
+      const f = a.maxHp > 0 ? a.hp / a.maxHp : 0;
+      R.dashedCircle(a.x, a.y, a.radius + 4, rgba("#ff3b52", 0.8), Math.max(2, Math.round(12 * f)), 0);
+    }
   }
 
   /* ============================== menu scene ============================== */

@@ -227,6 +227,7 @@ export class GameContext {
       starfield: this.starfield,
       asteroidField: this.world.asteroidField,
       riftField: this.world.riftField,
+      anchorSystem: this.world.anchorSystem,
     });
 
     this.menuScene = new MenuScene(

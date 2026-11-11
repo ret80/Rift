@@ -12,6 +12,7 @@
 
 import { AbilitySystem } from "../abilities/AbilitySystem";
 import { CreditSystem } from "../systems/CreditSystem";
+import { AnchorSystem } from "../systems/AnchorSystem";
 import { AsteroidField } from "../asteroids";import { EnemyKind, GRAZE_PARTS_PER_COIN, GRAZE_PARTS_WAVE_CAP,
   PLAYER_HITBOX_RADIUS,
   PLAYER_MAX_SPEED,
@@ -122,6 +123,7 @@ export class GameWorld {
   readonly scoringSystem: ScoringSystem;
   readonly upgradeSystem: UpgradeSystem;
   readonly creditSystem: CreditSystem;
+  readonly anchorSystem: AnchorSystem;
   readonly fx: Fx;
 
   readonly bonusManager: BonusManager;
@@ -207,6 +209,7 @@ export class GameWorld {
     this.creditSystem = new CreditSystem();
     const savedCredits = Number(this.ports.storage.get(STORAGE_KEYS.credits)) || 0;
     this.creditSystem.add(savedCredits);
+    this.anchorSystem = new AnchorSystem();
 
     this.ecs = new EcsWorld(
       this.eventBus,
@@ -402,6 +405,12 @@ export class GameWorld {
       this.ecs,
       () => this.buildWorld(),
       () => this.waveOrchestrator.wave,
+      this.anchorSystem,
+      (anchor) => {
+        // Бонус деталей за уничтожение якоря (+40%).
+        const bonus = Math.round((60 + anchor.wave * 15) * 0.4); // [TUNE]
+        if (!this.testMode) this.upgradeSystem.addParts(bonus);
+      },
     );
 
     this.waveFlowSystem = new WaveFlowSystem({
@@ -412,6 +421,7 @@ export class GameWorld {
       countdownSystem: this.countdownSystem,
       getEnemyList: () => this.ecs.enemies(),
       getPlayerPosition: () => this.getPlayerPosition(),
+      anchorSystem: this.anchorSystem,
     });
 
     // Единый явный список систем: фазы задают крупный порядок, порядок
@@ -593,6 +603,7 @@ export class GameWorld {
     this.waveOrchestrator.reset(resetWaveStart);
 
     this.riftField.reset();
+    this.anchorSystem.reset();
     this.asteroidField.hardReset();
     this.physics.reset();
     this.fx.reset();
@@ -928,6 +939,19 @@ export class GameWorld {
       bus.subscribe("wave_started", (event) => {
         if (!this.fsm.is("playing", "active")) return;
         const wave = event.payload.wave;
+        // Якоря: волны-цели (каждая 3-я) содержат 2-3 якоря.
+        if (wave % 3 === 0) {
+          const zone = this.waveOrchestrator.zoneState;
+          const count = wave % 6 === 0 ? 3 : 2;
+          this.anchorSystem.spawn(
+            wave,
+            zone.x,
+            zone.y,
+            zone.radius > 0 ? zone.radius : 200,
+            count,
+            () => this.rng("spawn").next(),
+          );
+        }
         this.ports.audio.setCombatWave(wave);
         this.ports.audio.setCombat(true);
         this.scoringSystem.setKilledWave(0);
