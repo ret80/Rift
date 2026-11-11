@@ -42,6 +42,15 @@ const DETACH_LEASH = 520;
 const DETACH_COOLDOWN_MIN = 4;
 const DETACH_COOLDOWN_MAX = 6;
 
+/** Порог скорости игрока (px/s): ниже — считается неподвижным. */
+const DRONE_STATIONARY_SPEED_THRESHOLD = 40;
+/** Сколько секунд игрок должен стоять, чтобы рой сорвался. */
+const DRONE_MASS_ATTACK_DELAY = 1.5;
+/** Минимум дронов в строю для массового срыва. */
+const DRONE_MASS_ATTACK_MIN_COUNT = 5;
+/** Перезарядка массового срыва, секунды. */
+const DRONE_MASS_ATTACK_COOLDOWN = 6;
+
 interface DroneGroup {
   id: number;
   /** +1 — по часовой, −1 — против. */
@@ -69,11 +78,17 @@ export interface SwarmTarget {
 export class DroneSwarm {
   private groups = new Map<number, DroneGroup>();
   private nextId = 0;
+  /** Сколько секунд игрок стоит на месте. */
+  private stationaryTimer = 0;
+  /** Перезарядка массового срыва роя. */
+  private massAttackCooldown = 0;
 
   /** Полный сброс (новый забег). */
   clear(): void {
     this.groups.clear();
     this.nextId = 0;
+    this.stationaryTimer = 0;
+    this.massAttackCooldown = 0;
   }
 
   /** Обновить группы перед AI-проходом. */
@@ -90,12 +105,23 @@ export class DroneSwarm {
       drones.push(e);
     }
 
+    // Отслеживание неподвижности игрока для массового срыва роя.
+    const playerSpeed = Math.hypot(context.playerVx, context.playerVy);
+    if (playerSpeed < DRONE_STATIONARY_SPEED_THRESHOLD) {
+      this.stationaryTimer += dt;
+    } else {
+      this.stationaryTimer = 0;
+    }
+    this.massAttackCooldown = Math.max(0, this.massAttackCooldown - dt);
+
     this.dropMembers();
     if (drones.length === 0) return;
 
     this.ensureGroups(drones.length);
     this.assignMembers(drones);
     this.updateGroups(dt);
+    // Массовый срыв, если игрок стоит и набралось достаточно дронов.
+    this.tryMassAttack(drones);
     this.detachAttackers(drones, context);
     this.updateAttackers(drones, context, dt);
   }
@@ -272,6 +298,30 @@ export class DroneSwarm {
     for (const group of this.groups.values()) {
       group.phase += group.dir * PATROL_OMEGA * dt;
       group.cooldown = Math.max(0, group.cooldown - dt);
+    }
+  }
+
+  /**
+   * Массовый срыв роя: если игрок неподвижен достаточно долго и в строю
+   * набралось достаточно дронов, все они одновременно срываются в атаку.
+   */
+  private tryMassAttack(drones: EnemyRef[]): void {
+    if (this.massAttackCooldown > 0) return;
+    if (this.stationaryTimer < DRONE_MASS_ATTACK_DELAY) return;
+    const ready = drones.filter(
+      (d) => !d.marker.dead && d.marker.swarmState === "formation",
+    );
+    if (ready.length < DRONE_MASS_ATTACK_MIN_COUNT) return;
+
+    let detached = 0;
+    for (const drone of ready) {
+      drone.marker.swarmState = "detached";
+      drone.marker.detachT = DETACH_TIME;
+      detached++;
+    }
+    if (detached > 0) {
+      this.massAttackCooldown = DRONE_MASS_ATTACK_COOLDOWN;
+      this.stationaryTimer = 0;
     }
   }
 
