@@ -2,17 +2,20 @@
  * Генератор синтетической записи для CI.
  *
  * Пишет JSONL тем же `SessionRecorder`, что и браузер, но играет
- * headless-агентом EvadeAgent. Это проверяет конвейер, но не заменяет
- * человеческую запись: стиль агента — не стиль игрока.
+ * headless-агентом EvadeAgent. Сама генерация живёт в
+ * `src/game/sim/Fixture.ts`, чтобы CI-проверка могла получить запись без
+ * записи на диск.
  *
  * Запуск: `npm run sim:fixture -- --out <path> --seconds 10 --seed 12345`.
  */
 
-import { SessionRecorder } from "../src/game/core/SessionRecorder";
-import { SimulationClock } from "../src/game/core/SimulationClock";
-import { createPlayerAgent } from "../src/game/sim/agents";
 import { writeSessionFile } from "../src/game/sim/SessionStore";
-import { createHeadlessWorld, ticksForSeconds } from "../src/sim/runner";
+import {
+  generateSessionFixture,
+  SESSION_FIXTURE_SECONDS,
+  SESSION_FIXTURE_SEED,
+} from "../src/game/sim/Fixture";
+import { ticksForSeconds } from "../src/sim/runner";
 
 interface FixtureOptions {
   out: string;
@@ -32,8 +35,8 @@ function parseOptions(argv: readonly string[]): FixtureOptions {
     }
     values.set(key, value);
   }
-  const seconds = Number(values.get("--seconds") ?? 10);
-  const seed = Number(values.get("--seed") ?? 12345);
+  const seconds = Number(values.get("--seconds") ?? SESSION_FIXTURE_SECONDS);
+  const seed = Number(values.get("--seed") ?? SESSION_FIXTURE_SEED);
   if (!Number.isFinite(seconds) || seconds <= 0) {
     throw new Error(`--seconds должен быть > 0, получено ${values.get("--seconds")}`);
   }
@@ -51,28 +54,12 @@ function parseOptions(argv: readonly string[]): FixtureOptions {
 
 function main(): number {
   const options = parseOptions(process.argv.slice(2));
-  const ticks = ticksForSeconds(options.seconds);
-  const recorder = new SessionRecorder({
-    gitSha: options.gitSha,
-    sessionId: `synthetic-${options.seed}-${ticks}`,
-  });
-  // Запись взводится до startRun: только так она начинается с тика 0.
-  recorder.arm();
-
-  const world = createHeadlessWorld({
+  const record = generateSessionFixture({
+    seconds: options.seconds,
     seed: options.seed,
-    recorder,
-    agent: (rng) => createPlayerAgent("evade", {}, rng),
+    gitSha: options.gitSha,
   });
-
-  const clock = new SimulationClock();
-  clock.runTicks(ticks, (dt) => world.tick(dt));
-  recorder.stop(world, "user_stop");
-
-  const record = recorder.toRecord();
-  if (!record) throw new Error("рекордер не собрал запись");
   const path = writeSessionFile(record, options.out);
-  world.destroy();
 
   console.log(`session: ${record.sessionId}`);
   console.log(`ticks:   ${record.run.ticks}`);

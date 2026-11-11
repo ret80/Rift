@@ -35,6 +35,9 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
+      - name: Check session replay fixture
+        run: npm run check:session-fixture
+
       - name: Build
         run: npm run build
 
