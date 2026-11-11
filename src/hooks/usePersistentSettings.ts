@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { PickupKind } from "../game/balance";
 import { ALL_PICKUP_KINDS } from "../game/balance/drops";
 import { EnemyKind } from "../game/balance/enemies";
@@ -82,6 +83,19 @@ export function usePersistentSettings(): PersistentSettings {
       EnemyKind.Miner,
     ]
   );
+  // Версия списка врагов: в старых сохранениях минёра ещё не было, и он
+  // навсегда оставался выключенным. Одноразовая миграция добавляет его.
+  const [enemiesVersion, setEnemiesVersion] = usePersistedState<number>(
+    STORAGE_KEYS.debugEnemiesVersion,
+    1
+  );
+  useEffect(() => {
+    if (enemiesVersion >= 2) return;
+    setEnabledEnemies((prev) =>
+      prev.includes(EnemyKind.Miner) ? prev : [...prev, EnemyKind.Miner]
+    );
+    setEnemiesVersion(2);
+  }, [enemiesVersion, setEnabledEnemies, setEnemiesVersion]);
   const [enabledPickups, setEnabledPickups] = usePersistedState<PickupKind[]>(
     STORAGE_KEYS.debugPickups,
     [...ALL_PICKUP_KINDS]

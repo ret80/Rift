@@ -6,6 +6,7 @@
 import type { RandomSource } from "../math";
 import { clamp, ramp01 } from "../math";
 import { BOSS_WAVE_INTERVAL, ENEMY_BASES, EnemyKind, massForRadius } from "./enemies";
+import { ZONE_RADIUS_SCALE } from "./zones";
 
 /** Состав тестовой волны: вид → количество. */
 export type WaveCompositionOverride = Partial<Record<EnemyKind, number>>;
@@ -179,7 +180,8 @@ export function bossCountForWave(w: number): number {
 }
 
 export function zoneRadiusFor(w: number): number {
-  return clamp(380 + (w - 1) * 10, 380, 650);
+  // Базовые 380…650 увеличиваются общим масштабом арены.
+  return clamp(380 + (w - 1) * 10, 380, 650) * ZONE_RADIUS_SCALE;
 }
 
 /**
