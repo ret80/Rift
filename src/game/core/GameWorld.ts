@@ -355,6 +355,9 @@ export class GameWorld {
         countdownDone: () => {
           this.fsm.fire("countdown_done");
         },
+        onCountdownTick: (dt, remaining) => {
+          this.playerSystem.restoreHpDuringCountdown(dt, remaining);
+        },
       },
       eventBus: this.eventBus,
     });

@@ -14,6 +14,8 @@ export interface CountdownHooks {
   /** Счётчик без локализации: подпись волны подставляет хост. */
   onCountdown: (c: CountdownState | null) => void;
   countdownDone?: () => void;
+  /** Тик отсчёта: плавное восстановление HP игрока к максимуму. */
+  onCountdownTick?: (dt: number, remaining: number) => void;
 }
 
 export class CountdownSystem extends PhasedSystem {
@@ -54,6 +56,11 @@ export class CountdownSystem extends PhasedSystem {
     * Обновить отсчёт (внутри engine.run(dt)).
     */
   process(dt: number): void {
+    // Восстановление HP игрока идёт параллельно с тиком отсчёта: за период
+    // отсчёта корпус плавно возвращается к максимуму.
+    if (this.cdT > 0 && this.hooks.onCountdownTick) {
+      this.hooks.onCountdownTick(dt, this.cdT);
+    }
     this.cdT -= dt;
     const c = Math.ceil(this.cdT);
 

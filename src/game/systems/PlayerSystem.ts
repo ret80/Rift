@@ -296,4 +296,17 @@ export class PlayerSystem extends PhasedSystem {
     ref.life.remaining = Math.min(ref.life.max, ref.life.remaining + amount);
   }
 
+  /**
+   * Плавно восстановить корпус к максимуму за оставшееся время отсчёта.
+   * Вызывается каждый тик CountdownSystem, пока идёт отсчёт перед волной.
+   */
+  restoreHpDuringCountdown(dt: number, remaining: number): void {
+    const ref = this.playerRefSource();
+    if (!ref || remaining <= 0) return;
+    const missing = ref.life.max - ref.life.remaining;
+    if (missing <= 0) return;
+    const amount = (missing / remaining) * dt;
+    ref.life.remaining = Math.min(ref.life.max, ref.life.remaining + amount);
+  }
+
 }
