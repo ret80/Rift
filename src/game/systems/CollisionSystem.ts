@@ -172,6 +172,8 @@ export class CollisionSystem extends PhasedSystem {
     const asteroids = world.asteroids;
     const softImpulse = !this.physics.resolvesVelocity;
     let playerHit = false;
+    /** Враги, уже получившие урон от тарана в этом кадре. */
+    const rammed = new Set<EnemyRef>();
 
     for (const contact of this.physics.contacts) {
       const a = contact.a;
@@ -191,12 +193,13 @@ export class CollisionSystem extends PhasedSystem {
         const enemy = kindA === 'enemy' ? a : b;
         const e = enemy as EnemyRef;
 
+        const speed = this.closingSpeed(player, e);
+
         // Урон игроку — не более одного раза за кадр и только не в неуязвимости.
         // Урон = контакт (роль) × dmgScale(wave) × множитель скорости удара.
         // Масса остаётся физике, contact определяет боевой характер врага.
         if (!playerHit && player.marker.invuln <= 0 && player.life.remaining > 0) {
           const contact = e.marker.contact;
-          const speed = this.closingSpeed(player, e);
           const dmg = Math.min(
             contact * dmgScale(wave) * impactFactor(speed),
             player.life.max * ENEMY_CONTACT_CAP_FRACTION,
@@ -208,9 +211,19 @@ export class CollisionSystem extends PhasedSystem {
           playerHit = true;
         }
 
-        // Каждый врезавшийся враг гибнет сразу, даже если их несколько.
-        if (!e.marker.dead && enemies.includes(e)) {
-          this.ecs.forceKillEnemy(e);
+        // Урон врагу от тарана игрока: корпус игрока наносит урон по массе
+        // и скорости сближения. Враг гибнет только если HP закончилось; иначе
+        // остаётся живым, чтобы таран не был мгновенным убийством босса.
+        // Ограничение по hitCd не даёт снимать HP каждый кадр при удержании
+        // контакта.
+        if (!e.marker.dead && enemies.includes(e) && !rammed.has(e)) {
+          rammed.add(e);
+          if (e.marker.hitCd <= 0) {
+            const playerMass = player.marker.mass || massForRadius(player.radius.r);
+            const ramDmg = playerMass * dmgScale(wave) * impactFactor(speed);
+            this.ecs.damageEnemy(e.marker.ecsId ?? "", ramDmg);
+            e.marker.hitCd = 0.5;
+          }
         }
       }
 
