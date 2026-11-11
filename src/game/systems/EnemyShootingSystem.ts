@@ -241,24 +241,34 @@ export class EnemyShootingSystem extends PhasedSystem {
     const aimedRate = BOSS_AIMED_RATE[phase] ?? BOSS_AIMED_RATE[0];
     const radialCount = BOSS_RADIAL_COUNT[phase] ?? BOSS_RADIAL_COUNT[0];
 
-    // Круговой залп: один раз на фазу с поворотом рисунка.
+    // Круговой залп: телеграф (arc) 0.35с, затем залп с поворотом рисунка.
     e.tCd1 = (e.tCd1 ?? 1.2) - dt;
-    if (e.tCd1 <= 0) {
-      e.tCd1 = radialRate;
-      e.lockAngle += BOSS_RADIAL_STEP;
-      for (let i = 0; i < radialCount; i++) {
-        const angle = e.lockAngle + (i / radialCount) * Math.PI * 2;
-        this.spawnBolt({
-          sx: position.x + Math.cos(angle) * BOSS_MUZZLE_OFFSET,
-          sy: position.y + Math.sin(angle) * BOSS_MUZZLE_OFFSET,
-          angle,
-          boltDmg: e.boltDmg * 0.65,
-          heavy: true,
-          cruiser: false,
-          boltSpeed: BOSS_RADIAL_SPEED + phase * 28,
-        });
+    if (e.telegraphActive && e.telegraphType === "arc") {
+      e.telegraphTimer -= dt;
+      if (e.telegraphTimer <= 0) {
+        e.telegraphActive = false;
+        e.tCd1 = radialRate;
+        e.lockAngle += BOSS_RADIAL_STEP;
+        for (let i = 0; i < radialCount; i++) {
+          const angle = e.lockAngle + (i / radialCount) * Math.PI * 2;
+          this.spawnBolt({
+            sx: position.x + Math.cos(angle) * BOSS_MUZZLE_OFFSET,
+            sy: position.y + Math.sin(angle) * BOSS_MUZZLE_OFFSET,
+            angle,
+            boltDmg: e.boltDmg * 0.65,
+            heavy: true,
+            cruiser: false,
+            boltSpeed: BOSS_RADIAL_SPEED + phase * 28,
+          });
+        }
+        this.audio.playHeavyShoot();
       }
-      this.audio.playHeavyShoot();
+    } else if (e.tCd1 <= 0) {
+      e.tCd1 = radialRate + 0.35;
+      e.telegraphActive = true;
+      e.telegraphTimer = 0.35;
+      e.telegraphType = "arc";
+      e.telegraphAngle = 0;
     }
 
     // Прицельный тяжёлый болт: наказывает стояние на месте.
