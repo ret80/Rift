@@ -30,6 +30,7 @@ export class ScoringSystem extends PhasedSystem {
   private _score = 0;
   private _best = 0;
   private _killed = 0;
+  private _eliteKilled = 0;
   private _combo = 0;
   private _comboT = 0;
   private _runTime = 0;
@@ -72,6 +73,7 @@ export class ScoringSystem extends PhasedSystem {
       // Мины — расходуемое препятствие, а не враг волны: они не должны давать
       // очки, комбо и засчитываться в счётчик зачистки.
       if (event.payload.kind === "mine") return;
+      if (event.payload.elite) this._eliteKilled++;
       const scoreValue = event.payload.score;
       this._killedWave = this.onKill(scoreValue, this._killedWave);
     });
@@ -104,6 +106,11 @@ export class ScoringSystem extends PhasedSystem {
   /** Get current killed wave count for wave clear checks */
   get killedWave(): number {
     return this._killedWave;
+  }
+
+  /** Убито элитных врагов за забег (для кредитов). */
+  get eliteKilled(): number {
+    return this._eliteKilled;
   }
 
   /** Set killed wave from outside (for initialisation) */
@@ -176,6 +183,7 @@ export class ScoringSystem extends PhasedSystem {
   reset(): void {
     this._score = 0;
     this._killed = 0;
+    this._eliteKilled = 0;
     this._killedWave = 0;
     this._combo = 0;
     this._comboT = 0;

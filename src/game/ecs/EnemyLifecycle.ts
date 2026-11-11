@@ -34,7 +34,14 @@ export class EnemyLifecycle implements EnemyDamagePort {
   damageEnemy(enemy: EnemyRef, dmg: number): boolean {
     if (enemy.marker.dead) return false;
     const finalDmg = dmg * (this.damageMultiplier?.(enemy) ?? 1);
-    enemy.life.remaining -= finalDmg;
+    // Щит элиты — отдельный слой над HP: сначала гасит урон, затем бьёт корпус.
+    let hpDmg = finalDmg;
+    if (enemy.marker.shieldHp > 0) {
+      const absorbed = Math.min(enemy.marker.shieldHp, hpDmg);
+      enemy.marker.shieldHp -= absorbed;
+      hpDmg -= absorbed;
+    }
+    if (hpDmg > 0) enemy.life.remaining -= hpDmg;
     enemy.marker.flash = 1;
     const killed = enemy.life.remaining <= 0;
     if (killed) this.die(enemy);
@@ -55,9 +62,16 @@ export class EnemyLifecycle implements EnemyDamagePort {
    */
   forceKill(enemy: EnemyRef): void {
     if (enemy.marker.dead) return;
+    enemy.marker.shieldHp = 0;
     enemy.life.remaining = 0;
     enemy.marker.flash = 1;
     this.die(enemy);
+  }
+
+  /** Лечение врага (регенерация/вампиризм); мёртвых не воскрешает. */
+  healEnemy(enemy: EnemyRef, amount: number): void {
+    if (enemy.marker.dead || amount <= 0) return;
+    enemy.life.remaining = Math.min(enemy.life.max, enemy.life.remaining + amount);
   }
 
   /** Единственная точка публикации `enemy_killed` (дроп, счёт, волна). */
@@ -70,6 +84,7 @@ export class EnemyLifecycle implements EnemyDamagePort {
       x: enemy.position.x,
       y: enemy.position.y,
       seed: enemy.marker.seed,
+      elite: enemy.marker.affix !== null,
     });
   }
 }

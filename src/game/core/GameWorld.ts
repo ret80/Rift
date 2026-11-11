@@ -919,7 +919,7 @@ export class GameWorld {
               grazeCount: 0,
               maxCombo: this.scoringSystem.comboMult ?? 0,
               fastClears: 0,
-              eliteKills: 0,
+              eliteKills: this.scoringSystem.eliteKilled,
               bossKills: 0,
               anchorClears: 0,
               waveCount: this.waveOrchestrator.wave,

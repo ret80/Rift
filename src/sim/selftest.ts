@@ -9,6 +9,8 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { GameWorld } from "../game/core/GameWorld";
+import { AFFIXES } from "../game/balance/affixes";
+import { EnemyKind, enemyDefFor } from "../game/balance";
 import type { PlayerControls } from "../game/core/PlayerControls";
 import { SessionRecorder } from "../game/core/SessionRecorder";
 import {
@@ -292,10 +294,48 @@ check("GameWorld создаётся и тикает в Node без DOM", () => {
   expect(typeof (globalThis as { window?: unknown }).window === "undefined", "в Node есть window");
   const world = createHeadlessWorld({ seed: 12345 });
   expectEqual(world.fsm.state, "active", "FSM должна быть active после startRun");
+  let shots = 0;
+  world.eventBus.subscribe("player_shot", () => shots++);
   clockTicks(world, 600);
-  expectEqual(world.tickIndex, 600, "tickIndex");
+  // Элиты могут убить агента до 600-го тика: смерть останавливает мир,
+  // поэтому проверяем либо полный прогон, либо штатное завершение забега.
+  expect(
+    world.tickIndex === 600 || world.fsm.is("dying", "over"),
+    `tickIndex=${world.tickIndex}, fsm=${world.fsm.state}`,
+  );
   expect(world.ecs.enemies().length > 0, "враги не заспавнились");
-  expect(world.ecs.bullets().length + world.ecs.enemyBullets().length > 0, "нет ни одного выстрела");
+  expect(shots > 0, "игрок не сделал ни одного выстрела");
+});
+
+check("Elite affixes: на 5-й волне гарантированная элита получает аффикс", () => {
+  const world = createHeadlessWorld({ seed: 12345, startWave: 5 });
+  try {
+    world.spawnEnemy(EnemyKind.Drone, 0, 0, null);
+    const enemy = world.ecs.enemies().find((e) => e.marker.kind === EnemyKind.Drone);
+    expect(enemy !== undefined, "элита не заспавнилась");
+    expect(enemy!.marker.affix !== null, "на 5-й волне нет гарантированной элиты");
+
+    const affix = AFFIXES[enemy!.marker.affix!];
+    const base = enemyDefFor(EnemyKind.Drone, 5);
+    expect(
+      Math.abs(enemy!.life.max - base.hp * affix.hpMult) < 1e-9,
+      `HP элиты ${enemy!.life.max} вместо ${base.hp * affix.hpMult}`,
+    );
+    expect(
+      Math.abs(enemy!.marker.speed - base.speed * affix.speedMult) < 1e-9,
+      `speed элиты ${enemy!.marker.speed} вместо ${base.speed * affix.speedMult}`,
+    );
+
+    // Щит — отдельный слой над HP: даже смертельный удар сначала снимает его.
+    const hpBefore = enemy!.life.remaining;
+    enemy!.marker.shieldHp = enemy!.life.max;
+    enemy!.marker.maxShieldHp = enemy!.life.max;
+    world.ecs.damageEnemy(enemy!.marker.ecsId ?? "", 1);
+    expectEqual(enemy!.life.remaining, hpBefore, "щит не поглотил урон");
+    expect(enemy!.marker.shieldHp < enemy!.life.max, "щит не уменьшился");
+  } finally {
+    world.destroy();
+  }
 });
 
 check("GameWorld.tick требует FIXED_DT", () => {

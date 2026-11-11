@@ -19,6 +19,13 @@ import { ThreatDirector } from "../ai/ThreatDirector";
 import { EnemyAvoidance, type IEnemyAvoidance } from "../ai/EnemyAvoidance";
 import type { EnemyDef } from "../balance";
 import {
+    AFFIXES,
+    ELITE_CHANCE,
+    ELITE_PACK_INTERVAL,
+    ELITE_SCORE_MULT,
+    type AffixId,
+} from "../balance/affixes";
+import {
     CARRIER_DRONE_ORBIT_GAP,
     ENEMY_MAX_DRONES,
     EnemyKind,
@@ -41,7 +48,12 @@ export interface EnemySpawnPort {
   enemyRefByEntity(entity: GameEntity): EnemyRef | null;
   /** Мгновенная гибель — истёкшая мина убирается без урона. */
   forceKillEnemy(enemy: EnemyRef): void;
+  /** Лечение (регенерация элиты); не воскрешает мёртвых. */
+  healEnemy(enemy: EnemyRef, amount: number): void;
 }
+
+/** Все доступные аффиксы в стабильном порядке. */
+const AFFIX_IDS = Object.keys(AFFIXES) as AffixId[];
 
 /**
  * Источник состояния игрока для AI: мировые координаты, скорость и угловая
@@ -70,6 +82,8 @@ export class EnemySystem extends PhasedSystem {
   private lastEnemyRefs: EnemyRef[] = [];
 
   private wave = 1;
+  /** Гарантированный элитный пак на текущей волне уже выдан. */
+  private eliteSpawnedThisWave = false;
 
   constructor(
     private readonly ecs: EnemySpawnPort,
@@ -98,6 +112,7 @@ export class EnemySystem extends PhasedSystem {
   /** Сброс волны (перед запуском забега). */
   reset(): void {
     this.wave = 1;
+    this.eliteSpawnedThisWave = false;
     this.lastEnemyRefs = [];
     this.swarm.clear();
     this.threatDirector.reset();
@@ -120,6 +135,7 @@ export class EnemySystem extends PhasedSystem {
 
   /** Установить номер волны (влияет на defs и сложность). */
   setWave(wave: number): void {
+    if (wave !== this.wave) this.eliteSpawnedThisWave = false;
     this.wave = wave;
   }
 
@@ -188,6 +204,12 @@ export class EnemySystem extends PhasedSystem {
       marker.flash = Math.max(0, marker.flash - dt * 5);
       marker.hitCd = Math.max(0, marker.hitCd - dt);
 
+      // Регенерирующий аффикс: 2% максимального HP в секунду.
+      const affixDef = marker.affix ? AFFIXES[marker.affix] : null;
+      if (affixDef?.regenPercent) {
+        this.ecs.healEnemy(ref, ref.life.max * affixDef.regenPercent * dt);
+      }
+
       // skip velocity apply for orbiting drones — they control their own position
       if (marker.droneState === "orbiting") continue;
 
@@ -204,7 +226,7 @@ export class EnemySystem extends PhasedSystem {
     let orbitSpawnIndex = 0;
     for (const spawn of carrierSpawns) {
       const droneDef = this.getEnemyDef(EnemyKind.Drone);
-      const drone = this.createEnemy(EnemyKind.Drone, spawn.x, spawn.y, droneDef, playerPos, null);
+      const drone = this.createEnemy(EnemyKind.Drone, spawn.x, spawn.y, droneDef, playerPos, null, 0, false);
       // Дроны Матери-улья не привязаны к носителю: иначе ближайший Carrier
       // забирал бы их на свою орбиту.
       const carrier = spawn.hive ? null : this.findCarrierForDrone(enemyRefs, spawn);
@@ -235,7 +257,7 @@ export class EnemySystem extends PhasedSystem {
         if (free <= 0) break;
         const def = this.getEnemyDef(EnemyKind.Mine);
         this.ecs.addEnemy(
-          this.createEnemy(EnemyKind.Mine, spawn.x, spawn.y, def, playerPos, null),
+          this.createEnemy(EnemyKind.Mine, spawn.x, spawn.y, def, playerPos, null, 0, false),
         );
         free--;
       }
@@ -262,12 +284,17 @@ export class EnemySystem extends PhasedSystem {
     playerPos?: { x: number; y: number },
     parent: EnemyRef | null = null,
     splitDepth = 0,
+    eliteEligible = true,
   ): EnemySpawn {
     // Балансные множители применяются здесь — в единственной точке создания
     // врага. Так игрок, дроны и метрики видят одно и то же значение урона,
     // а астероиды и зона не затрагиваются.
     const hpMult = this.getHpMult();
     const damageMult = this.getDamageMult();
+    const affix = eliteEligible ? this.rollEliteAffix(kind) : null;
+    const affixDef = affix ? AFFIXES[affix] : null;
+    const maxHp = def.hp * hpMult * (affixDef?.hpMult ?? 1);
+    const shieldHp = maxHp * (affixDef?.shieldHpPercent ?? 0);
     const angle = kind === EnemyKind.Drone && playerPos
       ? Math.atan2(playerPos.y - y, playerPos.x - x)
       : this.rngSpawn.range(0, TAU);
@@ -297,9 +324,13 @@ export class EnemySystem extends PhasedSystem {
 
     return {
       parentId: parent?.marker.ecsId ?? null,
-      kind, x, y, vx: 0, vy: 0, angle, turretAngle,
-      hp: def.hp * hpMult, maxHp: def.hp * hpMult, r: def.r, speed: def.speed,
-      contact: def.contact * damageMult, score: def.score, boltDmg: def.bolt * damageMult,
+      kind, affix, shieldHp, maxShieldHp: shieldHp,
+      accuracyMult: affixDef?.accuracyMult ?? 1,
+      x, y, vx: 0, vy: 0, angle, turretAngle,
+      hp: maxHp, maxHp, r: def.r, speed: def.speed * (affixDef?.speedMult ?? 1),
+      contact: def.contact * damageMult * (affixDef?.damageMult ?? 1),
+      score: def.score * (affix ? ELITE_SCORE_MULT : 1),
+      boltDmg: def.bolt * damageMult * (affixDef?.damageMult ?? 1),
       fireCd: this.rngSpawn.range(0.3, 1), mode: 0, modeT: freshModeT,
       strafeDir: this.rngSpawn.next() < 0.5 ? -1 : 1,
       seed: this.rngSpawn.next() * 100, spawnCd: this.rngSpawn.range(1, 2),
@@ -343,7 +374,7 @@ export class EnemySystem extends PhasedSystem {
       bolt: base.bolt * 0.7,
       speed: base.speed * 1.15,
     };
-    this.ecs.addEnemy(this.createEnemy(kind, x, y, def, playerPos, null, splitDepth));
+    this.ecs.addEnemy(this.createEnemy(kind, x, y, def, playerPos, null, splitDepth, false));
   }
 
   spawn(kind: EnemyKind, x: number, y: number, parent: EnemyRef | null, playerPos?: { x: number; y: number }): void {
@@ -359,7 +390,7 @@ export class EnemySystem extends PhasedSystem {
       spawnY = parent.position.y + Math.sin(orbitAngle) * orbitRadius;
     }
 
-    const e = this.createEnemy(kind, spawnX, spawnY, def, playerPos, parent);
+    const e = this.createEnemy(kind, spawnX, spawnY, def, playerPos, parent, 0, parent === null);
     this.ecs.addEnemy(e);
     if (parent) {
       parent.marker.spawnCd = 0;
@@ -368,6 +399,35 @@ export class EnemySystem extends PhasedSystem {
 
   private getEnemyDef(kind: EnemyKind): EnemyDef {
     return enemyDefFor(kind, this.wave);
+  }
+
+  /**
+   * Бросить элитный аффикс для нового врага.
+   *
+   * 8% на спавн; на волнах, кратных ELITE_PACK_INTERVAL, первый подходящий
+   * враг гарантированно становится элитой. Боссы, мины и Мать-улья не
+   * получают аффиксы: это уже событийные противники.
+   */
+  private rollEliteAffix(kind: EnemyKind): AffixId | null {
+    if (
+      kind === EnemyKind.Boss ||
+      kind === EnemyKind.Mine ||
+      kind === EnemyKind.HiveMother
+    ) {
+      return null;
+    }
+    const guaranteed =
+      this.wave > 0 &&
+      this.wave % ELITE_PACK_INTERVAL === 0 &&
+      !this.eliteSpawnedThisWave;
+    const roll = this.rngSpawn.next();
+    if (!guaranteed && roll >= ELITE_CHANCE) return null;
+    const index = Math.min(
+      AFFIX_IDS.length - 1,
+      Math.floor(this.rngSpawn.next() * AFFIX_IDS.length),
+    );
+    this.eliteSpawnedThisWave = true;
+    return AFFIX_IDS[index]!;
   }
 
   /** Сколько живых дронов уже висит на орбите указанного носителя. */

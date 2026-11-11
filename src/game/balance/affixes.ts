@@ -99,3 +99,9 @@ export const AFFIXES: Record<AffixId, AffixDef> = {
 
 export const ELITE_CHANCE = 0.08; // 8%
 export const ELITE_PACK_INTERVAL = 5; // каждые 5 волн
+/** Радиус взрыва Летучего, px. */
+export const VOLATILE_RADIUS = 80;
+/** Множитель контактного урона взрыва Летучего. */
+export const VOLATILE_DAMAGE_MULT = 15;
+/** Множитель очков за убийство элиты. */
+export const ELITE_SCORE_MULT = 1.5;

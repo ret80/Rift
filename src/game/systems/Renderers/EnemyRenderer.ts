@@ -10,6 +10,7 @@ import {
   SHIELDBEARER_AURA_RADIUS,
   VORTEX_RADIUS,
 } from "../../balance";
+import type { AffixId } from "../../balance/affixes";
 import type { EnemyRef } from "../../ecs";
 import { TAU, clamp, rgba } from "../../math";
 import type { IRenderer, RGBA } from "../../render/index";
@@ -17,6 +18,10 @@ import { drawShipPoly } from "./ShipRenderer";
 
 export interface EnemyRenderState {
   kind: EnemyKind;
+  /** Элитный аффикс; null — обычный враг. */
+  affix: AffixId | null;
+  shieldHp: number;
+  maxShieldHp: number;
   x: number;
   y: number;
   vx: number;
@@ -60,6 +65,9 @@ export interface EnemyRenderState {
 export function buildEnemyState(enemies: EnemyRef[]): EnemyRenderState[] {
   return enemies.map((e) => ({
     kind: e.marker.kind,
+    affix: e.marker.affix,
+    shieldHp: e.marker.shieldHp,
+    maxShieldHp: e.marker.maxShieldHp,
     x: e.position.x,
     y: e.position.y,
     vx: e.velocity.vx,
@@ -314,6 +322,21 @@ export function renderEnemies(
         break;
       }
     }
+    // Элитная метка и щит: читаются поверх любой формы врага.
+    if (e.shieldHp > 0) {
+      R.circle(e.x, e.y, e.r + 4, rgba("#4cc9f0", 0.3), 18);
+    }
+    if (e.affix) {
+      R.dashedCircle(
+        e.x,
+        e.y,
+        e.r + 7,
+        rgba(affixColor(e.affix), 0.65),
+        12,
+        _time * 0.8,
+      );
+    }
+
     // Телеграф атаки (Stage 2)
     if (e.telegraphActive) {
       const alpha = clamp(e.telegraphTimer / 0.35, 0, 1);
@@ -354,6 +377,19 @@ export function renderEnemies(
       const f = clamp(e.hp / e.maxHp, 0, 1);
       R.dashedCircle(e.x, e.y, e.r + 6, rgba(base, 0.4), Math.max(3, Math.round(10 * f)), _time, 0.4);
     }
+  }
+}
+
+function affixColor(affix: AffixId): string {
+  switch (affix) {
+    case "armored": return "#b8c0cc";
+    case "volatile": return "#ff8a3d";
+    case "shielded": return "#4cc9f0";
+    case "vampiric": return "#ff4d6d";
+    case "hasted": return "#ffd166";
+    case "splitting": return "#c77dff";
+    case "precise": return "#90be6d";
+    case "regenerating": return "#52b788";
   }
 }
 

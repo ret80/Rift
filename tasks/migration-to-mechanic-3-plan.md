@@ -74,8 +74,8 @@
 | Доктрины | ❌ | P1 |
 | Наследие (артефакты) | ❌ | P1 |
 | Асценсия (Threat Levels) | ❌ | P1 |
-| Новые враги (8 архетипов) | ❌ | P0/P1 |
-| Элиты (аффиксы) | ❌ | P1 | (affixes.ts ✅, применение ⏳)
+| Новые враги (8 архетипов) | ✅ | P0/P1 |
+| Элиты (аффиксы) | ✅ | P1 | (affixes.ts + EnemySystem/EnemyLifecycle)
 | Новое оружие (рельса, флак, тетер, пожиратель) | ❌ | P0/P1 |
 | Альтернативный огонь | ❌ | P1 |
 | Эволюции оружия | ❌ | P2 |
@@ -220,7 +220,7 @@
 
 ---
 
-### Этап 4: Новые враги (2 недели) — В ПРОЦЕССЕ
+### Этап 4: Новые враги (2 недели) — ВЫПОЛНЕНО
 
 **Задачи:**
 1. ✅ Добавить 8 новых `EnemyKind` в `balance/enemies.ts` + базы (HP, скорость, урон).
@@ -234,7 +234,7 @@
    - `HiveMotherStrategy.ts` (рой + босс-фаза) — ✅.
    - `MinerStrategy.ts` (уже есть) — ✅.
 3. ✅ Добавить веса спавна в `balance/waves.ts`.
-4. ⏳ Добавить элитные аффиксы в `balance/affixes.ts` + применение в `EnemyLifecycle` (данные ✅, применение ❌).
+4. ✅ Добавить элитные аффиксы в `balance/affixes.ts` + применение в `EnemySystem`/`EnemyLifecycle` (статы, щит, регенерация, вампиризм, взрыв, деление).
 5. ✅ Добавить рендер новых врагов в `EnemyRenderer`.
 
 **Файлы:** `balance/enemies.ts`, `balance/waves.ts`, `balance/affixes.ts`, `ai/strategies/*`, `ecs/EnemyLifecycle.ts`, `systems/Renderers/EnemyRenderer.ts`.  

@@ -13,6 +13,8 @@ export interface EnemyKilledPayload {
   y: number;
   /** Семя врага — для детерминированного дропа. */
   seed?: number;
+  /** Элитный враг (учёт для кредитов и статистики). */
+  elite?: boolean;
 }
 
 export interface WaveStartedPayload {

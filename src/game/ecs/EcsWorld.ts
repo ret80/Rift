@@ -135,6 +135,7 @@ export class EcsWorld {
     this.enemyDomain.spawnEnemy(kind, x, y, parent, playerPos);
   }
   damageEnemy(id: number | string, dmg: number): boolean { return this.enemyDomain.damageEnemy(id, dmg); }
+  healEnemy(id: number | string, amount: number): void { this.enemyDomain.healEnemyById(id, amount); }
   forceKillEnemy(enemy: EnemyRef): void { this.enemyDomain.forceKillEnemy(enemy); }
   clearEnemies(): void { this.enemyDomain.clear(); }
 

@@ -16,6 +16,7 @@ import {
   SHIELDBEARER_AURA_RADIUS,
   SHIELDBEARER_DAMAGE_MULT,
 } from "../../balance";
+import { VOLATILE_DAMAGE_MULT, VOLATILE_RADIUS } from "../../balance/affixes";
 import type { EventBus } from "../../core/EventBus";
 import type { Rng } from "../../core/rng";
 import type { AudioPort } from "../../core/WorldPorts";
@@ -152,6 +153,10 @@ export class EnemyDomain {
       ecsId: entity.id,
       parentId: enemy.parentId ?? null,
       kind: enemy.kind,
+      affix: enemy.affix,
+      shieldHp: enemy.shieldHp,
+      maxShieldHp: enemy.maxShieldHp,
+      accuracyMult: enemy.accuracyMult,
       angle: enemy.angle,
       turretAngle: enemy.turretAngle,
       speed: enemy.speed,
@@ -233,6 +238,17 @@ export class EnemyDomain {
     this.lifecycle.forceKill(enemy);
   }
 
+  /** Лечение врага (регенерация/вампиризм). */
+  healEnemy(enemy: EnemyRef, amount: number): void {
+    this.lifecycle.healEnemy(enemy, amount);
+  }
+
+  /** Лечение по EntityRef-идентификатору (из систем столкновений). */
+  healEnemyById(id: number | string, amount: number): void {
+    const ref = this.enemyById(id);
+    if (ref) this.lifecycle.healEnemy(ref, amount);
+  }
+
   /** Сброс состояния врагов перед запуском забега. */
   resetWave(): void {
     this.enemySystem.reset();
@@ -267,22 +283,39 @@ export class EnemyDomain {
     return 1;
   }
 
-  /** Побочный эффект смерти: Делитель выпускает двух осколков. */
+  /** Побочные эффекты смерти: взрыв Летучего и деление Делителя/элиты. */
   private handleEnemyDeath(enemy: EnemyRef): void {
-    if (enemy.marker.kind !== EnemyKind.Splitter) return;
-    if (enemy.marker.splitDepth >= SPLITTER_CHILD_MAX_DEPTH) return;
-
     const player = this.deps.getPlayer();
+
+    if (enemy.marker.affix === "volatile") {
+      const dist = Math.hypot(
+        player.x - enemy.position.x,
+        player.y - enemy.position.y,
+      );
+      if (dist <= VOLATILE_RADIUS) {
+        this.deps.damagePlayer?.(
+          enemy.marker.contact * VOLATILE_DAMAGE_MULT,
+          "volatile",
+        );
+      }
+    }
+
+    const splits =
+      enemy.marker.affix === "splitting" ||
+      enemy.marker.kind === EnemyKind.Splitter;
+    if (!splits || enemy.marker.splitDepth >= SPLITTER_CHILD_MAX_DEPTH) return;
+
     const baseAngle = enemy.marker.seed;
+    const childDepth = enemy.marker.splitDepth + 1;
     for (let i = 0; i < SPLITTER_CHILD_COUNT; i++) {
       const angle = baseAngle + (i / SPLITTER_CHILD_COUNT) * Math.PI * 2;
       this.enemySystem.spawnChild(
-        EnemyKind.Splitter,
+        enemy.marker.kind,
         enemy.position.x + Math.cos(angle) * 10,
         enemy.position.y + Math.sin(angle) * 10,
         SPLITTER_CHILD_HP_RATIO,
         SPLITTER_CHILD_RADIUS_RATIO,
-        1,
+        childDepth,
         { x: player.x, y: player.y },
       );
     }

@@ -42,9 +42,13 @@ export const ENEMY_AIM_KIND_MULT: Partial<Record<EnemyKind, number>> = {
  * Шанс попадания орудия врага на заданной волне.
  * Растёт линейно до ENEMY_AIM_RAMP_WAVE и упирается в ENEMY_AIM_MAX_CHANCE.
  */
-export function enemyHitChance(wave: number, kind: EnemyKind): number {
+export function enemyHitChance(
+  wave: number,
+  kind: EnemyKind,
+  accuracyMult = 1,
+): number {
   const steps = clamp(wave - 1, 0, ENEMY_AIM_RAMP_WAVE - 1);
   const mult = ENEMY_AIM_KIND_MULT[kind] ?? 1;
-  const raw = (ENEMY_AIM_BASE_CHANCE + steps * ENEMY_AIM_PER_WAVE) * mult;
+  const raw = (ENEMY_AIM_BASE_CHANCE + steps * ENEMY_AIM_PER_WAVE) * mult * accuracyMult;
   return clamp(raw, AIM_CHANCE_FLOOR, Math.min(ENEMY_AIM_MAX_CHANCE, AIM_CHANCE_CEILING));
 }

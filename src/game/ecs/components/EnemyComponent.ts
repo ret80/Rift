@@ -10,6 +10,7 @@
 
 import type { Component } from "@trixt0r/ecs";
 import type { EnemyKind } from "../../balance";
+import type { AffixId } from "../../balance/affixes";
 
 /** Состояние орбитального/атакующего дрона (стратегия Carrier). */
 export type EnemyDroneState =
@@ -31,6 +32,14 @@ export class EnemyComponent implements Component {
 
   // === Вид ===
   kind!: EnemyKind;
+  /** Элитный аффикс; null — обычный враг. */
+  affix: AffixId | null = null;
+  /** Остаток щита элиты: поглощает урон до HP. */
+  shieldHp = 0;
+  /** Максимальный щит элиты (для отрисовки). */
+  maxShieldHp = 0;
+  /** Множитель меткости элиты (Hasted/Precise). */
+  accuracyMult = 1;
   /** Ориентация корпуса врага (угол движения/нос), радианы. */
   angle = 0;
   /**

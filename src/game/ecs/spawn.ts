@@ -7,11 +7,20 @@
  */
 
 import type { EnemyKind } from "../balance";
+import type { AffixId } from "../balance/affixes";
 import type { EnemyRef } from "./refs";
 
 /** Данные для создания врага. */
 export interface EnemySpawn {
   kind: EnemyKind;
+  /** Элитный аффикс; null — обычный враг. */
+  affix: AffixId | null;
+  /** Остаток щита элиты: поглощает урон до HP. */
+  shieldHp: number;
+  /** Максимальный щит элиты. */
+  maxShieldHp: number;
+  /** Множитель меткости элиты. */
+  accuracyMult: number;
   x: number;
   y: number;
   vx: number;

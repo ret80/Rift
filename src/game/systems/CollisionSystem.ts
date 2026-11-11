@@ -10,6 +10,7 @@
  */
 
 import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
+import { AFFIXES } from '../balance/affixes';
 import {
   ASTEROID_CONTACT_BASE,
   ASTEROID_CONTACT_CAP_FRACTION,
@@ -232,6 +233,10 @@ export class CollisionSystem extends PhasedSystem {
             dmg,
             source: String(e.marker.kind),
           });
+          if (e.marker.affix === 'vampiric') {
+            const lifesteal = AFFIXES.vampiric.lifesteal ?? 0;
+            this.ecs.healEnemy(e.marker.ecsId ?? '', dmg * lifesteal);
+          }
           playerHit = true;
         }
 

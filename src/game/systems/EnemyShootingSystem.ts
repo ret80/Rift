@@ -207,7 +207,7 @@ export class EnemyShootingSystem extends PhasedSystem {
         continue;
       }
 
-      const hitChance = enemyHitChance(this.wave, marker.kind);
+      const hitChance = enemyHitChance(this.wave, marker.kind, marker.accuracyMult);
 
       if (marker.kind === EnemyKind.Cruiser) {
         this.fireCruiserTurrets(shot, dt, player, weapon, hitChance);
@@ -297,7 +297,7 @@ export class EnemyShootingSystem extends PhasedSystem {
         leadTime: 1.5,
         heavy: true,
       };
-      this.fire(e, position.x, position.y, player, weapon, enemyHitChance(this.wave, e.kind));
+      this.fire(e, position.x, position.y, player, weapon, enemyHitChance(this.wave, e.kind, e.accuracyMult));
       this.audio.playHeavyShoot();
     }
   }
@@ -333,7 +333,7 @@ export class EnemyShootingSystem extends PhasedSystem {
     };
     const angle = aimAtTarget(
       params,
-      enemyHitChance(this.wave, e.kind),
+      enemyHitChance(this.wave, e.kind, e.accuracyMult),
       PLAYER_HIT_RADIUS,
       this.rng,
     );
@@ -379,7 +379,7 @@ export class EnemyShootingSystem extends PhasedSystem {
       leadTime: 1.2,
       heavy: false,
     };
-    this.fire(e, position.x, position.y, player, weapon, enemyHitChance(this.wave, e.kind));
+    this.fire(e, position.x, position.y, player, weapon, enemyHitChance(this.wave, e.kind, e.accuracyMult));
     this.audio.playHeavyShoot();
   }
 
