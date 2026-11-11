@@ -127,11 +127,12 @@ export default function TouchControls({ onVector, onPause, onDash, store }: Touc
       </div>
       <button
         className={
-          "absolute z-[35] flex h-14 w-14 flex-col items-center justify-center border " +
-          "font-mono text-[8px] font-bold tracking-[0.08em] transition-colors " +
+          "absolute z-[35] flex h-16 w-16 flex-col items-center justify-center " +
+          "rounded-full border font-mono text-[8px] font-bold tracking-[0.08em] " +
+          "transition-colors " +
           (dashData?.dashReady
-            ? "border-[#5ef2ff]/70 bg-[#5ef2ff]/15 text-[#9df1ff] " +
-              "shadow-[0_0_14px_rgba(94,242,255,0.55)] active:bg-[#5ef2ff]/25"
+            ? "border-[#5ef2ff]/90 bg-[#5ef2ff]/25 text-[#9df1ff] " +
+              "shadow-[0_0_28px_rgba(94,242,255,0.85)] active:bg-[#5ef2ff]/35"
             : "border-[#6f86a8]/30 bg-[#050b16]/65 text-[#6f86a8] " +
               "active:bg-[#6f86a8]/20")
         }

@@ -157,7 +157,7 @@ export function HudLayer(props: {
       {/* переключатель приказа рою: три положения, смена прямо во время боя */}
       {props.onSetDroneOrder && (
         <div
-          className="pointer-events-auto absolute right-2 flex flex-col gap-1 sm:right-4"
+          className="pointer-events-auto absolute right-4 flex flex-col gap-1.5 sm:right-6"
           style={{ top: "calc(env(safe-area-inset-top) + 132px)" }}
         >
           {([
@@ -174,7 +174,7 @@ export function HudLayer(props: {
                 aria-label={entry.label}
                 title={entry.label}
                 className={
-                  "flex h-7 w-7 items-center justify-center border text-[9px] font-bold " +
+                  "flex h-9 w-9 items-center justify-center border text-[11px] font-bold " +
                   "tracking-[0.05em] transition-colors " +
                   (active
                     ? "border-[#7dff9e]/80 bg-[#7dff9e]/15 text-[#7dff9e]"
@@ -188,25 +188,6 @@ export function HudLayer(props: {
         </div>
       )}
 
-      {/* рывок: готовность базового защитного глагола */}
-      <div
-        className={
-          "absolute right-2 flex h-9 min-w-[44px] flex-col items-center justify-center border px-1 " +
-          "font-mono text-[8px] font-bold tracking-[0.08em] transition-colors sm:right-4 sm:text-[9px] " +
-          (data?.dashReady
-            ? "border-[#5ef2ff]/70 bg-[#5ef2ff]/15 text-[#9df1ff] shadow-[0_0_10px_rgba(94,242,255,0.5)]"
-            : "border-[#6f86a8]/30 bg-[#0b1420]/50 text-[#6f86a8]")
-        }
-        style={{ top: "calc(env(safe-area-inset-top) + 228px)" }}
-        aria-label={t("hud.dash")}
-      >
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6">
-          <polyline points="7,1 3,7 6,7 5,11 9,5 6,5" />
-        </svg>
-        <span className="mt-0.5 leading-none">
-          {data?.dashReady ? t("hud.dash") : `${(data?.dashCooldown ?? 0).toFixed(1)}s`}
-        </span>
-      </div>
 
       {/* recording chip: только dev/`?debug`, не поверх тач-зоны */}
       {data?.recording && data.recording !== "off" && (
