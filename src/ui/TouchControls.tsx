@@ -127,9 +127,9 @@ export default function TouchControls({ onVector, onPause, onDash, store }: Touc
       </div>
       <button
         className={
-          "absolute z-[35] flex h-16 w-16 flex-col items-center justify-center " +
-          "rounded-full border font-mono text-[8px] font-bold tracking-[0.08em] " +
-          "transition-colors " +
+          "absolute z-[35] flex h-16 w-16 touch-none flex-col items-center " +
+          "justify-center rounded-full border font-mono text-[8px] font-bold " +
+          "tracking-[0.08em] transition-colors " +
           (dashData?.dashReady
             ? "border-[#5ef2ff]/90 bg-[#5ef2ff]/25 text-[#9df1ff] " +
               "shadow-[0_0_28px_rgba(94,242,255,0.85)] active:bg-[#5ef2ff]/35"
@@ -140,8 +140,13 @@ export default function TouchControls({ onVector, onPause, onDash, store }: Touc
           right: "calc(env(safe-area-inset-right) + 70px)",
           bottom: "calc(env(safe-area-inset-bottom) + 84px)",
         }}
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={() => onDash()}
+        onPointerDown={(e) => {
+          // Действие на pointerdown, а не на click: второй палец во время
+          // движения джойстиком не даёт браузеру синтезировать click.
+          e.stopPropagation();
+          e.preventDefault();
+          onDash();
+        }}
         aria-label={t("hud.dash")}
         type="button"
       >
@@ -154,15 +159,18 @@ export default function TouchControls({ onVector, onPause, onDash, store }: Touc
       </button>
       <button
         className={
-          "absolute z-[35] flex h-11 w-11 items-center justify-center " +
+          "absolute z-[35] flex h-11 w-11 touch-none items-center justify-center " +
           "border border-[#5ef2ff]/30 bg-[#050b16]/65 text-[#9df1ff] active:bg-[#5ef2ff]/20"
         }
         style={{
           right: "calc(env(safe-area-inset-right) + 12px)",
           bottom: "calc(env(safe-area-inset-bottom) + 12px)",
         }}
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={() => onPause()}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          onPause();
+        }}
         aria-label="Pause"
         type="button"
       >

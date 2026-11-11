@@ -170,12 +170,18 @@ export function HudLayer(props: {
               <button
                 key={entry.id}
                 type="button"
-                onClick={() => props.onSetDroneOrder?.(entry.id)}
+                onPointerDown={(e) => {
+                  // Как и кнопки рывка/паузы: pointerdown срабатывает, пока
+                  // другой палец уже держит виртуальный джойстик.
+                  e.stopPropagation();
+                  e.preventDefault();
+                  props.onSetDroneOrder?.(entry.id);
+                }}
                 aria-label={entry.label}
                 title={entry.label}
                 className={
-                  "flex h-9 w-9 items-center justify-center border text-[11px] font-bold " +
-                  "tracking-[0.05em] transition-colors " +
+                  "flex h-9 w-9 touch-none items-center justify-center border text-[11px] " +
+                  "font-bold tracking-[0.05em] transition-colors " +
                   (active
                     ? "border-[#7dff9e]/80 bg-[#7dff9e]/15 text-[#7dff9e]"
                     : "border-[#5ef2ff]/25 bg-[#0b1420]/70 text-[#6f86a8] hover:border-[#5ef2ff]/60")
