@@ -102,6 +102,14 @@ export default function GameOverScreen(props: {
                 {formatTime(s.time)}
               </div>
             </div>
+            <div>
+              <div className="hud-label">{t("over.credits")}</div>
+              <div className="font-display text-lg text-[#eaffff] sm:text-2xl">{s.credits}</div>
+            </div>
+            <div>
+              <div className="hud-label">{t("over.creditsEarned")}</div>
+              <div className="font-display text-lg text-[#7dff9e] sm:text-2xl">+{s.creditsEarned}</div>
+            </div>
           </div>
           <div className="mt-5 flex flex-col items-stretch justify-center gap-2.5 sm:mt-7">
             <GameButton

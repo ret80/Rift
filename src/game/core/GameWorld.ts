@@ -11,6 +11,7 @@
  */
 
 import { AbilitySystem } from "../abilities/AbilitySystem";
+import { CreditSystem } from "../systems/CreditSystem";
 import { AsteroidField } from "../asteroids";import { EnemyKind, GRAZE_PARTS_PER_COIN, GRAZE_PARTS_WAVE_CAP,
   PLAYER_HITBOX_RADIUS,
   PLAYER_MAX_SPEED,
@@ -47,6 +48,7 @@ import { WaveFlowSystem } from "../systems/WaveFlowSystem";
 import { WaveOrchestrator } from "../systems/WaveOrchestrator";
 import { ZoneSystem } from "../systems/ZoneSystem";
 import { loadBestWave, saveBestWave } from "../upgrades";
+import { STORAGE_KEYS } from "./storageKeys";
 import type { PlayerSnapshot, WeaponId } from "../weapons/Weapon";
 import { WEAPON_CATALOG } from "../weapons/WeaponCatalog";
 import { WeaponManager } from "../weapons/WeaponManager";
@@ -119,6 +121,7 @@ export class GameWorld {
 
   readonly scoringSystem: ScoringSystem;
   readonly upgradeSystem: UpgradeSystem;
+  readonly creditSystem: CreditSystem;
   readonly fx: Fx;
 
   readonly bonusManager: BonusManager;
@@ -201,6 +204,9 @@ export class GameWorld {
 
     this.scoringSystem = new ScoringSystem({}, this.ports.storage);
     this.upgradeSystem = UpgradeSystem.create(this.ports.storage);
+    this.creditSystem = new CreditSystem();
+    const savedCredits = Number(this.ports.storage.get(STORAGE_KEYS.credits)) || 0;
+    this.creditSystem.add(savedCredits);
 
     this.ecs = new EcsWorld(
       this.eventBus,
@@ -863,12 +869,33 @@ export class GameWorld {
             this.endSingleWaveTest("died");
             return;
           }
-          if (!this.testMode) saveBestWave(this.waveOrchestrator.wave, this.ports.storage);
+          if (!this.testMode) {
+            saveBestWave(this.waveOrchestrator.wave, this.ports.storage);
+          }
           this.ports.hooks.onGameOver();
         },
         onStats: (score, best, isBest, _wave, kills, time) => {
           // В одиночном тесте экран итогов не нужен: хост вернёт в отладку.
           if (this.singleWaveTest) return;
+          let creditsEarned = 0;
+          if (!this.testMode) {
+            const savedBefore = Number(this.ports.storage.get(STORAGE_KEYS.credits)) || 0;
+            const totalParts = this.upgradeSystem.getParts();
+            this.creditSystem.calculate({
+              totalParts,
+              cleanWaves: 0,
+              grazeCount: 0,
+              maxCombo: this.scoringSystem.comboMult ?? 0,
+              fastClears: 0,
+              eliteKills: 0,
+              bossKills: 0,
+              anchorClears: 0,
+              waveCount: this.waveOrchestrator.wave,
+            });
+            creditsEarned = this.creditSystem.getBalance() - savedBefore;
+            this.ports.storage.set(STORAGE_KEYS.credits, String(this.creditSystem.getBalance()));
+            this.upgradeSystem.resetParts();
+          }
           this.ports.hooks.onStats({
             score,
             best,
@@ -876,6 +903,8 @@ export class GameWorld {
             wave: this.waveOrchestrator.wave,
             kills,
             time,
+            credits: this.creditSystem.getBalance(),
+            creditsEarned: Math.max(0, creditsEarned),
           });
         },
       },

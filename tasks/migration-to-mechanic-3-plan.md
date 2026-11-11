@@ -153,15 +153,15 @@
 
 ## 4. Поэтапный план
 
-### Этап 0: Подготовка (1–2 дня)
+### Этап 0: Подготовка (1–2 дня) ✅ ВЫПОЛНЕНО
 
 **Задачи:**
-1. Создать ветку `feature/mechanic-3`.
-2. Создать структуру папок: `src/game/meta/`, `src/game/systems/` (новые системы).
-3. Добавить типы в `src/game/meta/types.ts`.
-4. Добавить ключи в `src/game/core/storageKeys.ts`:
-   - `metaTree`, `unlocks`, `doctrines`, `legacy`, `threatLevel`, `credits`, `stats`, `bestWave` (уже есть).
-5. Создать заглушки новых систем (пустые классы).
+1. ✅ Создать ветку `feature/mechanic-3`.
+2. ✅ Создать структуру папок: `src/game/meta/`, `src/ui/components/`.
+3. ✅ Добавить типы в `src/game/meta/types.ts`.
+4. ✅ Добавить ключи в `src/game/core/storageKeys.ts`: credits, metaTree, unlocks, doctrines, legacy, threatLevel, ascension, playerStats.
+5. ✅ Создать заглушки новых систем: CreditSystem, MetaTree, UnlockSystem, DoctrineSystem, LegacySystem, AscensionSystem, AnchorSystem, RadarSystem, LockOnSystem, DroneCommandSystem, ActiveShieldSystem.
+6. ✅ Создать данные: doctrines.ts (12), legacy.ts (12), ascension.ts (15), unlocks.ts (16), affixes.ts (8).
 
 **Файлы:** `storageKeys.ts`, `meta/types.ts`, новые папки.  
 **Зависимости:** нет.  
@@ -169,16 +169,16 @@
 
 ---
 
-### Этап 1: Core Roguelike — сброс забега + кредиты (1–2 недели)
+### Этап 1: Core Roguelike — сброс забега + кредиты (1–2 недели) — В ПРОЦЕССЕ
 
 **Задачи:**
-1. Модифицировать `DeathSystem`: при смерти начислить кредиты, сбросить забег.
-2. Создать `CreditSystem` с формулой из GDD §3.3.
-3. Модифицировать `GameFSM`: переход `player_died` → `over` → экран с кредитами → `restart` → выбор доктрины → `playing`.
-4. Модифицировать `GameUpgrades`: разделить забеговые (parts) и мета (credits). Забеговые сбрасываются при смерти.
-5. Добавить `resetRun()` в `Game`/`GameContext`: сбросить parts, улучшения, оружие, дроны, детали.
-6. Модифицировать `GameOverScreen`: показать кредиты, разблокировки, статистику.
-7. Добавить минимум 1 кредит за забег.
+1. ✅ Модифицировать `DeathSystem`/`GameWorld`: при смерти начислить кредиты, сбросить parts.
+2. ✅ Создать `CreditSystem` с формулой из GDD §3.3 (база 5% + mastery-заготовки).
+3. ✅ `GameFSM`: переходы `player_died` → `dying` → `over` → `restart` → `playing` уже есть; выбор доктрины — Этап 9.
+4. ✅ `GameUpgrades`/`UpgradeSystem`: добавлен `resetParts()`; забеговые детали сбрасываются при смерти.
+5. ⏳ `resetRun()` — сброс parts реализован; полный сброс улучшений/оружия/дронов — Этап 8 (мета).
+6. ✅ `GameOverScreen`: показаны кредиты и заработанные кредиты.
+7. ✅ Минимум 1 кредит за забег (CreditSystem.calculate).
 
 **Файлы:** `DeathSystem.ts`, `CreditSystem.ts`, `GameFSM.ts`, `GameUpgrades.ts`, `GameOverScreen.tsx`, `upgrades.ts`.  
 **Зависимости:** Этап 0.  

@@ -140,6 +140,12 @@ export class UpgradeSystem {
     saveUpgradesRaw(this._playerUpgrades, this._storage);
   }
 
+  /** Сбросить забеговые детали (parts) к нулю (рогалик). */
+  resetParts(): void {
+    this._playerUpgrades.parts = 0;
+    saveUpgradesRaw(this._playerUpgrades, this._storage);
+  }
+
   /* ======================== Weapon loadout management ======================== */
 
   /** Купить оружие в арсенале. Возвращает true при успехе. */

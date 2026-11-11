@@ -68,4 +68,6 @@ export interface StatsData {
   wave: number;
   kills: number;
   time: number;
+  credits: number;
+  creditsEarned: number;
 }
