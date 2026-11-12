@@ -86,6 +86,11 @@ export class WaveFlowSystem extends PhasedSystem {
     // Применяем множитель скорости
     orchestrator.setSpeedMult(upgradeSystem.getApplied("speedMult"));
 
+    // Страховка от залипания волны: условия зачистки могут измениться
+    // без убийства врага (например, игрок снял последний якорь уже после
+    // того, как перебил всех врагов). Проверка идемпотентна.
+    this.checkWaveClear();
+
     // Обновляем оркестратор
     const playerPos = this.deps.getPlayerPosition();
     const countdownActive = countdownSystem.isCountdownActive();

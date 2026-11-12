@@ -76,24 +76,37 @@ export default function MetaScreen(props: { onBack: () => void }) {
   };
 
   return (
-    <div className="anim-overlay absolute inset-0 z-20 flex items-center justify-center p-4">
-      <div className="hud-panel w-[min(520px,96vw)] p-5 sm:p-7">
-        <div className="mb-4 text-center">
-          <div className="hud-label mb-1">{t("meta.title")}</div>
-          <div className="text-sm text-[#ffb84d]">{t("meta.credits")}: {credits}</div>
-        </div>
-        <div className="mb-4">
-          <div className="mb-2 text-xs tracking-[0.2em] text-[#ff5c54]">{t("meta.branchRed")}</div>
-          {red.map(renderTalent)}
-        </div>
-        <div className="mb-4">
-          <div className="mb-2 text-xs tracking-[0.2em] text-[#5ef2ff]">{t("meta.branchGreen")}</div>
-          {green.map(renderTalent)}
-        </div>
-        <div className="text-center">
-          <GameButton onClick={props.onBack} variant="amber" className="px-6 py-2">
-            {t("meta.back")}
-          </GameButton>
+    <div
+      className="anim-overlay absolute inset-0 z-20 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("meta.title")}
+    >
+      <div className="flex max-h-[92vh] w-[min(520px,96vw)] flex-col">
+        <div className="hud-panel flex min-h-0 flex-1 flex-col">
+          {/* Заголовок и кредиты не скроллятся: они всегда видны. */}
+          <div className="flex items-center justify-between gap-3 border-b border-[#5ef2ff]/15 px-5 py-4 sm:px-7">
+            <div className="hud-label">{t("meta.title")}</div>
+            <div className="text-sm text-[#ffb84d]">{t("meta.credits")}: {credits}</div>
+          </div>
+
+          {/* Дерево талантов — единственная прокручиваемая часть экрана. */}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 sm:px-7">
+            <div className="mb-4">
+              <div className="mb-2 text-xs tracking-[0.2em] text-[#ff5c54]">{t("meta.branchRed")}</div>
+              {red.map(renderTalent)}
+            </div>
+            <div>
+              <div className="mb-2 text-xs tracking-[0.2em] text-[#5ef2ff]">{t("meta.branchGreen")}</div>
+              {green.map(renderTalent)}
+            </div>
+          </div>
+
+          <div className="border-t border-[#5ef2ff]/15 px-5 py-3 sm:px-7">
+            <GameButton onClick={props.onBack} variant="amber" className="w-full px-6 py-2">
+              {t("meta.back")}
+            </GameButton>
+          </div>
         </div>
       </div>
     </div>

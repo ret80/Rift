@@ -54,7 +54,8 @@ import { WaveFlowSystem } from "../systems/WaveFlowSystem";
 import { WaveOrchestrator } from "../systems/WaveOrchestrator";
 import { ZoneSystem } from "../systems/ZoneSystem";
 import { anchorCountFor, waveTypeFor } from "../waves/WaveStateMachine";
-import { loadBestWave, saveBestWave } from "../upgrades";
+import { saveBestWave } from "../upgrades";
+import { t } from "../../i18n";
 import { STORAGE_KEYS } from "./storageKeys";
 import type { PlayerSnapshot, WeaponId } from "../weapons/Weapon";
 import { WEAPON_CATALOG } from "../weapons/WeaponCatalog";
@@ -423,6 +424,13 @@ export class GameWorld {
         // Бонус деталей за уничтожение якоря (+40%).
         const bonus = Math.round((60 + anchor.wave * 15) * 0.4); // [TUNE]
         if (!this.testMode) this.upgradeSystem.addParts(bonus);
+        // Якорь — часть условия зачистки objective-волны. Проверка зачистки
+        // обычно приходит из enemy_killed, но игрок может убить всех врагов
+        // раньше якорей — тогда последний якорь обязан закрыть волну сам.
+        this.waveFlowSystem.checkWaveClear();
+        if (this.waveOrchestrator.waveState === "cleared") {
+          this.ports.audio.setCombat(false);
+        }
       },
     );
 
@@ -609,9 +617,10 @@ export class GameWorld {
     this.spawnSystem.clearAnnounced();
     this.ecs.resetEnemyWave();
 
-    const resetWaveStart = this.testMode
-      ? this.startWave
-      : Math.max(this.startWave, loadBestWave(this.ports.storage));
+    // Новый забег начинается с первой волны (или с явно заданной отладкой/
+    // URL). Лучшая волна — только рекорд: подставлять её в старт нельзя,
+    // иначе игрок после перезапуска не может начать с начала.
+    const resetWaveStart = Math.max(1, Math.floor(this.startWave));
     this.ecs.setEnemyWave(resetWaveStart);
 
     this.waveOrchestrator.reset(resetWaveStart);
@@ -968,14 +977,21 @@ export class GameWorld {
         // Якоря: objective-волны содержат 2-3 якоря, обычные — ни одного.
         if (waveType === "objective") {
           const zone = this.waveOrchestrator.zoneState;
+          const anchors = anchorCountFor(wave);
           this.anchorSystem.spawn(
             wave,
             zone.x,
             zone.y,
             zone.radius > 0 ? zone.radius : 200,
-            anchorCountFor(wave),
+            anchors,
             () => this.rng("spawn").next(),
           );
+          // Игрок должен понимать, почему волна не заканчивается: убить
+          // мало, нужно снять якоря-разломы.
+          this.ports.hooks.onToast({
+            text: t("game.anchors", { n: String(anchors) }),
+            color: "#c79bff",
+          });
         }
         this.ports.audio.setCombatWave(wave);
         this.ports.audio.setCombat(true);

@@ -57,6 +57,8 @@ import { WeaponManager } from "../game/weapons/WeaponManager";
 import { createWeaponRegistry } from "../game/weapons/WeaponRegistry";
 import { WEAPON_CATALOG, WEAPON_IDS } from "../game/weapons/WeaponCatalog";
 import { applyUpgrades, defaultUpgrades } from "../game/upgrades";
+import { WaveOrchestrator } from "../game/systems/WaveOrchestrator";
+import { WaveFlowSystem } from "../game/systems/WaveFlowSystem";
 import type { BulletSpawn } from "../game/ecs";
 
 type CheckFn = () => void | Promise<void>;
@@ -377,6 +379,46 @@ check("GameWorld: objective-волна спавнит якоря, combat — н�
     objective.destroy();
     combat.destroy();
   }
+});
+
+check("WaveFlowSystem: objective-волна закрывается по последнему якорю", () => {
+  // Регрессия: зачистка проверялась только по enemy_killed, поэтому волна
+  // залипала, если игрок убивал всех врагов раньше якорей.
+  const orchestrator = new WaveOrchestrator({
+    hooks: {
+      onBanner: () => {},
+      onToast: () => {},
+      hitPlayerRaw: () => {},
+      hitPlayerShielded: () => {},
+      shakeScreen: () => {},
+      onWaveAdvanced: () => {},
+    },
+    playerMaxSpeed: 300,
+    getPlayerMaxHp: () => 100,
+  });
+  orchestrator.initWave(0, 0, 3, 10, "objective");
+
+  let anchorsDestroyed = false;
+  const flow = new WaveFlowSystem({
+    orchestrator,
+    scoringSystem: { addRunTime: () => {}, killedWave: 10 },
+    spawnSystem: { allocated: 10 },
+    upgradeSystem: { getApplied: () => 1 as never },
+    countdownSystem: { isCountdownActive: () => false },
+    getEnemyList: () => [],
+    getPlayerPosition: () => ({ x: 0, y: 0 }),
+    anchorSystem: {
+      hasAnchors: () => true,
+      allDestroyed: () => anchorsDestroyed,
+    },
+  });
+
+  flow.updateZoneAndWaves(FIXED_DT);
+  expectEqual(orchestrator.waveState, "active", "волна ждёт якоря");
+
+  anchorsDestroyed = true;
+  flow.updateZoneAndWaves(FIXED_DT);
+  expectEqual(orchestrator.waveState, "cleared", "волна закрылась по якорям");
 });
 
 check("GameWorld.tick требует FIXED_DT", () => {
