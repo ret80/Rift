@@ -1,11 +1,9 @@
 /**
- * GrazeSystem — касания (грейз).
+ * GrazeSystem — ECS-система касаний (грейз).
  *
- * Каждый вражеский снаряд, прошедший рядом с кораблём без попадания,
- * засчитывается как касание и даёт очки.
- *
- * Система ничего не знает о коллизиях: о касаниях ей сообщает шина
- * событий по событию bullet_grazed.
+ * Реактивная система: не обходит сущности в `process`, а слушает событие
+ * `bullet_grazed` от системы коллизий. Каждый вражеский снаряд, прошедший
+ * рядом с кораблём без попадания, даёт очки и искры.
  */
 
 import {
@@ -13,18 +11,20 @@ import {
 } from "../balance/player";
 import type { EventBus } from "../core/EventBus";
 import type { FxPort } from "../core/WorldPorts";
+import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import type { ScoringSystem } from "./ScoringSystem";
 
 /** Цвет искр касания. */
 const GRAZE_SPARK_COLOR = "#b9f6ff";
 
-export class GrazeSystem {
+export class GrazeSystem extends PhasedSystem {
   private fx: FxPort;
   private scoring: ScoringSystem;
   /** Всего касаний за забег — для HUD и статистики. */
   private grazes = 0;
 
   constructor(eventBus: EventBus, fx: FxPort, scoring: ScoringSystem) {
+    super(Phase.Upkeep);
     this.fx = fx;
     this.scoring = scoring;
 
@@ -43,6 +43,9 @@ export class GrazeSystem {
       );
     });
   }
+
+  /** Реактивная система: работа идёт в подписке на `bullet_grazed`. */
+  process(): void {}
 
   /** Число касаний за забег. */
   getGrazes(): number {

@@ -12,7 +12,6 @@ import type { EnemyKind, PickupKind } from "../balance";
 import type { EventBus } from "../core/EventBus";
 import type { PhysicsEntity } from "../physics/IPhysics";
 import { BulletSystem } from "../systems/BulletSystem";
-import type { PlayerState } from "../systems/PlayerState";
 import type { Particle, Rift, Ring } from "../types/world";
 import { AsteroidDomain } from "./domains/AsteroidDomain";
 import { BeamDomain } from "./domains/BeamDomain";
@@ -62,7 +61,12 @@ export class EcsWorld {
   /** ECS-системы мира в порядке регистрации (фазы заданы SystemSchedule). */
   readonly systems: readonly PhasedSystem[];
 
-  constructor(eventBus: EventBus, getPlayer: PlayerSource, deps: EnemySystemDeps) {
+  constructor(
+    eventBus: EventBus,
+    getPlayer: PlayerSource,
+    deps: EnemySystemDeps,
+    onPickupCollected: (kind: PickupKind) => void,
+  ) {
     this.enemyDomain = new EnemyDomain(this.core, eventBus, deps, (...shot) =>
       this.bulletDomain.spawnEnemyBullet(...shot),
     );
@@ -70,7 +74,7 @@ export class EcsWorld {
     // Порядок важен для систем с одинаковой фазой: внутри фазы он сохраняется.
     this.systems = [
       new PickupMovementSystem(getPlayer, deps.isPickupMagnetDisabled),
-      new PickupCollectionSystem(eventBus, getPlayer),
+      new PickupCollectionSystem(eventBus, getPlayer, onPickupCollected),
       new ParticleSystem(),
       new RingSystem(),
       new BeamSystem(),
@@ -107,7 +111,7 @@ export class EcsWorld {
   clear(): void { this.core.clear(); }
   resetEnemyWave(): void { this.enemyDomain.resetWave(); }
   setEnemyWave(wave: number): void { this.enemyDomain.setWave(wave); }
-  registerPlayer(): PlayerState { return this.playerDomain.register(); }
+  registerPlayer(): void { this.playerDomain.register(); }
   playerRef(): PlayerRef | null { return this.playerDomain.playerRef(); }
   spawnPickup(kind: PickupKind, x: number, y: number, vx: number, vy: number): void {
     this.pickupDomain.spawn(kind, x, y, vx, vy);

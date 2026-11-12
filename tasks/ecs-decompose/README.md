@@ -141,12 +141,14 @@ Bазовые (`Position`, `Velocity`, `Life`, `Radius`) уже есть — п�
 - `PlayerComponent` (ранее хранил живую ссылку `state: PlayerState` со всеми полями)
   → базовые `Position/Velocity/Radius/Life` + узкий `PlayerComponent`
   (домен: `angle/invuln/thrusting/mass`).
-- `PlayerState` сокращён до доменных полей (без `x/y/vx/vy/r/hp/maxHp`).
-- Потребители: `PlayerSystem`/`PlayerMovement`, `physicsBodies`, `ZoneSystem` (getPlayerRef),
+- `PlayerComponent` содержит только доменные поля (без `x/y/vx/vy/r/hp/maxHp`);
+  plain-`PlayerState` удалён при консолидации ECS/plain (2026-11-12).
+- Потребители: `PlayerSystem` (движение влито из `PlayerMovement`; оба plain-модуля удалены),
+  `physicsBodies`, `ZoneSystem` (getPlayerRef),
   `CollisionSystem` (player-enemy/asteroid + drone avoidance), рендер `PlayerRenderer`,
   `buildWorld`/`WorldFrame`/`RenderScene`, `GameContext` (ability/weapon/drone hooks), `GameRender`.
 - Новое: `PlayerRef` (живая связка `{marker, position, velocity, radius, life}`),
-  `EcsWorld.registerPlayer()` строит базовые + узкий, `playerRef()`/`playerState()`.
+  `EcsWorld.registerPlayer()` строит базовые + узкий, `playerRef()`.
 - `WorldFrame.player`/`RenderScene.player` → `PlayerRef`; `PlayerWorld` DTO удалён.
 - `WeaponContext.player` остаётся строковым `PlayerSnapshot` (x/y/vx/vy/hp/maxHp) — это
   runtime-снимок для оружия, не сырой компонент (документированный паттерн).
@@ -186,7 +188,7 @@ Bазовые (`Position`, `Velocity`, `Life`, `Radius`) уже есть — п�
       только из базовых (проверка `git grep` выполнена для астероидов).
 - [x] `AsteroidComponent` больше не содержит `x/y/vx/vy/r/hp/maxHp` (проверено по файлу).
 - [x] `AllyDroneComponent` больше не содержит `x/y/vx/vy/r/hp/maxHp` (проверено по файлу).
-- [x] `PlayerComponent`/`PlayerState` больше не содержат `x/y/vx/vy/r/hp/maxHp` (проверено по файлу).
+- [x] `PlayerComponent` больше не содержит `x/y/vx/vy/r/hp/maxHp` (проверено по файлу).
 - [x] `EnemyComponent` больше не содержит `x/y/vx/vy/r/hp/maxHp` (этап 4).
 - [x] Smoke (нулл-рендер): меню → старт → волны → game over; поведение идентично baseline
       (астероидная, дроновая и игровая ветки).
@@ -219,7 +221,7 @@ Bазовые (`Position`, `Velocity`, `Life`, `Radius`) уже есть — п�
 **Этап 3 — Игрок: ✅ завершён.**
 
 - `typecheck` exit 0, `build` exit 0, eslint по изменённым файлам exit 0 (0 новых ошибок).
-- `PlayerComponent`/`PlayerState` не содержат `x/y/vx/vy/r/hp/maxHp` (проверено по файлу);
+- `PlayerComponent` не содержит `x/y/vx/vy/r/hp/maxHp` (проверено по файлу);
   домен: `angle/invuln/thrusting/mass`. Запас прочности — в `LifeComponent`,
   позиция/скорость/радиус — в `Position/Velocity/RadiusComponent`.
 - Ни один читатель игрока не берёт `x/y/vx/vy/r/hp/maxHp` напрямую из жирного компонента

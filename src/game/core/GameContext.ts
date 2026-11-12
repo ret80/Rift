@@ -29,7 +29,6 @@ import { MenuScene } from "../presentation/menu/MenuScene";
 import { getDpr, NullRenderer, PicoGLRenderer, type IRenderer } from "../render/index";
 import { RiftField } from "../rifts";
 import { Starfield } from "../starfield";
-import type { ApplyPickupSystem } from "../systems/ApplyPickupSystem";
 import { AudioManager } from "../systems/AudioManager";
 import { CameraSystem } from "../systems/CameraSystem";
 import type { CollisionSystem } from "../systems/CollisionSystem";
@@ -306,7 +305,6 @@ export class GameContext {
   get spawnSystem(): SpawnSystem { return this.world.spawnSystem; }
   get weaponManager(): WeaponManager { return this.world.weaponManager; }
   get countdownSystem(): CountdownSystem { return this.world.countdownSystem; }
-  get applyPickupSystem(): ApplyPickupSystem { return this.world.applyPickupSystem; }
   get loadoutSystem(): LoadoutSystem { return this.world.loadoutSystem; }
   get dropSystem(): PickupDropSystem { return this.world.dropSystem; }
   get collisionSystem(): CollisionSystem { return this.world.collisionSystem; }

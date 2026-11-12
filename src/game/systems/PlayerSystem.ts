@@ -22,17 +22,19 @@ import { Aspect, type Engine } from "@trixt0r/ecs";
 import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import type { EventBus } from '../core/EventBus';
 import type { PlayerControls } from '../core/PlayerControls';
-import type { FxPort } from '../core/WorldPorts';
 import type { ShieldSystem } from './ShieldSystem';
-import { updateMovement } from './PlayerMovement';
 import type { PlayerRef } from '../ecs';
 import { PlayerComponent } from '../ecs/components/PlayerComponent';
 import { trackTurnRate } from '../aiming/AimSolver';
+import { lerpAngle as lerpAngleMath } from '../math';
 import {
   BOOST_DRAIN_PER_SECOND,
   BOOST_GAIN_PER_KILL,
   BOOST_SPEED_MULT,
+  PLAYER_ACCEL,
+  PLAYER_FRICTION_EXP,
   PLAYER_HIT_INVULN,
+  PLAYER_MAX_SPEED,
 } from '../balance/player';
 
 /** Флаг: должна ли система сама интегрировать позицию (true в custom-режиме). */
@@ -46,7 +48,6 @@ export class PlayerSystem extends PhasedSystem {
   private eventBus: EventBus;
   /** Порт управления: человек или агент — системе всё равно. */
   private controls: PlayerControls;
-  private fx: FxPort;
   /** Постоянный множитель скорости из апгрейдов. */
   private speedMult = 1;
   /** Энергетический щит: блокирует часть урона. */
@@ -65,14 +66,12 @@ export class PlayerSystem extends PhasedSystem {
   constructor(
     eventBus: EventBus,
     controls: PlayerControls,
-    fx: FxPort,
     playerRefSource: PlayerRefSource,
     private readonly getIntegrate: PlayerIntegrateSource,
   ) {
     super(Phase.Player);
     this.eventBus = eventBus;
     this.controls = controls;
-    this.fx = fx;
     this.playerRefSource = playerRefSource;
 
     // Subscribe to player damage events
@@ -105,7 +104,7 @@ export class PlayerSystem extends PhasedSystem {
   process(dt: number): void {
     const ref = this.playerRefSource();
     if (!ref) return;
-    const { position, velocity, marker } = ref;
+    const { velocity, marker } = ref;
 
     // Движение из оси порта управления.
     const mv = this.controls.axis;
@@ -116,16 +115,12 @@ export class PlayerSystem extends PhasedSystem {
     // опрашивается каждый тик, чтобы нажатие без заряда не копилось.
     this.updateBoost(dt);
 
-    // Movement module
-    updateMovement(
-      position,
-      velocity,
-      marker,
+    // Движение: ускорение, трение, ограничение скорости и доворот курса.
+    this.updateMovement(
+      ref,
       dt,
       ax,
       ay,
-      this.fx,
-      ax * ax + ay * ay > 0,
       this.speedMult * (this.boostOn ? BOOST_SPEED_MULT : 1),
       this.getIntegrate(),
     );
@@ -145,6 +140,64 @@ export class PlayerSystem extends PhasedSystem {
 
     // Invulnerability timer
     marker.invuln = Math.max(0, marker.invuln - dt);
+  }
+
+  /**
+   * Физика движения корабля: ускорение по оси ввода, экспоненциальное
+   * трение, ограничение максимальной скорости, интеграция позиции (если
+   * физический движок этого не делает) и доворот курса за скоростью.
+   */
+  private updateMovement(
+    ref: PlayerRef,
+    dt: number,
+    ax: number,
+    ay: number,
+    speedMult: number,
+    integratePosition: boolean,
+  ): void {
+    const { position, velocity, marker } = ref;
+    const thrusting = ax * ax + ay * ay > 0;
+    marker.thrusting = thrusting;
+
+    if (thrusting) {
+      const length = Math.hypot(ax, ay);
+      if (length > 0) {
+        const norm = length > 1 ? length : 1;
+        ax /= norm;
+        ay /= norm;
+        const accel = PLAYER_ACCEL * speedMult;
+        velocity.vx += ax * accel * dt;
+        velocity.vy += ay * accel * dt;
+      }
+    }
+
+    // Трение
+    const friction = Math.exp(-PLAYER_FRICTION_EXP * dt);
+    velocity.vx *= friction;
+    velocity.vy *= friction;
+
+    // Ограничение скорости
+    const speed = Math.hypot(velocity.vx, velocity.vy);
+    const cap = PLAYER_MAX_SPEED * speedMult;
+    if (speed > cap) {
+      velocity.vx *= cap / speed;
+      velocity.vy *= cap / speed;
+    }
+
+    // В режиме Planck позицию двигает физический движок.
+    if (integratePosition) {
+      position.x += velocity.vx * dt;
+      position.y += velocity.vy * dt;
+    }
+
+    // Курс следует за скоростью.
+    if (speed > 20) {
+      marker.angle = lerpAngleMath(
+        marker.angle,
+        Math.atan2(velocity.vy, velocity.vx),
+        1 - Math.exp(-10 * dt),
+      );
+    }
   }
 
   /**

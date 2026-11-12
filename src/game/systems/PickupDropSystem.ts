@@ -1,12 +1,15 @@
 /**
- * PickupDropSystem — генерация дропов из убитых врагов.
- * Отвечает только за логику дропов (части, бонусы).
- * Подписывается на событие enemy_killed — единый путь гибели врага.
+ * PickupDropSystem — ECS-система генерации дропов из убитых врагов.
+ *
+ * Реактивная система: не обходит сущности в `process`, а подписывается на
+ * единый сигнал гибели врага `enemy_killed`. Отвечает только за дропы
+ * (детали и бонусы), не за движение или подбор пикапов.
  */
 
 import { dropChanceFor, type PickupKind } from "../balance";
 import type { EventBus } from "../core/EventBus";
 import type { Rng } from "../core/rng";
+import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 
 /* Pseudo-random multiplier constants (seed-based drop determination) */
 const PSEUDO_RNG_A = 7.31;
@@ -28,7 +31,7 @@ export interface PickupDropHooks {
   getPartsMultiplier?: () => number;
 }
 
-export class PickupDropSystem {
+export class PickupDropSystem extends PhasedSystem {
   private eventBus: EventBus;
   private hooks: PickupDropHooks;
   private enabledPickups: PickupKind[] | null = null;
@@ -39,6 +42,7 @@ export class PickupDropSystem {
     /** Поток дропов: только разлёт и позиция выпавшего пикапа. */
     private readonly rng: Rng,
   ) {
+    super(Phase.Upkeep);
     this.eventBus = eventBus;
     this.hooks = hooks;
     this.eventBus.subscribe("enemy_killed", (event) => {
@@ -50,6 +54,9 @@ export class PickupDropSystem {
       });
     });
   }
+
+  /** Реактивная система: работа идёт в подписке на `enemy_killed`. */
+  process(): void {}
 
   /**
    * Set which pickup types are allowed to drop.

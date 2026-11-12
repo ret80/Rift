@@ -17,13 +17,18 @@ interface PickupDependencies {
 }
 
 /**
- * ApplyPickupSystem — применяет поднятый пикап.
+ * PickupEffects — применение поднятого пикапа.
+ *
+ * Не система кадра, а доменный сервис эффектов: ECS-система подбора
+ * (`PickupCollectionSystem`) вызывает его напрямую, а событие
+ * `pickup_collected` остаётся только презентационным сигналом для HUD.
+ *
  * Эффект подбора берётся из каталога PICKUP_CATALOG:
  *   • временные бонусы — делегируются BonusManager;
  *   • мгновенные бонусы (ремонт, щит, минерал) — применяются здесь;
  *   • оружие и способности — делегируются менеджерам.
  */
-export class ApplyPickupSystem {
+export class PickupEffects {
   constructor(private deps: PickupDependencies) {}
 
   apply(kind: PickupKind): void {

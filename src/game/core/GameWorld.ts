@@ -41,12 +41,13 @@ import { BonusManager } from "../loadout/bonuses/BonusManager";
 import type { PhysicsEngineId } from "../physics/index";
 import { createPhysicsEngine, PhysicsSystem } from "../physics/index";
 import { RiftField } from "../rifts";
-import { ApplyPickupSystem } from "../systems/ApplyPickupSystem";
 import { CollisionSystem } from "../systems/CollisionSystem";
 import { CountdownSystem } from "../systems/CountdownSystem";
 import { DeathSystem } from "../systems/DeathSystem";
+import { EnemyCollisionSystem } from "../systems/EnemyCollisionSystem";
 import { GrazeSystem } from "../systems/GrazeSystem";
 import { PickupDropSystem } from "../systems/PickupDropSystem";
+import { PickupEffects } from "../systems/PickupEffects";
 import { PlayerSystem } from "../systems/PlayerSystem";
 import { ScoringSystem } from "../systems/ScoringSystem";
 import { ShieldSystem } from "../systems/ShieldSystem";
@@ -173,10 +174,11 @@ export class GameWorld {
   readonly allyDroneSystem: AllyDroneSystem;
   readonly weaponManager: WeaponManager;
   readonly countdownSystem: CountdownSystem;
-  readonly applyPickupSystem: ApplyPickupSystem;
+  readonly pickupEffects: PickupEffects;
   readonly loadoutSystem: LoadoutSystem;
   readonly dropSystem: PickupDropSystem;
   readonly collisionSystem: CollisionSystem;
+  readonly enemyCollisionSystem: EnemyCollisionSystem;
   readonly zoneSystem: ZoneSystem;
   readonly waveOrchestrator: WaveOrchestrator;
   readonly waveFlowSystem: WaveFlowSystem;
@@ -294,6 +296,7 @@ export class GameWorld {
         damagePlayer: (dmg, source) => this.eventBus.publish("player_damaged", { dmg, source }),
         isPickupMagnetDisabled: (x, y) => this.isJammedAt(x, y),
       },
+      (kind) => this.pickupEffects.apply(kind),
     );
 
     this.fx = new Fx(this.ecs, this.rng("fx"));
@@ -383,7 +386,6 @@ export class GameWorld {
     this.playerSystem = new PlayerSystem(
       this.eventBus,
       this.controls,
-      fxPort,
       () => this.ecs.playerRef(),
       () => !this.physics.integratesPositions,
     );
@@ -460,7 +462,7 @@ export class GameWorld {
       eventBus: this.eventBus,
     });
 
-    this.applyPickupSystem = new ApplyPickupSystem({
+    this.pickupEffects = new PickupEffects({
       applyBonus: (pickup) => this.bonusManager.applyPickup(pickup),
       rechargeShield: (amount) => this.shieldSystem.recharge(amount),
       equipWeapon: (id) => this.weaponManager.equipWeapon(id),
@@ -490,10 +492,8 @@ export class GameWorld {
 
     this.collisionSystem = new CollisionSystem(
       this.eventBus,
-      this.physics,
       this.ecs,
       () => this.buildWorld(),
-      () => this.waveOrchestrator.wave,
       this.anchorSystem,
       (anchor) => {
         // Снятый якорь закрывает разлом и сразу отдаёт детали: цель
@@ -507,6 +507,14 @@ export class GameWorld {
           this.ports.audio.setCombat(false);
         }
       },
+    );
+
+    this.enemyCollisionSystem = new EnemyCollisionSystem(
+      this.eventBus,
+      this.physics,
+      this.ecs,
+      () => this.buildWorld(),
+      () => this.waveOrchestrator.wave,
     );
 
     this.waveFlowSystem = new WaveFlowSystem({
@@ -523,8 +531,10 @@ export class GameWorld {
     // Единый явный список систем: фазы задают крупный порядок, порядок
     // добавления внутри фазы сохраняется.
     this.schedule.add(this.scoringSystem);
+    this.schedule.add(this.grazeSystem);
     this.schedule.add(this.bonusManager);
     this.schedule.add(this.shieldSystem);
+    this.schedule.add(this.dropSystem);
     this.schedule.add(this.countdownSystem);
     this.schedule.add(this.abilitySystem);
     this.schedule.add(this.playerSystem);
@@ -534,6 +544,7 @@ export class GameWorld {
     this.schedule.add(this.weaponManager);
     this.schedule.add(this.physics);
     this.schedule.add(this.collisionSystem);
+    this.schedule.add(this.enemyCollisionSystem);
     this.schedule.add(this.spawnSystem);
     // Якоря обновляются до проверки зачистки: волна видит актуальное
     // состояние разломов в том же кадре.
@@ -1166,11 +1177,6 @@ export class GameWorld {
       }),
     );
 
-    this.unsubscribers.push(
-      bus.subscribe("pickup_collected", (event) => {
-        this.applyPickupSystem.apply(event.payload.kind as PickupKind);
-      }),
-    );
   }
 
   /** Выстрел игрока: звук по типу оружия. */

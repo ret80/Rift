@@ -45,7 +45,7 @@ export interface PlayerShieldSnapshot {
 
 /**
  * Строит render-state из raw-данных игрока.
- * Единственный источник правды для преобразования PlayerState → PlayerRenderState.
+ * Единственный источник правды для преобразования PlayerComponent → PlayerRenderState.
  */
 export function buildPlayerState(
   x: number,

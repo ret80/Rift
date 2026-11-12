@@ -7,7 +7,6 @@
  */
 
 import { PLAYER_HITBOX_RADIUS } from "../../balance/player";
-import { createPlayerState, type PlayerState } from "../../systems/PlayerState";
 import type { EcsEngine } from "../EcsEngine";
 import { GameEntity } from "../GameEntity";
 import { LifeComponent } from "../components/LifeComponent";
@@ -27,18 +26,16 @@ export class PlayerDomain {
    * Зарегистрировать игрока как Singleton-сущность ECS-мира.
    * Раскладывает состояние по базовым и узкому компонентам.
    */
-  register(): PlayerState {
+  register(): void {
     if (this.entity) this.ecs.remove(this.entity);
     const entity = new GameEntity();
-    const state = createPlayerState();
     entity.components.add(new PositionComponent(0, 0));
     entity.components.add(new VelocityComponent(0, 0));
     entity.components.add(new RadiusComponent(PLAYER_HITBOX_RADIUS));
     entity.components.add(new LifeComponent(PLAYER_BASE_HP, PLAYER_BASE_HP));
-    entity.components.add(new PlayerComponent(state.angle, state.invuln, state.thrusting, state.mass));
+    entity.components.add(new PlayerComponent());
     this.ecs.add(entity);
     this.entity = entity;
-    return state;
   }
 
   /** Живая связка компонентов игрока (или null, если игрока нет). */

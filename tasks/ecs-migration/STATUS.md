@@ -376,3 +376,36 @@ ECS-миграция завершена **структурно**; encapsulation-
 пауза/настройки → смерть/Game Over/новый рекорд 3122 → прокачка → меню → reload (рекорд,
 язык, громкость, физика, треки сохранились); `?debug=1&wave=10`, god mode/FPS, `?renderer=null`,
 `?renderer=webgl`, `?physics=p2` — console errors 0. Пользовательские localStorage восстановлены.
+
+## Консолидация дублей ECS/plain (2026-11-12) ✅
+
+Убраны параллельные реализации одной и той же доменной логики: на каждый игровой
+домен осталась одна архитектура, симуляция — на ECS. Поведение и баланс не менялись.
+
+### Изменённые файлы
+
+| Файл | Что сделано |
+|---|---|
+| `src/game/systems/PlayerSystem.ts` | Движение влито из `PlayerMovement` приватным `updateMovement`; неиспользуемая зависимость `FxPort` убрана. |
+| `src/game/systems/PlayerMovement.ts` | **Удалён.** |
+| `src/game/systems/PlayerState.ts` | **Удалён.** `PlayerDomain.register()` создаёт `PlayerComponent` напрямую (`() => void`); `EcsWorld.registerPlayer()` больше не возвращает plain-состояние. |
+| `src/game/systems/ApplyPickupSystem.ts` | **Переименован** в `PickupEffects` и превращён в доменный сервис эффектов. |
+| `src/game/ecs/systems/PickupCollectionSystem.ts` | Применяет эффект напрямую через `onCollected(kind)` до публикации `pickup_collected` (событие теперь только для HUD/презентации). |
+| `src/game/core/GameWorld.ts` | Убрана подписка `pickup_collected → applyPickupSystem`; `PickupEffects` вызывается из ECS. `PickupDropSystem`/`GrazeSystem` добавлены в `SystemSchedule`. |
+| `src/game/core/GameContext.ts` | Убран делегат `applyPickupSystem`. |
+| `src/game/systems/PickupDropSystem.ts` | Теперь `extends PhasedSystem` (реактивная: работа в подписке на `enemy_killed`). |
+| `src/game/systems/GrazeSystem.ts` | Теперь `extends PhasedSystem` (реактивная: работа в подписке на `bullet_grazed`). |
+| `src/game/systems/EnemyCollisionSystem.ts` | **Новый** ECS-система контактов тел: player-enemy, player-asteroid, enemy-asteroid, расталкивание дронов, вражеские снаряды по дронам. |
+| `src/game/systems/CollisionSystem.ts` | Сокращён до столкновений снарядов (пули игрока по врагам/астероидам/якорям, вражеские пули по игроку); физика и волна вынесены. |
+
+### Проверка
+
+- `npm run typecheck` — exit 0.
+- `npm run build` — exit 0.
+- `npm run lint` — 0 errors, 2 pre-existing warnings (`App.tsx`, `MainMenu.tsx`).
+- Симуляционное сравнение с baseline (`23073a0f`) на seed 12345, сценарии
+  `campaign-orbit`, `smoke`, `inner-orbit`, `rim-orbit`, `fighter-orbit-r300`:
+  `scenarioHash` и все метрики совпадают бит-в-бит.
+- `npm run sim:selftest` — 57/58; единственный красный чек
+  (`Replay: запись воспроизводится бит-в-бит`) предсуществующий и воспроизводится на
+  чистом HEAD.
