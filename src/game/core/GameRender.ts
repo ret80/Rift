@@ -70,8 +70,8 @@ export class GameRender {
       loadout: ctx.loadoutSystem.getSlots(),
       recording: ctx.recorder.status,
       droneOrder: ctx.world.droneOrder,
-      dashReady: ctx.playerSystem.dashReady,
-      dashCooldown: ctx.playerSystem.dashCooldownLeft,
+      boostEnergy: ctx.playerSystem.boostEnergy,
+      boostActive: ctx.playerSystem.boostActive,
       anchors: ctx.world.anchorSystem.aliveCount(),
     });
   }

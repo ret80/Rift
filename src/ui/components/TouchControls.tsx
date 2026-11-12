@@ -5,14 +5,21 @@ import { useHudData, type HudStore } from "../hud/HudStore";
 export interface TouchControlsProps {
   onVector: (active: boolean, x: number, y: number) => void;
   onPause: () => void;
-  /** Рывок: без тач-кнопки базовый глагол недоступен на телефоне. */
+  /** Форсаж: без тач-кнопки базовый глагол недоступен на телефоне. */
   onDash: () => void;
-  /** HUD-хранилище для индикации готовности рывка. */
+  /** HUD-хранилище для индикации заряда форсажа. */
   store: HudStore;
 }
 
+/** Радиус кольца энергии вокруг иконки форсажа (в системе viewBox 64). */
+const BOOST_RING_RADIUS = 27;
+const BOOST_RING_LENGTH = 2 * Math.PI * BOOST_RING_RADIUS;
+
 export default function TouchControls({ onVector, onPause, onDash, store }: TouchControlsProps) {
-  const dashData = useHudData(store);
+  const hud = useHudData(store);
+  const boostEnergy = Math.max(0, Math.min(1, hud?.boostEnergy ?? 0));
+  const boostActive = hud?.boostActive ?? false;
+  const boostReady = boostEnergy >= 1 && !boostActive;
   const t = useT();
   const baseRef = useRef<HTMLDivElement | null>(null);
   const knobRef = useRef<HTMLDivElement | null>(null);
@@ -125,16 +132,19 @@ export default function TouchControls({ onVector, onPause, onDash, store }: Touc
           {t("help.touch")}
         </div>
       </div>
+      {/* Форсаж: только иконка, заряд показан кольцом вокруг неё.
+          Кнопка серая и не работает, пока энергия не набрана убийствами. */}
       <button
         className={
-          "absolute z-[35] flex h-16 w-16 touch-none flex-col items-center " +
-          "justify-center rounded-full border font-mono text-[8px] font-bold " +
-          "tracking-[0.08em] transition-colors " +
-          (dashData?.dashReady
-            ? "border-[#5ef2ff]/90 bg-[#5ef2ff]/25 text-[#9df1ff] " +
-              "shadow-[0_0_28px_rgba(94,242,255,0.85)] active:bg-[#5ef2ff]/35"
-            : "border-[#6f86a8]/30 bg-[#050b16]/65 text-[#6f86a8] " +
-              "active:bg-[#6f86a8]/20")
+          "absolute z-[35] flex h-16 w-16 touch-none items-center justify-center " +
+          "rounded-full border transition-colors " +
+          (boostActive
+            ? "border-[#ffb84d]/90 bg-[#ffb84d]/20 text-[#ffe0a3] " +
+              "shadow-[0_0_28px_rgba(255,184,77,0.85)] active:bg-[#ffb84d]/30"
+            : boostReady
+              ? "border-[#5ef2ff]/90 bg-[#5ef2ff]/25 text-[#9df1ff] " +
+                "shadow-[0_0_28px_rgba(94,242,255,0.85)] active:bg-[#5ef2ff]/35"
+              : "border-[#6f86a8]/30 bg-[#050b16]/65 text-[#6f86a8]")
         }
         style={{
           right: "calc(env(safe-area-inset-right) + 70px)",
@@ -147,15 +157,32 @@ export default function TouchControls({ onVector, onPause, onDash, store }: Touc
           e.preventDefault();
           onDash();
         }}
-        aria-label={t("hud.dash")}
+        aria-label={`${t("hud.boost")} ${Math.round(boostEnergy * 100)}%`}
+        aria-pressed={boostActive}
         type="button"
       >
-        <svg width="18" height="18" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6">
+        {/* кольцо энергии: заполняется убийствами и убывает при разгоне */}
+        <svg
+          className="pointer-events-none absolute inset-0 -rotate-90"
+          viewBox="0 0 64 64"
+          fill="none"
+        >
+          <circle cx="32" cy="32" r={BOOST_RING_RADIUS} stroke="#ffffff" strokeOpacity="0.08" strokeWidth="3" />
+          <circle
+            cx="32"
+            cy="32"
+            r={BOOST_RING_RADIUS}
+            stroke={boostActive ? "#ffb84d" : boostReady ? "#5ef2ff" : "#6f86a8"}
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray={BOOST_RING_LENGTH}
+            strokeDashoffset={BOOST_RING_LENGTH * (1 - boostEnergy)}
+            style={{ transition: "stroke-dashoffset 120ms linear, stroke 200ms linear" }}
+          />
+        </svg>
+        <svg width="20" height="20" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6">
           <polyline points="7,1 3,7 6,7 5,11 9,5 6,5" />
         </svg>
-        <span className="mt-0.5 leading-none">
-          {dashData?.dashReady ? t("hud.dash") : `${(dashData?.dashCooldown ?? 0).toFixed(1)}s`}
-        </span>
       </button>
       <button
         className={

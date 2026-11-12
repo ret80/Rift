@@ -38,9 +38,9 @@ export interface GameOverlaysProps {
   onOpenHangar?: () => void;
   onVector: (active: boolean, x: number, y: number) => void;
   onPause: () => void;
-  /** Рывок с тач-кнопки. */
-  onDash: () => void;
-  /** Хранилище HUD (для индикации рывка на тач-кнопке). */
+  /** Форсаж с тач-кнопки. */
+  onBoost: () => void;
+  /** Хранилище HUD (для индикации заряда форсажа на тач-кнопке). */
   store?: HudStore;
   /** Ref для навигации геймпада (общий с ScreenRouter). */
   gamepadNavRef: MutableRefObject<GamepadNavHandlers>;
@@ -167,7 +167,7 @@ export function GameOverlays(props: GameOverlaysProps) {
         <TouchControls
           onVector={props.onVector}
           onPause={props.onPause}
-          onDash={props.onDash}
+          onDash={props.onBoost}
           store={props.store!}
         />
       )}

@@ -205,8 +205,8 @@ export class Game {
     this.ctx.input.setTouch(active, x, y);
   }
 
-  /** Кнопка рывка на тач-экране. */
-  requestDash(): void {
+  /** Кнопка форсажа на тач-экране. */
+  requestBoost(): void {
     this.ctx.input.pressVirtual("ShiftLeft");
   }
 

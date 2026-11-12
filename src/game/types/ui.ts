@@ -34,10 +34,10 @@ export interface HudData {
   recording: SessionRecorderStatus;
   /** Текущий приказ рою дронов (тактический режим). */
   droneOrder: DroneOrder;
-  /** Рывок готов к использованию. */
-  dashReady: boolean;
-  /** Остаток перезарядки рывка, секунды. */
-  dashCooldown: number;
+  /** Накопленная энергия форсажа (0..1). */
+  boostEnergy: number;
+  /** Активен ли форсаж сейчас. */
+  boostActive: boolean;
   /** Живые якоря-разломы (0 — цель волны отсутствует). */
   anchors: number;
 }

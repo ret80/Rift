@@ -40,8 +40,8 @@ export class RecordingControls implements PlayerControls {
     return consumed;
   }
 
-  /** Рывок проксируется без записи: он не входит в формат интентов. */
-  consumeDash(): boolean {
-    return this.inner.consumeDash();
+  /** Форсаж проксируется без записи: он не входит в формат интентов. */
+  consumeBoost(): boolean {
+    return this.inner.consumeBoost();
   }
 }

@@ -460,7 +460,7 @@ check("GameWorld использует переданный PlayerControls (custo
         abilityCalls++;
         return false;
       },
-      consumeDash() {
+      consumeBoost() {
         return false;
       },
     };

@@ -2,9 +2,12 @@
  * PlayerSystem — ECS-система игрока.
  *
  * Отвечает только за корабль: движение, корпус, неуязвимость.
- * Временные бонусы (темп огня, доп. стволы, рывок) живут в модуле
+ * Временные бонусы (темп огня, доп. стволы) живут в модуле
  * бонусов под управлением BonusManager, поэтому система ничего о них
  * не знает: рендер и оружие читают бонусы напрямую из менеджера.
+ *
+ * Форсаж живёт здесь же: энергия копится за убийства, тратится на ускорение
+ * и не восстанавливается сама.
  *
  * Множитель скорости приходит из персистентного апгрейда «скорость»,
  * задаётся через setSpeedMult().
@@ -26,11 +29,10 @@ import type { PlayerRef } from '../ecs';
 import { PlayerComponent } from '../ecs/components/PlayerComponent';
 import { trackTurnRate } from '../aiming/AimSolver';
 import {
-  PLAYER_DASH_COOLDOWN,
-  PLAYER_DASH_IFRAMES,
-  PLAYER_DASH_IMPULSE,
+  BOOST_DRAIN_PER_SECOND,
+  BOOST_GAIN_PER_KILL,
+  BOOST_SPEED_MULT,
   PLAYER_HIT_INVULN,
-  PLAYER_MAX_SPEED,
 } from '../balance/player';
 
 /** Флаг: должна ли система сама интегрировать позицию (true в custom-режиме). */
@@ -55,8 +57,10 @@ export class PlayerSystem extends PhasedSystem {
   /** Скорость игрока на прошлом кадре — для оценки угловой скорости курса. */
   private prevVx = 0;
   private prevVy = 0;
-  /** Остаток перезарядки рывка, секунды. */
-  private dashCd = 0;
+  /** Накопленная энергия форсажа, 0..1 (1 — кнопка активна). */
+  private boost = 0;
+  /** Форсаж включён и тратит энергию прямо сейчас. */
+  private boostOn = false;
 
   constructor(
     eventBus: EventBus,
@@ -75,6 +79,11 @@ export class PlayerSystem extends PhasedSystem {
     eventBus.subscribe('player_damaged', (event) => {
       const data = event.payload as { dmg: number };
       this.hit(data.dmg);
+    });
+
+    // Убийства врагов заряжают форсаж.
+    eventBus.subscribe('enemy_killed', () => {
+      this.addBoostEnergy(BOOST_GAIN_PER_KILL);
     });
 
     // Subscribe to drone push events (soft avoidance)
@@ -103,6 +112,10 @@ export class PlayerSystem extends PhasedSystem {
     const ax = mv.x;
     const ay = mv.y;
 
+    // Форсаж: тратит накопленную энергию и ускоряет корабль. Порог ввода
+    // опрашивается каждый тик, чтобы нажатие без заряда не копилось.
+    this.updateBoost(dt);
+
     // Movement module
     updateMovement(
       position,
@@ -113,7 +126,7 @@ export class PlayerSystem extends PhasedSystem {
       ay,
       this.fx,
       ax * ax + ay * ay > 0,
-      this.speedMult,
+      this.speedMult * (this.boostOn ? BOOST_SPEED_MULT : 1),
       this.getIntegrate(),
     );
 
@@ -130,56 +143,40 @@ export class PlayerSystem extends PhasedSystem {
     this.prevVx = velocity.vx;
     this.prevVy = velocity.vy;
 
-    // Рывок: короткий импульс по текущему курсу. Импульс важнее доворота —
-    // он выносит корабль из линии огня, поэтому применяется после
-    // движения и не ограничен пределом скорости на этом кадре.
-    this.dashCd = Math.max(0, this.dashCd - dt);
-    if (this.dashCd <= 0 && this.controls.consumeDash()) {
-      this.applyDash(ref);
-      this.dashCd = PLAYER_DASH_COOLDOWN;
-    }
-
     // Invulnerability timer
     marker.invuln = Math.max(0, marker.invuln - dt);
   }
 
   /**
-   * Выполнить рывок: импульс по курсу (или по вводу, если корабль стоит)
-   * и короткие кадры неуязвимости.
+   * Форсаж: включение при полном заряде и расход энергии, пока он активен.
+   * Когда заряд кончился — кнопка возвращается в режим накопления.
    */
-  private applyDash(ref: PlayerRef): void {
-    const { velocity, marker } = ref;
-    const speed = Math.hypot(velocity.vx, velocity.vy);
-    const axis = this.controls.axis;
-    const inputLen = Math.hypot(axis.x, axis.y);
-
-    let dirX: number;
-    let dirY: number;
-    if (speed > 20) {
-      dirX = velocity.vx / speed;
-      dirY = velocity.vy / speed;
-    } else if (inputLen > 0.01) {
-      dirX = axis.x / inputLen;
-      dirY = axis.y / inputLen;
-    } else {
-      dirX = Math.cos(marker.angle);
-      dirY = Math.sin(marker.angle);
+  private updateBoost(dt: number): void {
+    const requested = this.controls.consumeBoost();
+    if (this.boostOn) {
+      this.boost = Math.max(0, this.boost - BOOST_DRAIN_PER_SECOND * dt);
+      if (this.boost <= 0) this.boostOn = false;
+      return;
     }
-
-    const launch = Math.max(speed, PLAYER_MAX_SPEED * this.speedMult) + PLAYER_DASH_IMPULSE;
-    velocity.vx = dirX * launch;
-    velocity.vy = dirY * launch;
-    marker.invuln = Math.max(marker.invuln, PLAYER_DASH_IFRAMES);
+    if (requested && this.boost >= 1) {
+      this.boostOn = true;
+    }
   }
 
-  /** Готов ли рывок (для HUD). */
-  get dashReady(): boolean {
-    return this.dashCd <= 0;
+  /** Добавить энергию форсажа: убийства не копят её во время разгона. */
+  private addBoostEnergy(amount: number): void {
+    if (this.boostOn) return;
+    this.boost = Math.min(1, this.boost + amount);
   }
 
-  /** Остаток перезарядки рывка, секунды. */
-  get dashCooldownLeft(): number {
-    return this.dashCd;
+  /** Накопленная энергия форсажа, 0..1. */
+  get boostEnergy(): number {
+    return this.boost;
+  }
+
+  /** Активен ли форсаж сейчас. */
+  get boostActive(): boolean {
+    return this.boostOn;
   }
 
   reset(): void {
@@ -193,7 +190,8 @@ export class PlayerSystem extends PhasedSystem {
     ref.marker.turnRate = 0;
     this.prevVx = 0;
     this.prevVy = 0;
-    this.dashCd = 0;
+    this.boost = 0;
+    this.boostOn = false;
   }
 
   // ---- HP (базовый LifeComponent) ----

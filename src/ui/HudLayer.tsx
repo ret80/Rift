@@ -159,8 +159,8 @@ export function HudLayer(props: {
         </div>
       )}
 
-      {/* переключатель приказа рою: три положения, смена прямо во время боя */}
-      {props.onSetDroneOrder && (
+      {/* приказ рою: три положения, смена в бою — только при наличии дронов */}
+      {props.onSetDroneOrder && (data?.drones ?? 0) > 0 && (
         <div
           className="pointer-events-auto absolute right-4 flex flex-col gap-1.5 sm:right-6"
           style={{ top: "calc(env(safe-area-inset-top) + 132px)" }}

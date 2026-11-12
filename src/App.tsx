@@ -246,7 +246,7 @@ export default function App() {
         onOpenHangar={actions.openHangar}
         onVector={(active, x, y) => gameRef.current?.setTouch(active, x, y)}
         onPause={() => gameRef.current?.togglePause()}
-        onDash={() => gameRef.current?.requestDash()}
+        onBoost={() => gameRef.current?.requestBoost()}
         store={hudStore}
         gamepadNavRef={gamepadNavRef}
       />
