@@ -75,8 +75,8 @@ export default function App() {
       },
       onPause: (p) => dispatch({ type: "SET_PAUSED", paused: p }),
       onTactical: (active) => dispatch({ type: "SET_TACTICAL", tactical: active }),
-      // Волна зачищена — между волнами открывается ангар прокачки забега.
-      onWaveCleared: () => actionsRef.current?.openHangar(),
+      // Награды за волну начисляет мир; ангар открывается по кнопке во время отсчёта.
+      onWaveCleared: () => {},
       onTestRunEnd: () => actionsRef.current?.finishTestLevel(),
       onReady: (game) => setBest(game.getBest()),
       onAutoStart: () => dispatch({ type: "SET_SCREEN", screen: "game" }),
@@ -243,6 +243,7 @@ export default function App() {
         onMenu={actions.toMenu}
         onRetry={actions.startGame}
         onMeta={() => actions.openMeta()}
+        onOpenHangar={actions.openHangar}
         onVector={(active, x, y) => gameRef.current?.setTouch(active, x, y)}
         onPause={() => gameRef.current?.togglePause()}
         onDash={() => gameRef.current?.requestDash()}

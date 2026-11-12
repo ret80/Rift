@@ -210,6 +210,12 @@ export class AnchorSystem extends PhasedSystem {
         reward: Math.round(hp * 0.15),
       });
     }
+    this.keepInsideZone(zone);
+    // Разнести якоря при постановке, чтобы они не появлялись друг на друге.
+    for (let i = 0; i < this.anchors.length; i++) {
+      this.separate(this.anchors, zone);
+    }
+    this.keepInsideZone(zone);
     this.pendingCount = 0;
     this.pendingWave = 0;
     this.env.onSpawned(this.anchors);
