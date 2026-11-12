@@ -14,7 +14,7 @@
 import { EnemyKind } from "../../balance";
 import { PhasedSystem, Phase } from "../SystemSchedule";
 import type { AppliedUpgrades } from "../../upgrades";
-import type { WaveOrchestrator } from "../../systems/WaveOrchestrator";
+import type { WaveOrchestrator } from "../../waves/WaveOrchestrator";
 
 /** Состояние игрока для проверки зоны. */
 export interface PlayerPosition {

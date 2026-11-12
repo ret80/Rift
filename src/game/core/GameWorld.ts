@@ -54,7 +54,7 @@ import { ShieldSystem } from "../ecs/systems/ShieldSystem";
 import { SpawnSystem, type SpawnDependencies } from "../ecs/systems/SpawnSystem";
 import { UpgradeSystem, type RunSeed } from "../systems/UpgradeSystem";
 import { WaveFlowSystem } from "../ecs/systems/WaveFlowSystem";
-import { WaveOrchestrator } from "../systems/WaveOrchestrator";
+import { WaveOrchestrator } from "../waves/WaveOrchestrator";
 import { ZoneSystem } from "../ecs/systems/ZoneSystem";
 import { anchorCountFor, waveTypeFor } from "../waves/WaveStateMachine";
 import { saveBestWave } from "../upgrades";

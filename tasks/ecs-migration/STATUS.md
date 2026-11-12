@@ -419,7 +419,7 @@ ECS-миграция завершена **структурно**; encapsulation-
 |---|---|
 | `src/game/ecs/systems/` | Все ECS-системы (`extends PhasedSystem`): `Anchor`, `Bullet`, `Collision`, `Countdown`, `EnemyCollision`, `EnemyShooting`, `Enemy`, `Graze`, `PickupDrop`, `Player`, `Scoring`, `Shield`, `Spawn`, `WaveFlow`, `Zone` + прежние системы мира. |
 | `src/game/utils/` | Чистые хелперы и константы столкновений: `BulletCollision`, `CollisionConstants`, `EntityCollision`, `GrazeCollision`. |
-| `src/game/systems/` | Не-ECS сервисы/системы: `AudioManager`, `CameraSystem`, `CreditSystem`, `DeathSystem`, `DebugSystem`, `InputSystem`, `PickupEffects`, `RendererSystem` (+ `Renderers/`), `UpgradeSystem`, `WaveOrchestrator`. |
+| `src/game/systems/` | Не-ECS сервисы/системы: `AudioManager`, `CameraSystem`, `CreditSystem`, `DeathSystem`, `DebugSystem`, `InputSystem`, `PickupEffects`, `UpgradeSystem`. (`RendererSystem` и `WaveOrchestrator` вынесены отдельным аудитом — см. раздел ниже.) |
 
 ### Проверка
 
@@ -428,3 +428,32 @@ ECS-миграция завершена **структурно**; encapsulation-
 - `npm run lint` — 0 errors, 2 pre-existing warnings.
 - Симуляция на seed 12345 (`campaign-orbit`, `smoke`, `inner-orbit`, `rim-orbit`,
   `fighter-orbit-r300`): `scenarioHash` и метрики совпадают с baseline бит-в-бит.
+
+## Аудит оставшихся файлов `systems` (2026-11-12) ✅
+
+Проверено, что из оставшихся сервисов действительно стоит переводить на ECS.
+Подробный разбор — в `tasks/systems-layer-audit-2026-11-12.md`.
+
+Итог: **на ECS больше ничего не переводим**. `WaveOrchestrator` — доменный
+координатор singleton-состояния волны/зоны, уже управляемый ECS-системой
+`WaveFlowSystem`; `ZoneEdgeDamage`/`ZoneStorm` остаются доменными политиками.
+`DeathSystem` остаётся lifecycle-сервисом, потому что `GameWorld.tick` намеренно
+не вызывает `ecs.update` в `dying`/`over`.
+
+Сделаны только перемещения по слоям:
+
+| Было | Стало |
+|---|---|
+| `src/game/systems/WaveOrchestrator.ts` | `src/game/waves/WaveOrchestrator.ts` (рядом с моделями волны/зоны) |
+| `src/game/systems/RendererSystem.ts` | `src/game/presentation/RendererSystem.ts` |
+| `src/game/systems/Renderers/` | `src/game/presentation/Renderers/` |
+
+Граница `RenderScene`/`RenderFrame` сохранена: рендерер по-прежнему не зависит
+от `EcsWorld` напрямую.
+
+### Проверка
+
+- `npm run typecheck` — exit 0.
+- `npm run build` — exit 0.
+- `npm run lint` — 0 errors, 2 pre-existing warnings.
+- Симуляция на seed 12345: `scenarioHash` и метрики совпадают с baseline бит-в-бит.

@@ -57,7 +57,7 @@ import { WeaponManager } from "../game/weapons/WeaponManager";
 import { createWeaponRegistry } from "../game/weapons/WeaponRegistry";
 import { WEAPON_CATALOG, WEAPON_IDS } from "../game/weapons/WeaponCatalog";
 import { applyUpgrades, defaultUpgrades } from "../game/upgrades";
-import { WaveOrchestrator } from "../game/systems/WaveOrchestrator";
+import { WaveOrchestrator } from "../game/waves/WaveOrchestrator";
 import { WaveFlowSystem } from "../game/ecs/systems/WaveFlowSystem";
 import type { BulletSpawn } from "../game/ecs";
 

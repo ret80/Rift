@@ -17,15 +17,15 @@ import {
 } from "../balance";
 import type { ZoneData } from "../core/ZoneTypes";
 import type { BannerData } from "../types/ui";
-import { ZoneEdgeDamage, type PlayerPosition } from "../waves/ZoneEdgeDamage";
-import { ZoneModel } from "../waves/ZoneModel";
-import { ZoneStorm, type ZoneStormState } from "../waves/ZoneStorm";
+import { ZoneEdgeDamage, type PlayerPosition } from "./ZoneEdgeDamage";
+import { ZoneModel } from "./ZoneModel";
+import { ZoneStorm, type ZoneStormState } from "./ZoneStorm";
 import {
   WaveStateMachine,
   waveTypeFor,
   type WaveStateId,
   type WaveType,
-} from "../waves/WaveStateMachine";
+} from "./WaveStateMachine";
 
 export interface WaveOrchestratorHooks {
   /** Показать баннер или погасить его (`null`). */

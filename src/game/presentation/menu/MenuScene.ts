@@ -20,7 +20,7 @@ import {
 import { type Starfield } from "../../starfield";
 import { type AsteroidField } from "../../asteroids";
 import { type RiftField } from "../../rifts";
-import { type RendererSystem } from "../../systems/RendererSystem";
+import { type RendererSystem } from "../RendererSystem";
 import type { IRenderer } from "../../render/index";
 import type { AsteroidEnv } from "../../asteroids";
 import type { MenuEnemy, MenuFrame, MenuRift } from "./types";

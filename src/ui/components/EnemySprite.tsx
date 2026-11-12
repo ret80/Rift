@@ -1,6 +1,6 @@
 import React from "react";
 import { EnemyKind } from "../../game/balance";
-import { ENEMY_HULLS, enemyColor } from "../../game/systems/Renderers/EnemyHulls";
+import { ENEMY_HULLS, enemyColor } from "../../game/presentation/Renderers/EnemyHulls";
 
 /**
  * EnemySprite — силуэт врага для таблиц справки.

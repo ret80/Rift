@@ -21,7 +21,7 @@ import { C } from "../balance";
 import type { BeamRef } from "../ecs";
 import type { Fx } from "../fx";
 import { rgba } from "../math";
-import type { MenuEnemy, MenuFrame, MenuRift } from "../presentation/menu/types";
+import type { MenuEnemy, MenuFrame, MenuRift } from "./menu/types";
 import { getDpr } from "../render/config";
 import type { IRenderer } from "../render/index";
 import { RiftField } from "../rifts";

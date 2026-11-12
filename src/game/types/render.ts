@@ -17,15 +17,15 @@ import type {
   PickupRef,
   PlayerRef,
 } from "../ecs";
-import type { PlayerRenderState } from "../systems/Renderers/PlayerRenderer";
-import type { EnemyRenderState } from "../systems/Renderers/EnemyRenderer";
+import type { PlayerRenderState } from "../presentation/Renderers/PlayerRenderer";
+import type { EnemyRenderState } from "../presentation/Renderers/EnemyRenderer";
 import type {
   BulletRenderState,
   EBulletRenderState,
-} from "../systems/Renderers/BulletRenderer";
-import type { PickupRenderState } from "../systems/Renderers/PickupRenderer";
-import type { AllyDroneRenderState } from "../systems/Renderers/DroneRenderer";
-import type { ZoneRenderState } from "../systems/Renderers/ZoneRenderer";
+} from "../presentation/Renderers/BulletRenderer";
+import type { PickupRenderState } from "../presentation/Renderers/PickupRenderer";
+import type { AllyDroneRenderState } from "../presentation/Renderers/DroneRenderer";
+import type { ZoneRenderState } from "../presentation/Renderers/ZoneRenderer";
 import type { ZoneStormState } from "../waves/ZoneStorm";
 
 /** Снимок щита для рендера. */
