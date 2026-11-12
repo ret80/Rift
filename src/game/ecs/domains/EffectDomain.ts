@@ -5,7 +5,7 @@
  * системами по истечении LifeComponent.
  */
 
-import type { Particle, Ring } from "../../types";
+import type { Particle, Ring } from "../../types/world";
 import type { EcsEngine } from "../EcsEngine";
 import { GameEntity } from "../GameEntity";
 import { LifeComponent } from "../components/LifeComponent";

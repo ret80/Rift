@@ -40,6 +40,8 @@ export interface GameLifecycleCallbacks {
   onPause: (p: boolean) => void;
   /** Тактический режим включён/выключен. */
   onTactical: (active: boolean) => void;
+  /** Волна зачищена — открыть ангар между волнами. */
+  onWaveCleared: (wave: number) => void;
   /** Одиночный тест уровня завершён — вернуть в меню отладки. */
   onTestRunEnd?: (reason: "cleared" | "died") => void;
   /** Игра создана и готова принимать команды. */
@@ -100,6 +102,7 @@ export function useGameLifecycle(
       onStats: events.onStats,
       onPause: events.onPause,
       onTactical: events.onTactical,
+      onWaveCleared: events.onWaveCleared,
       onTestRunEnd: events.onTestRunEnd,
       onGameOver: () => {
         // Итоги придут через onStats после перехода dying → over.

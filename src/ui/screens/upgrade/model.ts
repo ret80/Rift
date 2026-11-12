@@ -15,21 +15,21 @@ import {
   WEAPON_STAT_MAX_LEVEL,
   type PlayerUpgrades,
   type WeaponStatKey,
-} from "../../game/upgrades";
+} from "../../../game/upgrades";
 import {
   shieldBlockPercent,
   shieldRegenPerSecond,
   RATE_BOOST_TIME,
   HEAL_BONUS_TIME,
   HEAL_BASE,
-} from "../../game/balance/player";
-import type { WeaponId, WeaponLoadout } from "../../game/weapons/Weapon";
+} from "../../../game/balance/player";
+import type { WeaponId, WeaponLoadout } from "../../../game/weapons/Weapon";
 import {
   WEAPON_CATALOG,
   WEAPON_IDS,
   type WeaponArmoryId,
   type WeaponIcon,
-} from "../../game/weapons/WeaponCatalog";
+} from "../../../game/weapons/WeaponCatalog";
 import {
   DRONE_CATALOG,
   DRONE_STAT_MAX_LEVEL,
@@ -38,9 +38,9 @@ import {
   type DroneId,
   type DroneLoadout,
   type DroneStatKey,
-} from "../../game/drones/Drone";
-import type { TKey } from "../../i18n";
-import { t } from "../../i18n";
+} from "../../../game/drones/Drone";
+import type { TKey } from "../../../i18n";
+import { t } from "../../../i18n";
 import type { CSSProperties } from "react";
 
 /** Подсветка кнопки, на которой сейчас фокус геймпада. */

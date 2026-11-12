@@ -5,7 +5,7 @@
  * обновляет RiftField, а домен отвечает за регистрацию и чтение.
  */
 
-import type { Rift } from "../../types";
+import type { Rift } from "../../types/world";
 import type { EcsEngine } from "../EcsEngine";
 import { GameEntity } from "../GameEntity";
 import { RiftComponent } from "../components/RiftComponent";

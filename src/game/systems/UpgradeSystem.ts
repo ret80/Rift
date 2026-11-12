@@ -1,15 +1,16 @@
 /**
- * UpgradeSystem — персистентные апгрейды игрока.
- * Управляет состоянием playerUpgrades/appliedUpgrades,
- * загрузкой/сохранением в localStorage, применением бонусов к системам.
+ * UpgradeSystem — прокачка забега игрока.
+ *
+ * Держит линии корабля, арсенал и ангар дронов текущего забега и
+ * пересчитывает боевые значения (`AppliedUpgrades`) после каждой покупки.
+ * Ничего из этого не сохраняется: смерть/новый забег начинаются с
+ * базового корабля. Постоянный слой — кредиты и таланты Зеркала Ночи,
+ * их бонусы применяются поверх прокачки забега.
  */
 
 import {
-  loadUpgrades as loadUpgradesRaw,
-  saveUpgrades as saveUpgradesRaw,
   applyUpgrades as applyUpgradesRaw,
-  loadWeaponLoadout,
-  saveWeaponLoadout,
+  defaultUpgrades,
   defaultWeaponLoadout,
   weaponCost,
   weaponUpgradeCost,
@@ -18,7 +19,6 @@ import {
   type AppliedUpgrades,
   type WeaponStatKey,
 } from "../upgrades";
-import type { PersistencePort } from "../core/PersistencePort";
 import type {
   WeaponId,
   WeaponLoadout,
@@ -26,47 +26,70 @@ import type {
 } from "../weapons/Weapon";
 import { DroneSystem } from "../drones/DroneSystem";
 import type { DroneId, DroneLoadout, DroneStatKey } from "../drones/Drone";
+import { defaultDroneLoadout } from "../drones/DroneSystem";
+
+/** Начальное состояние забега: используется симуляцией и реплеем. */
+export interface RunSeed {
+  upgrades?: Partial<PlayerUpgrades>;
+  weaponLoadout?: WeaponLoadout;
+  droneLoadout?: DroneLoadout;
+}
+import type { MetaBonuses } from "../meta/types";
+import { noMetaBonuses } from "../meta/types";
 
 export class UpgradeSystem {
-  private _playerUpgrades: PlayerUpgrades = {} as PlayerUpgrades;
+  private _playerUpgrades: PlayerUpgrades = defaultUpgrades();
   private _loadout: WeaponLoadout = defaultWeaponLoadout();
-  private _droneSystem: DroneSystem | null = null;
-  private _storage!: PersistencePort;
+  private readonly _droneSystem = new DroneSystem();
+  private _appliedUpgrades: AppliedUpgrades;
+  /** Бонусы мета-талантов, применяемые поверх прокачки забега. */
+  private _metaBonuses: MetaBonuses = noMetaBonuses();
+
+  private constructor() {
+    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses);
+  }
+
+  static create(): UpgradeSystem {
+    return new UpgradeSystem();
+  }
+
+  /* ======================== Run lifecycle ======================== */
+
+  /**
+   * Сбросить прокачку забега к базовому кораблю.
+   * `seed` задаёт стартовое состояние (сценарии симуляции и реплей).
+   */
+  resetRun(seed?: RunSeed): void {
+    this._playerUpgrades = { ...defaultUpgrades(), ...(seed?.upgrades ?? {}) };
+    this._loadout = seed?.weaponLoadout ?? defaultWeaponLoadout();
+    this._droneSystem.setLoadout(seed?.droneLoadout ?? defaultDroneLoadout());
+    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses);
+  }
+
+  /** Применить бонусы Зеркала Ночи к текущему забегу. */
+  setMetaBonuses(bonuses: MetaBonuses): void {
+    this._metaBonuses = bonuses;
+    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses);
+  }
 
   get playerUpgrades(): PlayerUpgrades {
     return this._playerUpgrades;
   }
 
-  /** Персистентный арсенал: купленные виды оружия и их модели. */
+  /** Арсенал забега: купленные виды оружия и их модели. */
   get loadout(): WeaponLoadout {
     return this._loadout;
   }
 
-  /** Персистентный ангар дронов: купленные дроны и их модели. */
+  /** Ангар дронов забега: купленные дроны и их модели. */
   get droneLoadout(): DroneLoadout {
-    return this.droneSys().loadout;
+    return this._droneSystem.loadout;
   }
-
-  private _appliedUpgrades: AppliedUpgrades | null = null!;
-
-  /* ======================== Factory ======================== */
-
-  static create(storage: PersistencePort): UpgradeSystem {
-    const sys = new UpgradeSystem();
-    sys._storage = storage;
-    sys._playerUpgrades = loadUpgradesRaw(storage);
-    sys._loadout = loadWeaponLoadout(storage);
-    sys._droneSystem = DroneSystem.create(storage);
-    sys._appliedUpgrades = applyUpgradesRaw(sys._playerUpgrades);
-    return sys;
-  }
-
-  private constructor() {}
 
   /* ======================== Apply to systems ======================== */
 
   /**
-   * Применить персистентные апгрейды к живым системам.
+   * Применить прокачку к живым системам.
    * Каждая система сама решает, что с ней делать.
    */
   applyToSystems(targets: {
@@ -92,7 +115,6 @@ export class UpgradeSystem {
     resetHp?: () => void;
   }): void {
     const up = this._appliedUpgrades;
-    if (!up) return;
     targets.setMaxHp(up.baseHp);
     targets.setWeaponUpgrades(up);
     targets.setSpeedMult(up.speedMult);
@@ -107,13 +129,11 @@ export class UpgradeSystem {
     }
   }
 
-  /* ======================== Refresh / Reload ======================== */
+  /* ======================== Refresh ======================== */
 
+  /** Пересчитать применённые значения (после покупки). */
   refresh(): void {
-    this._playerUpgrades = loadUpgradesRaw(this._storage);
-    this._loadout = loadWeaponLoadout(this._storage);
-    this._droneSystem?.refresh();
-    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades);
+    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses);
   }
 
   /* ======================== Purchase (debug) ======================== */
@@ -122,33 +142,20 @@ export class UpgradeSystem {
   purchaseNoCost(key: keyof Omit<PlayerUpgrades, "parts">): boolean {
     if (this._playerUpgrades[key] == null) return false;
     (this._playerUpgrades[key] as number) += 1;
-    saveUpgradesRaw(this._playerUpgrades, this._storage);
-    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades);
+    this.refresh();
     return true;
   }
 
   /* ======================== Parts management ======================== */
 
-  /** Добавить детали к прокачке (localStorage — через порт). */
+  /** Добавить детали забега. */
   addParts(amount: number): void {
     this._playerUpgrades.parts += amount;
-    saveUpgradesRaw(this._playerUpgrades, this._storage);
-  }
-
-  /** Сохранить текущее состояние прокачки. */
-  save(): void {
-    saveUpgradesRaw(this._playerUpgrades, this._storage);
-  }
-
-  /** Сбросить забеговые детали (parts) к нулю (рогалик). */
-  resetParts(): void {
-    this._playerUpgrades.parts = 0;
-    saveUpgradesRaw(this._playerUpgrades, this._storage);
   }
 
   /* ======================== Weapon loadout management ======================== */
 
-  /** Купить оружие в арсенале. Возвращает true при успехе. */
+  /** Купить оружие в арсенале забега. Возвращает true при успехе. */
   purchaseWeapon(id: WeaponId): boolean {
     return this.purchaseWeaponImpl(id, false);
   }
@@ -178,8 +185,7 @@ export class UpgradeSystem {
       this._playerUpgrades.parts -= cost;
     }
     entry.owned = true;
-    saveUpgradesRaw(this._playerUpgrades, this._storage);
-    saveWeaponLoadout(this._loadout, this._storage);
+    this.refresh();
     return true;
   }
 
@@ -194,8 +200,7 @@ export class UpgradeSystem {
       this._playerUpgrades.parts -= cost;
     }
     entry.model[stat] = level + 1;
-    saveUpgradesRaw(this._playerUpgrades, this._storage);
-    saveWeaponLoadout(this._loadout, this._storage);
+    this.refresh();
     return true;
   }
 
@@ -206,7 +211,7 @@ export class UpgradeSystem {
   }
 
   getApplied<T extends keyof AppliedUpgrades>(key: T): AppliedUpgrades[T] {
-    return this._appliedUpgrades?.[key] ?? (1 as AppliedUpgrades[T]);
+    return this._appliedUpgrades[key];
   }
 
   /** Всего занятых слотов оружия (купленные виды). */
@@ -220,37 +225,37 @@ export class UpgradeSystem {
 
   /* ======================== Drone hangar ======================== */
 
-  private droneSys(): DroneSystem {
-    return this._droneSystem ?? (this._droneSystem = DroneSystem.create(this._storage));
-  }
-
   /** Снимок флота купленных дронов для боя. */
   getDroneFleetSpec() {
-    return this.droneSys().getFleetSpec();
+    return this._droneSystem.getFleetSpec();
   }
 
   /** Сколько единиц дрона куплено. */
   getDroneCount(id: DroneId): number {
-    return this.droneSys().getCount(id);
+    return this._droneSystem.getCount(id);
   }
 
   /** Всего занятых слотов флотом. */
   getDroneTotalCount(): number {
-    return this.droneSys().getTotalCount();
+    return this._droneSystem.getTotalCount();
   }
 
   /** Уровень линии дрона (0 — дрон не куплен). */
   getDroneStatLevel(id: DroneId, stat: DroneStatKey): number {
-    return this.droneSys().getStatLevel(id, stat);
+    return this._droneSystem.getStatLevel(id, stat);
   }
 
   /** Купить единицу дрона (детали уже списаны вызывающим). */
   buyDrone(id: DroneId): boolean {
-    return this.droneSys().buy(id);
+    const bought = this._droneSystem.buy(id);
+    if (bought) this.refresh();
+    return bought;
   }
 
   /** Прокачать линию дрона (детали уже списаны вызывающим). */
   upgradeDroneStat(id: DroneId, stat: DroneStatKey): boolean {
-    return this.droneSys().upgradeStat(id, stat);
+    const upgraded = this._droneSystem.upgradeStat(id, stat);
+    if (upgraded) this.refresh();
+    return upgraded;
   }
 }

@@ -8,7 +8,7 @@
  */
 
 import type { PickupKind } from "../balance";
-import type { Particle } from "../types";
+import type { Particle } from "../types/world";
 import type { BannerData, StatsData, ToastData } from "../types/ui";
 import type { PersistencePort } from "./PersistencePort";
 
@@ -70,6 +70,8 @@ export interface GameplayHooks {
   onStats(stats: StatsData): void;
   /** Тестовая волна завершена (зачистка или смерть). */
   onTestRunEnd?(reason: "cleared" | "died"): void;
+  /** Волна зачищена — хост открывает ангар между волнами. */
+  onWaveCleared?(wave: number): void;
 }
 
 /** Полный набор портов мира. */

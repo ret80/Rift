@@ -75,6 +75,8 @@ export default function App() {
       },
       onPause: (p) => dispatch({ type: "SET_PAUSED", paused: p }),
       onTactical: (active) => dispatch({ type: "SET_TACTICAL", tactical: active }),
+      // Волна зачищена — между волнами открывается ангар прокачки забега.
+      onWaveCleared: () => actionsRef.current?.openHangar(),
       onTestRunEnd: () => actionsRef.current?.finishTestLevel(),
       onReady: (game) => setBest(game.getBest()),
       onAutoStart: () => dispatch({ type: "SET_SCREEN", screen: "game" }),
@@ -130,14 +132,17 @@ export default function App() {
       case "settings":
       case "help":
       case "debug":
-      case "upgrade":
+      case "hangar":
         if (screen === "settings") {
           act.closeSettings();
-        } else if (screen === "upgrade") {
-          act.closeUpgrade();
+        } else if (screen === "hangar") {
+          act.closeHangar();
         } else {
           act.openMenu();
         }
+        break;
+      case "meta":
+        act.closeMeta();
         break;
       case "game":
         if (paused) {
@@ -165,14 +170,17 @@ export default function App() {
       case "settings":
       case "help":
       case "debug":
-      case "upgrade":
+      case "hangar":
         if (screen === "settings") {
           act.closeSettings();
-        } else if (screen === "upgrade") {
-          act.closeUpgrade();
+        } else if (screen === "hangar") {
+          act.closeHangar();
         } else {
           act.openMenu();
         }
+        break;
+      case "meta":
+        act.closeMeta();
         break;
       case "game":
         if (paused) {
@@ -234,7 +242,7 @@ export default function App() {
         onSettings={() => actions.openSettings("pause")}
         onMenu={actions.toMenu}
         onRetry={actions.startGame}
-        onUpgrade={() => actions.openUpgrade("gameover")}
+        onMeta={() => actions.openMeta()}
         onVector={(active, x, y) => gameRef.current?.setTouch(active, x, y)}
         onPause={() => gameRef.current?.togglePause()}
         onDash={() => gameRef.current?.requestDash()}

@@ -16,7 +16,7 @@ import HelpScreen from "./screens/HelpScreen";
 import MainMenu from "./screens/MainMenu";
 import MetaScreen from "./screens/MetaScreen";
 import SettingsScreen from "./screens/SettingsScreen";
-import { UpgradeScreen } from "./upgrade/UpgradeScreen";
+import { UpgradeScreen } from "./screens/upgrade/UpgradeScreen";
 
 /**
  * Набор навигационных обработчиков, которые активный экран
@@ -74,7 +74,6 @@ export function ScreenRouter(props: ScreenRouterProps) {
           onSettings={() => actions.openSettings("menu")}
           onHelp={actions.openHelp}
           onDebug={actions.openDebug}
-          onUpgrade={() => actions.openUpgrade("menu")}
           onMeta={() => actions.openMeta()}
           showDebug={urlDebug}
           isGamepad={isGamepad}
@@ -131,14 +130,15 @@ export function ScreenRouter(props: ScreenRouterProps) {
         />
       );
 
-    case "upgrade":
+    case "hangar":
       return (
         <UpgradeScreen
           game={gameRef.current}
           detailsOn={settings.debugDetails}
-          onBack={actions.closeUpgrade}
+          onBack={actions.closeHangar}
           isGamepad={isGamepad}
           gamepadNavRef={gamepadNavRef}
+          variant="hangar"
         />
       );
 

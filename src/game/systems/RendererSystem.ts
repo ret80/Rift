@@ -40,6 +40,7 @@ import {
     renderZoneReturnIndicator,
     renderZoneStorm,
 } from "./Renderers/ZoneRenderer";
+import type { Anchor } from "./AnchorSystem";
 
 /* ============================== config ============================== */
 
@@ -49,7 +50,7 @@ export interface RendererSystemConfig {
   asteroidField: AsteroidField;
   riftField: RiftField;
   anchorSystem?: {
-    getAnchors(): Array<{ x: number; y: number; hp: number; maxHp: number; radius: number; alive: boolean }>;
+    getAnchors(): Anchor[];
   };
 }
 
@@ -163,7 +164,7 @@ export class RendererSystem {
         R.setLayer("scene");
       }
       this.drawRifts(R, time);
-      this.drawAnchors(R);
+      this.drawAnchors(R, time);
       renderPickups(R, pickups, time);
       renderEnemies(R, enemies, time);
       renderAllyDrones(R, allyDrones, time, player);
@@ -211,13 +212,24 @@ export class RendererSystem {
     this.config.riftField.draw(R, time);
   }
 
-  private drawAnchors(R: IRenderer): void {
+  /**
+   * Якоря-разломы: пульс открытого разлома, прочность и вращение.
+   * Якорь должен читаться как цель волны, а не как декоративный объект.
+   */
+  private drawAnchors(R: IRenderer, time: number): void {
     const anchors = this.config.anchorSystem?.getAnchors() ?? [];
     for (const a of anchors) {
       if (!a.alive) continue;
-      R.circle(a.x, a.y, a.radius, rgba("#ff8a3d", 0.6), 16);
+      const pulse = 0.5 + 0.5 * Math.sin(time * 3 + a.seed);
+      // Ореол разлома, который держит якорь.
+      R.circle(a.x, a.y, a.radius + 9 + pulse * 7, rgba("#c79bff", 0.16 + pulse * 0.18), 22);
+      // Корпус.
+      R.circle(a.x, a.y, a.radius, rgba("#ff8a3d", 0.75), 16);
+      // Вращающееся кольцо разлома.
+      R.dashedCircle(a.x, a.y, a.radius + 6, rgba("#c79bff", 0.9), 18, time * 0.8);
+      // Прочность: число сегментов падает с HP.
       const f = a.maxHp > 0 ? a.hp / a.maxHp : 0;
-      R.dashedCircle(a.x, a.y, a.radius + 4, rgba("#ff3b52", 0.8), Math.max(2, Math.round(12 * f)), 0);
+      R.dashedCircle(a.x, a.y, a.radius + 10, rgba("#ff3b52", 0.85), Math.max(2, Math.round(16 * f)), -time * 1.2);
     }
   }
 

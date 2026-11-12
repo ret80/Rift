@@ -105,6 +105,11 @@ export function HudLayer(props: {
                 style={{ width: `${progress}%` }}
               />
             </div>
+            {(data?.anchors ?? 0) > 0 && (
+              <div className="mt-1 text-[7px] tracking-[0.14em] text-[#c79bff] sm:text-[8px]">
+                {t("hud.anchors")} {data?.anchors}
+              </div>
+            )}
           </div>
 
           {/* RIGHT — score */}

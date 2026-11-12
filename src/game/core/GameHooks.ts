@@ -16,6 +16,8 @@ export interface Hooks {
   /** Тактический режим включён/выключен (мир стоит, доступны приказы). */
   onTactical?: (active: boolean) => void;
   onGameOver: () => void;
+  /** Волна зачищена — хост открывает ангар между волнами. */
+  onWaveCleared?: (wave: number) => void;
   /** Тестовая волна завершена (зачистка или смерть) — вернуть в отладку. */
   onTestRunEnd?: (reason: "cleared" | "died") => void;
   /** Нажатие кнопки подтверждения геймпада (A/Cross). */

@@ -4,6 +4,7 @@
 
 export const ru = {
   wave: "ВОЛНА",
+  anchors: "ЯКОРЯ",
   scoreLabel: "СЧЁТ",
   best: "РЕКОРД {v}",
   cleared: "ЗАЧИЩЕНО {k} / {t}",
@@ -49,6 +50,7 @@ export const ru = {
 
 export const en: typeof ru = {
   wave: "WAVE",
+  anchors: "ANCHORS",
   scoreLabel: "SCORE",
   best: "BEST {v}",
   cleared: "CLEARED {k} / {t}",

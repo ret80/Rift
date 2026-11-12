@@ -1,8 +1,8 @@
 /* Shared type definitions extracted from fx.ts, rifts.ts, and game.ts.
    All subsystems import from here to avoid duplication. */
 
-import type { RGBA } from "./render/index";
-import type { EnemyKind } from "./balance";
+import type { RGBA } from "../render/index";
+import type { EnemyKind } from "../balance";
 
 /* ---- Effect types (from fx.ts) ---- */
 

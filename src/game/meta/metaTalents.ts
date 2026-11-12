@@ -1,20 +1,15 @@
 /**
- * Таланты Зеркала Ночи (мета-дерево) Механики 3.
+ * Таланты Зеркала Ночи.
+ *
+ * Каждый эффект применяется в `applyUpgrades`: таланты дают множители
+ * поверх прокачки забега или прибавку слотов/уровней линий щита. Поэтому
+ * ни один талант не может оказаться «мёртвой покупкой».
  */
 
 import type { MetaTalent } from "./types";
 
 export const META_TALENTS: MetaTalent[] = [
-  // Красная ветка
-  {
-    id: "red_damage",
-    nameKey: "meta.redDamage",
-    descKey: "meta.redDamageDesc",
-    branch: "red",
-    maxLevel: 5,
-    costs: [10, 20, 35, 55, 80],
-    effect: (level) => ({ damageMult: 1 + 0.05 * level }),
-  },
+  /* ======================== Красная ветка: атака ======================== */
   {
     id: "red_fire_rate",
     nameKey: "meta.redFireRate",
@@ -22,30 +17,30 @@ export const META_TALENTS: MetaTalent[] = [
     branch: "red",
     maxLevel: 5,
     costs: [10, 20, 35, 55, 80],
-    prerequisite: "red_damage",
     effect: (level) => ({ fireRateMult: 1 + 0.04 * level }),
   },
   {
-    id: "red_crit",
-    nameKey: "meta.redCrit",
-    descKey: "meta.redCritDesc",
-    branch: "red",
-    maxLevel: 3,
-    costs: [30, 60, 100],
-    prerequisite: "red_fire_rate",
-    effect: (level) => ({ critChance: 0.05 * level }),
-  },
-  {
-    id: "red_pierce",
-    nameKey: "meta.redPierce",
-    descKey: "meta.redPierceDesc",
+    id: "red_guns",
+    nameKey: "meta.redGuns",
+    descKey: "meta.redGunsDesc",
     branch: "red",
     maxLevel: 1,
     costs: [150],
-    prerequisite: "red_crit",
-    effect: () => ({ pierce: 1 }),
+    prerequisite: "red_fire_rate",
+    effect: (level) => ({ weaponSlots: level }),
   },
-  // Зелёная ветка
+  {
+    id: "red_parts",
+    nameKey: "meta.redParts",
+    descKey: "meta.redPartsDesc",
+    branch: "red",
+    maxLevel: 3,
+    costs: [40, 90, 160],
+    prerequisite: "red_fire_rate",
+    effect: (level) => ({ partsMult: 1 + 0.1 * level }),
+  },
+
+  /* ======================== Зелёная ветка: защита ======================== */
   {
     id: "green_hp",
     nameKey: "meta.greenHp",
@@ -66,23 +61,43 @@ export const META_TALENTS: MetaTalent[] = [
     effect: (level) => ({ speedMult: 1 + 0.03 * level }),
   },
   {
-    id: "green_shield",
-    nameKey: "meta.greenShield",
-    descKey: "meta.greenShieldDesc",
+    id: "green_shield_block",
+    nameKey: "meta.greenShieldBlock",
+    descKey: "meta.greenShieldBlockDesc",
     branch: "green",
     maxLevel: 3,
     costs: [30, 60, 100],
     prerequisite: "green_speed",
-    effect: (level) => ({ shieldEnergy: 20 * level }),
+    effect: (level) => ({ shieldBlockLevel: level }),
   },
   {
-    id: "green_regen",
-    nameKey: "meta.greenRegen",
-    descKey: "meta.greenRegenDesc",
+    id: "green_shield_regen",
+    nameKey: "meta.greenShieldRegen",
+    descKey: "meta.greenShieldRegenDesc",
     branch: "green",
-    maxLevel: 1,
-    costs: [150],
-    prerequisite: "green_shield",
-    effect: () => ({ regen: 1 }),
+    maxLevel: 3,
+    costs: [30, 60, 100],
+    prerequisite: "green_shield_block",
+    effect: (level) => ({ shieldRegenLevel: level }),
+  },
+  {
+    id: "green_drones",
+    nameKey: "meta.greenDrones",
+    descKey: "meta.greenDronesDesc",
+    branch: "green",
+    maxLevel: 2,
+    costs: [60, 120],
+    prerequisite: "green_hp",
+    effect: (level) => ({ droneSlots: level }),
+  },
+  {
+    id: "green_credits",
+    nameKey: "meta.greenCredits",
+    descKey: "meta.greenCreditsDesc",
+    branch: "green",
+    maxLevel: 2,
+    costs: [80, 180],
+    prerequisite: "green_hp",
+    effect: (level) => ({ creditsMult: 1 + 0.15 * level }),
   },
 ];

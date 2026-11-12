@@ -227,6 +227,7 @@ export class GameContext {
             ),
           onGameOver: () => hooks.onGameOver(),
           onStats: (stats) => hooks.onStats(stats),
+          onWaveCleared: (wave) => hooks.onWaveCleared?.(wave),
           // Микрозадача: не мутируем мир посреди тика/кадра, когда
           // зачистка тестовой волны приходит из WaveFlowSystem.
           onTestRunEnd: (reason) =>
@@ -474,6 +475,24 @@ export class GameContext {
     this.hooks.onToast({ text: t("hud.recordSaved"), color: "#ffb84d" });
   }
 
+  /**
+   * Открыть ангар между волнами.
+   * Мир замирает на паузе: игрок тратит детали и продолжает забег.
+   */
+  openHangar(): void {
+    if (!this.fsm.is("playing", "active")) return;
+    this.setPaused(true);
+    this.hooks.onPause(true);
+    this.audio.setSuspended(true);
+  }
+
+  /** Закрыть ангар: забег продолжается со следующей волны. */
+  closeHangar(): void {
+    this.setPaused(false);
+    this.hooks.onPause(false);
+    this.audio.setSuspended(false);
+  }
+
   togglePause(): void {
     if (this.fsm.is("menu", "over")) return;
     // Esc в тактике закрывает тактику, а не открывает экран паузы.
@@ -636,6 +655,9 @@ export class GameContext {
 
   toMenu(): void {
     this.exitTactical();
+    // Досрочный выход не должен сжигать забег: кредиты начисляются так же,
+    // как при смерти (защита от двойного начисления внутри мира).
+    this.world.abandonRun();
     this.start.toMenu();
   }
 

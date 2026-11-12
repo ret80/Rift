@@ -10,7 +10,7 @@ import { readUrlParam } from "../game/core/env";
 import { EnemyKind } from "../game/balance/enemies";
 import type { WaveCompositionOverride } from "../game/balance/waves";
 
-export type Screen = "menu" | "settings" | "help" | "debug" | "upgrade" | "meta" | "game";
+export type Screen = "menu" | "settings" | "help" | "debug" | "hangar" | "meta" | "game";
 
 export interface AppState {
   screen: Screen;

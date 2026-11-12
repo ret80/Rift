@@ -23,21 +23,21 @@ import {
   type DroneId,
   type DroneLoadout,
   type DroneStatKey,
-} from "../../game/drones/Drone";
-import type { Game } from "../../game/game";
+} from "../../../game/drones/Drone";
+import type { Game } from "../../../game/game";
 import {
   copyDroneLoadout,
   copyWeaponLoadout,
-} from "../../game/loadout/snapshots";
+} from "../../../game/loadout/snapshots";
 import {
   WEAPON_STAT_MAX_LEVEL,
   type PlayerUpgrades,
   type WeaponStatKey,
-} from "../../game/upgrades";
-import type { WeaponId, WeaponLoadout } from "../../game/weapons/Weapon";
-import { useGamepadFocus } from "../../hooks/useGamepadFocus";
-import { useT } from "../../i18n";
-import type { GamepadNavHandlers } from "../ScreenRouter";
+} from "../../../game/upgrades";
+import type { WeaponId, WeaponLoadout } from "../../../game/weapons/Weapon";
+import { useGamepadFocus } from "../../../hooks/useGamepadFocus";
+import { useT } from "../../../i18n";
+import type { GamepadNavHandlers } from "../../ScreenRouter";
 import { ArmoryTab } from "./ArmoryTab";
 import { BonusesTab } from "./BonusesTab";
 import { DronesTab } from "./DronesTab";
@@ -146,8 +146,11 @@ export function UpgradeScreen(props: {
   onBack: () => void;
   isGamepad: boolean;
   gamepadNavRef: MutableRefObject<GamepadNavHandlers>;
+  /** `hangar` — экран между волнами забега. */
+  variant?: "hangar";
 }) {
   const t = useT();
+  const isHangar = props.variant === "hangar";
   const free = props.detailsOn;
   const [tab, setTab] = useState<TabId>("ship");
   const [upgrades, setUpgrades] = useState<PlayerUpgrades>({
@@ -328,13 +331,15 @@ export function UpgradeScreen(props: {
       className="anim-overlay absolute inset-0 z-20 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={t("upgrade.title")}
+      aria-label={isHangar ? t("upgrade.hangarTitle") : t("upgrade.title")}
     >
       <div className="anim-fade-up flex h-[min(640px,90vh)] w-[min(620px,96vw)] flex-col">
         <div className="hud-panel flex min-h-0 flex-1 flex-col p-5 sm:p-7">
           {/* Header */}
           <div className="mb-5 text-center">
-            <div className="hud-label mb-2">{t("upgrade.title")}</div>
+            <div className="hud-label mb-2">
+              {isHangar ? t("upgrade.hangarTitle") : t("upgrade.title")}
+            </div>
             <div
               className="flex items-center justify-center gap-2 text-[12px] text-[#ffb84d]"
               aria-label={`Parts: ${upgrades.parts ?? 0}`}
@@ -435,7 +440,7 @@ export function UpgradeScreen(props: {
               onClick={props.onBack}
               className="clip-btn px-8 py-3 text-sm transition-colors hover:bg-[#5ef2ff]/10"
             >
-              {t("upgrade.back")}
+              {isHangar ? t("upgrade.continueRun") : t("upgrade.back")}
             </button>
           </div>
         </div>

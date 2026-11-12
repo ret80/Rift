@@ -7,10 +7,10 @@ import {
   UPGRADE_LABEL,
   upgradeCost,
   type PlayerUpgrades,
-} from "../../game/upgrades";
-import { shieldBlockPercent, shieldRegenPerSecond } from "../../game/balance/player";
-import { useT, type TKey } from "../../i18n";
-import { Icon } from "../components/Icon";
+} from "../../../game/upgrades";
+import { shieldBlockPercent, shieldRegenPerSecond } from "../../../game/balance/player";
+import { useT, type TKey } from "../../../i18n";
+import { Icon } from "../../components/Icon";
 import {
   SHIP_KEYS,
   STAT_ROW_CLASS,

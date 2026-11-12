@@ -367,12 +367,24 @@ check("WaveStateMachine: objective-тип волны явный и стабил�
   expectEqual(machine.waveType, "objective", "reset wave 9");
 });
 
-check("GameWorld: objective-волна спавнит якоря, combat — нет", () => {
+check("GameWorld: якоря появляются после активации зоны и остаются внутри неё", () => {
   const objective = createHeadlessWorld({ seed: 1, startWave: 3 });
   const combat = createHeadlessWorld({ seed: 1, startWave: 4 });
   try {
     expectEqual(objective.waveOrchestrator.waveType, "objective", "wave 3 type");
+    // До активации зоны у арены нет радиуса — якоря ставить некуда.
+    expectEqual(objective.anchorSystem.getAnchors().length, 0, "до активации зоны якорей нет");
+    for (let i = 0; i < 10; i++) objective.tick(FIXED_DT);
     expectEqual(objective.anchorSystem.getAnchors().length, 2, "wave 3 anchors");
+    const zone = objective.waveOrchestrator.zoneState;
+    for (const anchor of objective.anchorSystem.getAnchors()) {
+      const dist = Math.hypot(anchor.x - zone.x, anchor.y - zone.y);
+      expect(dist <= zone.radius, `якорь вне зоны: ${dist.toFixed(1)} > ${zone.radius.toFixed(1)}`);
+    }
+    // Живой якорь держит разлом открытым и выпускает подкрепления.
+    for (let i = 0; i < 300; i++) objective.tick(FIXED_DT);
+    const spawned = objective.anchorSystem.getAnchors().reduce((sum, a) => sum + a.spawned, 0);
+    expect(spawned > 0, "разлом не выпустил подкреплений");
     expectEqual(combat.waveOrchestrator.waveType, "combat", "wave 4 type");
     expectEqual(combat.anchorSystem.getAnchors().length, 0, "wave 4 anchors");
   } finally {

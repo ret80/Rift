@@ -72,6 +72,7 @@ export class GameRender {
       droneOrder: ctx.world.droneOrder,
       dashReady: ctx.playerSystem.dashReady,
       dashCooldown: ctx.playerSystem.dashCooldownLeft,
+      anchors: ctx.world.anchorSystem.aliveCount(),
     });
   }
 

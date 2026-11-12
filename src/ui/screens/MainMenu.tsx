@@ -18,7 +18,6 @@ export default function MainMenu(props: {
   onSettings: () => void;
   onHelp: () => void;
   onDebug: () => void;
-  onUpgrade: () => void;
   onMeta: () => void;
   showDebug?: boolean;
   isGamepad: boolean;
@@ -26,8 +25,8 @@ export default function MainMenu(props: {
 }) {
   const t = useT();
 
-  // Список кнопок меню (play, upgrade, meta, settings, help, debug опционально).
-  const buttonCount = props.showDebug ? 6 : 5;
+  // Список кнопок меню (play, meta, settings, help, debug опционально).
+  const buttonCount = props.showDebug ? 5 : 4;
 
   const { focusIndex, onNavUp, onNavDown, onNavLeft, onNavRight } = useGamepadFocus({
     count: buttonCount,
@@ -37,7 +36,6 @@ export default function MainMenu(props: {
   // Маппинг индекса на действие.
   const actions = [
     props.onPlay,
-    props.onUpgrade,
     props.onMeta,
     props.onSettings,
     props.onHelp,
@@ -67,7 +65,6 @@ export default function MainMenu(props: {
   // Строгие ключи локализации.
   const actionKeys: TKey[] = [
     "menu.play",
-    "menu.upgrade",
     "menu.meta",
     "menu.settings",
     "menu.help",

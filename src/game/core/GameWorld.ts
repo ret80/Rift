@@ -12,7 +12,9 @@
 
 import { AbilitySystem } from "../abilities/AbilitySystem";
 import { CreditSystem } from "../systems/CreditSystem";
-import { AnchorSystem } from "../systems/AnchorSystem";
+import { AnchorSystem, type Anchor } from "../systems/AnchorSystem";
+import { MetaTree } from "../meta/MetaTree";
+import { loadCredits, saveCredits } from "../meta/MetaStorage";
 import { AsteroidField } from "../asteroids";
 import {
   EnemyKind,
@@ -49,14 +51,13 @@ import { PlayerSystem } from "../systems/PlayerSystem";
 import { ScoringSystem } from "../systems/ScoringSystem";
 import { ShieldSystem } from "../systems/ShieldSystem";
 import { SpawnSystem, type SpawnDependencies } from "../systems/SpawnSystem";
-import { UpgradeSystem } from "../systems/UpgradeSystem";
+import { UpgradeSystem, type RunSeed } from "../systems/UpgradeSystem";
 import { WaveFlowSystem } from "../systems/WaveFlowSystem";
 import { WaveOrchestrator } from "../systems/WaveOrchestrator";
 import { ZoneSystem } from "../systems/ZoneSystem";
 import { anchorCountFor, waveTypeFor } from "../waves/WaveStateMachine";
 import { saveBestWave } from "../upgrades";
 import { t } from "../../i18n";
-import { STORAGE_KEYS } from "./storageKeys";
 import type { PlayerSnapshot, WeaponId } from "../weapons/Weapon";
 import { WEAPON_CATALOG } from "../weapons/WeaponCatalog";
 import { WeaponManager } from "../weapons/WeaponManager";
@@ -83,6 +84,33 @@ import { GameStateMachine } from "./StateMachine";
 import { DEFAULT_WORLD_VIEW, type WorldPorts, type WorldView } from "./WorldPorts";
 import type { WorldFrame } from "./WorldFrame";
 
+/** Волна, зачищенная быстрее этого времени, даёт бонус кредитов. */
+const FAST_CLEAR_SECONDS = 60;
+/** Бонус деталей за волну, на которой сняты все якоря. */
+const ANCHOR_CLEAR_PARTS_MULT = 1.4;
+
+/** Накопительная статистика забега для формулы кредитов. */
+interface RunStats {
+  cleanWaves: number;
+  fastClears: number;
+  anchorClears: number;
+  grazeCount: number;
+  maxCombo: number;
+  /** Время забега в момент старта текущей волны. */
+  waveStartedAt: number;
+}
+
+function createRunStats(): RunStats {
+  return {
+    cleanWaves: 0,
+    fastClears: 0,
+    anchorClears: 0,
+    grazeCount: 0,
+    maxCombo: 1,
+    waveStartedAt: 0,
+  };
+}
+
 /** Конфигурация мира. Seed — входные данные прогона, а не глобальная переменная. */
 export interface GameWorldConfig {
   /** Seed-набор прогона (мастер-seed + потоки). */
@@ -105,6 +133,8 @@ export interface GameWorldConfig {
   recorder?: SessionRecorderPort;
   /** Порт управления; по умолчанию — AgentControls (агент задаёт намерения). */
   controls?: PlayerControls;
+  /** Стартовое состояние забега: прокачка/арсенал/дроны (симуляция, реплей). */
+  runSeed?: RunSeed;
   /**
    * Фабрика агента игрока. Получает поток `agent` из SeedSet, поэтому
    * решения агента не сдвигают боевые броски и считаются в rngDraws.
@@ -168,6 +198,8 @@ export class GameWorld {
   private testLevelEnded = false;
   /** Множители баланса прогона. */
   readonly balance: ResolvedBalanceOverrides;
+  /** Стартовое состояние забега (симуляция и реплей); в игре — пусто. */
+  private readonly runSeed: RunSeed | undefined;
   /** Пассивный рекордер сессии (null — запись выключена). */
   readonly recorder: SessionRecorderPort | null;
 
@@ -180,6 +212,18 @@ export class GameWorld {
   private grazePartsAwarded = 0;
   /** Игрок получил урон на текущей волне (чистая зачистка уже невозможна). */
   private waveDamaged = false;
+  /** Мета-дерево Зеркала Ночи (загружается на старте забега). */
+  private metaTree: MetaTree;
+  /** Детали, собранные за забег: база для начисления кредитов. */
+  private runPartsEarned = 0;
+  /** Убито боссов за забег. */
+  private bossKills = 0;
+  /** Кредиты за текущий забег уже начислены (смерть или выход в меню). */
+  private creditsAwarded = false;
+  /** Забег запущен и ещё не завершён (кредиты начисляются один раз). */
+  private runActive = false;
+  /** Статистика забега для формулы кредитов. */
+  private runStats = createRunStats();
 
   private worldFrame: WorldFrame | null = null;
   private readonly unsubscribers: Array<() => void> = [];
@@ -199,6 +243,7 @@ export class GameWorld {
     this.startWave = config.startWave ?? 1;
     this.testMode = config.testMode ?? false;
     this.balance = resolveBalanceOverrides(config.balance);
+    this.runSeed = config.runSeed;
     this.recorder = config.recorder ?? null;
     this.physicsEngineId = config.physics ?? "planck";
     this._view = { ...DEFAULT_WORLD_VIEW, ...(config.view ?? {}) };
@@ -212,11 +257,24 @@ export class GameWorld {
     );
 
     this.scoringSystem = new ScoringSystem({}, this.ports.storage);
-    this.upgradeSystem = UpgradeSystem.create(this.ports.storage);
+    this.upgradeSystem = UpgradeSystem.create();
+    this.metaTree = MetaTree.load(this.ports.storage);
+    this.upgradeSystem.setMetaBonuses(this.metaTree.bonuses());
     this.creditSystem = new CreditSystem();
-    const savedCredits = Number(this.ports.storage.get(STORAGE_KEYS.credits)) || 0;
-    this.creditSystem.add(savedCredits);
-    this.anchorSystem = new AnchorSystem();
+    this.creditSystem.setBalance(loadCredits(this.ports.storage));
+    this.anchorSystem = new AnchorSystem({
+      getZone: () => this.waveOrchestrator.zoneState,
+      getPlayer: () => this.getPlayerPosition(),
+      spawnReinforcement: (anchor) => this.spawnAnchorReinforcement(anchor),
+      onSpawned: (anchors) => {
+        // «Разлом не закроется, пока якоря живы»: цель волны и причина,
+        // по которой она не завершается сама.
+        this.ports.hooks.onToast({
+          text: t("game.anchors", { n: String(anchors.length) }),
+          color: "#c79bff",
+        });
+      },
+    });
 
     this.ecs = new EcsWorld(
       this.eventBus,
@@ -256,11 +314,25 @@ export class GameWorld {
             this.endSingleWaveTest("cleared");
             return;
           }
+          // Статистика волны для кредитов.
+          if (!this.waveDamaged) this.runStats.cleanWaves++;
+          if (this.scoringSystem.runTime - this.runStats.waveStartedAt <= FAST_CLEAR_SECONDS) {
+            this.runStats.fastClears++;
+          }
+          this.runStats.maxCombo = Math.max(this.runStats.maxCombo, this.scoringSystem.comboMult);
+          const objective = this.waveOrchestrator.waveType === "objective";
+          const anchorsCleared = objective && this.anchorSystem.allDestroyed();
+          if (anchorsCleared) this.runStats.anchorClears++;
           if (this.testMode) return;
           // Чистая зачистка (ни одного полученного удара) платит больше:
-          // награда за мастерство, а не за время в бою.
+          // награда за мастерство, а не за время в бою. Снятые якоря
+          // закрывают разломы и дают бонус деталей к волне.
           const mult = this.waveDamaged ? 1 : WAVE_CLEAN_CLEAR_MULT;
-          this.upgradeSystem.addParts(Math.round(waveClearParts(wave) * mult));
+          let parts = Math.round(waveClearParts(wave) * mult);
+          if (anchorsCleared) parts = Math.round(parts * ANCHOR_CLEAR_PARTS_MULT);
+          this.addParts(parts);
+          // Ангар открывается между волнами: прокачка идёт внутри забега.
+          this.ports.hooks.onWaveCleared?.(wave);
         },
         onWaveAdvanced: () => {
           const nextWave = this.waveOrchestrator.wave;
@@ -339,6 +411,8 @@ export class GameWorld {
       {
         getPlayer: () => this.getPlayerSnapshot(),
         getEnemies: () => this.ecs.enemies(),
+        // Якоря — цель волны: автонаведение должно уметь в них стрелять.
+        getAnchors: () => this.anchorSystem.getAnchors(),
         // Все выстрелы игрока проходят здесь — одна точка учёта для метрик.
         addBullet: (b) => {
           this.ecs.addBullet(b);
@@ -406,7 +480,7 @@ export class GameWorld {
     this.dropSystem = new PickupDropSystem(this.eventBus, {
       spawnPickup: (kind, x, y, vx, vy) => this.ecs.spawnPickup(kind, x, y, vx, vy),
       addParts: (n) => {
-        if (!this.testMode) this.upgradeSystem.addParts(n);
+        if (!this.testMode) this.addParts(n);
       },
       // Комбо множит детали за убийство: серия убийств — это мастерство,
       // а не количество врагов на карте.
@@ -421,9 +495,9 @@ export class GameWorld {
       () => this.waveOrchestrator.wave,
       this.anchorSystem,
       (anchor) => {
-        // Бонус деталей за уничтожение якоря (+40%).
-        const bonus = Math.round((60 + anchor.wave * 15) * 0.4); // [TUNE]
-        if (!this.testMode) this.upgradeSystem.addParts(bonus);
+        // Снятый якорь закрывает разлом и сразу отдаёт детали: цель
+        // должна ощущаться выгодной до конца волны, а не только на финише.
+        if (!this.testMode) this.addParts(anchor.reward);
         // Якорь — часть условия зачистки objective-волны. Проверка зачистки
         // обычно приходит из enemy_killed, но игрок может убить всех врагов
         // раньше якорей — тогда последний якорь обязан закрыть волну сам.
@@ -460,6 +534,9 @@ export class GameWorld {
     this.schedule.add(this.physics);
     this.schedule.add(this.collisionSystem);
     this.schedule.add(this.spawnSystem);
+    // Якоря обновляются до проверки зачистки: волна видит актуальное
+    // состояние разломов в том же кадре.
+    this.schedule.add(this.anchorSystem);
     this.schedule.add(this.waveFlowSystem);
     this.schedule.add(this.zoneSystem);
     this.schedule.add(this.loadoutSystem);
@@ -592,6 +669,19 @@ export class GameWorld {
     this.agent?.reset();
     this.agentControls?.reset();
     this.tickIndex = 0;
+
+    // Новый забег: прокачка забега с нуля, бонусы меты — поверх неё.
+    // Кредиты загружаются из хранилища: смерть их только добавляет.
+    this.metaTree = MetaTree.load(this.ports.storage);
+    this.upgradeSystem.setMetaBonuses(this.metaTree.bonuses());
+    this.upgradeSystem.resetRun(this.runSeed);
+    this.creditSystem.setBalance(loadCredits(this.ports.storage));
+    this.runPartsEarned = 0;
+    this.bossKills = 0;
+    this.creditsAwarded = false;
+    this.runActive = true;
+    this.runStats = createRunStats();
+
     this.scoringSystem.reset();
     this.resetWaveEconomy();
     this.scoringSystem.setKilledWave(0);
@@ -699,6 +789,61 @@ export class GameWorld {
     this.grazePartsProgress = 0;
     this.grazePartsAwarded = 0;
     this.waveDamaged = false;
+  }
+
+  /**
+   * Завершить забег досрочно (выход в меню): кредиты всё равно начисляются.
+   * Защита от двойного начисления — `creditsAwarded`.
+   */
+  abandonRun(): void {
+    if (this.testMode) return;
+    this.awardRunCredits();
+  }
+
+  /** Начислить кредиты за забег один раз.
+   *
+   * Возвращает заработанную сумму. Смерть и выход в меню используют одну
+   * формулу: игрок не должен терять прогресс из-за того, что вышел раньше.
+   */
+  private awardRunCredits(): number {
+    if (!this.runActive || this.creditsAwarded) return 0;
+    this.creditsAwarded = true;
+    this.runActive = false;
+    const breakdown = this.creditSystem.calculate({
+      totalParts: this.runPartsEarned,
+      cleanWaves: this.runStats.cleanWaves,
+      grazeCount: this.runStats.grazeCount,
+      maxCombo: this.runStats.maxCombo,
+      fastClears: this.runStats.fastClears,
+      eliteKills: this.scoringSystem.eliteKilled,
+      bossKills: this.bossKills,
+      anchorClears: this.runStats.anchorClears,
+      creditsMult: this.upgradeSystem.getApplied("creditsMult"),
+    });
+    this.creditSystem.award(breakdown);
+    saveCredits(this.ports.storage, this.creditSystem.getBalance());
+    return breakdown.total;
+  }
+
+  /**
+   * Начислить детали забега.
+   *
+   * Единственная точка выдачи деталей: она же копит сумму за забег для
+   * формулы кредитов и применяет множитель деталей из Зеркала Ночи.
+   */
+  addParts(amount: number): void {
+    if (amount <= 0) return;
+    const total = Math.max(1, Math.round(amount * this.upgradeSystem.getApplied("partsMult")));
+    this.upgradeSystem.addParts(total);
+    this.runPartsEarned += total;
+  }
+
+  /** Подкрепление из разлома якоря: разлом открыт, пока якорь жив. */
+  private spawnAnchorReinforcement(anchor: Anchor): void {
+    const wave = this.waveOrchestrator.wave;
+    const pool = [EnemyKind.Drone, EnemyKind.Hunter, EnemyKind.Fighter];
+    const kind = wave < 6 ? EnemyKind.Drone : pool[anchor.spawned % pool.length];
+    this.spawnEnemy(kind, anchor.x, anchor.y, null);
   }
 
   /**
@@ -922,25 +1067,7 @@ export class GameWorld {
         onStats: (score, best, isBest, _wave, kills, time) => {
           // В одиночном тесте экран итогов не нужен: хост вернёт в отладку.
           if (this.singleWaveTest) return;
-          let creditsEarned = 0;
-          if (!this.testMode) {
-            const savedBefore = Number(this.ports.storage.get(STORAGE_KEYS.credits)) || 0;
-            const totalParts = this.upgradeSystem.getParts();
-            this.creditSystem.calculate({
-              totalParts,
-              cleanWaves: 0,
-              grazeCount: 0,
-              maxCombo: this.scoringSystem.comboMult ?? 0,
-              fastClears: 0,
-              eliteKills: this.scoringSystem.eliteKilled,
-              bossKills: 0,
-              anchorClears: 0,
-              waveCount: this.waveOrchestrator.wave,
-            });
-            creditsEarned = this.creditSystem.getBalance() - savedBefore;
-            this.ports.storage.set(STORAGE_KEYS.credits, String(this.creditSystem.getBalance()));
-            this.upgradeSystem.resetParts();
-          }
+          const creditsEarned = this.testMode ? 0 : this.awardRunCredits();
           this.ports.hooks.onStats({
             score,
             best,
@@ -974,25 +1101,11 @@ export class GameWorld {
         if (!this.fsm.is("playing", "active")) return;
         const wave = event.payload.wave;
         const waveType = waveTypeFor(wave);
-        // Якоря: objective-волны содержат 2-3 якоря, обычные — ни одного.
-        if (waveType === "objective") {
-          const zone = this.waveOrchestrator.zoneState;
-          const anchors = anchorCountFor(wave);
-          this.anchorSystem.spawn(
-            wave,
-            zone.x,
-            zone.y,
-            zone.radius > 0 ? zone.radius : 200,
-            anchors,
-            () => this.rng("spawn").next(),
-          );
-          // Игрок должен понимать, почему волна не заканчивается: убить
-          // мало, нужно снять якоря-разломы.
-          this.ports.hooks.onToast({
-            text: t("game.anchors", { n: String(anchors) }),
-            color: "#c79bff",
-          });
-        }
+        // Якоря ставятся не при старте волны, а после активации зоны:
+        // до неё у арены нет ни центра, ни радиуса, и якоря оказывались
+        // вне зоны, стоило игроку сместиться. Система сама ждёт зону.
+        this.anchorSystem.requestSpawn(wave, anchorCountFor(wave));
+        this.runStats.waveStartedAt = this.scoringSystem.runTime;
         this.ports.audio.setCombatWave(wave);
         this.ports.audio.setCombat(true);
         this.scoringSystem.setKilledWave(0);
@@ -1017,7 +1130,8 @@ export class GameWorld {
     );
 
     this.unsubscribers.push(
-      bus.subscribe("enemy_killed", () => {
+      bus.subscribe("enemy_killed", (event) => {
+        if (event.payload.kind === EnemyKind.Boss) this.bossKills++;
         this.waveFlowSystem.checkWaveClear();
         if (this.waveOrchestrator.waveState === "cleared") {
           this.ports.audio.setCombat(false);
@@ -1069,6 +1183,9 @@ export class GameWorld {
 
   /** Детали за касания снарядов: 1 за каждые GRAZE_PARTS_PER_COIN, с потолком на волну. */
   private awardGrazeParts(count: number): void {
+    // Касания считаются всегда: кредиты платят за мастерство даже в
+    // тестовом забеге, где детали не начисляются.
+    this.runStats.grazeCount += count;
     if (this.testMode) return;
     this.grazePartsProgress += count;
     while (
@@ -1077,7 +1194,7 @@ export class GameWorld {
     ) {
       this.grazePartsProgress -= GRAZE_PARTS_PER_COIN;
       this.grazePartsAwarded++;
-      this.upgradeSystem.addParts(1);
+      this.addParts(1);
     }
   }
 

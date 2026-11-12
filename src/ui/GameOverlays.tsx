@@ -14,7 +14,7 @@ import ScreenDimmer from "./components/ScreenDimmer";
 import type { GamepadNavHandlers } from "./ScreenRouter";
 import GameOverScreen from "./screens/GameOverScreen";
 import PauseOverlay from "./screens/PauseOverlay";
-import TouchControls from "./TouchControls";
+import TouchControls from "./components/TouchControls";
 
 export interface GameOverlaysProps {
   screen: Screen;
@@ -32,7 +32,7 @@ export interface GameOverlaysProps {
   onSettings: () => void;
   onMenu: () => void;
   onRetry: () => void;
-  onUpgrade: () => void;
+  onMeta: () => void;
   onVector: (active: boolean, x: number, y: number) => void;
   onPause: () => void;
   /** Рывок с тач-кнопки. */
@@ -134,7 +134,7 @@ export function GameOverlays(props: GameOverlaysProps) {
         <GameOverScreen
           stats={stats}
           onRetry={props.onRetry}
-          onUpgrade={props.onUpgrade}
+          onMeta={props.onMeta}
           onMenu={props.onMenu}
           isGamepad={isGamepad}
           gamepadNavRef={props.gamepadNavRef}

@@ -38,6 +38,8 @@ export interface HudData {
   dashReady: boolean;
   /** Остаток перезарядки рывка, секунды. */
   dashCooldown: number;
+  /** Живые якоря-разломы (0 — цель волны отсутствует). */
+  anchors: number;
 }
 
 /* ============================== Banners / Toasts / Countdown ============================== */

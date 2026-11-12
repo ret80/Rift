@@ -27,8 +27,7 @@ import {
 } from "./SessionRecord";
 import type { GameWorld } from "./GameWorld";
 import type { PlayerControls, PlayerIntent } from "./PlayerControls";
-import { loadBestWave, loadUpgrades, loadWeaponLoadout } from "../upgrades";
-import { loadDroneLoadout } from "../drones/DroneSystem";
+import { loadBestWave } from "../upgrades";
 import type { RunMetrics } from "../sim/MetricsSink";
 
 /** Предел длины записи: 15 минут. */
@@ -253,9 +252,11 @@ export class SessionRecorder implements SessionRecorderPort {
       streams: { ...world.seedSet.streams },
     };
     this.meta = {
-      upgrades: loadUpgrades(world.ports.storage),
-      weaponLoadout: loadWeaponLoadout(world.ports.storage),
-      droneLoadout: loadDroneLoadout(world.ports.storage),
+      // Запись фиксирует состояние забега на старте, а не сейв: прокачка
+      // забега живёт в памяти и в хранилище не попадает.
+      upgrades: { ...world.upgradeSystem.playerUpgrades },
+      weaponLoadout: world.upgradeSystem.loadout,
+      droneLoadout: world.upgradeSystem.droneLoadout,
       bestWave: loadBestWave(world.ports.storage),
       physicsEngine: world.physicsEngineId,
     };

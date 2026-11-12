@@ -5,10 +5,10 @@
  * из забега, настройки, отладка, переходы между меню и обработку ESC.
  */
 
-import { useEffect, useRef, type Dispatch, type MutableRefObject } from "react";
+import { useCallback, useEffect, useRef, type Dispatch, type MutableRefObject } from "react";
 import { t } from "../i18n";
 import { resetGameState } from "../game/resetGameState";
-import { resetUpgrades } from "../game/upgrades";
+import { resetMetaProgress } from "../game/meta/MetaStorage";
 import type { Game } from "../game/game";
 import type { PersistencePort } from "../game/core/PersistencePort";
 import type { PersistentSettings } from "./usePersistentSettings";
@@ -45,8 +45,10 @@ export interface GameActions {
   openDebug(): void;
   openSettings(from: "menu" | "pause"): void;
   closeSettings(): void;
-  openUpgrade(from: "menu" | "gameover"): void;
-  closeUpgrade(): void;
+  /** Открыть ангар между волнами (игрок сейчас в забеге). */
+  openHangar(): void;
+  /** Закрыть ангар и продолжить забег. */
+  closeHangar(): void;
   openMeta(): void;
   closeMeta(): void;
   toggleEnemy(kind: EnemyKind): void;
@@ -69,17 +71,21 @@ export interface GameActionsOptions {
 export function useGameActions(options: GameActionsOptions): GameActions {
   const { screen, gameRef, storage, settings, setBest, dispatch } = options;
   const settingsFromRef = useRef<"menu" | "pause">("menu");
-  const upgradeFromRef = useRef<"menu" | "gameover">("menu");
 
   const closeSettings = () => dispatch({
     type: "SET_SCREEN",
     screen: settingsFromRef.current === "pause" ? "game" : "menu",
   });
 
-  const closeUpgrade = () => dispatch({
-    type: "SET_SCREEN",
-    screen: upgradeFromRef.current === "gameover" ? "game" : "menu",
-  });
+  const openHangar = useCallback(() => {
+    gameRef.current?.openHangar();
+    dispatch({ type: "SET_SCREEN", screen: "hangar" });
+  }, [gameRef, dispatch]);
+
+  const closeHangar = useCallback(() => {
+    gameRef.current?.closeHangar();
+    dispatch({ type: "SET_SCREEN", screen: "game" });
+  }, [gameRef, dispatch]);
 
   const resetOverlays = () => resetGameState({
     setStats: (s) => dispatch({ type: "SET_STATS", stats: s }),
@@ -140,7 +146,7 @@ export function useGameActions(options: GameActionsOptions): GameActions {
   // capture — раньше игрового слушателя.
   useEffect(() => {
     const isMenuWithBack =
-      screen === "settings" || screen === "help" || screen === "debug" || screen === "upgrade" || screen === "meta";
+      screen === "settings" || screen === "help" || screen === "debug" || screen === "meta" || screen === "hangar";
     if (!isMenuWithBack) return;
 
     const handler = (e: KeyboardEvent) => {
@@ -151,20 +157,16 @@ export function useGameActions(options: GameActionsOptions): GameActions {
           type: "SET_SCREEN",
           screen: settingsFromRef.current === "pause" ? "game" : "menu",
         });
-      } else if (screen === "upgrade") {
-        dispatch({
-          type: "SET_SCREEN",
-          screen: upgradeFromRef.current === "gameover" ? "game" : "menu",
-        });
-      } else if (screen === "meta") {
-        dispatch({ type: "SET_SCREEN", screen: "menu" });
+      } else if (screen === "hangar") {
+        // Esc в ангаре = «продолжить»: забег не прерывается.
+        closeHangar();
       } else {
         dispatch({ type: "SET_SCREEN", screen: "menu" });
       }
     };
     window.addEventListener("keydown", handler, { capture: true });
     return () => window.removeEventListener("keydown", handler, { capture: true });
-  }, [screen, dispatch]);
+  }, [screen, dispatch, closeHangar]);
 
   return {
     startGame,
@@ -201,7 +203,7 @@ export function useGameActions(options: GameActionsOptions): GameActions {
     },
     resetProgress: () => {
       if (!window.confirm(t("settings.resetConfirm"))) return;
-      resetUpgrades(storage);
+      resetMetaProgress(storage);
       gameRef.current?.refreshUpgrades();
       setBest(0);
     },
@@ -213,13 +215,16 @@ export function useGameActions(options: GameActionsOptions): GameActions {
       dispatch({ type: "SET_SCREEN", screen: "settings" });
     },
     closeSettings,
-    openUpgrade: (from) => {
-      upgradeFromRef.current = from;
-      dispatch({ type: "SET_SCREEN", screen: "upgrade" });
-    },
-    closeUpgrade,
+    openHangar,
+    closeHangar,
     openMeta: () => dispatch({ type: "SET_SCREEN", screen: "meta" }),
-    closeMeta: () => dispatch({ type: "SET_SCREEN", screen: "menu" }),
+    closeMeta: () => {
+      // Зеркало Ночи открывается из меню или с экрана смерти: после него
+      // забег уже завершён, поэтому возвращаемся в меню.
+      gameRef.current?.toMenu();
+      resetOverlays();
+      dispatch({ type: "SET_SCREEN", screen: "menu" });
+    },
     toggleEnemy: (kind) => {
       settings.setEnabledEnemies((prev) => {
         const next = prev.includes(kind)

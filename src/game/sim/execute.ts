@@ -8,7 +8,7 @@
 
 import { defaultUpgrades, defaultWeaponLoadout } from "../upgrades";
 import type { WeaponId } from "../weapons/Weapon";
-import { STORAGE_KEYS } from "../core/storageKeys";
+import type { RunSeed } from "../systems/UpgradeSystem";
 import { sampleBehavior, type BehaviorSample } from "../core/SessionRecord";
 import type { SeedSet } from "../core/rng";
 import { SimulationClock } from "../core/SimulationClock";
@@ -57,12 +57,16 @@ export interface ExecuteResult {
   dispose(): void;
 }
 
-/** Хранилище с апгрейдами сценария — их читает мир при создании. */
-function scenarioStorage(scenario: Scenario): Record<string, string> {
+/**
+ * Стартовое состояние забега из сценария.
+ * Прокачка забега больше не читается из хранилища, поэтому сценарий
+ * передаёт её явно.
+ */
+function scenarioRunSeed(scenario: Scenario): RunSeed {
   const upgrades = { ...defaultUpgrades(), ...(scenario.upgrades ?? {}) };
-  const loadout = defaultWeaponLoadout();
+  const weaponLoadout = defaultWeaponLoadout();
   for (const [id, entry] of Object.entries(scenario.weapons ?? {})) {
-    const target = loadout[id as WeaponId];
+    const target = weaponLoadout[id as WeaponId];
     if (!target) continue;
     target.owned = entry.owned;
     for (const stat of ["reload", "damage", "accuracy"] as const) {
@@ -71,16 +75,9 @@ function scenarioStorage(scenario: Scenario): Record<string, string> {
     }
   }
   return {
-    [STORAGE_KEYS.upgrades]: JSON.stringify(upgrades),
-    [STORAGE_KEYS.weaponLoadout]: JSON.stringify(loadout),
-    ...(scenario.droneLoadout
-      ? {
-          [STORAGE_KEYS.droneLoadout]: JSON.stringify({
-            v: 2,
-            ...scenario.droneLoadout,
-          }),
-        }
-      : {}),
+    upgrades,
+    weaponLoadout,
+    ...(scenario.droneLoadout ? { droneLoadout: scenario.droneLoadout } : {}),
   };
 }
 
@@ -95,7 +92,7 @@ export function executeScenario(scenario: Scenario, options: ExecuteOptions = {}
     physics: scenario.physics,
     startWave: scenario.startWave,
     view: scenario.viewport,
-    storage: scenarioStorage(scenario),
+    runSeed: scenarioRunSeed(scenario),
     agent: scenarioAgentFactory(scenario),
     waveComposition: scenarioComposition(scenario) ?? undefined,
     balance: scenario.balance,

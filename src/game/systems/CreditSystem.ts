@@ -1,7 +1,29 @@
 /**
- * CreditSystem — начисление кредитов (мета-валюта) после забега.
- * Формула: basePercent * totalParts + masteryBonus.
+ * CreditSystem — кредиты, постоянная валюта Механики 3.
+ *
+ * Кредиты начисляются один раз в конце забега по формуле GDD §3.3.
+ * Расчёт отделён от баланса: `calculate` только считает, `award` начисляет.
+ * Баланс живёт между забегами, поэтому загружается из хранилища владельцем.
  */
+
+export interface CreditParams {
+  /** Сколько деталей собрано за забег (не остаток на руках). */
+  totalParts: number;
+  /** Волны, зачищенные без полученного урона. */
+  cleanWaves: number;
+  /** Касания снарядов за забег. */
+  grazeCount: number;
+  /** Максимальный множитель комбо за забег. */
+  maxCombo: number;
+  /** Волны, зачищенные быстрее 60 секунд. */
+  fastClears: number;
+  eliteKills: number;
+  bossKills: number;
+  /** Волны с якорями, где сняты все якоря. */
+  anchorClears: number;
+  /** Множитель кредитов из мета-талантов. */
+  creditsMult?: number;
+}
 
 export interface CreditBreakdown {
   base: number;
@@ -16,30 +38,31 @@ export interface CreditBreakdown {
 }
 
 export class CreditSystem {
-  private credits = 0;
+  private balance = 0;
 
-  /** Рассчитать кредиты за забег. */
-  calculate(params: {
-    totalParts: number;
-    cleanWaves: number;
-    grazeCount: number;
-    maxCombo: number;
-    fastClears: number;
-    eliteKills: number;
-    bossKills: number;
-    anchorClears: number;
-    waveCount: number;
-  }): CreditBreakdown {
+  /** Установить баланс из хранилища (начало забега). */
+  setBalance(amount: number): void {
+    this.balance = Math.max(0, Math.floor(amount));
+  }
+
+  /** Текущий баланс кредитов. */
+  getBalance(): number {
+    return this.balance;
+  }
+
+  /** Рассчитать кредиты за забег. Баланс не меняется. */
+  calculate(params: CreditParams): CreditBreakdown {
+    // 5 % от всех собранных за забег деталей — база.
     const base = Math.floor(params.totalParts * 0.05);
-    const cleanWaveBonus = params.cleanWaves * 5; // [TUNE]
+    const cleanWaveBonus = params.cleanWaves * 5;
     const grazeBonus = Math.floor(params.grazeCount / 5);
-    const comboBonus = Math.floor(params.maxCombo * 2); // [TUNE]
-    const fastClearBonus = params.fastClears * 3; // [TUNE]
+    const comboBonus = Math.floor(Math.max(0, params.maxCombo - 1) * 2);
+    const fastClearBonus = params.fastClears * 3;
     const eliteKillBonus = params.eliteKills * 10;
     const bossKillBonus = params.bossKills * 50;
-    const anchorBonus = params.anchorClears * 8; // [TUNE]
+    const anchorBonus = params.anchorClears * 8;
 
-    const total =
+    const raw =
       base +
       cleanWaveBonus +
       grazeBonus +
@@ -49,10 +72,8 @@ export class CreditSystem {
       bossKillBonus +
       anchorBonus;
 
-    // Минимум 1 кредит за забег
-    const finalTotal = Math.max(1, total);
-    this.credits += finalTotal;
-
+    const multiplied = Math.floor(raw * (params.creditsMult ?? 1));
+    // Минимум 1 кредит за забег: даже провал инвестирует в мету.
     return {
       base,
       cleanWaveBonus,
@@ -62,29 +83,20 @@ export class CreditSystem {
       eliteKillBonus,
       bossKillBonus,
       anchorBonus,
-      total: finalTotal,
+      total: Math.max(1, multiplied),
     };
   }
 
-  /** Текущий баланс кредитов. */
-  getBalance(): number {
-    return this.credits;
+  /** Начислить рассчитанные кредиты. */
+  award(breakdown: CreditBreakdown): void {
+    this.balance += breakdown.total;
   }
 
-  /** Добавить кредиты (например, при загрузке). */
-  add(amount: number): void {
-    this.credits += amount;
-  }
-
-  /** Списать кредиты (покупка). Возвращает true при успехе. */
+  /** Списать кредиты (покупка в Зеркале Ночи). Возвращает true при успехе. */
   spend(amount: number): boolean {
-    if (this.credits < amount) return false;
-    this.credits -= amount;
+    if (amount <= 0) return true;
+    if (this.balance < amount) return false;
+    this.balance -= amount;
     return true;
-  }
-
-  /** Сброс (для тестов). */
-  reset(): void {
-    this.credits = 0;
   }
 }

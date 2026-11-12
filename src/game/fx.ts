@@ -6,10 +6,10 @@
 
 import type { IRenderer } from "./render/index";
 import { TAU, clamp, rgba } from "./math";
-import type { Ring, Particle } from "./types";
+import type { Ring, Particle } from "./types/world";
 import type { EcsWorld } from "./ecs";
 import type { Rng } from "./core/rng";
-export type { Ring, Particle } from "./types";
+export type { Ring, Particle } from "./types/world";
 
 export class Fx {
   private readonly ecs: EcsWorld;

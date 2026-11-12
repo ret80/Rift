@@ -13,11 +13,12 @@ import type { GameContext } from "./GameContext";
 export class GameUpgrades {
   constructor(private readonly ctx: GameContext) {}
 
-  /** Re-apply upgrades from storage (after purchasing or reset). */
+  /** Пересчитать прокачку после покупки. */
   refresh(): void {
     this.ctx.upgradeSystem.refresh();
     this.ctx.applyUpgrades(false);
   }
+
 
   /** Purchase upgrade bypassing cost check (debug/dev). */
   purchaseNoCost(key: keyof Omit<PlayerUpgrades, "parts">): boolean {
@@ -38,7 +39,6 @@ export class GameUpgrades {
     if (ups.parts < cost) return false;
     ups.parts -= cost;
     (ups[key] as number) += 1;
-    this.ctx.upgradeSystem.save();
     this.refresh();
     return true;
   }
@@ -144,12 +144,10 @@ export class GameUpgrades {
       if (ups.parts < cost) return false;
       ups.parts -= cost;
     }
-    this.ctx.upgradeSystem.save();
     const bought = this.ctx.upgradeSystem.buyDrone(id);
     if (!bought && !free) {
       // Не должно случаться: откатываем списание для консистентности.
       ups.parts += cost;
-      this.ctx.upgradeSystem.save();
     }
     return bought;
   }
@@ -181,11 +179,9 @@ export class GameUpgrades {
       if (ups.parts < cost) return false;
       ups.parts -= cost;
     }
-    this.ctx.upgradeSystem.save();
     const upgraded = this.ctx.upgradeSystem.upgradeDroneStat(id, stat);
     if (!upgraded && !free) {
       ups.parts += cost;
-      this.ctx.upgradeSystem.save();
     }
     return upgraded;
   }

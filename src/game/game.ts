@@ -182,6 +182,16 @@ export class Game {
     this.ctx.togglePause();
   }
 
+  /** Открыть ангар между волнами (мир замирает). */
+  openHangar(): void {
+    this.ctx.openHangar();
+  }
+
+  /** Закрыть ангар и продолжить забег со следующей волны. */
+  closeHangar(): void {
+    this.ctx.closeHangar();
+  }
+
   toMenu(): void {
     this.ctx.toMenu();
   }

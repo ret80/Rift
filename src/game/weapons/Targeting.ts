@@ -14,6 +14,17 @@ import type { PlayerSnapshot } from "./Weapon";
 
 /** Дальность автонаведения по умолчанию (базовая для пушки). */
 export const DEFAULT_TARGET_RANGE = 420;
+/** Дальность, с которой орудие переключается на якорь-разлом. */
+export const ANCHOR_AIM_RANGE = 620;
+/** Ближняя угроза, которую автонаведение не игнорирует ради якоря. */
+export const ANCHOR_THREAT_RADIUS = 240;
+
+/** Цель-якорь: позиция и состояние. */
+export interface AnchorTarget {
+  x: number;
+  y: number;
+  alive: boolean;
+}
 
 export class Targeting {
   /** Ручной прицел (мышь/тач); null — прицел не задан. */
@@ -26,6 +37,8 @@ export class Targeting {
   private target: EnemyRef | null = null;
   /** Угол до автоцели. */
   private autoAngle: number | null = null;
+  /** Угол до якоря-разлома (цель волны). */
+  private anchorAngle: number | null = null;
   /** Зона глушилки: в ней автонаведение отключено. */
   private isJammed?: (x: number, y: number) => boolean;
 
@@ -51,17 +64,34 @@ export class Targeting {
     this.isJammed = source;
   }
 
-  /** Обновить автоцель: ближайший живой враг в зоне поражения. */
-  update(player: PlayerSnapshot, enemies: readonly EnemyRef[]): void {
+  /**
+   * Обновить автоцель.
+   *
+   * Правило приоритетов:
+   *   1. ближняя угроза (враг в ANCHOR_THREAT_RADIUS) — сначала выжить;
+   *   2. якорь-разлом в радиусе ANCHOR_AIM_RANGE — цель волны;
+   *   3. ближайший враг в радиусе оружия.
+   *
+   * Якорь добавлен потому, что иначе автонаведение никогда не стреляло по
+   * целям-якорям: они не являются врагами и остаются вне выбора оружия.
+   */
+  update(
+    player: PlayerSnapshot,
+    enemies: readonly EnemyRef[],
+    anchors: readonly AnchorTarget[] = [],
+  ): void {
     // В зоне глушилки автонаведение выключено; ручной прицел остаётся.
     if (this.isJammed?.(player.x, player.y)) {
       this.target = null;
       this.autoAngle = null;
+      this.anchorAngle = null;
       return;
     }
 
     let nearest: EnemyRef | null = null;
     let nearestDist = this.range;
+    let threat: EnemyRef | null = null;
+    let threatDist = ANCHOR_THREAT_RADIUS;
 
     for (const e of enemies) {
       if (e.marker.dead) continue;
@@ -70,22 +100,41 @@ export class Targeting {
         nearestDist = dist;
         nearest = e;
       }
+      if (dist < threatDist) {
+        threatDist = dist;
+        threat = e;
+      }
     }
 
-    this.target = nearest;
-    this.autoAngle = nearest
-      ? Math.atan2(nearest.position.y - player.y, nearest.position.x - player.x)
+    let anchor: AnchorTarget | null = null;
+    let anchorDist = ANCHOR_AIM_RANGE;
+    for (const a of anchors) {
+      if (!a.alive) continue;
+      const dist = Math.hypot(a.x - player.x, a.y - player.y);
+      if (dist < anchorDist) {
+        anchorDist = dist;
+        anchor = a;
+      }
+    }
+
+    const aimEnemy = threat ?? (anchor ? null : nearest);
+    this.target = aimEnemy;
+    this.autoAngle = aimEnemy
+      ? Math.atan2(aimEnemy.position.y - player.y, aimEnemy.position.x - player.x)
+      : null;
+    this.anchorAngle = !aimEnemy && anchor
+      ? Math.atan2(anchor.y - player.y, anchor.x - player.x)
       : null;
   }
 
-  /** Угол прицеливания: автонаведение приоритетнее ручного прицела. */
+  /** Угол прицеливания: автоцель/якорь приоритетнее ручного прицела. */
   get angle(): number | null {
-    return this.autoAngle ?? this.manualAngle;
+    return this.autoAngle ?? this.anchorAngle ?? this.manualAngle;
   }
 
-  /** Оружие стреляет: есть автоцель либо игрок держит огонь (основной или альтернативный). */
+  /** Оружие стреляет: есть цель (враг или якорь) либо игрок держит огонь. */
   get firing(): boolean {
-    return this.target !== null || this.manualFiring || this.manualAltFiring;
+    return this.target !== null || this.anchorAngle !== null || this.manualFiring || this.manualAltFiring;
   }
 
   /** Игрок держит альтернативный огонь. */

@@ -8,10 +8,10 @@ import {
   WEAPON_STAT_MAX_LEVEL,
   type PlayerUpgrades,
   type WeaponStatKey,
-} from "../../game/upgrades";
-import type { WeaponId, WeaponLoadout } from "../../game/weapons/Weapon";
-import { useT } from "../../i18n";
-import { Icon } from "../components/Icon";
+} from "../../../game/upgrades";
+import type { WeaponId, WeaponLoadout } from "../../../game/weapons/Weapon";
+import { useT } from "../../../i18n";
+import { Icon } from "../../components/Icon";
 import {
   ARMORY_WEAPONS,
   WEAPON_STATS,

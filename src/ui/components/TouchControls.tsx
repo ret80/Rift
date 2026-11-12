@@ -1,6 +1,6 @@
 import React, { useRef } from "react";
-import { useT } from "../i18n";
-import { useHudData, type HudStore } from "./hud/HudStore";
+import { useT } from "../../i18n";
+import { useHudData, type HudStore } from "../hud/HudStore";
 
 export interface TouchControlsProps {
   onVector: (active: boolean, x: number, y: number) => void;

@@ -2,67 +2,71 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useT } from "../../i18n";
 import { createLocalStoragePort } from "../../game/core/PersistencePort";
 import { META_TALENTS } from "../../game/meta/metaTalents";
-import { loadMetaTree, saveMetaTree, loadCredits, saveCredits } from "../../game/meta/MetaStorage";
-import type { MetaTreeState } from "../../game/meta/types";
+import { MetaTree } from "../../game/meta/MetaTree";
+import { loadCredits, saveCredits } from "../../game/meta/MetaStorage";
+import type { MetaTalent } from "../../game/meta/types";
 import GameButton from "../components/GameButton";
 
+/**
+ * MetaScreen — Зеркало Ночи: постоянные таланты за кредиты.
+ *
+ * Кредиты начисляются по итогам забега; прокачка забега сбрасывается,
+ * а таланты остаются навсегда. Покупка сохраняется сразу.
+ */
 export default function MetaScreen(props: { onBack: () => void }) {
   const t = useT();
   const storage = useMemo(() => createLocalStoragePort(), []);
+  const [tree, setTree] = useState(() => MetaTree.load(storage));
   const [credits, setCredits] = useState(0);
-  const [state, setState] = useState<MetaTreeState>({ talents: {}, credits: 0 });
 
   const refresh = useCallback(() => {
-    const c = loadCredits(storage);
-    const s = loadMetaTree(storage);
-    s.credits = c;
-    setCredits(c);
-    setState(s);
+    setTree(MetaTree.load(storage));
+    setCredits(loadCredits(storage));
   }, [storage]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  const handleBuy = useCallback((id: string) => {
-    const talent = META_TALENTS.find((x) => x.id === id);
-    if (!talent) return;
-    const level = state.talents[id] ?? 0;
-    if (level >= talent.maxLevel) return;
-    const cost = talent.costs[level] ?? 0;
-    if (credits < cost) return;
-    const newState: MetaTreeState = {
-      talents: { ...state.talents, [id]: level + 1 },
-      credits: credits - cost,
-    };
-    saveMetaTree(storage, newState);
-    saveCredits(storage, newState.credits);
-    setCredits(newState.credits);
-    setState(newState);
-  }, [state, credits, storage]);
+  const handleBuy = useCallback((talent: MetaTalent) => {
+    const nextCredits = tree.purchase(talent, loadCredits(storage));
+    if (nextCredits === null) return;
+    tree.save(storage);
+    saveCredits(storage, nextCredits);
+    refresh();
+  }, [tree, storage, refresh]);
 
   const red = META_TALENTS.filter((x) => x.branch === "red");
   const green = META_TALENTS.filter((x) => x.branch === "green");
 
-  const renderTalent = (talent: (typeof META_TALENTS)[number]) => {
-    const level = state.talents[talent.id] ?? 0;
+  const renderTalent = (talent: MetaTalent) => {
+    const level = tree.getLevel(talent.id);
     const maxed = level >= talent.maxLevel;
-    const cost = maxed ? 0 : (talent.costs[level] ?? 0);
-    const canBuy = !maxed && credits >= cost;
+    const cost = tree.nextCost(talent);
+    const locked = !tree.prerequisiteMet(talent);
+    const canBuy = !maxed && !locked && cost !== null && credits >= cost;
     return (
-      <div key={talent.id} className="mb-3 rounded border border-[#5ef2ff]/20 p-3">
+      <div
+        key={talent.id}
+        className={
+          "mb-3 rounded border p-3 " +
+          (locked ? "border-[#3d4f6d]/20 opacity-60" : "border-[#5ef2ff]/20")
+        }
+      >
         <div className="flex items-center justify-between">
           <div>
-            <div className="font-display text-sm text-[#eaffff]">{t(talent.nameKey as any)}</div>
-            <div className="text-xs text-[#6f86a8]">{t(talent.descKey as any)}</div>
+            <div className="font-display text-sm text-[#eaffff]">{t(talent.nameKey)}</div>
+            <div className="text-xs text-[#6f86a8]">{t(talent.descKey)}</div>
           </div>
           <div className="text-right">
             <div className="text-xs text-[#ffb84d]">Lv {level}/{talent.maxLevel}</div>
             {maxed ? (
               <div className="text-xs text-[#7dff9e]">{t("meta.maxLevel")}</div>
+            ) : locked ? (
+              <div className="text-xs text-[#6f86a8]">{t("meta.locked")}</div>
             ) : (
               <GameButton
-                onClick={() => handleBuy(talent.id)}
+                onClick={() => handleBuy(talent)}
                 variant={canBuy ? "cyan" : "default"}
                 className="mt-1 px-3 py-1 text-xs"
               >

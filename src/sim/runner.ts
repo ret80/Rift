@@ -12,6 +12,7 @@ import type { SessionRecorderPort } from "../game/core/SessionRecord";
 import { GameWorld, createGameWorld, type GameWorldConfig } from "../game/core/GameWorld";
 import type { PersistencePort } from "../game/core/PersistencePort";
 import type { PlayerControls } from "../game/core/PlayerControls";
+import type { RunSeed } from "../game/systems/UpgradeSystem";
 import { createSeedSet, type Rng, type SeedSet } from "../game/core/rng";
 import { FIXED_DT, SimulationClock } from "../game/core/SimulationClock";
 import { nullPorts, type WorldView } from "../game/core/WorldPorts";
@@ -60,8 +61,10 @@ export interface HeadlessRunConfig {
   waveComposition?: WaveCompositionOverride;
   /** Колбэк на каждом тике (снапшоты, метрики). */
   onTick?: (world: GameWorld, tick: number) => void;
-  /** Начальное содержимое хранилища (апгрейды, loadout). */
+  /** Начальное содержимое хранилища (мета, рекорды). */
   storage?: Record<string, string>;
+  /** Стартовое состояние забега: прокачка, арсенал, ангар дронов. */
+  runSeed?: RunSeed;
 }
 
 /** Создать мир без презентации, готовый к headless-прогону. */
@@ -80,6 +83,7 @@ export function createHeadlessWorld(
     recorder: config.recorder,
     agent: config.agent,
     controls: config.controls,
+    runSeed: config.runSeed,
   };
   const world = createGameWorld(worldConfig);
   world.startRun();

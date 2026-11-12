@@ -17,7 +17,8 @@ import { formatTime } from "../utils/formatTime";
 export default function GameOverScreen(props: {
   stats: StatsData;
   onRetry: () => void;
-  onUpgrade: () => void;
+  /** Зеркало Ночи: потратить заработанные кредиты. */
+  onMeta: () => void;
   onMenu: () => void;
   isGamepad: boolean;
   gamepadNavRef: MutableRefObject<GamepadNavHandlers>;
@@ -31,8 +32,8 @@ export default function GameOverScreen(props: {
   });
 
   const actions = useMemo(
-    () => [props.onRetry, props.onMenu, props.onUpgrade],
-    [props.onRetry, props.onMenu, props.onUpgrade],
+    () => [props.onRetry, props.onMeta, props.onMenu],
+    [props.onRetry, props.onMeta, props.onMenu],
   );
 
   // Регистрируем навигацию и confirm в общий ref.
@@ -121,20 +122,20 @@ export default function GameOverScreen(props: {
               {t("over.retry")}
             </GameButton>
             <GameButton
-              onClick={props.onMenu}
-              variant="amber"
+              onClick={props.onMeta}
+              variant="cyan"
               gamepadFocused={props.isGamepad && focusIndex === 1}
               className="w-full"
             >
-              {t("over.menu")}
+              {t("over.meta")}
             </GameButton>
             <GameButton
-              onClick={props.onUpgrade}
-              variant="cyan"
+              onClick={props.onMenu}
+              variant="amber"
               gamepadFocused={props.isGamepad && focusIndex === 2}
               className="w-full"
             >
-              {t("over.upgrade")}
+              {t("over.menu")}
             </GameButton>
           </div>
         </div>

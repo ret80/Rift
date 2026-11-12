@@ -7,9 +7,9 @@ import {
   UPGRADE_LABEL,
   upgradeCost,
   type PlayerUpgrades,
-} from "../../game/upgrades";
-import { useT, type TKey } from "../../i18n";
-import { Icon } from "../components/Icon";
+} from "../../../game/upgrades";
+import { useT, type TKey } from "../../../i18n";
+import { Icon } from "../../components/Icon";
 import { STAT_ROW_CLASS, gamepadFocusStyle, getUpgradeValue } from "./model";
 
 /** Группа бонуса: несколько прокачиваемых параметров под общим заголовком. */

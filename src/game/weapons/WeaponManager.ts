@@ -17,7 +17,7 @@ import type { Rng } from "../core/rng";
 import type { LoadoutSlotData } from "../loadout/LoadoutTypes";
 import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
 import type { BeamSpawn, BulletSpawn } from "../ecs/spawn";
-import { Targeting, DEFAULT_TARGET_RANGE } from "./Targeting";
+import { Targeting, DEFAULT_TARGET_RANGE, type AnchorTarget } from "./Targeting";
 import type { DroneFleetSpec } from "../drones/Drone";
 import type { AllyDroneSpawn, BeamRef, DroneRef, EnemyBulletRef, EnemyRef } from "../ecs";
 import type { EnemyDamagePort } from "../ecs/EnemyLifecycle";
@@ -39,6 +39,8 @@ export interface WeaponWorld extends EnemyDamagePort {
   getPlayer(): PlayerSnapshot;
   /** Враги — цели для наведения. */
   getEnemies(): readonly EnemyRef[];
+  /** Якоря-разломы — цель волны (вне ECS-врагов). */
+  getAnchors?(): readonly AnchorTarget[];
   /** Вражеские снаряды — для оружия, которое их поглощает. */
   getEnemyBullets?(): EnemyBulletRef[];
   /** Удалить вражеский снаряд (поглощение). */
@@ -99,7 +101,11 @@ export class WeaponManager extends PhasedSystem {
 
   /** Тик оружия: обновить наведение и все виды оружия. */
   process(dt: number): void {
-    this.targeting.update(this.world.getPlayer(), this.world.getEnemies());
+    this.targeting.update(
+      this.world.getPlayer(),
+      this.world.getEnemies(),
+      this.world.getAnchors?.() ?? [],
+    );
     const ctx = this.buildContext();
     for (const weapon of Object.values(this.weapons)) {
       weapon.update(dt, ctx);

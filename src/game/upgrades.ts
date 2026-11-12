@@ -1,10 +1,13 @@
 /**
- * Upgrades — перманентная система прокачки корабля.
- * Детали (parts) выпадают из врагов, сохраняются после смерти.
- * На экране прокачки детали тратятся на постоянные улучшения.
+ * Upgrades — прокачка забега.
+ *
+ * Детали (parts) выпадают из врагов внутри забега и тратятся в ангаре
+ * между волнами. Всё, что здесь куплено, сбрасывается при старте нового
+ * забега: постоянными остаются только кредиты и таланты Зеркала Ночи.
  */
 
-import { resetDroneLoadout } from "./drones/DroneSystem";
+import type { MetaBonuses } from "./meta/types";
+import { noMetaBonuses } from "./meta/types";
 import { PLAYER_AIM_BASE_CHANCE } from "./balance/accuracy";
 import { PLAYER_BASE_HP } from "./balance/player";
 import {
@@ -22,9 +25,7 @@ import { readNumber, writeNumber } from "./core/storage";
 
 /* ======================== Storage keys ======================== */
 
-const LS_KEY = STORAGE_KEYS.upgrades;
 const LS_BEST_WAVE = STORAGE_KEYS.bestWave;
-const LS_WEAPON_LOADOUT = STORAGE_KEYS.weaponLoadout;
 
 /* ======================== Types ======================== */
 
@@ -230,121 +231,6 @@ export function upgradeCost(key: UpgradeKey, level: number): number {
   return Math.round(base + tier.costStep * level);
 }
 
-/** Check if upgrade can be purchased */
-export function canAfford(upgrades: PlayerUpgrades, key: UpgradeKey, level: number): boolean {
-  return upgrades.parts >= upgradeCost(key, level);
-}
-
-/** Check if upgrade has maxed out */
-export function isMaxed(upgrades: PlayerUpgrades, key: UpgradeKey): boolean {
-  return upgrades[key] >= UPGRADE_TIERS[key].maxLevel;
-}
-
-/* ======================== Persistence ======================== */
-
-/** Миграция сохранённых данных. */
-function migrate(parsed: Partial<PlayerUpgrades>): PlayerUpgrades {
-  const fresh = defaultUpgrades();
-  const migrated: PlayerUpgrades = { ...fresh };
-  for (const key of Object.keys(fresh) as UpgradeKey[]) {
-    const value = parsed[key];
-    if (typeof value === "number" && Number.isFinite(value)) {
-      migrated[key] = Math.max(0, Math.floor(value));
-    }
-  }
-  // Части — валюта: дробные значения недопустимы.
-  migrated.parts = Math.max(0, Math.floor(migrated.parts));
-  // Старые сейвы качали линии щита без отдельной покупки — считаем щит купленным.
-  if (parsed.shield == null && (migrated.shieldPercent > 0 || migrated.shieldRegen > 0)) {
-    migrated.shield = 1;
-  }
-  migrated.shield = Math.min(UPGRADE_TIERS.shield.maxLevel, migrated.shield);
-  // Линия «орудия» ограничена числом оружий в арсенале: старые сейвы
-  // с большими уровнями подрезаются, а не показывают мёртвые слоты.
-  migrated.guns = Math.min(UPGRADE_TIERS.guns.maxLevel, migrated.guns);
-  return migrated;
-}
-
-export function loadUpgrades(storage: PersistencePort): PlayerUpgrades {
-  try {
-    const raw = storage.get(LS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<PlayerUpgrades>;
-      if (parsed && typeof parsed === "object" && parsed.parts != null) {
-        return migrate(parsed);
-      }
-    }
-  } catch { /* ignore */ }
-  return defaultUpgrades();
-}
-
-export function saveUpgrades(upgrades: PlayerUpgrades, storage: PersistencePort): void {
-  try {
-    storage.set(LS_KEY, JSON.stringify(upgrades));
-  } catch { /* ignore */ }
-}
-
-/* ======================== Weapon loadout persistence ======================== */
-
-/** Прочитать сохранённую запись арсенала (с миграцией полей). */
-function migrateWeaponEntry(raw: unknown): WeaponLoadoutEntry {
-  const fresh: WeaponLoadoutEntry = emptyWeaponEntry();
-  if (!raw || typeof raw !== "object") return fresh;
-  const entry = raw as Partial<WeaponLoadoutEntry> & { model?: Partial<WeaponModelUpgrades> };
-  fresh.owned = entry.owned === true;
-  const model = entry.model;
-  if (model && typeof model === "object") {
-    for (const key of ["reload", "damage", "accuracy"] as const) {
-      const value = model[key];
-      if (typeof value === "number" && Number.isFinite(value)) {
-        fresh.model[key] = Math.max(0, Math.floor(value));
-      }
-    }
-  }
-  return fresh;
-}
-
-export function loadWeaponLoadout(storage: PersistencePort): WeaponLoadout {
-  const loadout = defaultWeaponLoadout();
-  try {
-    const raw = storage.get(LS_WEAPON_LOADOUT);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<Record<WeaponId, unknown>>;
-      if (parsed && typeof parsed === "object") {
-        for (const id of Object.keys(parsed) as WeaponId[]) {
-          if (id in loadout) loadout[id] = migrateWeaponEntry(parsed[id]);
-        }
-      }
-    }
-  } catch { /* ignore */ }
-  return loadout;
-}
-
-export function saveWeaponLoadout(loadout: WeaponLoadout, storage: PersistencePort): void {
-  try {
-    storage.set(LS_WEAPON_LOADOUT, JSON.stringify(loadout));
-  } catch { /* ignore */ }
-}
-
-/** Сбросить арсенал: снова доступна только пушка. */
-export function resetWeaponLoadout(storage: PersistencePort): WeaponLoadout {
-  const fresh = defaultWeaponLoadout();
-  storage.remove(LS_WEAPON_LOADOUT);
-  return fresh;
-}
-
-/** Сбросить всю прокачку и детали */
-export function resetUpgrades(storage: PersistencePort): PlayerUpgrades {
-  const fresh = defaultUpgrades();
-  storage.remove(LS_KEY);
-  storage.remove(LS_BEST_WAVE);
-  storage.remove(LS_WEAPON_LOADOUT);
-  resetDroneLoadout(storage);
-  return fresh;
-}
-
-
-
 /* ======================== Best wave tracking ======================== */
 
 /** Загрузить лучший результат по волнам */
@@ -364,7 +250,7 @@ export function saveBestWave(wave: number, storage: PersistencePort): void {
 /* ======================== Apply upgrades to game values ======================== */
 
 export interface AppliedUpgrades {
-  /** Максимальный корпус: 100 базис + 20 за уровень. */
+  /** Максимальный корпус: 100 базис + 20 за уровень, множитель меты. */
   baseHp: number;
   /** Множитель темпа стрельбы: 1.0 база + 0.08 за уровень. */
   fireRateMult: number;
@@ -386,14 +272,26 @@ export interface AppliedUpgrades {
   shieldBlockLevel: number;
   /** Уровень линии «скорость восстановления щита». */
   shieldRegenLevel: number;
+  /** Множитель деталей за забег из мета-талантов. */
+  partsMult: number;
+  /** Множитель кредитов за забег из мета-талантов. */
+  creditsMult: number;
 }
 
-export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
-  // hp: базовый запас + 20 за уровень корпуса
-  const baseHp = PLAYER_BASE_HP + upgrades.hull * 20;
+/**
+ * Пересчитать боевые значения из прокачки забега и бонусов меты.
+ * Мета применяется поверх забега, поэтому один и тот же забег на разных
+ * уровнях Зеркала Ночи ощущается по-разному.
+ */
+export function applyUpgrades(
+  upgrades: PlayerUpgrades,
+  meta: MetaBonuses = noMetaBonuses(),
+): AppliedUpgrades {
+  // hp: базовый запас + 20 за уровень корпуса, затем множитель меты
+  const baseHp = Math.round((PLAYER_BASE_HP + upgrades.hull * 20) * meta.hpMult);
 
   // fire rate: 1.0 base + 0.08 per level
-  const fireRateMult = 1.0 + upgrades.fireRate * 0.08;
+  const fireRateMult = (1.0 + upgrades.fireRate * 0.08) * meta.fireRateMult;
 
   // rate bonus duration: 1.0 base + 0.2 per level
   const rateDurationMult = 1.0 + upgrades.rateDuration * 0.2;
@@ -405,13 +303,13 @@ export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
   const healRateMult = 1.0 + upgrades.healRate * 0.2;
 
   // speed: 1.0 base + 0.05 per level
-  const speedMult = 1.0 + upgrades.speed * 0.05;
+  const speedMult = (1.0 + upgrades.speed * 0.05) * meta.speedMult;
 
-  // weapon slots: base 1 + level, но не больше числа оружий в арсенале
-  const weaponSlots = Math.min(1 + upgrades.guns, ARMORY_WEAPON_COUNT);
+  // weapon slots: base 1 + level + мета, но не больше числа оружий в арсенале
+  const weaponSlots = Math.min(1 + upgrades.guns + meta.weaponSlots, ARMORY_WEAPON_COUNT);
 
-  // drone slots: base 1 + level, capped at 8
-  const droneSlots = Math.min(1 + upgrades.drones, 8);
+  // drone slots: base 1 + level + мета, capped at 8
+  const droneSlots = Math.min(1 + upgrades.drones + meta.droneSlots, 8);
 
   // Щит: покупается один раз, после покупки работают под-линии.
   const shieldOwned = Math.max(0, upgrades.shield) > 0;
@@ -426,7 +324,13 @@ export function applyUpgrades(upgrades: PlayerUpgrades): AppliedUpgrades {
     weaponSlots,
     droneSlots,
     shieldOwned,
-    shieldBlockLevel: shieldOwned ? Math.max(0, upgrades.shieldPercent) : 0,
-    shieldRegenLevel: shieldOwned ? Math.max(0, upgrades.shieldRegen) : 0,
+    shieldBlockLevel: shieldOwned
+      ? Math.max(0, upgrades.shieldPercent) + meta.shieldBlockLevel
+      : 0,
+    shieldRegenLevel: shieldOwned
+      ? Math.max(0, upgrades.shieldRegen) + meta.shieldRegenLevel
+      : 0,
+    partsMult: meta.partsMult,
+    creditsMult: meta.creditsMult,
   };
 }

@@ -10,10 +10,10 @@ import {
   type DroneId,
   type DroneLoadout,
   type DroneStatKey,
-} from "../../game/drones/Drone";
-import type { PlayerUpgrades } from "../../game/upgrades";
-import { useT } from "../../i18n";
-import { Icon } from "../components/Icon";
+} from "../../../game/drones/Drone";
+import type { PlayerUpgrades } from "../../../game/upgrades";
+import { useT } from "../../../i18n";
+import { Icon } from "../../components/Icon";
 import { DRONE_STATS, WEAPON_STAT_ROW_CLASS, droneStatValue, gamepadFocusStyle } from "./model";
 
 export function DronesTab(props: {
