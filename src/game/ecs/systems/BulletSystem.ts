@@ -15,16 +15,16 @@
  */
 
 import { Aspect, type Engine } from "@trixt0r/ecs";
-import { BulletComponent } from "../ecs/components/BulletComponent";
-import { BulletSweepComponent } from "../ecs/components/BulletSweepComponent";
-import { EnemyBulletComponent } from "../ecs/components/EnemyBulletComponent";
-import { EnemyComponent } from "../ecs/components/EnemyComponent";
-import { HomingRef } from "../ecs/components/HomingRef";
-import { LifeComponent } from "../ecs/components/LifeComponent";
-import { PositionComponent } from "../ecs/components/PositionComponent";
-import { VelocityComponent } from "../ecs/components/VelocityComponent";
-import { GameEntity } from "../ecs/GameEntity";
-import { Phase, PhasedSystem } from "../ecs/SystemSchedule";
+import { BulletComponent } from "../components/BulletComponent";
+import { BulletSweepComponent } from "../components/BulletSweepComponent";
+import { EnemyBulletComponent } from "../components/EnemyBulletComponent";
+import { EnemyComponent } from "../components/EnemyComponent";
+import { HomingRef } from "../components/HomingRef";
+import { LifeComponent } from "../components/LifeComponent";
+import { PositionComponent } from "../components/PositionComponent";
+import { VelocityComponent } from "../components/VelocityComponent";
+import { GameEntity } from "../GameEntity";
+import { Phase, PhasedSystem } from "../SystemSchedule";
 
 /** Позиция (и признак живости) врага как цель самонаведения. */
 interface EnemyTarget {

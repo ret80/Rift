@@ -4,7 +4,7 @@
  */
 
 import type { AudioPort } from "../core/WorldPorts";
-import type { ScoringSystem } from "./ScoringSystem";
+import type { ScoringSystem } from "../ecs/systems/ScoringSystem";
 import type { EcsWorld } from "../ecs";
 import type { FxPort } from "../core/WorldPorts";
 import {

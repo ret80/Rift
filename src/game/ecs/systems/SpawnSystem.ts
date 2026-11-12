@@ -8,11 +8,11 @@
  *   • WaveAnnouncements — когда показывать тост о новом виде.
  */
 
-import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
-import { EnemyKind, isBossWave } from "../balance";
-import type { WaveCompositionOverride } from "../balance/waves";
-import type { RandomSource } from "../math";
-import type { RiftField } from "../rifts";
+import { PhasedSystem, Phase } from "../SystemSchedule";
+import { EnemyKind, isBossWave } from "../../balance";
+import type { WaveCompositionOverride } from "../../balance/waves";
+import type { RandomSource } from "../../math";
+import type { RiftField } from "../../rifts";
 import {
   WAVE_RIFT_THRESHOLD,
   buildWaveQueue,
@@ -23,9 +23,9 @@ import {
   startSpawnCount,
   waveTotal,
   zoneRadius,
-} from "../waves/WaveComposition";
-import { MIN_RIFT_DIST, placeRiftPoints } from "../waves/RiftPlacement";
-import { WaveAnnouncements } from "../waves/WaveAnnouncements";
+} from "../../waves/WaveComposition";
+import { MIN_RIFT_DIST, placeRiftPoints } from "../../waves/RiftPlacement";
+import { WaveAnnouncements } from "../../waves/WaveAnnouncements";
 
 /** Dependencies injected to avoid tight coupling with Game. */
 export interface SpawnDependencies {

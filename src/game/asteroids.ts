@@ -17,7 +17,7 @@ import type { AudioPort } from "./core/WorldPorts";
 import type { FxPort } from "./core/WorldPorts";
 import type { EventBus } from "./core/EventBus";
 import type { Rng } from "./core/rng";
-import { softResolveCollision } from "./systems/EntityCollision";
+import { softResolveCollision } from "./utils/EntityCollision";
 import { TAU, clamp, mulberry32, rgba } from "./math";
 import type { AsteroidKind, PickupKind } from "./balance";
 import { massForRadius } from "./balance";

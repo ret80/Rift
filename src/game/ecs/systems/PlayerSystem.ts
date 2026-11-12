@@ -19,14 +19,14 @@
  */
 
 import { Aspect, type Engine } from "@trixt0r/ecs";
-import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
-import type { EventBus } from '../core/EventBus';
-import type { PlayerControls } from '../core/PlayerControls';
+import { PhasedSystem, Phase } from "../SystemSchedule";
+import type { EventBus } from '../../core/EventBus';
+import type { PlayerControls } from '../../core/PlayerControls';
 import type { ShieldSystem } from './ShieldSystem';
-import type { PlayerRef } from '../ecs';
-import { PlayerComponent } from '../ecs/components/PlayerComponent';
-import { trackTurnRate } from '../aiming/AimSolver';
-import { lerpAngle as lerpAngleMath } from '../math';
+import type { PlayerRef } from '..';
+import { PlayerComponent } from '../components/PlayerComponent';
+import { trackTurnRate } from '../../aiming/AimSolver';
+import { lerpAngle as lerpAngleMath } from '../../math';
 import {
   BOOST_DRAIN_PER_SECOND,
   BOOST_GAIN_PER_KILL,
@@ -35,7 +35,7 @@ import {
   PLAYER_FRICTION_EXP,
   PLAYER_HIT_INVULN,
   PLAYER_MAX_SPEED,
-} from '../balance/player';
+} from '../../balance/player';
 
 /** Флаг: должна ли система сама интегрировать позицию (true в custom-режиме). */
 export type PlayerIntegrateSource = () => boolean;

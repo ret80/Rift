@@ -11,7 +11,7 @@ import type { System } from "@trixt0r/ecs";
 import type { EnemyKind, PickupKind } from "../balance";
 import type { EventBus } from "../core/EventBus";
 import type { PhysicsEntity } from "../physics/IPhysics";
-import { BulletSystem } from "../systems/BulletSystem";
+import { BulletSystem } from "./systems/BulletSystem";
 import type { Particle, Rift, Ring } from "../types/world";
 import { AsteroidDomain } from "./domains/AsteroidDomain";
 import { BeamDomain } from "./domains/BeamDomain";

@@ -12,19 +12,19 @@
  */
 
 import { Aspect, type Engine } from "@trixt0r/ecs";
-import { EnemyAI } from "../ai/EnemyAI";
-import { GameContext } from "../ai/GameContext";
-import { DroneSwarm } from "../ai/DroneSwarm";
-import { ThreatDirector } from "../ai/ThreatDirector";
-import { EnemyAvoidance, type IEnemyAvoidance } from "../ai/EnemyAvoidance";
-import type { EnemyDef } from "../balance";
+import { EnemyAI } from "../../ai/EnemyAI";
+import { GameContext } from "../../ai/GameContext";
+import { DroneSwarm } from "../../ai/DroneSwarm";
+import { ThreatDirector } from "../../ai/ThreatDirector";
+import { EnemyAvoidance, type IEnemyAvoidance } from "../../ai/EnemyAvoidance";
+import type { EnemyDef } from "../../balance";
 import {
     AFFIXES,
     ELITE_CHANCE,
     ELITE_PACK_INTERVAL,
     ELITE_SCORE_MULT,
     type AffixId,
-} from "../balance/affixes";
+} from "../../balance/affixes";
 import {
     CARRIER_DRONE_ORBIT_GAP,
     ENEMY_MAX_DRONES,
@@ -33,14 +33,14 @@ import {
     MINE_MAX_ALIVE,
     enemyDefFor,
     massForRadius
-} from "../balance";
-import type { EnemyRef } from "../ecs";
-import { EnemyComponent } from "../ecs/components/EnemyComponent";
-import { GameEntity } from "../ecs/GameEntity";
-import type { Rng } from "../core/rng";
-import type { EnemySpawn } from "../ecs/spawn";
-import { Phase, PhasedSystem } from "../ecs/SystemSchedule";
-import { TAU } from "../math";
+} from "../../balance";
+import type { EnemyRef } from "..";
+import { EnemyComponent } from "../components/EnemyComponent";
+import { GameEntity } from "../GameEntity";
+import type { Rng } from "../../core/rng";
+import type { EnemySpawn } from "../spawn";
+import { Phase, PhasedSystem } from "../SystemSchedule";
+import { TAU } from "../../math";
 
 /** Узкий порт домена врагов: только спавн и чтение живой связки. */
 export interface EnemySpawnPort {

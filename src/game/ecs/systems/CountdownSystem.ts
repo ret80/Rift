@@ -3,10 +3,10 @@
  * Отвечает за показ счётчиков (5, 4, 3, 2, 1) при начале волны.
  */
 
-import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
-import type { EventBus } from "../core/EventBus";
-import type { CountdownState } from "../core/WorldPorts";
-import type { BannerData, ToastData } from "../types/ui";
+import { PhasedSystem, Phase } from "../SystemSchedule";
+import type { EventBus } from "../../core/EventBus";
+import type { CountdownState } from "../../core/WorldPorts";
+import type { BannerData, ToastData } from "../../types/ui";
 
 export interface CountdownHooks {
   onBanner: (b: BannerData | null) => void;

@@ -12,7 +12,7 @@
  * а полоски щита не рисуются.
  */
 
-import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
+import { PhasedSystem, Phase } from "../SystemSchedule";
 import {
   SHIELD_DRAIN_PER_DAMAGE,
   SHIELD_ENERGY_MAX,
@@ -20,8 +20,8 @@ import {
   SHIELD_OVERLOAD_TIME,
   shieldBlockPercent,
   shieldRegenPerSecond,
-} from "../balance/player";
-import type { LoadoutSlotData, LoadoutSlotMeta } from "../loadout/LoadoutTypes";
+} from "../../balance/player";
+import type { LoadoutSlotData, LoadoutSlotMeta } from "../../loadout/LoadoutTypes";
 
 /** Оформление слота щита в строке снаряжения. */
 const SHIELD_SLOT_META: LoadoutSlotMeta = {

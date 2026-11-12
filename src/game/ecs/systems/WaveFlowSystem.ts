@@ -11,10 +11,10 @@
  * Зависимости описаны узкими портами: системе не нужны целые классы.
  */
 
-import { EnemyKind } from "../balance";
-import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
-import type { AppliedUpgrades } from "../upgrades";
-import type { WaveOrchestrator } from "./WaveOrchestrator";
+import { EnemyKind } from "../../balance";
+import { PhasedSystem, Phase } from "../SystemSchedule";
+import type { AppliedUpgrades } from "../../upgrades";
+import type { WaveOrchestrator } from "../../systems/WaveOrchestrator";
 
 /** Состояние игрока для проверки зоны. */
 export interface PlayerPosition {

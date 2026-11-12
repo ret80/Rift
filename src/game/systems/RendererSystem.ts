@@ -40,7 +40,7 @@ import {
     renderZoneReturnIndicator,
     renderZoneStorm,
 } from "./Renderers/ZoneRenderer";
-import type { Anchor } from "./AnchorSystem";
+import type { Anchor } from "../ecs/systems/AnchorSystem";
 
 /* ============================== config ============================== */
 

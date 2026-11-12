@@ -8,10 +8,10 @@
 
 import {
   GRAZE_SCORE,
-} from "../balance/player";
-import type { EventBus } from "../core/EventBus";
-import type { FxPort } from "../core/WorldPorts";
-import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
+} from "../../balance/player";
+import type { EventBus } from "../../core/EventBus";
+import type { FxPort } from "../../core/WorldPorts";
+import { PhasedSystem, Phase } from "../SystemSchedule";
 import type { ScoringSystem } from "./ScoringSystem";
 
 /** Цвет искр касания. */

@@ -409,3 +409,22 @@ ECS-миграция завершена **структурно**; encapsulation-
 - `npm run sim:selftest` — 57/58; единственный красный чек
   (`Replay: запись воспроизводится бит-в-бит`) предсуществующий и воспроизводится на
   чистом HEAD.
+
+## Реорганизация папки `systems` (2026-11-12) ✅
+
+`src/game/systems/` больше не смешивает ECS-системы, доменные сервисы и чистые
+хелперы. Код разделён по назначению, без изменения поведения:
+
+| Каталог | Что лежит |
+|---|---|
+| `src/game/ecs/systems/` | Все ECS-системы (`extends PhasedSystem`): `Anchor`, `Bullet`, `Collision`, `Countdown`, `EnemyCollision`, `EnemyShooting`, `Enemy`, `Graze`, `PickupDrop`, `Player`, `Scoring`, `Shield`, `Spawn`, `WaveFlow`, `Zone` + прежние системы мира. |
+| `src/game/utils/` | Чистые хелперы и константы столкновений: `BulletCollision`, `CollisionConstants`, `EntityCollision`, `GrazeCollision`. |
+| `src/game/systems/` | Не-ECS сервисы/системы: `AudioManager`, `CameraSystem`, `CreditSystem`, `DeathSystem`, `DebugSystem`, `InputSystem`, `PickupEffects`, `RendererSystem` (+ `Renderers/`), `UpgradeSystem`, `WaveOrchestrator`. |
+
+### Проверка
+
+- `npm run typecheck` — exit 0.
+- `npm run build` — exit 0.
+- `npm run lint` — 0 errors, 2 pre-existing warnings.
+- Симуляция на seed 12345 (`campaign-orbit`, `smoke`, `inner-orbit`, `rim-orbit`,
+  `fighter-orbit-r300`): `scenarioHash` и метрики совпадают с baseline бит-в-бит.

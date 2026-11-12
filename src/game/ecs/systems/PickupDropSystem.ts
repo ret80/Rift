@@ -6,10 +6,10 @@
  * (детали и бонусы), не за движение или подбор пикапов.
  */
 
-import { dropChanceFor, type PickupKind } from "../balance";
-import type { EventBus } from "../core/EventBus";
-import type { Rng } from "../core/rng";
-import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
+import { dropChanceFor, type PickupKind } from "../../balance";
+import type { EventBus } from "../../core/EventBus";
+import type { Rng } from "../../core/rng";
+import { PhasedSystem, Phase } from "../SystemSchedule";
 
 /* Pseudo-random multiplier constants (seed-based drop determination) */
 const PSEUDO_RNG_A = 7.31;

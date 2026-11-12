@@ -14,8 +14,8 @@
  * подсказки приходят через окружение (`AnchorEnv`).
  */
 
-import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
-import type { ZoneData } from "../core/ZoneTypes";
+import { PhasedSystem, Phase } from "../SystemSchedule";
+import type { ZoneData } from "../../core/ZoneTypes";
 
 /** Якорь-разлом. */
 export interface Anchor {

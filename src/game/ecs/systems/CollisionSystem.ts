@@ -7,20 +7,20 @@
  * (`PickupCollectionSystem`).
  */
 
-import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
+import { PhasedSystem, Phase } from "../SystemSchedule";
 import {
   GRAZE_BAND,
   PLAYER_BULLET_HIT_OFFSET,
-} from '../balance/player';
-import type { EventBus } from '../core/EventBus';
-import type { WorldFrame } from '../core/WorldFrame';
+} from '../../balance/player';
+import type { EventBus } from '../../core/EventBus';
+import type { WorldFrame } from '../../core/WorldFrame';
 
 import {
   checkBulletCollisions,
   checkEnemyBulletVsPlayer,
-} from './BulletCollision';
-import type { PlayerHitbox } from './GrazeCollision';
-import type { EcsWorld } from '../ecs';
+} from '../../utils/BulletCollision';
+import type { PlayerHitbox } from '../../utils/GrazeCollision';
+import type { EcsWorld } from '..';
 import type { AnchorSystem, Anchor } from './AnchorSystem';
 
 /** Источник мирового сечения (buildWorld из GameContext). */

@@ -8,10 +8,10 @@
  * из зоны отвечает ZoneEdgeDamage (урон + предупреждение).
  */
 
-import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
-import { ZONE_ASTEROID_PUSH_FORCE } from "../balance";
-import type { ZoneData } from "../core/ZoneTypes";
-import type { AsteroidRef } from "../ecs";
+import { PhasedSystem, Phase } from "../SystemSchedule";
+import { ZONE_ASTEROID_PUSH_FORCE } from "../../balance";
+import type { ZoneData } from "../../core/ZoneTypes";
+import type { AsteroidRef } from "..";
 
 /* ============================== Types ============================== */
 

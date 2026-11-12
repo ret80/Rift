@@ -21,7 +21,7 @@
  */
 
 import { Aspect, type Engine } from "@trixt0r/ecs";
-import { aimAtTarget, solveLead, spreadForChance } from "../aiming/AimSolver";
+import { aimAtTarget, solveLead, spreadForChance } from "../../aiming/AimSolver";
 import {
     CRUISER_BOLT_LEAD_TIME,
     CRUISER_BULLET_SPEED,
@@ -43,13 +43,13 @@ import {
     FIGHTER_BURST_INTERVAL,
     FIGHTER_CIRCLE_OMEGA,
     PLAYER_HIT_RADIUS
-} from "../balance";
-import type { Rng } from "../core/rng";
-import { EnemyComponent } from "../ecs/components/EnemyComponent";
-import { PositionComponent } from "../ecs/components/PositionComponent";
-import { Phase, PhasedSystem } from "../ecs/SystemSchedule";
-import { lerpAngle } from "../math";
-import type { AudioPort } from "../core/WorldPorts";
+} from "../../balance";
+import type { Rng } from "../../core/rng";
+import { EnemyComponent } from "../components/EnemyComponent";
+import { PositionComponent } from "../components/PositionComponent";
+import { Phase, PhasedSystem } from "../SystemSchedule";
+import { lerpAngle } from "../../math";
+import type { AudioPort } from "../../core/WorldPorts";
 
 /** Локальная связка «маркер + позиция» врага для стрельбы (без radius/life). */
 interface EnemyShotRef {

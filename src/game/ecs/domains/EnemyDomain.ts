@@ -24,13 +24,13 @@ import {
     EnemyShootingSystem,
     type CombatActiveSource,
     type PlayerMotionSource,
-} from "../../systems/EnemyShootingSystem";
+} from "../systems/EnemyShootingSystem";
 import {
     EnemySystem,
     type EnemyPlayerSource,
     type IntegrateSource,
     type ZoneBoundsSource,
-} from "../../systems/EnemySystem";
+} from "../systems/EnemySystem";
 import type { EcsEngine } from "../EcsEngine";
 import { EnemyLifecycle } from "../EnemyLifecycle";
 import { GameEntity } from "../GameEntity";

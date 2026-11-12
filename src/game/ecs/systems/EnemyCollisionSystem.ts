@@ -7,8 +7,8 @@
  * `CollisionSystem`: здесь только тела и их боевые последствия.
  */
 
-import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
-import { AFFIXES } from "../balance/affixes";
+import { PhasedSystem, Phase } from "../SystemSchedule";
+import { AFFIXES } from "../../balance/affixes";
 import {
   ASTEROID_CONTACT_BASE,
   ASTEROID_CONTACT_CAP_FRACTION,
@@ -16,14 +16,14 @@ import {
   dmgScale,
   impactFactor,
   massForRadius,
-} from "../balance";
-import type { EventBus } from "../core/EventBus";
-import type { WorldFrame } from "../core/WorldFrame";
-import type { PhysicsSystem } from "../physics/index";
-import type { EcsWorld, AsteroidRef, EnemyRef } from "../ecs";
-import { checkEnemyBulletVsDrones } from "./BulletCollision";
-import { DRONE_PROXIMITY } from "./CollisionConstants";
-import { softResolveCollision } from "./EntityCollision";
+} from "../../balance";
+import type { EventBus } from "../../core/EventBus";
+import type { WorldFrame } from "../../core/WorldFrame";
+import type { PhysicsSystem } from "../../physics/index";
+import type { EcsWorld, AsteroidRef, EnemyRef } from "..";
+import { checkEnemyBulletVsDrones } from "../../utils/BulletCollision";
+import { DRONE_PROXIMITY } from "../../utils/CollisionConstants";
+import { softResolveCollision } from "../../utils/EntityCollision";
 
 /** Источник мирового сечения (buildWorld из GameWorld). */
 export type EnemyCollisionWorldSource = () => WorldFrame;

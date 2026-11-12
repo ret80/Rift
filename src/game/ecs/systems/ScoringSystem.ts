@@ -3,11 +3,11 @@
  * Handles score, best (localStorage), killed, combo timer/multiplier.
  */
 
-import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
-import type { EventBus } from '../core/EventBus';
-import type { PersistencePort } from '../core/PersistencePort';
-import { LEGACY_BEST_KEY, STORAGE_KEYS } from '../core/storageKeys';
-import { readNumber, writeNumber } from '../core/storage';
+import { PhasedSystem, Phase } from "../SystemSchedule";
+import type { EventBus } from '../../core/EventBus';
+import type { PersistencePort } from '../../core/PersistencePort';
+import { LEGACY_BEST_KEY, STORAGE_KEYS } from '../../core/storageKeys';
+import { readNumber, writeNumber } from '../../core/storage';
 
 const BEST_KEY = STORAGE_KEYS.best;
 const COMBO_TIMEOUT = 3;
