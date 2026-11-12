@@ -58,6 +58,8 @@ import { createWeaponRegistry } from "../game/weapons/WeaponRegistry";
 import { WEAPON_CATALOG, WEAPON_IDS } from "../game/weapons/WeaponCatalog";
 import { applyUpgrades, defaultUpgrades } from "../game/upgrades";
 import { DOCTRINES } from "../game/meta/doctrines";
+import { LEGACY_ARTIFACTS, isArtifactUnlocked } from "../game/meta/legacy";
+import { LegacySystem } from "../game/meta/LegacySystem";
 import { mergeMetaBonuses, noMetaBonuses } from "../game/meta/types";
 import {
   MAX_THREAT_LEVEL,
@@ -1340,6 +1342,18 @@ check("Мета: доктрина и уровень угрозы меняют с
   expectEqual(clampThreatLevel(999), MAX_THREAT_LEVEL, "верхняя граница TL");
   expectEqual(threatLevelDef(5).hpMult, 1.75, "корпус врагов на TL 5");
   expectEqual(threatLevelDef(5).creditsMult, 2, "кредиты на TL 5");
+});
+
+check("Наследие: артефакт открывается волной и даёт бонус", () => {
+  const plate = LEGACY_ARTIFACTS.find((artifact) => artifact.id === "hull_plate");
+  expect(plate !== undefined, "артефакт hull_plate отсутствует");
+  expect(!isArtifactUnlocked(plate!, 2), "артефакт открылся слишком рано");
+  expect(isArtifactUnlocked(plate!, 3), "артефакт не открылся на нужной волне");
+
+  const bonuses = mergeMetaBonuses(noMetaBonuses(), plate!.effect);
+  expectEqual(bonuses.hpMult, 1.15, "бонус артефакта");
+  expectEqual(new LegacySystem("hull_plate", 99).id, "hull_plate", "выбранный артефакт");
+  expectEqual(new LegacySystem("black_heart", 10).id, null, "закрытый артефакт");
 });
 
 check("Альтернативный огонь: интент агента и залп пушки", () => {

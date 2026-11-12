@@ -15,8 +15,9 @@ import { CreditSystem } from "../systems/CreditSystem";
 import { AnchorSystem, type Anchor } from "../ecs/systems/AnchorSystem";
 import { MetaTree } from "../meta/MetaTree";
 import { DoctrineSystem } from "../meta/DoctrineSystem";
+import { LegacySystem } from "../meta/LegacySystem";
 import { AscensionSystem } from "../meta/AscensionSystem";
-import { mergeMetaBonuses } from "../meta/types";
+import { mergeMetaBonuses, type MetaBonuses } from "../meta/types";
 import { loadCredits, saveCredits } from "../meta/MetaStorage";
 import { AsteroidField } from "../asteroids";
 import {
@@ -221,6 +222,8 @@ export class GameWorld {
   private metaTree: MetaTree;
   /** Выбранная перед забегом доктрина. */
   private doctrineSystem: DoctrineSystem;
+  /** Выбранный артефакт наследия. */
+  private legacySystem: LegacySystem;
   /** Выбранный уровень угрозы (асценсия). */
   private ascension: AscensionSystem;
   /** Детали, собранные за забег: база для начисления кредитов. */
@@ -269,10 +272,9 @@ export class GameWorld {
     this.upgradeSystem = UpgradeSystem.create();
     this.metaTree = MetaTree.load(this.ports.storage);
     this.doctrineSystem = DoctrineSystem.load(this.ports.storage);
+    this.legacySystem = LegacySystem.load(this.ports.storage);
     this.ascension = AscensionSystem.load(this.ports.storage);
-    this.upgradeSystem.setMetaBonuses(
-      mergeMetaBonuses(this.metaTree.bonuses(), this.doctrineSystem.bonuses()),
-    );
+    this.upgradeSystem.setMetaBonuses(this.activeMetaBonuses());
     this.creditSystem = new CreditSystem();
     this.creditSystem.setBalance(loadCredits(this.ports.storage));
     this.anchorSystem = new AnchorSystem({
@@ -697,10 +699,9 @@ export class GameWorld {
     // Кредиты загружаются из хранилища: смерть их только добавляет.
     this.metaTree = MetaTree.load(this.ports.storage);
     this.doctrineSystem = DoctrineSystem.load(this.ports.storage);
+    this.legacySystem = LegacySystem.load(this.ports.storage);
     this.ascension = AscensionSystem.load(this.ports.storage);
-    this.upgradeSystem.setMetaBonuses(
-      mergeMetaBonuses(this.metaTree.bonuses(), this.doctrineSystem.bonuses()),
-    );
+    this.upgradeSystem.setMetaBonuses(this.activeMetaBonuses());
     this.upgradeSystem.resetRun(this.runSeed);
     this.creditSystem.setBalance(loadCredits(this.ports.storage));
     this.runPartsEarned = 0;
@@ -796,6 +797,14 @@ export class GameWorld {
     this.asteroidField.reset();
     this.physics.reset();
     this.fx.reset();
+  }
+
+  /** Мета-бонусы забега: таланты Зеркала Ночи, доктрина и артефакт. */
+  private activeMetaBonuses(): MetaBonuses {
+    return mergeMetaBonuses(
+      mergeMetaBonuses(this.metaTree.bonuses(), this.doctrineSystem.bonuses()),
+      this.legacySystem.bonuses(),
+    );
   }
 
   /** Применить персистентные апгрейды к игроку и оружию. */

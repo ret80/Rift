@@ -46,6 +46,19 @@ export function saveSelectedDoctrine(storage: PersistencePort, id: string | null
   storage.set(STORAGE_KEYS.doctrine, id);
 }
 
+/** Выбранный артефакт наследия; null — без артефакта. */
+export function loadSelectedArtifact(storage: PersistencePort): string | null {
+  return storage.get(STORAGE_KEYS.legacy);
+}
+
+export function saveSelectedArtifact(storage: PersistencePort, id: string | null): void {
+  if (id === null) {
+    storage.remove(STORAGE_KEYS.legacy);
+    return;
+  }
+  storage.set(STORAGE_KEYS.legacy, id);
+}
+
 /** Выбранный уровень угрозы; отсутствие ключа — обычная сложность. */
 export function loadThreatLevel(storage: PersistencePort): number {
   return Number(storage.get(STORAGE_KEYS.threatLevel)) || 0;
@@ -64,6 +77,7 @@ export function resetMetaProgress(storage: PersistencePort): void {
   storage.remove(STORAGE_KEYS.credits);
   storage.remove(STORAGE_KEYS.metaTree);
   storage.remove(STORAGE_KEYS.doctrine);
+  storage.remove(STORAGE_KEYS.legacy);
   storage.remove(STORAGE_KEYS.threatLevel);
   storage.remove(STORAGE_KEYS.best);
   storage.remove(STORAGE_KEYS.bestWave);

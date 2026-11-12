@@ -6,18 +6,26 @@ import { MetaTree } from "../../game/meta/MetaTree";
 import { loadCredits, saveCredits } from "../../game/meta/MetaStorage";
 import { DOCTRINES, doctrineById } from "../../game/meta/doctrines";
 import { DoctrineSystem } from "../../game/meta/DoctrineSystem";
+import {
+  LEGACY_ARTIFACTS,
+  artifactById,
+  isArtifactUnlocked,
+} from "../../game/meta/legacy";
+import { LegacySystem } from "../../game/meta/LegacySystem";
 import { AscensionSystem } from "../../game/meta/AscensionSystem";
 import { THREAT_LEVELS } from "../../game/meta/ascension";
+import { loadBestWave } from "../../game/upgrades";
 import type { MetaTalent } from "../../game/meta/types";
 import type { GamepadNavHandlers } from "../ScreenRouter";
 import type { MutableRefObject } from "react";
 import GameButton from "../components/GameButton";
 
-type MetaTab = "talents" | "doctrines" | "ascension";
+type MetaTab = "talents" | "doctrines" | "legacy" | "ascension";
 
 const TABS: ReadonlyArray<{ id: MetaTab; key: TKey }> = [
   { id: "talents", key: "meta.tabsTalents" },
   { id: "doctrines", key: "meta.tabsDoctrines" },
+  { id: "legacy", key: "meta.tabsLegacy" },
   { id: "ascension", key: "meta.tabsAscension" },
 ];
 
@@ -43,6 +51,8 @@ export default function MetaScreen(props: {
   const [tree, setTree] = useState(() => MetaTree.load(storage));
   const [credits, setCredits] = useState(0);
   const [doctrineId, setDoctrineId] = useState<string | null>(null);
+  const [artifactId, setArtifactId] = useState<string | null>(null);
+  const [bestWave, setBestWave] = useState(1);
   const [threatLevel, setThreatLevel] = useState(0);
   const [tab, setTab] = useState<MetaTab>("talents");
 
@@ -50,6 +60,8 @@ export default function MetaScreen(props: {
     setTree(MetaTree.load(storage));
     setCredits(loadCredits(storage));
     setDoctrineId(DoctrineSystem.load(storage).id);
+    setArtifactId(LegacySystem.load(storage).id);
+    setBestWave(loadBestWave(storage));
     setThreatLevel(AscensionSystem.load(storage).level);
   }, [storage]);
 
@@ -60,6 +72,11 @@ export default function MetaScreen(props: {
   const selectDoctrine = useCallback((id: string | null) => {
     DoctrineSystem.load(storage).select(id, storage);
     setDoctrineId(id);
+  }, [storage]);
+
+  const selectArtifact = useCallback((id: string | null) => {
+    LegacySystem.load(storage).select(id, storage);
+    setArtifactId(LegacySystem.load(storage).id);
   }, [storage]);
 
   const selectThreat = useCallback((level: number) => {
@@ -178,6 +195,49 @@ export default function MetaScreen(props: {
     );
   };
 
+  const renderArtifact = (id: string | null) => {
+    const artifact = artifactById(id);
+    const active = artifactId === (artifact?.id ?? null);
+    const unlocked = artifact === null || isArtifactUnlocked(artifact, bestWave);
+    return (
+      <div
+        key={artifact?.id ?? "none"}
+        className={
+          "mb-3 flex items-center justify-between gap-3 rounded border p-3 " +
+          (active
+            ? "border-[#c79bff]/60 bg-[#c79bff]/5"
+            : unlocked
+              ? "border-[#5ef2ff]/20"
+              : "border-[#3d4f6d]/20 opacity-60")
+        }
+      >
+        <div>
+          <div className="font-display text-sm text-[#eaffff]">
+            {artifact ? t(artifact.nameKey) : t("meta.legacyNone")}
+          </div>
+          <div className="text-xs text-[#6f86a8]">
+            {artifact ? t(artifact.descKey) : t("meta.legacyHint")}
+          </div>
+        </div>
+        {active ? (
+          <div className="shrink-0 text-xs text-[#7dff9e]">{t("meta.doctrineActive")}</div>
+        ) : !unlocked ? (
+          <div className="shrink-0 text-right text-[10px] text-[#6f86a8]">
+            {t("meta.legacyLocked", { w: String(artifact?.unlockWave ?? 0) })}
+          </div>
+        ) : (
+          <GameButton
+            onClick={() => selectArtifact(artifact?.id ?? null)}
+            variant="cyan"
+            className="shrink-0 px-3 py-1 text-xs"
+          >
+            {t("meta.doctrinePick")}
+          </GameButton>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div
       className="anim-overlay absolute inset-0 z-20 flex items-center justify-center p-4"
@@ -238,6 +298,16 @@ export default function MetaScreen(props: {
                 </p>
                 {renderDoctrine(null)}
                 {DOCTRINES.map((doctrine) => renderDoctrine(doctrine.id))}
+              </>
+            )}
+
+            {tab === "legacy" && (
+              <>
+                <p className="mb-3 text-xs leading-5 text-[#6f86a8]">
+                  {t("meta.legacyHint")}
+                </p>
+                {renderArtifact(null)}
+                {LEGACY_ARTIFACTS.map((artifact) => renderArtifact(artifact.id))}
               </>
             )}
 

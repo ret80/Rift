@@ -11,6 +11,7 @@ export const STORAGE_KEYS = {
   credits: "rift9_credits",
   metaTree: "rift9_meta_tree",
   doctrine: "rift9_doctrine",
+  legacy: "rift9_legacy",
   threatLevel: "rift9_threat_level",
   lang: "rift9_lang",
   volumes: "rift9_volumes",
