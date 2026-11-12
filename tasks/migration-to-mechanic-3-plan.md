@@ -89,7 +89,7 @@
 | Активный щит | ❌ | P1 | заглушка удалена, не реализовано
 | Якоря-разломы | ✅ | P0 | переработаны 12.11.2026, см. §3а
 | Клещи на спавне | ✅ | P1 |
-| Радар | ❌ | P1 | не реализовано
+| Радар | ⏸ | P1 | отложено пользователем — не несёт игровой ценности
 | Экраны мета/доктрин/наследия/асценсии | ⏳ | P1 |`MetaScreen` ✅, остальные ❌
 | Банк деталей (10% сохранение) | ❌ | P2 |
 
@@ -108,7 +108,7 @@
 | `LegacySystem` | Артефакты наследия | `src/game/meta/LegacySystem.ts` |
 | `AscensionSystem` | Threat Levels + модификаторы | `src/game/meta/AscensionSystem.ts` |
 | `AnchorSystem` | Якоря-разломы | `src/game/systems/AnchorSystem.ts` |
-| `RadarSystem` | Радар и индикаторы за кадром | `src/game/systems/RadarSystem.ts` |
+| `RadarSystem` | ~~Радар и индикаторы за кадром~~ — отложено пользователем | ~~`src/game/systems/RadarSystem.ts`~~ |
 | `LockOnSystem` | Выбор цели | `src/game/systems/LockOnSystem.ts` |
 | `DroneCommandSystem` | Приказы дронам | `src/game/systems/DroneCommandSystem.ts` |
 | `ActiveShieldSystem` | Активный щит (сектор) | `src/game/systems/ActiveShieldSystem.ts` |
