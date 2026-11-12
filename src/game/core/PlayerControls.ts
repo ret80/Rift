@@ -33,6 +33,13 @@ export interface PlayerIntent {
   altFiring?: boolean;
   /** Запрос способности: живёт ровно один тик. */
   ability: boolean;
+  /**
+   * Удержание активного щита.
+   *
+   * Необязательно: записи сессий до появления щита не содержат поля,
+   * отсутствие означает «не удерживает».
+   */
+  shield?: boolean;
 }
 
 /** Пустое намерение (стоит на месте, не стреляет). */
@@ -50,6 +57,8 @@ export interface PlayerControls {
   readonly firing: boolean;
   /** Игрок держит альтернативный огонь (правая кнопка мыши). */
   readonly altFiring: boolean;
+  /** Игрок удерживает активный щит (сектор перед кораблём). */
+  readonly shieldHeld: boolean;
   /** Одноразовое нажатие способности: true ровно один тик. */
   consumeAbility(): boolean;
   /**
@@ -95,6 +104,10 @@ export class HumanControls implements PlayerControls {
 
   get altFiring(): boolean {
     return this.manualAltFiring;
+  }
+
+  get shieldHeld(): boolean {
+    return this.input.isKey("KeyQ");
   }
 
   /** Прицел из мыши/тача (угол в мировых координатах). */
@@ -148,6 +161,10 @@ export class AgentControls implements PlayerControls {
 
   get altFiring(): boolean {
     return this.intent.altFiring === true;
+  }
+
+  get shieldHeld(): boolean {
+    return this.intent.shield === true;
   }
 
   get lastConsumedAbility(): boolean {

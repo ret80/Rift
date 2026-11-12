@@ -140,6 +140,10 @@ export default function HelpScreen(props: {
                 <span>— {t("help.boost")}</span>
               </div>
               <div className="flex items-center gap-2">
+                <span className="kbd">Q</span>
+                <span>— {t("help.shieldLine")}</span>
+              </div>
+              <div className="flex items-center gap-2">
                 <span className="kbd">Space</span>
                 <span>— {t("help.ability")}</span>
               </div>
@@ -168,6 +172,12 @@ export default function HelpScreen(props: {
             <div className="space-y-2">
               <p className="text-[13px] leading-5 text-[#9db4d6]">{t("help.boostBody")}</p>
               <p className="text-[13px] leading-5 text-[#ffb84d]">{t("help.boostNumbers")}</p>
+            </div>
+
+            <Section title={t("help.shieldTitle")} />
+            <div className="space-y-2">
+              <p className="text-[13px] leading-5 text-[#9db4d6]">{t("help.shieldBody")}</p>
+              <p className="text-[13px] leading-5 text-[#66e0ff]">{t("help.shieldNumbers")}</p>
             </div>
 
             <Section title={t("help.dronesTitle")} />

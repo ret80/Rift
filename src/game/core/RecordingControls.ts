@@ -30,6 +30,10 @@ export class RecordingControls implements PlayerControls {
     return this.inner.altFiring;
   }
 
+  get shieldHeld(): boolean {
+    return this.inner.shieldHeld;
+  }
+
   get lastConsumedAbility(): boolean | undefined {
     return this.inner.lastConsumedAbility;
   }

@@ -61,6 +61,7 @@ import { DOCTRINES } from "../game/meta/doctrines";
 import { LEGACY_ARTIFACTS, isArtifactUnlocked } from "../game/meta/legacy";
 import { LegacySystem } from "../game/meta/LegacySystem";
 import { UnlockSystem } from "../game/meta/UnlockSystem";
+import { ShieldSystem } from "../game/ecs/systems/ShieldSystem";
 import { UpgradeSystem } from "../game/systems/UpgradeSystem";
 import { mergeMetaBonuses, noMetaBonuses } from "../game/meta/types";
 import {
@@ -471,6 +472,7 @@ check("GameWorld использует переданный PlayerControls (custo
         abilityCalls++;
         return false;
       },
+      shieldHeld: false,
       consumeBoost() {
         return false;
       },
@@ -1356,6 +1358,25 @@ check("Наследие: артефакт открывается волной и
   expectEqual(bonuses.hpMult, 1.15, "бонус артефакта");
   expectEqual(new LegacySystem("hull_plate", 99).id, "hull_plate", "выбранный артефакт");
   expectEqual(new LegacySystem("black_heart", 10).id, null, "закрытый артефакт");
+});
+
+check("Щит: активный сектор гасит удар в курс и тратит энергию", () => {
+  const shield = new ShieldSystem();
+  shield.setOwned(true);
+  shield.setActive(true, 0);
+  expect(shield.isActive(), "активный щит не включился");
+  expect(shield.absorb(10, 0.3) === 0, "удар в сектор дошёл до корпуса");
+  expect(
+    Math.abs(shield.absorb(10, Math.PI) - 9.5) < 1e-6,
+    "удар со спины должен гаситься только пассивно (5%)",
+  );
+  const before = shield.getEnergy();
+  shield.process(1);
+  expect(Math.abs(before - shield.getEnergy() - 30) < 1e-6, "расход активного щита не 30/с");
+
+  // Разряд уводит щит в перезагрузку и снимает сектор.
+  shield.process(3);
+  expect(shield.isOverloaded() && !shield.isActive(), "разряженный щит не ушёл в перезагрузку");
 });
 
 check("Достижения: оружие и дроны открываются по прогрессу", () => {

@@ -112,6 +112,12 @@ export const SHIELD_REGEN_MAX_LEVEL = 5;
  */
 export const SHIELD_DRAIN_PER_DAMAGE = 2;
 
+/** Расход энергии активного щита, единиц в секунду. */
+export const SHIELD_ACTIVE_DRAIN = 30;
+
+/** Ширина активного сектора, радианы: 120° поперёк курса. */
+export const SHIELD_ACTIVE_SECTOR = (Math.PI * 2) / 3;
+
 /** Время блокировки щита после полного разряда, секунды. */
 export const SHIELD_OVERLOAD_TIME = 3;
 

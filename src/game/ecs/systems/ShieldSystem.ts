@@ -7,6 +7,11 @@
  * упала до нуля, щит уходит в перезагрузку на SHIELD_OVERLOAD_TIME,
  * после чего сразу возвращается на максимум и снова работает.
  *
+ * Удержание клавиши превращает щит в активный: перед кораблём встаёт
+ * сектор 120°, который полностью гасит урон, пришедший из него. За это
+ * энергия тратится постоянно, а не по факту попадания, поэтому активный
+ * щит — это выбор между защитой и запасом на будущее.
+ *
  * Процент блокировки и скорость восстановления приходят из прокачки.
  * Сам щит тоже покупается: пока он не куплен, урон идёт в корпус целиком,
  * а полоски щита не рисуются.
@@ -14,6 +19,8 @@
 
 import { PhasedSystem, Phase } from "../SystemSchedule";
 import {
+  SHIELD_ACTIVE_DRAIN,
+  SHIELD_ACTIVE_SECTOR,
   SHIELD_DRAIN_PER_DAMAGE,
   SHIELD_ENERGY_MAX,
   SHIELD_FLASH_TIME,
@@ -45,6 +52,12 @@ export interface ShieldSnapshot {
   overloadLeft: number;
   /** Остаток вспышки после срабатывания 0..1 (1 — только что сработал). */
   flash: number;
+  /** Игрок удерживает активный щит. */
+  active: boolean;
+  /** Направление сектора активного щита, радианы. */
+  angle: number;
+  /** Ширина сектора активного щита, радианы. */
+  sector: number;
 }
 
 export class ShieldSystem extends PhasedSystem {
@@ -61,6 +74,10 @@ export class ShieldSystem extends PhasedSystem {
   private overloadT = 0;
   /** Остаток вспышки после срабатывания, секунды. */
   private flashT = 0;
+  /** Игрок удерживает активный щит. */
+  private activeOn = false;
+  /** Направление сектора активного щита, радианы. */
+  private activeAngle = 0;
 
   constructor() {
     super(Phase.Upkeep);
@@ -75,6 +92,7 @@ export class ShieldSystem extends PhasedSystem {
       this.energy = SHIELD_ENERGY_MAX;
       this.overloadT = 0;
       this.flashT = 0;
+      this.activeOn = false;
     }
   }
 
@@ -125,6 +143,20 @@ export class ShieldSystem extends PhasedSystem {
     return this.energy;
   }
 
+  /** Активный сектор сейчас развёрнут. */
+  isActive(): boolean {
+    return this.activeOn;
+  }
+
+  /**
+   * Задать удержание активного щита на текущий тик.
+   * Направление сектора — курс корабля.
+   */
+  setActive(held: boolean, angle: number): void {
+    this.activeAngle = angle;
+    this.activeOn = this.owned && held && this.overloadT <= 0 && this.energy > 0;
+  }
+
   /** Снимок для рендера и HUD. */
   getSnapshot(): ShieldSnapshot {
     return {
@@ -134,6 +166,9 @@ export class ShieldSystem extends PhasedSystem {
       overloaded: this.isOverloaded(),
       overloadLeft: this.overloadT,
       flash: this.flashT > 0 ? this.flashT / SHIELD_FLASH_TIME : 0,
+      active: this.activeOn,
+      angle: this.activeAngle,
+      sector: SHIELD_ACTIVE_SECTOR,
     };
   }
 
@@ -155,10 +190,17 @@ export class ShieldSystem extends PhasedSystem {
 
   /**
    * Провести урон через щит.
+   * `impactAngle` — откуда прилетело (направление на источник). Без него
+   * активный сектор не срабатывает: урон среды приходит со всех сторон.
    * Возвращает урон, который должен дойти до корпуса.
    */
-  absorb(dmg: number): number {
+  absorb(dmg: number, impactAngle?: number): number {
     if (dmg <= 0 || !this.owned || this.overloadT > 0 || this.energy <= 0) return dmg;
+
+    if (this.activeOn && impactAngle !== undefined && this.blocksAngle(impactAngle)) {
+      this.flashT = SHIELD_FLASH_TIME;
+      return 0;
+    }
 
     const block = this.getBlockPercent();
     const absorbed = dmg * block;
@@ -175,6 +217,15 @@ export class ShieldSystem extends PhasedSystem {
     return dmg - realBlocked;
   }
 
+  /** Попадает ли направление в сектор активного щита. */
+  private blocksAngle(impactAngle: number): boolean {
+    const delta = Math.atan2(
+      Math.sin(impactAngle - this.activeAngle),
+      Math.cos(impactAngle - this.activeAngle),
+    );
+    return Math.abs(delta) <= SHIELD_ACTIVE_SECTOR / 2;
+  }
+
   /** Восстановить энергию (пикап щита). */
   recharge(amount: number): void {
     if (!this.owned || this.overloadT > 0) return;
@@ -187,10 +238,19 @@ export class ShieldSystem extends PhasedSystem {
     if (!this.owned) return;
     if (this.flashT > 0) this.flashT = Math.max(0, this.flashT - dt);
     if (this.overloadT > 0) {
+      this.activeOn = false;
       this.overloadT = Math.max(0, this.overloadT - dt);
       if (this.overloadT === 0) {
         // Перезагрузка закончилась: щит сразу возвращается на максимум.
         this.energy = SHIELD_ENERGY_MAX;
+      }
+      return;
+    }
+    if (this.activeOn) {
+      this.energy = Math.max(0, this.energy - SHIELD_ACTIVE_DRAIN * dt);
+      if (this.energy <= 0) {
+        this.activeOn = false;
+        this.overloadT = SHIELD_OVERLOAD_TIME;
       }
       return;
     }
@@ -202,4 +262,5 @@ export class ShieldSystem extends PhasedSystem {
     this.energy = SHIELD_ENERGY_MAX;
     this.overloadT = 0;
     this.flashT = 0;
+    this.activeOn = false;
   }}

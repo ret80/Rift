@@ -38,6 +38,15 @@ export const ru = {
   boostNumbers:
     "12 убийств — полное кольцо. Полного заряда хватает на 3 секунды разгона (+45% скорости). " +
     "Форсаж не даёт неуязвимости: уходить от огня всё равно нужно манёвром.",
+  shieldLine: "активный щит (удержание, если куплен)",
+  shieldTitle: "АКТИВНЫЙ ЩИТ",
+  shieldBody:
+    "Купленный щит работает пассивно и гасит часть урона. Если удерживать Q, перед кораблём " +
+    "разворачивается сектор 120°: удары, пришедшие из него, не снимают корпус вовсе. Сектор " +
+    "смотрит по курсу корабля — поворачивайся к опасности носом.",
+  shieldNumbers:
+    "Пока сектор развёрнут, энергия тратится постоянно: 30 единиц в секунду, полного запаса " +
+    "хватает на три секунды. Разряженный щит уходит в перезагрузку на 3 секунды.",
   dronesTitle: "ДРОНЫ",
   dronesBody:
     "Дроны-помощники покупаются в ангаре и занимают слоты «ДРОНЫ». Пока у корабля есть хотя бы один " +
@@ -110,6 +119,15 @@ export const en: typeof ru = {
   boostNumbers:
     "12 kills fill the ring. A full ring gives 3 seconds of acceleration (+45% speed). " +
     "Boost grants no invulnerability: you still dodge by moving.",
+  shieldLine: "active shield (hold, if bought)",
+  shieldTitle: "ACTIVE SHIELD",
+  shieldBody:
+    "A bought shield works passively and absorbs part of the damage. Holding Q projects a 120° " +
+    "sector in front of the ship: hits coming from it do not reach the hull at all. The sector " +
+    "follows the ship's heading, so turn your nose towards the danger.",
+  shieldNumbers:
+    "While the sector is up, energy drains constantly: 30 units per second, so a full charge " +
+    "lasts three seconds. A fully drained shield overloads for 3 seconds.",
   dronesTitle: "DRONES",
   dronesBody:
     "Ally drones are bought in the hangar and take DRONE slots. While the ship has at least one drone, " +

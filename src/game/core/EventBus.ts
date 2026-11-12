@@ -82,7 +82,8 @@ export interface PlayerShotPayload {
 
 export type GameEventMap = {
   enemy_killed: EnemyKilledPayload;
-  player_damaged: { dmg: number; source?: string };
+  /** `angle` — направление на источник удара для активного щита. */
+  player_damaged: { dmg: number; source?: string; angle?: number };
   /**
    * Урон среды (буря на кромке) — отдельный канал.
    *

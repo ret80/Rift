@@ -42,6 +42,12 @@ export interface ShieldRenderState {
   overloadLeft: number;
   /** Остаток вспышки после срабатывания 0..1. */
   flash: number;
+  /** Игрок удерживает активный щит. */
+  active: boolean;
+  /** Направление сектора активного щита, радианы. */
+  angle: number;
+  /** Ширина сектора активного щита, радианы. */
+  sector: number;
 }
 
 /** ДТО кадра отрисовки. */

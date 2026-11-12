@@ -120,6 +120,8 @@ export function checkEnemyBulletVsPlayer(
         eventBus.publish('player_damaged', {
           dmg: b.bullet.dmg,
           source: b.bullet.cruiser ? "cruiser" : "fighter",
+          // Направление на снаряд: активный щит сравнивает его с курсом.
+          angle: Math.atan2(b.position.y - hitbox.y, b.position.x - hitbox.x),
         });
         result.hitIndex = i;
       }

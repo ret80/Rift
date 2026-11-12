@@ -29,6 +29,8 @@ export interface PlayerRenderState {
   shieldOverloaded: boolean;
   /** Остаток вспышки щита 0..1. */
   shieldFlash: number;
+  /** Развёрнут активный сектор щита. */
+  shieldActive: boolean;
 }
 
 /** Снимок щита для buildState. */
@@ -41,6 +43,8 @@ export interface PlayerShieldSnapshot {
   overloaded: boolean;
   /** Остаток вспышки после срабатывания 0..1. */
   flash: number;
+  /** Игрок удерживает активный щит. */
+  active: boolean;
 }
 
 /**
@@ -71,6 +75,7 @@ export function buildPlayerState(
     shieldOwned: shield.owned,
     shieldOverloaded: shield.overloaded,
     shieldFlash: shield.flash,
+    shieldActive: shield.active,
   };
 }
 
@@ -123,10 +128,13 @@ function renderShieldStripes(R: IRenderer, player: PlayerRenderState, time: numb
 
   const ca = Math.cos(player.angle);
   const sa = Math.sin(player.angle);
-  const L = 30;
-  const Wd = 20;
+  // Активный сектор читается крупнее и ярче пассивного контура.
+  const scale = player.shieldActive ? 1.4 : 1;
+  const L = 30 * scale;
+  const Wd = 20 * scale;
 
   let glow = 0.35 + energy * 0.55;
+  if (player.shieldActive) glow = Math.max(glow, 0.9);
   if (player.shieldFlash > 0) {
     // Жёсткое мигание после срабатывания: контур то вспыхивает, то почти гаснет.
     glow = Math.sin(time * 45) > 0 ? 1 : 0.08;

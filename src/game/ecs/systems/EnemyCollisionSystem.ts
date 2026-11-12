@@ -93,6 +93,10 @@ export class EnemyCollisionSystem extends PhasedSystem {
           this.eventBus.publish("player_damaged", {
             dmg,
             source: String(e.marker.kind),
+            angle: Math.atan2(
+              e.position.y - player.position.y,
+              e.position.x - player.position.x,
+            ),
           });
           if (e.marker.affix === "vampiric") {
             const lifesteal = AFFIXES.vampiric.lifesteal ?? 0;
@@ -145,6 +149,10 @@ export class EnemyCollisionSystem extends PhasedSystem {
           this.eventBus.publish("player_damaged", {
             dmg: asteroidDmg,
             source: "asteroid",
+            angle: Math.atan2(
+              rock.position.y - player.position.y,
+              rock.position.x - player.position.x,
+            ),
           });
           playerHit = true;
 

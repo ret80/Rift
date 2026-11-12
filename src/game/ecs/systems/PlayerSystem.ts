@@ -76,8 +76,8 @@ export class PlayerSystem extends PhasedSystem {
 
     // Subscribe to player damage events
     eventBus.subscribe('player_damaged', (event) => {
-      const data = event.payload as { dmg: number };
-      this.hit(data.dmg);
+      const data = event.payload as { dmg: number; angle?: number };
+      this.hit(data.dmg, data.angle);
     });
 
     // Убийства врагов заряжают форсаж.
@@ -124,6 +124,10 @@ export class PlayerSystem extends PhasedSystem {
       this.speedMult * (this.boostOn ? BOOST_SPEED_MULT : 1),
       this.getIntegrate(),
     );
+
+    // Активный щит разворачивает сектор по курсу. Удержание опрашивается
+    // каждый тик: щит сам погасит его, если энергии нет или идёт перезагрузка.
+    this.shield?.setActive(this.controls.shieldHeld, marker.angle);
 
     // Угловая скорость курса: по ней вражеский прицел строит прогноз по дуге,
     // а истребитель распознаёт облёт и срезает орбиту.
@@ -311,14 +315,18 @@ export class PlayerSystem extends PhasedSystem {
 
   // ---- Core methods ----
 
-  hit(dmg: number): void {
+  /**
+   * Урон по кораблю. `impactAngle` — направление на источник удара:
+   * по нему активный щит решает, попал ли удар в его сектор.
+   */
+  hit(dmg: number, impactAngle?: number): void {
     const ref = this.playerRefSource();
     if (!ref) return;
     // Кадры неуязвимости после попадания: без них рой и две турели
     // могут снимать HP каждый кадр.
     if (ref.marker.invuln > 0) return;
     // Щит гасит часть урона и тратит на это энергию.
-    const incoming = this.shield ? this.shield.absorb(dmg) : dmg;
+    const incoming = this.shield ? this.shield.absorb(dmg, impactAngle) : dmg;
     this.applyDamage(ref, incoming);
     ref.marker.invuln = PLAYER_HIT_INVULN;
   }
