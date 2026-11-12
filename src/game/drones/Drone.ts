@@ -122,6 +122,41 @@ export const DRONE_CATALOG: readonly DroneSpec[] = [
   },
 ];
 
+/**
+ * Боевая роль вида дрона: как он держится и как бьёт.
+ *
+ * Характеристики каталога задают силу и темп выстрела, а роль — манеру боя:
+ * разведчик кружит широко и бьёт издали, штурмовик прижимается к цели,
+ * часовой держится у корабля и прикрывает его. По цели фокуса и лока
+ * все роли бьют сильнее — это и есть награда за выбранную цель.
+ */
+export interface DroneRoleSpec {
+  /** Радиус орбиты вокруг корабля, px. */
+  orbitRadius: number;
+  /** Дистанция, которую дрон держит до цели в бою, px. */
+  standoff: number;
+  /** Дальность захвата цели, px. */
+  range: number;
+  /** Скорость перестроения к цели, px/с. */
+  speed: number;
+  /** Множитель урона выстрела. */
+  damageMult: number;
+  /** Дополнительный множитель по цели фокуса или лока. */
+  focusDamageMult: number;
+}
+
+export const DRONE_ROLES: Record<DroneId, DroneRoleSpec> = {
+  scout: { orbitRadius: 70, standoff: 230, range: 520, speed: 240, damageMult: 1, focusDamageMult: 1.2 },
+  striker: { orbitRadius: 54, standoff: 130, range: 720, speed: 280, damageMult: 1.2, focusDamageMult: 1.5 },
+  sentry: { orbitRadius: 38, standoff: 260, range: 420, speed: 200, damageMult: 0.85, focusDamageMult: 1.3 },
+};
+
+/** Урон выстрела дрона с учётом роли и бонуса за фокус/лок. */
+export function droneShotDamage(kind: DroneId, baseDamage: number, focused: boolean): number {
+  const role = DRONE_ROLES[kind];
+  return baseDamage * role.damageMult * (focused ? role.focusDamageMult : 1);
+}
+
 /** Шаблон «нулевой» модели дрона. */
 export const BASE_DRONE_MODEL: DroneModelUpgrades = {
   reload: 0,

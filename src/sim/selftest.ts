@@ -61,6 +61,7 @@ import { DOCTRINES } from "../game/meta/doctrines";
 import { LEGACY_ARTIFACTS, isArtifactUnlocked } from "../game/meta/legacy";
 import { LegacySystem } from "../game/meta/LegacySystem";
 import { UnlockSystem } from "../game/meta/UnlockSystem";
+import { DRONE_ROLES, droneShotDamage } from "../game/drones/Drone";
 import { ShieldSystem } from "../game/ecs/systems/ShieldSystem";
 import { UpgradeSystem } from "../game/systems/UpgradeSystem";
 import { mergeMetaBonuses, noMetaBonuses } from "../game/meta/types";
@@ -1358,6 +1359,26 @@ check("Наследие: артефакт открывается волной и
   expectEqual(bonuses.hpMult, 1.15, "бонус артефакта");
   expectEqual(new LegacySystem("hull_plate", 99).id, "hull_plate", "выбранный артефакт");
   expectEqual(new LegacySystem("black_heart", 10).id, null, "закрытый артефакт");
+});
+
+check("Дроны: роли меняют урон, дистанцию и бонус за фокус", () => {
+  const striker = droneShotDamage("striker", 10, false);
+  const scout = droneShotDamage("scout", 10, false);
+  expect(striker > scout, "штурмовик не бьёт сильнее разведчика");
+  for (const kind of ["scout", "striker", "sentry"] as const) {
+    expect(
+      droneShotDamage(kind, 10, true) > droneShotDamage(kind, 10, false),
+      `${kind}: фокус не добавляет урон`,
+    );
+  }
+  expect(
+    DRONE_ROLES.sentry.orbitRadius < DRONE_ROLES.scout.orbitRadius,
+    "часовой не держится ближе к кораблю",
+  );
+  expect(
+    DRONE_ROLES.striker.standoff < DRONE_ROLES.scout.standoff,
+    "штурмовик не подходит ближе разведчика",
+  );
 });
 
 check("Лок: Tab берёт ближайшую к прицелу цель, орудие наводится на неё", () => {

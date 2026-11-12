@@ -21,19 +21,10 @@ import { PositionComponent } from "../components/PositionComponent";
 import { GameEntity } from "../GameEntity";
 import type { BulletSpawn } from "../spawn";
 import { Phase, PhasedSystem } from "../SystemSchedule";
+import { DRONE_ROLES, droneShotDamage } from "../../drones/Drone";
 
-/** Радиус орбиты дронов вокруг корабля. */
-export const DRONE_ORBIT_RADIUS = 58;
 /** Скорость вращения роя вокруг корабля. */
 const DRONE_ORBIT_SPEED = 0.5;
-/** Дальность захвата цели дроном в эскорте. */
-const DRONE_TARGET_RANGE = 430;
-/** Дальность захвата в штурме и фокусе. */
-const DRONE_ASSAULT_RANGE = 700;
-/** Дистанция, на которой штурмующий дрон держится от цели. */
-const DRONE_STANDOFF = 190;
-/** Скорость перестроения к цели штурма, px/с. */
-const DRONE_ASSAULT_SPEED = 235;
 /** Максимальное число дронов в рое (и слотов корабля). */
 export const MAX_ALLY_DRONES = 8;
 /** Период смены цели дроном, секунды. */
@@ -126,7 +117,9 @@ export class AllyDroneSystem extends PhasedSystem {
       if (drone.flash > 0) drone.flash = Math.max(0, drone.flash - dt);
       if (drone.fireCd > 0) drone.fireCd = Math.max(0, drone.fireCd - dt);
 
-      const range = this.order === "escort" ? DRONE_TARGET_RANGE : DRONE_ASSAULT_RANGE;
+      const role = DRONE_ROLES[drone.kind];
+      // Эскорт бьёт ближе, штурм и фокус дальше — роль задаёт свой потолок.
+      const range = this.order === "escort" ? role.range * 0.75 : role.range;
 
       // Выбор цели: в фокусе — назначенная, иначе ближайшая к дрону.
       drone.retargetT -= dt;
@@ -146,7 +139,10 @@ export class AllyDroneSystem extends PhasedSystem {
         currentTarget = locked;
         drone.targetId = locked.marker.ecsId ?? null;
       } else if (!currentTarget || drone.retargetT <= 0 || currentTarget.marker.dead) {
-        const next = this.findTarget(position.x, position.y, enemies, range);
+        // Часовой выбирает угрозы у корабля, остальные — у себя.
+        const fromX = drone.kind === "sentry" ? player?.position.x ?? position.x : position.x;
+        const fromY = drone.kind === "sentry" ? player?.position.y ?? position.y : position.y;
+        const next = this.findTarget(fromX, fromY, enemies, range);
         drone.targetId = next ? next.marker.ecsId ?? null : null;
         drone.retargetT = DRONE_RETARGET_INTERVAL;
         currentTarget = undefined;
@@ -165,9 +161,9 @@ export class AllyDroneSystem extends PhasedSystem {
         continue;
       }
       if (this.order !== "escort" && target && !target.marker.dead) {
-        this.updateCombatPosition(drone, position, target, dt);
+        this.updateCombatPosition(drone, position, target, dt, role.standoff, role.speed);
       } else {
-        this.updateOrbit(drone, position, player, dt);
+        this.updateOrbit(drone, position, player, dt, role.orbitRadius);
       }
 
       if (!target) continue;
@@ -201,6 +197,10 @@ export class AllyDroneSystem extends PhasedSystem {
 
       const rateMult = Math.max(0.01, this.h.getRateMult());
       drone.fireCd = combat.reloadTime / rateMult;
+      // Роль задаёт свой урон; по фокусу и локу он ещё выше.
+      const focused = (this.order === "focus" && this.focusTargetId === target.marker.ecsId)
+        || this.lockedTargetId === target.marker.ecsId;
+      const damage = droneShotDamage(drone.kind, combat.damage, focused);
       drone.flash = DRONE_FLASH_TIME;
       drone.angle = angle;
       this.h.addBullet({
@@ -209,7 +209,7 @@ export class AllyDroneSystem extends PhasedSystem {
         vx: Math.cos(angle) * combat.bulletSpeed,
         vy: Math.sin(angle) * combat.bulletSpeed,
         life: BULLET_RANGE_PLAYER / combat.bulletSpeed,
-        dmg: combat.damage,
+        dmg: damage,
       });
       anyFired = true;
 
@@ -226,11 +226,12 @@ export class AllyDroneSystem extends PhasedSystem {
     drone: AllyDroneComponent,
     position: PositionComponent,
     player: PlayerRef,
-    dt: number
+    dt: number,
+    radius: number,
   ): void {
     drone.phase += dt * DRONE_ORBIT_SPEED;
-    position.x = player.position.x + Math.cos(drone.phase) * DRONE_ORBIT_RADIUS;
-    position.y = player.position.y + Math.sin(drone.phase) * DRONE_ORBIT_RADIUS;
+    position.x = player.position.x + Math.cos(drone.phase) * radius;
+    position.y = player.position.y + Math.sin(drone.phase) * radius;
     drone.angle = drone.phase + Math.PI / 2;
   }
 
@@ -243,15 +244,17 @@ export class AllyDroneSystem extends PhasedSystem {
     position: PositionComponent,
     target: EnemyRef,
     dt: number,
+    standoff: number,
+    speed: number,
   ): void {
     drone.phase += dt * 0.9;
-    const tx = target.position.x + Math.cos(drone.phase) * DRONE_STANDOFF;
-    const ty = target.position.y + Math.sin(drone.phase) * DRONE_STANDOFF;
+    const tx = target.position.x + Math.cos(drone.phase) * standoff;
+    const ty = target.position.y + Math.sin(drone.phase) * standoff;
     const dx = tx - position.x;
     const dy = ty - position.y;
     const dist = Math.hypot(dx, dy);
     if (dist < 1) return;
-    const step = Math.min(dist, DRONE_ASSAULT_SPEED * dt);
+    const step = Math.min(dist, speed * dt);
     position.x += (dx / dist) * step;
     position.y += (dy / dist) * step;
     drone.angle = Math.atan2(target.position.y - position.y, target.position.x - position.x);
@@ -262,7 +265,7 @@ export class AllyDroneSystem extends PhasedSystem {
     x: number,
     y: number,
     enemies: readonly EnemyRef[],
-    range: number = DRONE_TARGET_RANGE,
+    range = 520,
   ): EnemyRef | null {
     let nearest: EnemyRef | null = null;
     let nearestDist = range;
