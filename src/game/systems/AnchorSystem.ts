@@ -51,6 +51,8 @@ export const ANCHOR_FIRST_SPAWN_DELAY = 4;
 export const ANCHOR_SPAWN_INTERVAL = 6;
 /** Сколько подкреплений выпускает один якорь за волну. */
 export const ANCHOR_MAX_REINFORCEMENTS = 12;
+/** Минимальный зазор между якорями: цели не должны накладываться друг на друга. */
+export const ANCHOR_MIN_SPACING = ANCHOR_RADIUS * 4 + 24;
 
 /** Прочность якоря: база + рост по волнам (крейсерский скейл). */
 export function anchorMaxHp(wave: number): number {
@@ -111,6 +113,7 @@ export class AnchorSystem extends PhasedSystem {
     if (!zone.active) return;
 
     this.keepInsideZone(zone);
+    this.separate(this.anchors, zone);
 
     for (const anchor of this.anchors) {
       if (!anchor.alive) continue;
@@ -210,10 +213,41 @@ export class AnchorSystem extends PhasedSystem {
     this.pendingCount = 0;
     this.pendingWave = 0;
     this.env.onSpawned(this.anchors);
+}
+
+  /** Раздвинуть близкие якоря вдоль линии между ними и вернуть в зону. */
+  separate(anchors: Anchor[], zone: ZoneData): void {
+    const limit = zone.radius * ANCHOR_ZONE_MARGIN;
+    for (let i = 0; i < anchors.length; i++) {
+      const a = anchors[i];
+      if (!a.alive) continue;
+      for (let j = i + 1; j < anchors.length; j++) {
+        const b = anchors[j];
+        if (!b.alive) continue;
+        let dx = b.x - a.x;
+        let dy = b.y - a.y;
+        let dist = Math.hypot(dx, dy);
+        if (dist >= ANCHOR_MIN_SPACING) continue;
+        if (dist < 1e-3) { dx = 1; dy = 0; dist = 1; }
+        const push = (ANCHOR_MIN_SPACING - dist) / 2;
+        a.x -= (dx / dist) * push; a.y -= (dy / dist) * push;
+        b.x += (dx / dist) * push; b.y += (dy / dist) * push;
+        this._clamp(a, zone, limit);
+        this._clamp(b, zone, limit);
+      }
+    }
+  }
+
+  private _clamp(anchor: Anchor, zone: ZoneData, limit: number): void {
+    const dx = anchor.x - zone.x, dy = anchor.y - zone.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist <= limit || dist === 0) return;
+    const k = limit / dist;
+    anchor.x = zone.x + dx * k; anchor.y = zone.y + dy * k;
   }
 
   /** Держать живые якоря внутри текущей зоны (сжатие не отрезает цель). */
-  private keepInsideZone(zone: ZoneData): void {
+  keepInsideZone(zone: ZoneData): void {
     const limit = zone.radius * ANCHOR_ZONE_MARGIN;
     for (const anchor of this.anchors) {
       if (!anchor.alive) continue;
