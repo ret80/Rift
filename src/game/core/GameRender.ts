@@ -73,6 +73,7 @@ export class GameRender {
       boostEnergy: ctx.playerSystem.boostEnergy,
       boostActive: ctx.playerSystem.boostActive,
       anchors: ctx.world.anchorSystem.aliveCount(),
+      outsideZone: ctx.waveOrchestrator.outsideZone,
     });
   }
 

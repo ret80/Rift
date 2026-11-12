@@ -240,6 +240,7 @@ export class AudioEngine {
   heavyShoot() { this.sfxSynth.heavyShoot(); }
   explode(size = 1) { this.sfxSynth.explode(size); }
   playerHit() { this.sfxSynth.playerHit(); }
+  zoneWarning() { this.sfxSynth.zoneWarning(); }
   shieldTick() { this.sfxSynth.shieldTick(); }
   riftOpen() { this.sfxSynth.riftOpen(); }
   riftClose() { this.sfxSynth.riftClose(); }

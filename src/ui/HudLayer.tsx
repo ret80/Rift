@@ -159,6 +159,39 @@ export function HudLayer(props: {
         </div>
       )}
 
+      {/* предупреждение: за краем арены игрок теряет корпус — иконка мигает */}
+      {data?.outsideZone && (
+        <div
+          className="absolute left-2 sm:left-4"
+          style={{ top: "calc(env(safe-area-inset-top) + 112px)" }}
+        >
+          <div
+            className={
+              "anim-red-pulse flex h-8 w-8 items-center justify-center border " +
+              "border-[#ff3b52]/70 bg-[#1a0509]/85"
+            }
+            role="alert"
+            aria-label={t("hud.zoneWarning")}
+            title={t("hud.zoneWarning")}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#ff3b52"
+              strokeWidth="2"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 3 L22 20 H2 Z" />
+              <line x1="12" y1="9" x2="12" y2="14" strokeLinecap="round" />
+              <circle cx="12" cy="17" r="1" fill="#ff3b52" stroke="none" />
+            </svg>
+          </div>
+        </div>
+      )}
+
       {/* приказ рою: три положения, смена в бою — только при наличии дронов */}
       {props.onSetDroneOrder && (data?.drones ?? 0) > 0 && (
         <div

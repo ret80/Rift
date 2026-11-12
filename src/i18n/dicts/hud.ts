@@ -5,6 +5,7 @@
 export const ru = {
   wave: "ВОЛНА",
   anchors: "ЯКОРЯ",
+  zoneWarning: "ВНЕ АРЕНЫ",
   scoreLabel: "СЧЁТ",
   best: "РЕКОРД {v}",
   cleared: "ЗАЧИЩЕНО {k} / {t}",
@@ -51,6 +52,7 @@ export const ru = {
 export const en: typeof ru = {
   wave: "WAVE",
   anchors: "ANCHORS",
+  zoneWarning: "OUTSIDE ARENA",
   scoreLabel: "SCORE",
   best: "BEST {v}",
   cleared: "CLEARED {k} / {t}",

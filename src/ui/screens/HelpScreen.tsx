@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, type MutableRefObject } from "react";
 import GameButton from "../components/GameButton";
-import { Icon } from "../components/Icon";
-import { useT } from "../../i18n";
+import { EnemySprite } from "../components/EnemySprite";
+import { Icon, type IconKind } from "../components/Icon";
+import { useT, type TKey } from "../../i18n";
+import { EnemyKind } from "../../game/balance";
 import type { GamepadNavHandlers } from "../ScreenRouter";
 
 /** Заголовок раздела справки. */
@@ -13,20 +15,58 @@ function Section(props: { title: string }) {
   );
 }
 
-/** Строка списка: значок слева, текст справа. */
-function Row(props: { icon: React.ReactNode; children: React.ReactNode }) {
+/** Цветной глиф для бонусов без отдельной иконки. */
+function Glyph(props: { color: string; char: string }) {
+  return <span style={{ color: props.color }}>{props.char}</span>;
+}
+
+/**
+ * Таблица справки: в левой ячейке — уменьшённый спрайт, справа — описание.
+ * Спрайты целей берут геометрию из боя, поэтому силуэт совпадает с ареной.
+ */
+function SpriteRow(props: { sprite: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-3 text-[13px] leading-5 text-[#9db4d6]">
-      <span className="flex w-4 shrink-0 justify-center pt-0.5">{props.icon}</span>
-      <span>{props.children}</span>
+    <div className="grid grid-cols-[40px_1fr] items-center gap-3">
+      <div className="flex h-10 w-10 items-center justify-center border border-[#5ef2ff]/15 bg-[#0b1420]/60">
+        {props.sprite}
+      </div>
+      <div className="text-[13px] leading-5 text-[#9db4d6]">{props.children}</div>
     </div>
   );
 }
 
-/** Цветной глиф для целей без отдельной иконки. */
-function Glyph(props: { color: string; char: string }) {
-  return <span style={{ color: props.color }}>{props.char}</span>;
-}
+/** Порядок и подписи целей в справке. */
+const ENEMY_ROWS: ReadonlyArray<{ kind: EnemyKind; key: TKey }> = [
+  { kind: EnemyKind.Drone, key: "help.drone" },
+  { kind: EnemyKind.Hunter, key: "help.hunter" },
+  { kind: EnemyKind.Fighter, key: "help.fighter" },
+  { kind: EnemyKind.Cruiser, key: "help.cruiser" },
+  { kind: EnemyKind.Carrier, key: "help.carrier" },
+  { kind: EnemyKind.Miner, key: "help.miner" },
+  { kind: EnemyKind.Mine, key: "help.mine" },
+  { kind: EnemyKind.Needle, key: "help.needle" },
+  { kind: EnemyKind.Shieldbearer, key: "help.shieldbearer" },
+  { kind: EnemyKind.Harpooner, key: "help.harpooner" },
+  { kind: EnemyKind.Splitter, key: "help.splitter" },
+  { kind: EnemyKind.Jammer, key: "help.jammer" },
+  { kind: EnemyKind.Vortex, key: "help.vortex" },
+  { kind: EnemyKind.HiveMother, key: "help.hiveMother" },
+  { kind: EnemyKind.Boss, key: "help.boss" },
+];
+
+/** Строки бонусов: иконка из боя и описание. */
+const BONUS_ROWS: ReadonlyArray<
+  { icon: IconKind; key: TKey } | { glyph: string; color: string; key: TKey }
+> = [
+  { icon: "pickup-heal", key: "help.heal" },
+  { icon: "pickup-rate", key: "help.rate" },
+  { icon: "pickup-gun", key: "help.gun" },
+  { icon: "pickup-drone", key: "help.allyDrone" },
+  { icon: "pickup-shield", key: "help.shield" },
+  { icon: "weapon-cannon", key: "help.weapon" },
+  { icon: "ability-quantum-swap", key: "help.swap" },
+  { glyph: "⬡", color: "#8a9bb8", key: "help.asteroid" },
+];
 
 /**
  * HelpScreen — справка по игре.
@@ -135,33 +175,27 @@ export default function HelpScreen(props: {
 
             <Section title={t("help.enemies")} />
             <div className="space-y-2">
-              <Row icon={<Icon kind="enemy-drone" />}>{t("help.drone")}</Row>
-              <Row icon={<Icon kind="enemy-hunter" />}>{t("help.hunter")}</Row>
-              <Row icon={<Icon kind="enemy-fighter" />}>{t("help.fighter")}</Row>
-              <Row icon={<Icon kind="enemy-cruiser" />}>{t("help.cruiser")}</Row>
-              <Row icon={<Icon kind="enemy-carrier" />}>{t("help.carrier")}</Row>
-              <Row icon={<Glyph color="#ffb84d" char="▲" />}>{t("help.miner")}</Row>
-              <Row icon={<Glyph color="#ff6b3d" char="✳" />}>{t("help.mine")}</Row>
-              <Row icon={<Glyph color="#ffd23e" char="↑" />}>{t("help.needle")}</Row>
-              <Row icon={<Glyph color="#7cf3ff" char="◈" />}>{t("help.shieldbearer")}</Row>
-              <Row icon={<Glyph color="#c79bff" char="⌁" />}>{t("help.harpooner")}</Row>
-              <Row icon={<Glyph color="#9dffe8" char="✚" />}>{t("help.splitter")}</Row>
-              <Row icon={<Glyph color="#8f9dff" char="◎" />}>{t("help.jammer")}</Row>
-              <Row icon={<Glyph color="#ff8c42" char="↻" />}>{t("help.vortex")}</Row>
-              <Row icon={<Glyph color="#c06bff" char="✧" />}>{t("help.hiveMother")}</Row>
-              <Row icon={<Glyph color="#ff3355" char="◆" />}>{t("help.boss")}</Row>
+              {ENEMY_ROWS.map((row) => (
+                <SpriteRow key={row.kind} sprite={<EnemySprite kind={row.kind} size={30} />}>
+                  {t(row.key)}
+                </SpriteRow>
+              ))}
             </div>
 
             <Section title={t("help.bonuses")} />
             <div className="space-y-2">
-              <Row icon={<Icon kind="pickup-heal" />}>{t("help.heal")}</Row>
-              <Row icon={<Icon kind="pickup-rate" />}>{t("help.rate")}</Row>
-              <Row icon={<Icon kind="pickup-gun" />}>{t("help.gun")}</Row>
-              <Row icon={<Icon kind="pickup-drone" />}>{t("help.allyDrone")}</Row>
-              <Row icon={<Icon kind="pickup-shield" />}>{t("help.shield")}</Row>
-              <Row icon={<Glyph color="#9dffe8" char="➤" />}>{t("help.weapon")}</Row>
-              <Row icon={<Glyph color="#7cf3ff" char="⇄" />}>{t("help.swap")}</Row>
-              <Row icon={<Glyph color="#8a9bb8" char="⬡" />}>{t("help.asteroid")}</Row>
+              {BONUS_ROWS.map((row) => (
+                <SpriteRow
+                  key={row.key}
+                  sprite={
+                    "icon" in row
+                      ? <Icon kind={row.icon} size={22} />
+                      : <Glyph color={row.color} char={row.glyph} />
+                  }
+                >
+                  {t(row.key)}
+                </SpriteRow>
+              ))}
             </div>
 
             <Section title={t("help.hangarTitle")} />

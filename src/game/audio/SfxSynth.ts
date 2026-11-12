@@ -129,6 +129,11 @@ export class SfxSynth {
     this.tone("sawtooth", 170, 55, 0.2, 0.16);
     this.noise(0.16, 0.12, 2400, 300);
   }
+  /** Сигнал за краем арены: два коротких тревожных бипа. */
+  zoneWarning() {
+    this.tone("square", 900, 900, 0.08, 0.06);
+    this.tone("square", 660, 660, 0.1, 0.06, 0.1);
+  }
   shieldTick() {
     this.tone("sine", 1500, 900, 0.04, 0.03);
   }

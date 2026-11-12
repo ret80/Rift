@@ -40,6 +40,8 @@ export interface HudData {
   boostActive: boolean;
   /** Живые якоря-разломы (0 — цель волны отсутствует). */
   anchors: number;
+  /** Игрок за краем арены и получает урон зоны. */
+  outsideZone: boolean;
 }
 
 /* ============================== Banners / Toasts / Countdown ============================== */

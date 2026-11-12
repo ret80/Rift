@@ -29,6 +29,7 @@ export interface AudioPort {
   playPickupSound(kind: PickupKind): void;
   playExplosion(size?: number): void;
   playPlayerHit(): void;
+  playZoneWarning(): void;
   playDroneShot(): void;
   playDroneHit(): void;
   playRiftOpen(): void;
@@ -91,6 +92,7 @@ export class NullAudio implements AudioPort {
   playPickupSound(_kind: PickupKind): void {}
   playExplosion(_size?: number): void {}
   playPlayerHit(): void {}
+  playZoneWarning(): void {}
   playDroneShot(): void {}
   playDroneHit(): void {}
   playRiftOpen(): void {}

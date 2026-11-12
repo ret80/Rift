@@ -26,12 +26,16 @@ import type { ZoneData } from "../core/ZoneTypes";
 
 /** Длительность короткого тоста предупреждения (секунды). */
 const TOAST_CLEAR_SHORT = 1.5;
+/** Интервал повторного звукового сигнала за краем арены, секунды. */
+const WARNING_INTERVAL = 1.2;
 
 export interface ZoneEdgeHooks {
   onToast: (text: string, color?: string) => void;
   /** Урон в обход щита: ровно 10%/с от максимального HP. */
   hitPlayerRaw: (amount: number) => void;
   shakeScreen: (strength: number, duration: number) => void;
+  /** Звуковое предупреждение об уроне за краем арены. */
+  onWarning?: () => void;
 }
 
 export interface PlayerPosition {
@@ -44,6 +48,8 @@ export class ZoneEdgeDamage {
   private outside = false;
   /** Таймер пульсов тряски. */
   private tickTime = 0;
+  /** Таймер повторного звукового предупреждения. */
+  private warningTime = 0;
 
   /** Игрок вне зоны (используется индикатором направления). */
   get isOutside(): boolean {
@@ -54,6 +60,7 @@ export class ZoneEdgeDamage {
   reset(): void {
     this.outside = false;
     this.tickTime = 0;
+    this.warningTime = 0;
   }
 
   /**
@@ -89,9 +96,11 @@ export class ZoneEdgeDamage {
       if (dist > zone.radius + ZONE_EXIT_EPSILON) {
         this.outside = true;
         this.tickTime = 0;
+        this.warningTime = 0;
         hooks.onToast(t("game.zoneWarning"), "#fa5");
         keepToast(TOAST_CLEAR_SHORT);
         hooks.shakeScreen(ZONE_EDGE_SHAKE_STRENGTH, 0.2);
+        hooks.onWarning?.();
       }
     } else if (dist < zone.radius - ZONE_REENTRY_HYSTERESIS) {
       this.outside = false;
@@ -108,6 +117,13 @@ export class ZoneEdgeDamage {
     if (this.tickTime >= ZONE_EDGE_DAMAGE_INTERVAL) {
       this.tickTime = 0;
       hooks.shakeScreen(ZONE_EDGE_SHAKE_STRENGTH, 0.2);
+    }
+
+    // Звук реже тряски: сигнал раз в секунду не превращается в трель.
+    this.warningTime += dt;
+    if (this.warningTime >= WARNING_INTERVAL) {
+      this.warningTime = 0;
+      hooks.onWarning?.();
     }
   }
 }

@@ -14,6 +14,7 @@ import type { AffixId } from "../../balance/affixes";
 import type { EnemyRef } from "../../ecs";
 import { TAU, clamp, rgba } from "../../math";
 import type { IRenderer, RGBA } from "../../render/index";
+import { ENEMY_HULLS, enemyColor, type HullPoint } from "./EnemyHulls";
 import { drawShipPoly } from "./ShipRenderer";
 
 export interface EnemyRenderState {
@@ -108,7 +109,7 @@ export function renderEnemies(
 ) {
   for (const e of enemies) {
     if (e.dead) continue;
-    const base = kindColor(e.kind);
+    const base = enemyColor(e.kind);
     const flash = e.flash > 0 ? 1 : 0;
     const [r, g, b] = rgba(base, 1);
     const col: RGBA = [
@@ -129,11 +130,11 @@ export function renderEnemies(
             col[3],
           ];
         }
-        drawShipPoly(R, e.x, e.y, e.angle, [[9, 0], [-7, 7], [-4, 0], [-7, -7]], droneCol);
+        drawShipPoly(R, e.x, e.y, e.angle, hullOf(e.kind), droneCol);
         break;
       }
       case EnemyKind.Hunter: {
-        drawShipPoly(R, e.x, e.y, e.angle, [[13, 0], [-8, 6], [-4, 0], [-8, -6]], col);
+        drawShipPoly(R, e.x, e.y, e.angle, hullOf(e.kind), col);
         R.circle(
           e.x + Math.cos(e.angle) * 5,
           e.y + Math.sin(e.angle) * 5,
@@ -151,11 +152,11 @@ export function renderEnemies(
         break;
       }
       case EnemyKind.Fighter: {
-        drawShipPoly(R, e.x, e.y, e.angle, [[14, 0], [-10, 9], [-5, 0], [-10, -9]], col);
+        drawShipPoly(R, e.x, e.y, e.angle, hullOf(e.kind), col);
         break;
       }
       case EnemyKind.Cruiser: {
-        drawShipPoly(R, e.x, e.y, e.angle, [[22, 0], [8, 14], [-18, 12], [-18, -12], [8, -14]], col);
+        drawShipPoly(R, e.x, e.y, e.angle, hullOf(e.kind), col);
         R.circle(e.x, e.y, 8, rgba(base, 0.5), 16);
         // Орудийная турель: корпус смотрит по курсу, стволы наведены на цель.
         const fx = Math.cos(e.turretAngle);
@@ -174,7 +175,7 @@ export function renderEnemies(
         break;
       }
       case EnemyKind.Carrier: {
-        drawShipPoly(R, e.x, e.y, e.angle, [[30, 0], [10, 20], [-24, 16], [-24, -16], [10, -20]], col);
+        drawShipPoly(R, e.x, e.y, e.angle, hullOf(e.kind), col);
         R.circle(e.x, e.y, 12, rgba(base, 0.4), 20);
         R.dashedCircle(e.x, e.y, 20, rgba(base, 0.3), 8, _time * 0.8);
         // Визуализация орбиты для дронов (всегда рисуется вокруг Carrier)
@@ -183,7 +184,7 @@ export function renderEnemies(
       }
       case EnemyKind.Miner: {
         // Корпус-дрель: нос с буром, сзади контейнер с минами.
-        drawShipPoly(R, e.x, e.y, e.angle, [[16, 0], [4, 11], [-12, 9], [-12, -9], [4, -11]], col);
+        drawShipPoly(R, e.x, e.y, e.angle, hullOf(e.kind), col);
         R.pushLine(
           e.x + Math.cos(e.angle) * 16,
           e.y + Math.sin(e.angle) * 16,
@@ -196,11 +197,7 @@ export function renderEnemies(
       }
       case EnemyKind.Boss: {
         // Босс: тяжёлый корпус, вращающиеся кольца и дуга прочности.
-        drawShipPoly(
-          R, e.x, e.y, e.angle,
-          [[46, 0], [24, 28], [-30, 24], [-42, 0], [-30, -24], [24, -28]],
-          col,
-        );
+        drawShipPoly(R, e.x, e.y, e.angle, hullOf(e.kind), col);
         R.circle(e.x, e.y, 17, rgba(base, 0.55), 24);
         R.dashedCircle(e.x, e.y, 30 + e.mode * 4, rgba(base, 0.4), 10, _time * (0.7 + e.mode * 0.25));
         R.circle(e.x, e.y, 5 + e.mode * 1.5, rgba(C.white, 0.8), 12);
@@ -223,7 +220,7 @@ export function renderEnemies(
       }
       case EnemyKind.Needle: {
         // Тонкий клин с иглой на носу.
-        drawShipPoly(R, e.x, e.y, e.angle, [[17, 0], [2, 5], [-10, 4], [-10, -4], [2, -5]], col);
+        drawShipPoly(R, e.x, e.y, e.angle, hullOf(e.kind), col);
         R.pushLine(
           e.x + Math.cos(e.angle) * 15,
           e.y + Math.sin(e.angle) * 15,
@@ -234,17 +231,13 @@ export function renderEnemies(
         break;
       }
       case EnemyKind.Shieldbearer: {
-        drawShipPoly(
-          R, e.x, e.y, e.angle,
-          [[18, 0], [10, 13], [-10, 13], [-16, 0], [-10, -13], [10, -13]],
-          col,
-        );
+        drawShipPoly(R, e.x, e.y, e.angle, hullOf(e.kind), col);
         R.circle(e.x, e.y, 6, rgba(base, 0.55), 14);
         R.dashedCircle(e.x, e.y, SHIELDBEARER_AURA_RADIUS, rgba(base, 0.16), 18, _time * 0.4);
         break;
       }
       case EnemyKind.Harpooner: {
-        drawShipPoly(R, e.x, e.y, e.angle, [[15, 0], [4, 9], [-12, 7], [-12, -7], [4, -9]], col);
+        drawShipPoly(R, e.x, e.y, e.angle, hullOf(e.kind), col);
         if (e.tetherActive) {
           R.pushLine(
             e.x + Math.cos(e.angle) * 12,
@@ -257,7 +250,7 @@ export function renderEnemies(
         break;
       }
       case EnemyKind.Splitter: {
-        drawShipPoly(R, e.x, e.y, e.angle, [[13, 0], [0, 11], [-13, 0], [0, -11]], col);
+        drawShipPoly(R, e.x, e.y, e.angle, hullOf(e.kind), col);
         R.circle(e.x, e.y, 4, rgba(base, 0.8), 10);
         break;
       }
@@ -290,11 +283,7 @@ export function renderEnemies(
         break;
       }
       case EnemyKind.HiveMother: {
-        drawShipPoly(
-          R, e.x, e.y, e.angle,
-          [[34, 0], [16, 22], [-20, 18], [-30, 0], [-20, -18], [16, -22]],
-          col,
-        );
+        drawShipPoly(R, e.x, e.y, e.angle, hullOf(e.kind), col);
         R.circle(e.x, e.y, 10, rgba(base, 0.5), 20);
         R.dashedCircle(e.x, e.y, 40 + e.mode * 6, rgba(base, 0.35), 14, _time * (0.6 + e.mode * 0.2));
         R.dashedCircle(e.x, e.y, 68, rgba(base, 0.14), 18, -_time * 0.35);
@@ -380,6 +369,11 @@ export function renderEnemies(
   }
 }
 
+/** Полигон корпуса: у врагов без корпуса-полигона — пустой список. */
+function hullOf(kind: EnemyKind): ReadonlyArray<HullPoint> {
+  return ENEMY_HULLS[kind] ?? [];
+}
+
 function affixColor(affix: AffixId): string {
   switch (affix) {
     case "armored": return "#b8c0cc";
@@ -393,23 +387,3 @@ function affixColor(affix: AffixId): string {
   }
 }
 
-function kindColor(kind: EnemyKind): string {
-  switch (kind) {
-    case EnemyKind.Drone: return C.drone;
-    case EnemyKind.Hunter: return C.hunter;
-    case EnemyKind.Fighter: return C.fighter;
-    case EnemyKind.Cruiser: return C.cruiser;
-    case EnemyKind.Carrier: return C.carrier;
-    case EnemyKind.Miner: return C.miner;
-    case EnemyKind.Boss: return C.boss;
-    case EnemyKind.Mine: return C.mine;
-    case EnemyKind.Needle: return "#ffd166";
-    case EnemyKind.Shieldbearer: return "#4cc9f0";
-    case EnemyKind.Harpooner: return "#c77dff";
-    case EnemyKind.Splitter: return "#90be6d";
-    case EnemyKind.Jammer: return "#f72585";
-    case EnemyKind.Vortex: return "#ff9f1c";
-    case EnemyKind.HiveMother: return "#b5179e";
-    default: return C.drone;
-  }
-}

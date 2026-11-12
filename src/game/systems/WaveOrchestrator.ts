@@ -36,6 +36,8 @@ export interface WaveOrchestratorHooks {
   /** Урон бури на кромке — через щит. */
   hitPlayerShielded: (amount: number) => void;
   shakeScreen: (strength: number, duration: number) => void;
+  /** Звук урона за краем арены. */
+  onWarning?: () => void;
   onWaveAdvanced: (wave: number) => void;
   /** Волна зачищена (один раз за волну). */
   onWaveCleared?: (wave: number) => void;
@@ -88,6 +90,14 @@ export class WaveOrchestrator {
 
   get waveState(): WaveStateId {
     return this.waves.state;
+  }
+
+  /**
+   * Игрок за краем арены. Вне активной волны урона нет, поэтому и
+   * предупреждение в HUD не показывается.
+   */
+  get outsideZone(): boolean {
+    return this.waves.state === "active" && this.edge.isOutside;
   }
 
   /** Снимок бури на кромке для рендера. */

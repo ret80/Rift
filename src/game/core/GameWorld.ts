@@ -309,6 +309,7 @@ export class GameWorld {
         },
         hitPlayerShielded: (amount) => this.hitPlayerByEnvironment(amount),
         shakeScreen: (strength) => fxPort.addShake(strength),
+        onWarning: () => this.ports.audio.playZoneWarning(),
         onWaveCleared: (wave) => {
           if (this.singleWaveTest) {
             this.endSingleWaveTest("cleared");

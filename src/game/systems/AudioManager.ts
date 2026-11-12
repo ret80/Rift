@@ -100,6 +100,11 @@ export class AudioManager {
     this.engine.playerHit();
   }
 
+  /** Сигнал урона за краем арены. */
+  playZoneWarning(): void {
+    this.engine.zoneWarning();
+  }
+
   playWaveClear(): void {
     this.engine.waveClear();
   }

@@ -11,7 +11,7 @@ export function drawShipPoly(
   x: number,
   y: number,
   angle: number,
-  pts: Array<[number, number]>,
+  pts: ReadonlyArray<readonly [number, number]>,
   c: RGBA
 ) {
   const cos = Math.cos(angle);
