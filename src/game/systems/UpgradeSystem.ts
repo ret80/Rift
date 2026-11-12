@@ -44,6 +44,12 @@ export class UpgradeSystem {
   private _appliedUpgrades: AppliedUpgrades;
   /** Бонусы мета-талантов, применяемые поверх прокачки забега. */
   private _metaBonuses: MetaBonuses = noMetaBonuses();
+  /**
+   * Открытые достижениями виды оружия и дронов. `null` — без ограничений
+   * (симуляция, отладка и сценарии не зависят от прогресса игрока).
+   */
+  private _unlockedWeapons: ReadonlySet<string> | null = null;
+  private _unlockedDrones: ReadonlySet<string> | null = null;
 
   private constructor() {
     this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses);
@@ -64,6 +70,26 @@ export class UpgradeSystem {
     this._loadout = seed?.weaponLoadout ?? defaultWeaponLoadout();
     this._droneSystem.setLoadout(seed?.droneLoadout ?? defaultDroneLoadout());
     this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses);
+  }
+
+  /** Задать открытые достижениями виды оружия; null — все доступны. */
+  setUnlockedWeapons(ids: ReadonlySet<string> | null): void {
+    this._unlockedWeapons = ids;
+  }
+
+  /** Задать открытые достижениями виды дронов; null — все доступны. */
+  setUnlockedDrones(ids: ReadonlySet<string> | null): void {
+    this._unlockedDrones = ids;
+  }
+
+  /** Открыт ли вид оружия (без достижений — только пушка). */
+  isWeaponUnlocked(id: WeaponId): boolean {
+    return this._unlockedWeapons === null || this._unlockedWeapons.has(id);
+  }
+
+  /** Открыт ли вид дрона. */
+  isDroneUnlocked(id: DroneId): boolean {
+    return this._unlockedDrones === null || this._unlockedDrones.has(id);
   }
 
   /** Применить бонусы Зеркала Ночи к текущему забегу. */
@@ -178,6 +204,8 @@ export class UpgradeSystem {
   private purchaseWeaponImpl(id: WeaponId, free: boolean): boolean {
     const entry = this._loadout[id];
     if (!entry || entry.owned) return false;
+    // Закрытое достижением оружие не купить: сначала нужно выполнить условие.
+    if (!free && !this.isWeaponUnlocked(id)) return false;
     if (this.getUsedWeaponSlots() >= this.getApplied("weaponSlots")) return false;
     if (!free) {
       const cost = weaponCost(id);

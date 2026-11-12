@@ -164,6 +164,9 @@ export function UpgradeScreen(props: {
   const [usedWeaponSlots, setUsedWeaponSlots] = useState(1);
   const [droneSlots, setDroneSlots] = useState(1);
   const [usedDroneSlots, setUsedDroneSlots] = useState(1);
+  /** Закрытые достижениями виды — кнопка покупки неактивна до условия. */
+  const [lockedWeapons, setLockedWeapons] = useState<ReadonlySet<string>>(new Set());
+  const [lockedDrones, setLockedDrones] = useState<ReadonlySet<string>>(new Set());
 
   const screenRef = useRef<HTMLDivElement | null>(null);
 
@@ -178,6 +181,16 @@ export function UpgradeScreen(props: {
     setUsedWeaponSlots(game.getUsedWeaponSlots());
     setDroneSlots(game.getDroneSlots());
     setUsedDroneSlots(game.getUsedDroneSlots());
+    const closedWeapons = new Set<string>();
+    for (const weapon of ARMORY_WEAPONS) {
+      if (!game.isWeaponUnlocked(weapon.id)) closedWeapons.add(weapon.id);
+    }
+    const closedDrones = new Set<string>();
+    for (const drone of DRONE_CATALOG) {
+      if (!game.isDroneUnlocked(drone.id)) closedDrones.add(drone.id);
+    }
+    setLockedWeapons(closedWeapons);
+    setLockedDrones(closedDrones);
   }, [props.game]);
 
   // Первичный снимок при открытии экрана.
@@ -406,6 +419,7 @@ export function UpgradeScreen(props: {
               free={free}
               weaponSlots={weaponSlots}
               usedWeaponSlots={usedWeaponSlots}
+              lockedIds={lockedWeapons}
               onBuyWeapon={handleBuyWeapon}
               onBuyStat={handleBuyStat}
               focusedId={focusedId}
@@ -419,6 +433,7 @@ export function UpgradeScreen(props: {
               free={free}
               droneSlots={droneSlots}
               usedDroneSlots={usedDroneSlots}
+              lockedIds={lockedDrones}
               onBuyDrone={handleBuyDrone}
               onBuyStat={handleBuyDroneStat}
               focusedId={focusedId}

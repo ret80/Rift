@@ -16,6 +16,8 @@ import { AnchorSystem, type Anchor } from "../ecs/systems/AnchorSystem";
 import { MetaTree } from "../meta/MetaTree";
 import { DoctrineSystem } from "../meta/DoctrineSystem";
 import { LegacySystem } from "../meta/LegacySystem";
+import { UnlockSystem } from "../meta/UnlockSystem";
+import { recordCareerRun } from "../meta/PlayerStats";
 import { AscensionSystem } from "../meta/AscensionSystem";
 import { mergeMetaBonuses, type MetaBonuses } from "../meta/types";
 import { loadCredits, saveCredits } from "../meta/MetaStorage";
@@ -65,6 +67,7 @@ import { saveBestWave } from "../upgrades";
 import { t } from "../../i18n";
 import type { PlayerSnapshot, WeaponId } from "../weapons/Weapon";
 import { WEAPON_CATALOG } from "../weapons/WeaponCatalog";
+import type { DroneId } from "../drones/Drone";
 import { WeaponManager } from "../weapons/WeaponManager";
 import { EventBus } from "./EventBus";
 import type { GameFSMContext } from "./GameFSM";
@@ -224,6 +227,8 @@ export class GameWorld {
   private doctrineSystem: DoctrineSystem;
   /** Выбранный артефакт наследия. */
   private legacySystem: LegacySystem;
+  /** Открытые достижениями оружие и дроны. */
+  private unlocks: UnlockSystem;
   /** Выбранный уровень угрозы (асценсия). */
   private ascension: AscensionSystem;
   /** Детали, собранные за забег: база для начисления кредитов. */
@@ -274,7 +279,9 @@ export class GameWorld {
     this.doctrineSystem = DoctrineSystem.load(this.ports.storage);
     this.legacySystem = LegacySystem.load(this.ports.storage);
     this.ascension = AscensionSystem.load(this.ports.storage);
+    this.unlocks = UnlockSystem.load(this.ports.storage);
     this.upgradeSystem.setMetaBonuses(this.activeMetaBonuses());
+    this.applyUnlocks();
     this.creditSystem = new CreditSystem();
     this.creditSystem.setBalance(loadCredits(this.ports.storage));
     this.anchorSystem = new AnchorSystem({
@@ -701,7 +708,9 @@ export class GameWorld {
     this.doctrineSystem = DoctrineSystem.load(this.ports.storage);
     this.legacySystem = LegacySystem.load(this.ports.storage);
     this.ascension = AscensionSystem.load(this.ports.storage);
+    this.unlocks = UnlockSystem.load(this.ports.storage);
     this.upgradeSystem.setMetaBonuses(this.activeMetaBonuses());
+    this.applyUnlocks();
     this.upgradeSystem.resetRun(this.runSeed);
     this.creditSystem.setBalance(loadCredits(this.ports.storage));
     this.runPartsEarned = 0;
@@ -799,6 +808,22 @@ export class GameWorld {
     this.fx.reset();
   }
 
+  /** Передать прокачке список открытого достижениями снаряжения. */
+  private applyUnlocks(): void {
+    this.upgradeSystem.setUnlockedWeapons(this.unlocks.weaponIds());
+    this.upgradeSystem.setUnlockedDrones(this.unlocks.droneIds());
+  }
+
+  /** Открыт ли вид оружия достижением. */
+  isWeaponUnlocked(id: WeaponId): boolean {
+    return this.unlocks.isWeaponUnlocked(id);
+  }
+
+  /** Открыт ли вид дрона достижением. */
+  isDroneUnlocked(id: DroneId): boolean {
+    return this.unlocks.isDroneUnlocked(id);
+  }
+
   /** Мета-бонусы забега: таланты Зеркала Ночи, доктрина и артефакт. */
   private activeMetaBonuses(): MetaBonuses {
     return mergeMetaBonuses(
@@ -864,6 +889,11 @@ export class GameWorld {
     });
     this.creditSystem.award(breakdown);
     saveCredits(this.ports.storage, this.creditSystem.getBalance());
+    recordCareerRun(this.ports.storage, {
+      kills: this.scoringSystem.getState().killed,
+      bossKills: this.bossKills,
+      wave: this.waveOrchestrator.wave,
+    });
     return breakdown.total;
   }
 

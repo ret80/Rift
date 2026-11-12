@@ -79,6 +79,7 @@ export function resetMetaProgress(storage: PersistencePort): void {
   storage.remove(STORAGE_KEYS.doctrine);
   storage.remove(STORAGE_KEYS.legacy);
   storage.remove(STORAGE_KEYS.threatLevel);
+  storage.remove(STORAGE_KEYS.career);
   storage.remove(STORAGE_KEYS.best);
   storage.remove(STORAGE_KEYS.bestWave);
 }

@@ -60,6 +60,8 @@ import { applyUpgrades, defaultUpgrades } from "../game/upgrades";
 import { DOCTRINES } from "../game/meta/doctrines";
 import { LEGACY_ARTIFACTS, isArtifactUnlocked } from "../game/meta/legacy";
 import { LegacySystem } from "../game/meta/LegacySystem";
+import { UnlockSystem } from "../game/meta/UnlockSystem";
+import { UpgradeSystem } from "../game/systems/UpgradeSystem";
 import { mergeMetaBonuses, noMetaBonuses } from "../game/meta/types";
 import {
   MAX_THREAT_LEVEL,
@@ -1354,6 +1356,31 @@ check("Наследие: артефакт открывается волной и
   expectEqual(bonuses.hpMult, 1.15, "бонус артефакта");
   expectEqual(new LegacySystem("hull_plate", 99).id, "hull_plate", "выбранный артефакт");
   expectEqual(new LegacySystem("black_heart", 10).id, null, "закрытый артефакт");
+});
+
+check("Достижения: оружие и дроны открываются по прогрессу", () => {
+  const early = new UnlockSystem({ bestWave: 8, kills: 0, bossKills: 0 });
+  expect(early.isWeaponUnlocked("missile"), "ракетница на 8-й волне");
+  expect(!early.isWeaponUnlocked("laser"), "лазер закрыт до 12-й волны");
+  expect(early.isDroneUnlocked("striker"), "штурмовик с 6-й волны");
+  expect(!early.isDroneUnlocked("sentry"), "часовой закрыт без убийств");
+
+  const late = new UnlockSystem({ bestWave: 30, kills: 1200, bossKills: 5 });
+  expect(
+    late.isWeaponUnlocked("devourer") &&
+      late.isWeaponUnlocked("flak") &&
+      late.isWeaponUnlocked("tether"),
+    "поздние достижения не открыли оружие",
+  );
+
+  // Закрытое оружие не покупается даже с деталями; открытое — покупается.
+  const upgrades = UpgradeSystem.create();
+  upgrades.purchaseNoCost("guns");
+  upgrades.addParts(10_000);
+  upgrades.setUnlockedWeapons(new Set(["cannon"]));
+  expect(!upgrades.purchaseWeapon("missile"), "закрытое оружие куплено");
+  upgrades.setUnlockedWeapons(null);
+  expect(upgrades.purchaseWeapon("missile"), "открытое оружие не куплено");
 });
 
 check("Альтернативный огонь: интент агента и залп пушки", () => {

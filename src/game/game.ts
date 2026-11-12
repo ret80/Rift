@@ -108,6 +108,16 @@ export class Game {
     return this.ctx.upgrades.purchaseCosted(key);
   }
 
+  /** Открыто ли оружие достижением. */
+  isWeaponUnlocked(id: WeaponId): boolean {
+    return this.ctx.world.isWeaponUnlocked(id);
+  }
+
+  /** Открыт ли дрон достижением. */
+  isDroneUnlocked(id: DroneId): boolean {
+    return this.ctx.world.isDroneUnlocked(id);
+  }
+
   /** Купить оружие в арсенале. */
   purchaseWeapon(id: WeaponId): boolean {
     return this.ctx.upgrades.purchaseWeapon(id);

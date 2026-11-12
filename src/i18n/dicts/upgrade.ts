@@ -12,6 +12,7 @@ export const ru = {
   tabArmory: "АРСЕНАЛ",
   tabDrones: "ДРОНЫ",
   tabBonuses: "БОНУСЫ",
+  lockHint: "ОТКРОЕТСЯ: {name}",
   weapon: {
     cannon: "ПУШКА",
     cannonDesc: "Базовая автоматическая пушка с упреждением",
@@ -93,6 +94,7 @@ export const en: typeof ru = {
   tabArmory: "ARMORY",
   tabDrones: "DRONES",
   tabBonuses: "BONUSES",
+  lockHint: "UNLOCKS: {name}",
   weapon: {
     cannon: "CANNON",
     cannonDesc: "Base auto-turret with target prediction",

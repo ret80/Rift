@@ -135,6 +135,8 @@ export class GameUpgrades {
   }
 
   private purchaseDroneImpl(id: DroneId, free: boolean): boolean {
+    // Закрытый достижением дрон не купить до выполнения условия.
+    if (!free && !this.ctx.upgradeSystem.isDroneUnlocked(id)) return false;
     const ups = this.ctx.upgradeSystem.playerUpgrades;
     const slots = this.getDroneSlots();
     const used = this.getUsedDroneSlots();

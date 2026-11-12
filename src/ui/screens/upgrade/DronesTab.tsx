@@ -12,6 +12,7 @@ import {
   type DroneStatKey,
 } from "../../../game/drones/Drone";
 import type { PlayerUpgrades } from "../../../game/upgrades";
+import { achievementForReward } from "../../../game/meta/achievements";
 import { useT } from "../../../i18n";
 import { Icon } from "../../components/Icon";
 import { DRONE_STATS, WEAPON_STAT_ROW_CLASS, droneStatValue, gamepadFocusStyle } from "./model";
@@ -22,6 +23,8 @@ export function DronesTab(props: {
   free: boolean;
   droneSlots: number;
   usedDroneSlots: number;
+  /** Виды, закрытые достижением: покупка недоступна. */
+  lockedIds: ReadonlySet<string>;
   onBuyDrone: (id: DroneId) => void;
   onBuyStat: (id: DroneId, stat: DroneStatKey) => void;
   focusedId?: string | null;
@@ -47,6 +50,8 @@ export function DronesTab(props: {
           const count = entry?.count ?? 0;
           const hasUnit = count > 0;
           const noFreeSlots = usedDroneSlots >= droneSlots;
+          const locked = props.lockedIds.has(drone.id);
+          const achievement = achievementForReward("drone", drone.id);
           const droneFocused = props.focusedId === `drone:${drone.id}`;
           return (
             <div
@@ -75,14 +80,25 @@ export function DronesTab(props: {
                       ) : null}
                     </div>
                     <div className="text-[10px] text-[#6f86a8]">{t(drone.descKey)}</div>
+                    {locked && achievement && (
+                      <div className="text-[9px] text-[#c79bff]">
+                        {t("upgrade.lockHint", { name: t(achievement.nameKey) })}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <button
                   onClick={() => props.onBuyDrone(drone.id)}
-                  disabled={noFreeSlots || (!free && upgrades.parts < droneCost(drone.id))}
-                  title={noFreeSlots ? t("upgrade.drone.noSlots") : undefined}
+                  disabled={
+                    locked || noFreeSlots || (!free && upgrades.parts < droneCost(drone.id))
+                  }
+                  title={
+                    locked && achievement
+                      ? t("upgrade.lockHint", { name: t(achievement.nameKey) })
+                      : noFreeSlots ? t("upgrade.drone.noSlots") : undefined
+                  }
                   className={`clip-btn px-4 py-2 text-xs font-mono tracking-[0.15em] transition-all ${
-                    !noFreeSlots && (free || upgrades.parts >= droneCost(drone.id))
+                    !locked && !noFreeSlots && (free || upgrades.parts >= droneCost(drone.id))
                       ? "cursor-pointer border border-[#ff9de0]/60 bg-[#ff9de0]/15 " +
                         "text-[#eaffff] hover:bg-[#ff9de0]/25"
                       : "cursor-not-allowed border border-[#3d4f6d]/30 " +

@@ -9,6 +9,7 @@ export const STORAGE_KEYS = {
   best: "rift9_best",
   bestWave: "rift9_best_wave",
   credits: "rift9_credits",
+  career: "rift9_career",
   metaTree: "rift9_meta_tree",
   doctrine: "rift9_doctrine",
   legacy: "rift9_legacy",

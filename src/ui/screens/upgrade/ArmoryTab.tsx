@@ -11,6 +11,7 @@ import {
 } from "../../../game/upgrades";
 import type { WeaponId, WeaponLoadout } from "../../../game/weapons/Weapon";
 import { useT } from "../../../i18n";
+import { achievementForReward } from "../../../game/meta/achievements";
 import { Icon } from "../../components/Icon";
 import {
   ARMORY_WEAPONS,
@@ -26,6 +27,8 @@ export function ArmoryTab(props: {
   free: boolean;
   weaponSlots: number;
   usedWeaponSlots: number;
+  /** Виды, закрытые достижением: покупка недоступна. */
+  lockedIds: ReadonlySet<string>;
   onBuyWeapon: (id: WeaponId) => void;
   onBuyStat: (id: WeaponId, stat: WeaponStatKey) => void;
   focusedId?: string | null;
@@ -50,6 +53,8 @@ export function ArmoryTab(props: {
           const entry = loadout?.[weapon.id];
           const owned = entry?.owned ?? false;
           const noFreeSlots = usedWeaponSlots >= weaponSlots;
+          const locked = props.lockedIds.has(weapon.id);
+          const achievement = achievementForReward("weapon", weapon.id);
           const weaponFocused = !owned && props.focusedId === `weapon:${weapon.id}`;
           return (
             <div
@@ -84,15 +89,26 @@ export function ArmoryTab(props: {
                       ) : null}
                     </div>
                     <div className="text-[10px] text-[#6f86a8]">{t(weapon.descKey)}</div>
+                    {locked && achievement && (
+                      <div className="text-[9px] text-[#c79bff]">
+                        {t("upgrade.lockHint", { name: t(achievement.nameKey) })}
+                      </div>
+                    )}
                   </div>
                 </div>
                 {!owned && (
                   <button
                     onClick={() => props.onBuyWeapon(weapon.id)}
-                    disabled={noFreeSlots || (!free && upgrades.parts < weaponCost(weapon.id))}
-                    title={noFreeSlots ? t("upgrade.weapon.noSlots") : undefined}
+                    disabled={
+                      locked || noFreeSlots || (!free && upgrades.parts < weaponCost(weapon.id))
+                    }
+                    title={
+                      locked && achievement
+                        ? t("upgrade.lockHint", { name: t(achievement.nameKey) })
+                        : noFreeSlots ? t("upgrade.weapon.noSlots") : undefined
+                    }
                     className={`clip-btn px-4 py-2 text-xs font-mono tracking-[0.15em] transition-all ${
-                      !noFreeSlots && (free || upgrades.parts >= weaponCost(weapon.id))
+                      !locked && !noFreeSlots && (free || upgrades.parts >= weaponCost(weapon.id))
                         ? "cursor-pointer border border-[#ffb84d]/60 bg-[#ffb84d]/15 " +
                           "text-[#eaffff] hover:bg-[#ffb84d]/25"
                         : "cursor-not-allowed border border-[#3d4f6d]/30 " +
