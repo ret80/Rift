@@ -42,6 +42,8 @@ export interface HudData {
   anchors: number;
   /** Игрок за краем арены и получает урон зоны. */
   outsideZone: boolean;
+  /** Выбранный уровень угрозы (0 — обычная сложность). */
+  threatLevel: number;
 }
 
 /* ============================== Banners / Toasts / Countdown ============================== */

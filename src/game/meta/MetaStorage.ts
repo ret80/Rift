@@ -33,10 +33,38 @@ export function saveCredits(storage: PersistencePort, amount: number): void {
   storage.set(STORAGE_KEYS.credits, String(Math.max(0, Math.floor(amount))));
 }
 
+/** Выбранная доктрина; null — играть без доктрины. */
+export function loadSelectedDoctrine(storage: PersistencePort): string | null {
+  return storage.get(STORAGE_KEYS.doctrine);
+}
+
+export function saveSelectedDoctrine(storage: PersistencePort, id: string | null): void {
+  if (id === null) {
+    storage.remove(STORAGE_KEYS.doctrine);
+    return;
+  }
+  storage.set(STORAGE_KEYS.doctrine, id);
+}
+
+/** Выбранный уровень угрозы; отсутствие ключа — обычная сложность. */
+export function loadThreatLevel(storage: PersistencePort): number {
+  return Number(storage.get(STORAGE_KEYS.threatLevel)) || 0;
+}
+
+export function saveThreatLevel(storage: PersistencePort, level: number): void {
+  if (level <= 0) {
+    storage.remove(STORAGE_KEYS.threatLevel);
+    return;
+  }
+  storage.set(STORAGE_KEYS.threatLevel, String(Math.floor(level)));
+}
+
 /** Полный сброс мета-прогресса: кредиты, таланты и рекорды. */
 export function resetMetaProgress(storage: PersistencePort): void {
   storage.remove(STORAGE_KEYS.credits);
   storage.remove(STORAGE_KEYS.metaTree);
+  storage.remove(STORAGE_KEYS.doctrine);
+  storage.remove(STORAGE_KEYS.threatLevel);
   storage.remove(STORAGE_KEYS.best);
   storage.remove(STORAGE_KEYS.bestWave);
 }

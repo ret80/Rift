@@ -143,7 +143,9 @@ export function ScreenRouter(props: ScreenRouterProps) {
       );
 
     case "meta":
-      return <MetaScreen onBack={actions.closeMeta} />;
+      return (
+        <MetaScreen onBack={actions.closeMeta} gamepadNavRef={gamepadNavRef} />
+      );
 
     default:
       return null;

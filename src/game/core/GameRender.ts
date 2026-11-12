@@ -74,6 +74,7 @@ export class GameRender {
       boostActive: ctx.playerSystem.boostActive,
       anchors: ctx.world.anchorSystem.aliveCount(),
       outsideZone: ctx.waveOrchestrator.outsideZone,
+      threatLevel: ctx.world.threatLevel,
     });
   }
 

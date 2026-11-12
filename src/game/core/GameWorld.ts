@@ -14,6 +14,9 @@ import { AbilitySystem } from "../abilities/AbilitySystem";
 import { CreditSystem } from "../systems/CreditSystem";
 import { AnchorSystem, type Anchor } from "../ecs/systems/AnchorSystem";
 import { MetaTree } from "../meta/MetaTree";
+import { DoctrineSystem } from "../meta/DoctrineSystem";
+import { AscensionSystem } from "../meta/AscensionSystem";
+import { mergeMetaBonuses } from "../meta/types";
 import { loadCredits, saveCredits } from "../meta/MetaStorage";
 import { AsteroidField } from "../asteroids";
 import {
@@ -216,6 +219,10 @@ export class GameWorld {
   private waveDamaged = false;
   /** Мета-дерево Зеркала Ночи (загружается на старте забега). */
   private metaTree: MetaTree;
+  /** Выбранная перед забегом доктрина. */
+  private doctrineSystem: DoctrineSystem;
+  /** Выбранный уровень угрозы (асценсия). */
+  private ascension: AscensionSystem;
   /** Детали, собранные за забег: база для начисления кредитов. */
   private runPartsEarned = 0;
   /** Убито боссов за забег. */
@@ -261,7 +268,11 @@ export class GameWorld {
     this.scoringSystem = new ScoringSystem({}, this.ports.storage);
     this.upgradeSystem = UpgradeSystem.create();
     this.metaTree = MetaTree.load(this.ports.storage);
-    this.upgradeSystem.setMetaBonuses(this.metaTree.bonuses());
+    this.doctrineSystem = DoctrineSystem.load(this.ports.storage);
+    this.ascension = AscensionSystem.load(this.ports.storage);
+    this.upgradeSystem.setMetaBonuses(
+      mergeMetaBonuses(this.metaTree.bonuses(), this.doctrineSystem.bonuses()),
+    );
     this.creditSystem = new CreditSystem();
     this.creditSystem.setBalance(loadCredits(this.ports.storage));
     this.anchorSystem = new AnchorSystem({
@@ -290,8 +301,8 @@ export class GameWorld {
         audio: this.ports.audio,
         rngCombat: this.rng("combat"),
         rngSpawn: this.rng("spawn"),
-        getEnemyHpMult: () => this.balance.enemyHpMult,
-        getEnemyDamageMult: () => this.balance.enemyDamageMult,
+        getEnemyHpMult: () => this.balance.enemyHpMult * this.ascension.hpMult,
+        getEnemyDamageMult: () => this.balance.enemyDamageMult * this.ascension.damageMult,
         pullPlayer: (vx, vy) => this.eventBus.publish("drone_push_player", { vx, vy }),
         damagePlayer: (dmg, source) => this.eventBus.publish("player_damaged", { dmg, source }),
         isPickupMagnetDisabled: (x, y) => this.isJammedAt(x, y),
@@ -685,7 +696,11 @@ export class GameWorld {
     // Новый забег: прокачка забега с нуля, бонусы меты — поверх неё.
     // Кредиты загружаются из хранилища: смерть их только добавляет.
     this.metaTree = MetaTree.load(this.ports.storage);
-    this.upgradeSystem.setMetaBonuses(this.metaTree.bonuses());
+    this.doctrineSystem = DoctrineSystem.load(this.ports.storage);
+    this.ascension = AscensionSystem.load(this.ports.storage);
+    this.upgradeSystem.setMetaBonuses(
+      mergeMetaBonuses(this.metaTree.bonuses(), this.doctrineSystem.bonuses()),
+    );
     this.upgradeSystem.resetRun(this.runSeed);
     this.creditSystem.setBalance(loadCredits(this.ports.storage));
     this.runPartsEarned = 0;
@@ -760,6 +775,11 @@ export class GameWorld {
     return this.allyDroneSystem.currentOrder;
   }
 
+  /** Выбранный уровень угрозы текущего забега. */
+  get threatLevel(): number {
+    return this.ascension.level;
+  }
+
   /** Пропускается ли обратный отсчёт (нужно записи и повтору). */
   get skipCountdownEnabled(): boolean {
     return this.skipCountdown;
@@ -830,7 +850,8 @@ export class GameWorld {
       eliteKills: this.scoringSystem.eliteKilled,
       bossKills: this.bossKills,
       anchorClears: this.runStats.anchorClears,
-      creditsMult: this.upgradeSystem.getApplied("creditsMult"),
+      creditsMult:
+        this.upgradeSystem.getApplied("creditsMult") * this.ascension.creditsMult,
     });
     this.creditSystem.award(breakdown);
     saveCredits(this.ports.storage, this.creditSystem.getBalance());

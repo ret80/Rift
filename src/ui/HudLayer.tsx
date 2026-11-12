@@ -110,6 +110,11 @@ export function HudLayer(props: {
                 {t("hud.anchors")} {data?.anchors}
               </div>
             )}
+            {(data?.threatLevel ?? 0) > 0 && (
+              <div className="mt-1 text-[7px] tracking-[0.14em] text-[#ff8c42] sm:text-[8px]">
+                {t("hud.threatLevel")} {data?.threatLevel}
+              </div>
+            )}
           </div>
 
           {/* RIGHT — score */}

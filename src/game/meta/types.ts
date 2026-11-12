@@ -1,9 +1,10 @@
 /**
  * Типы мета-прогрессии (Зеркало Ночи).
  *
- * Мета-слой — единственное, что переживает смерть: кредиты и купленные
- * таланты. Всё остальное (детали, линии корабля, оружие, дроны) — забег,
- * он сбрасывается при старте нового забега.
+ * Мета-слой — единственное, что переживает смерть: кредиты, купленные
+ * таланты и выбранные перед забегом доктрина с уровнем угрозы. Всё
+ * остальное (детали, линии корабля, оружие, дроны) — забег, он
+ * сбрасывается при старте нового забега.
  */
 
 import type { TKey } from "../../i18n";
@@ -52,6 +53,29 @@ export function noMetaBonuses(): MetaBonuses {
     shieldRegenLevel: 0,
     partsMult: 1,
     creditsMult: 1,
+  };
+}
+
+/**
+ * Наложить бонусы `extra` поверх `base`.
+ *
+ * Множители перемножаются, прибавки складываются — так доктрина и таланты
+ * Зеркала Ночи применяются одним и тем же путём.
+ */
+export function mergeMetaBonuses(
+  base: MetaBonuses,
+  extra: Partial<MetaBonuses>,
+): MetaBonuses {
+  return {
+    hpMult: base.hpMult * (extra.hpMult ?? 1),
+    speedMult: base.speedMult * (extra.speedMult ?? 1),
+    fireRateMult: base.fireRateMult * (extra.fireRateMult ?? 1),
+    weaponSlots: base.weaponSlots + (extra.weaponSlots ?? 0),
+    droneSlots: base.droneSlots + (extra.droneSlots ?? 0),
+    shieldBlockLevel: base.shieldBlockLevel + (extra.shieldBlockLevel ?? 0),
+    shieldRegenLevel: base.shieldRegenLevel + (extra.shieldRegenLevel ?? 0),
+    partsMult: base.partsMult * (extra.partsMult ?? 1),
+    creditsMult: base.creditsMult * (extra.creditsMult ?? 1),
   };
 }
 

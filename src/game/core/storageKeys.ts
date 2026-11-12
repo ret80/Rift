@@ -10,6 +10,8 @@ export const STORAGE_KEYS = {
   bestWave: "rift9_best_wave",
   credits: "rift9_credits",
   metaTree: "rift9_meta_tree",
+  doctrine: "rift9_doctrine",
+  threatLevel: "rift9_threat_level",
   lang: "rift9_lang",
   volumes: "rift9_volumes",
   menuTrack: "rift9_menu_track",

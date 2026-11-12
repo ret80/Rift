@@ -57,6 +57,13 @@ import { WeaponManager } from "../game/weapons/WeaponManager";
 import { createWeaponRegistry } from "../game/weapons/WeaponRegistry";
 import { WEAPON_CATALOG, WEAPON_IDS } from "../game/weapons/WeaponCatalog";
 import { applyUpgrades, defaultUpgrades } from "../game/upgrades";
+import { DOCTRINES } from "../game/meta/doctrines";
+import { mergeMetaBonuses, noMetaBonuses } from "../game/meta/types";
+import {
+  MAX_THREAT_LEVEL,
+  clampThreatLevel,
+  threatLevelDef,
+} from "../game/meta/ascension";
 import { WaveOrchestrator } from "../game/waves/WaveOrchestrator";
 import { WaveFlowSystem } from "../game/ecs/systems/WaveFlowSystem";
 import type { BulletSpawn } from "../game/ecs";
@@ -1308,6 +1315,31 @@ check("Орудия: слотов хватает на весь арсенал", 
     WEAPON_IDS.length - 1,
     "слоты при максимуме орудий",
   );
+});
+
+check("Мета: доктрина и уровень угрозы меняют стартовые значения", () => {
+  const baseHp = applyUpgrades(defaultUpgrades()).baseHp;
+  const bulwark = DOCTRINES.find((doctrine) => doctrine.id === "bulwark");
+  expect(bulwark !== undefined, "доктрина bulwark отсутствует");
+  const tanky = applyUpgrades(
+    defaultUpgrades(),
+    mergeMetaBonuses(noMetaBonuses(), bulwark!.effect),
+  );
+  expectEqual(tanky.baseHp, Math.round(baseHp * 1.25), "корпус с доктриной");
+  expect(tanky.speedMult < 1, "цена доктрины не применилась");
+
+  const gunner = DOCTRINES.find((doctrine) => doctrine.id === "gunner");
+  expect(gunner !== undefined, "доктрина gunner отсутствует");
+  const armed = applyUpgrades(
+    defaultUpgrades(),
+    mergeMetaBonuses(noMetaBonuses(), gunner!.effect),
+  );
+  expectEqual(armed.weaponSlots, 2, "слот оружия от доктрины");
+
+  expectEqual(clampThreatLevel(-5), 0, "нижняя граница TL");
+  expectEqual(clampThreatLevel(999), MAX_THREAT_LEVEL, "верхняя граница TL");
+  expectEqual(threatLevelDef(5).hpMult, 1.75, "корпус врагов на TL 5");
+  expectEqual(threatLevelDef(5).creditsMult, 2, "кредиты на TL 5");
 });
 
 check("Альтернативный огонь: интент агента и залп пушки", () => {
