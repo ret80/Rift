@@ -56,6 +56,8 @@ export interface EnemyRenderState {
   tetherActive: boolean;
   droneState?: 'orbiting' | 'attacking' | 'none' | 'accumulating' | 'waiting';
   orbitRadius?: number;
+  /** Враг взят игроком в лок: вокруг рисуется рамка. */
+  locked: boolean;
   parent?: EnemyRenderState | null;
 }
 
@@ -63,8 +65,12 @@ export interface EnemyRenderState {
  * Строит render-state из живых связок компонентов врагов.
  * Читает позицию/радиус/жизнь из базовых компонентов, остальное — из маркера.
  */
-export function buildEnemyState(enemies: EnemyRef[]): EnemyRenderState[] {
+export function buildEnemyState(
+  enemies: EnemyRef[],
+  lockedTargetId: number | string | null = null,
+): EnemyRenderState[] {
   return enemies.map((e) => ({
+    locked: lockedTargetId !== null && e.marker.ecsId === lockedTargetId,
     kind: e.marker.kind,
     affix: e.marker.affix,
     shieldHp: e.marker.shieldHp,
@@ -311,6 +317,19 @@ export function renderEnemies(
         break;
       }
     }
+    // Лок игрока: четыре уголка вокруг цели, заметные с любого расстояния.
+    if (e.locked) {
+      const rr = e.r + 10;
+      const tick = 6;
+      const col = rgba("#5ef2ff", 0.95);
+      for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+        const cx = e.x + sx * rr;
+        const cy = e.y + sy * rr;
+        R.pushLine(cx, cy, cx - sx * tick, cy, col);
+        R.pushLine(cx, cy, cx, cy - sy * tick, col);
+      }
+    }
+
     // Элитная метка и щит: читаются поверх любой формы врага.
     if (e.shieldHp > 0) {
       R.circle(e.x, e.y, e.r + 4, rgba("#4cc9f0", 0.3), 18);

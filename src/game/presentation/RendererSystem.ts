@@ -75,7 +75,7 @@ export class RendererSystem {
       state, time,
       player, aim, guns, shield,
       enemies, bullets, enemyBullets: ebullets, pickups, allyDrones: drones, beams,
-      zone: zoneState, storm, camera, view,
+      zone: zoneState, storm, camera, view, lockedTargetId,
     } = scene;
 
     // Build render states — each renderer owns its transformation
@@ -95,7 +95,7 @@ export class RendererSystem {
       camera,
       view,
       player: playerRender,
-      enemies: buildEnemyState(enemies),
+      enemies: buildEnemyState(enemies, lockedTargetId),
       bullets: buildBulletState(bullets),
       enemyBullets: buildEBulletState(ebullets),
       pickups: buildPickupState(pickups),

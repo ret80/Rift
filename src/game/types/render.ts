@@ -63,6 +63,8 @@ export interface RenderScene {
   guns: number;
   shield: ShieldRenderState;
   enemies: EnemyRef[];
+  /** id врага, взятого игроком в лок (null — лока нет). */
+  lockedTargetId: number | string | null;
   bullets: BulletRef[];
   enemyBullets: EnemyBulletRef[];
   pickups: PickupRef[];

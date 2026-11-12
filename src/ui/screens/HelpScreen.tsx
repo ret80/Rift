@@ -144,6 +144,10 @@ export default function HelpScreen(props: {
                 <span>— {t("help.shieldLine")}</span>
               </div>
               <div className="flex items-center gap-2">
+                <span className="kbd">Tab</span>
+                <span>— {t("help.lockLine")}</span>
+              </div>
+              <div className="flex items-center gap-2">
                 <span className="kbd">Space</span>
                 <span>— {t("help.ability")}</span>
               </div>

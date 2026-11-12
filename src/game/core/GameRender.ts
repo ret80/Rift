@@ -32,6 +32,7 @@ export class GameRender {
       guns: ctx.weaponManager.getInstanceCount("cannon"),
       shield: ctx.shieldSystem.getSnapshot(),
       enemies: world.enemies,
+      lockedTargetId: ctx.world.lockedTargetId,
       bullets: world.bullets,
       enemyBullets: world.enemyBullets,
       pickups: world.pickups,

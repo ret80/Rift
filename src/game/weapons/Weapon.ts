@@ -47,6 +47,8 @@ export interface AimState {
   altFiring: boolean;
   /** Автоцель — враг, на который наведено орудие (null — ручной прицел). */
   target: EnemyRef | null;
+  /** Цель, взятая игроком в лок; ракеты бьют её первой. */
+  locked: EnemyRef | null;
   /** Шанс попадания автонаведения (0..1, всегда < 1). */
   hitChance: number;
 }

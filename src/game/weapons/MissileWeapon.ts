@@ -112,7 +112,7 @@ export class MissileWeapon implements Weapon {
     // Альтернативный огонь: залп из трёх ракет по одной цели.
     if (ctx.aim.altFiring) {
       if (this.altCd > 0) return;
-      const salvoTarget = this.findTarget(ctx.enemies, ctx.player.x, ctx.player.y);
+      const salvoTarget = this.findTarget(ctx.enemies, ctx.player.x, ctx.player.y, ctx.aim.locked);
       if (!salvoTarget) return;
       this.altCd = MISSILE_ALT_CD;
       for (let i = 0; i < MISSILE_ALT_SALVO; i++) {
@@ -125,7 +125,7 @@ export class MissileWeapon implements Weapon {
 
     if (this.cooldown > 0) return;
 
-    const target = this.findTarget(ctx.enemies, ctx.player.x, ctx.player.y);
+    const target = this.findTarget(ctx.enemies, ctx.player.x, ctx.player.y, ctx.aim.locked);
     if (!target) return;
 
     this.fire(ctx, target);
@@ -169,15 +169,25 @@ export class MissileWeapon implements Weapon {
   private findTarget(
     enemies: readonly EnemyRef[],
     fromX: number,
-    fromY: number
+    fromY: number,
+    locked: EnemyRef | null = null,
   ): EnemyRef | null {
+    // Взятая в лок цель важнее ближайшей: игрок уже выбрал, куда бить.
+    if (
+      locked &&
+      !locked.marker.dead &&
+      Math.hypot(locked.position.x - fromX, locked.position.y - fromY) <= MISSILE_LOCK_RANGE
+    ) {
+      return locked;
+    }
+
     let nearest: EnemyRef | null = null;
     let nearestDist = Infinity;
 
     for (const e of enemies) {
       if (e.marker.dead) continue;
       const dist = Math.hypot(e.position.x - fromX, e.position.y - fromY);
-      // Ограничим дистанцию наведения — ракета не должна锁定 на слишком далёких целях
+      // Ограничим дистанцию наведения — ракета не должна брать слишком далёкие цели
       if (dist > MISSILE_LOCK_RANGE) continue;
       if (dist < nearestDist) {
         nearestDist = dist;

@@ -65,6 +65,8 @@ export class AllyDroneSystem extends PhasedSystem {
   private order: DroneOrder = "escort";
   /** Цель фокуса: id врага, выбранного игроком в тактическом режиме. */
   private focusTargetId: number | string | null = null;
+  /** Цель, взятая игроком в лок: дроны бьют её до ближайших врагов. */
+  private lockedTargetId: number | string | null = null;
 
   constructor(private h: AllyDroneHooks) {
     super(Phase.Allies);
@@ -84,10 +86,16 @@ export class AllyDroneSystem extends PhasedSystem {
     this.focusTargetId = order === "focus" ? focusTargetId : null;
   }
 
+  /** Передать рою цель, взятую игроком в лок (null — лока нет). */
+  setLockedTarget(id: number | string | null): void {
+    this.lockedTargetId = id;
+  }
+
   /** Сбросить приказ к эскорту (новый забег). */
   reset(): void {
     this.order = "escort";
     this.focusTargetId = null;
+    this.lockedTargetId = null;
   }
 
   onAddedToEngine(engine: Engine): void {
@@ -122,14 +130,21 @@ export class AllyDroneSystem extends PhasedSystem {
 
       // Выбор цели: в фокусе — назначенная, иначе ближайшая к дрону.
       drone.retargetT -= dt;
+      // Приоритет цели: назначенный фокус, затем лок игрока, затем ближайший.
       const focus = this.order === "focus" && this.focusTargetId !== null
         ? enemiesById.get(this.focusTargetId) ?? null
+        : null;
+      const locked = this.lockedTargetId !== null
+        ? enemiesById.get(this.lockedTargetId) ?? null
         : null;
       let currentTarget: EnemyRef | null | undefined =
         drone.targetId !== null ? enemiesById.get(drone.targetId) : undefined;
       if (focus && !focus.marker.dead) {
         currentTarget = focus;
         drone.targetId = focus.marker.ecsId ?? null;
+      } else if (locked && !locked.marker.dead) {
+        currentTarget = locked;
+        drone.targetId = locked.marker.ecsId ?? null;
       } else if (!currentTarget || drone.retargetT <= 0 || currentTarget.marker.dead) {
         const next = this.findTarget(position.x, position.y, enemies, range);
         drone.targetId = next ? next.marker.ecsId ?? null : null;

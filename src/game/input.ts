@@ -12,6 +12,8 @@ export interface InputHooks {
   onRecordKey?(): void;
   /** T: тактический режим (мир замирает, дронам можно отдать приказ). */
   onTacticalKey?(): void;
+  /** Tab: взять следующую цель в лок. */
+  onLockKey?(): void;
 }
 
 /** Movement vector in -1..1 on each axis (keyboard + touch combined). */
@@ -54,6 +56,12 @@ export class InputManager {
     // Тактика — команда хоста: в pressed не нужна, игра сама ставит паузу.
     if (e.code === "KeyT" && !e.repeat) {
       this.hooks.onTacticalKey?.();
+      return;
+    }
+    // Tab перебирает цели в локе; preventDefault не даёт фокусу уйти из игры.
+    if (e.code === "Tab") {
+      e.preventDefault();
+      if (!e.repeat) this.hooks.onLockKey?.();
       return;
     }
     // Автоповтор удерживаемой клавиши не должен считаться новым нажатием.

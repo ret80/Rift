@@ -41,6 +41,8 @@ export class Targeting {
   private anchorAngle: number | null = null;
   /** Зона глушилки: в ней автонаведение отключено. */
   private isJammed?: (x: number, y: number) => boolean;
+  /** Цель, взятая игроком в лок (Tab). Имеет приоритет над автоцелью. */
+  private locked: EnemyRef | null = null;
 
   constructor(private range: number) {}
 
@@ -64,6 +66,11 @@ export class Targeting {
     this.isJammed = source;
   }
 
+  /** Задать цель, взятую игроком в лок. */
+  setLocked(target: EnemyRef | null): void {
+    this.locked = target;
+  }
+
   /**
    * Обновить автоцель.
    *
@@ -80,10 +87,13 @@ export class Targeting {
     enemies: readonly EnemyRef[],
     anchors: readonly AnchorTarget[] = [],
   ): void {
-    // В зоне глушилки автонаведение выключено; ручной прицел остаётся.
+    // В зоне глушилки автонаведение выключено; ручной прицел и лок остаются.
     if (this.isJammed?.(player.x, player.y)) {
-      this.target = null;
-      this.autoAngle = null;
+      const manual = this.locked && !this.locked.marker.dead ? this.locked : null;
+      this.target = manual;
+      this.autoAngle = manual
+        ? Math.atan2(manual.position.y - player.y, manual.position.x - player.x)
+        : null;
       this.anchorAngle = null;
       return;
     }
@@ -117,7 +127,9 @@ export class Targeting {
       }
     }
 
-    const aimEnemy = threat ?? (anchor ? null : nearest);
+    // Лок — явный выбор игрока: он важнее ближней угрозы и якоря.
+    const locked = this.locked && !this.locked.marker.dead ? this.locked : null;
+    const aimEnemy = locked ?? threat ?? (anchor ? null : nearest);
     this.target = aimEnemy;
     this.autoAngle = aimEnemy
       ? Math.atan2(aimEnemy.position.y - player.y, aimEnemy.position.x - player.x)
@@ -145,5 +157,10 @@ export class Targeting {
   /** Текущая автоцель (null — цели нет). */
   get currentTarget(): EnemyRef | null {
     return this.target;
+  }
+
+  /** Цель в локе, если она ещё жива. */
+  get lockedTarget(): EnemyRef | null {
+    return this.locked && !this.locked.marker.dead ? this.locked : null;
   }
 }

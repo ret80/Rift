@@ -204,6 +204,11 @@ export class WeaponManager extends PhasedSystem {
     this.targeting.setManualFiring(firing);
   }
 
+  /** Передать оружию цель, взятую игроком в лок. */
+  setLockedTarget(target: EnemyRef | null): void {
+    this.targeting.setLocked(target);
+  }
+
   /** Сообщить, что игрок держит альтернативный огонь. */
   setManualAltFiring(altFiring: boolean): void {
     this.targeting.setManualAltFiring(altFiring);
@@ -221,6 +226,7 @@ export class WeaponManager extends PhasedSystem {
       firing: this.targeting.firing,
       altFiring: this.targeting.altFiring,
       target: this.targeting.currentTarget,
+      locked: this.targeting.lockedTarget,
       hitChance: this.hitChance,
     };
     const bonuses = this.world.getBonuses();

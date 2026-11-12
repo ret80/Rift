@@ -193,6 +193,7 @@ export class GameContext {
       },
       ...(dev ? { onRecordKey: () => this.toggleRecording() } : {}),
       onTacticalKey: () => this.toggleTactical(),
+      onLockKey: () => this.world.cycleLock(),
     });
     this.humanControls = new HumanControls(this.input);
     // Обёртка нужна и для кнопки `?record`: способность пишется по факту

@@ -39,6 +39,7 @@ export const ru = {
     "12 убийств — полное кольцо. Полного заряда хватает на 3 секунды разгона (+45% скорости). " +
     "Форсаж не даёт неуязвимости: уходить от огня всё равно нужно манёвром.",
   shieldLine: "активный щит (удержание, если куплен)",
+  lockLine: "взять следующую цель в лок",
   shieldTitle: "АКТИВНЫЙ ЩИТ",
   shieldBody:
     "Купленный щит работает пассивно и гасит часть урона. Если удерживать Q, перед кораблём " +
@@ -120,6 +121,7 @@ export const en: typeof ru = {
     "12 kills fill the ring. A full ring gives 3 seconds of acceleration (+45% speed). " +
     "Boost grants no invulnerability: you still dodge by moving.",
   shieldLine: "active shield (hold, if bought)",
+  lockLine: "lock the next target",
   shieldTitle: "ACTIVE SHIELD",
   shieldBody:
     "A bought shield works passively and absorbs part of the damage. Holding Q projects a 120° " +

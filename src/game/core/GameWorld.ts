@@ -69,6 +69,7 @@ import type { PlayerSnapshot, WeaponId } from "../weapons/Weapon";
 import { WEAPON_CATALOG } from "../weapons/WeaponCatalog";
 import type { DroneId } from "../drones/Drone";
 import { WeaponManager } from "../weapons/WeaponManager";
+import { LockOn } from "../weapons/LockOn";
 import { EventBus } from "./EventBus";
 import type { GameFSMContext } from "./GameFSM";
 import { GAME_TRANSITIONS } from "./GameFSM";
@@ -173,6 +174,8 @@ export class GameWorld {
 
   readonly bonusManager: BonusManager;
   readonly shieldSystem: ShieldSystem;
+  /** Цель, взятая игроком в лок (Tab). */
+  readonly lockOn = new LockOn();
   readonly grazeSystem: GrazeSystem;
   readonly playerSystem: PlayerSystem;
   readonly abilitySystem: AbilitySystem;
@@ -655,6 +658,13 @@ export class GameWorld {
     // агентского прогона отставала бы от мира на один тик.
     this.recorder?.beginTick(this, this.controls);
 
+    // Лок проверяется до систем: погибшая или далёкая цель снимается сама,
+    // а оружие и дроны получают актуальную цель на этот тик.
+    const player = this.getPlayerSnapshot();
+    this.lockOn.update(player.x, player.y, this.ecs.enemies());
+    this.weaponManager.setLockedTarget(this.lockOn.current);
+    this.allyDroneSystem.setLockedTarget(this.lockOn.currentId);
+
     // Управление применяется до тика систем, иначе оно попадёт в следующий тик.
     this.weaponManager.setManualAim(this.controls.aimAngle);
     this.weaponManager.setManualFiring(this.controls.firing);
@@ -672,6 +682,26 @@ export class GameWorld {
     // Сэмпл и checkpoint снимаются после всех систем: позиция/HP уже
     // отражают результат тика.
     this.recorder?.endTick(this);
+  }
+
+  /**
+   * Взять следующую цель в лок (Tab): ближайшую к прицелу, затем по кругу.
+   */
+  cycleLock(): void {
+    const player = this.getPlayerSnapshot();
+    this.lockOn.cycle(
+      player.x,
+      player.y,
+      this.ecs.enemies(),
+      this.controls.aimAngle,
+    );
+    this.weaponManager.setLockedTarget(this.lockOn.current);
+    this.allyDroneSystem.setLockedTarget(this.lockOn.currentId);
+  }
+
+  /** id цели в локе для рендера и HUD (null — лока нет). */
+  get lockedTargetId(): number | string | null {
+    return this.lockOn.currentId;
   }
 
   /** Окружение пояса астероидов из сечения мира и зоны. */
@@ -735,6 +765,9 @@ export class GameWorld {
     this.weaponManager.reset();
     this.bonusManager.reset();
     this.shieldSystem.reset();
+    this.lockOn.reset();
+    this.weaponManager.setLockedTarget(null);
+    this.allyDroneSystem.setLockedTarget(null);
     this.grazeSystem.reset();
     this.abilitySystem.reset();
     this.ecs.clearBeams();

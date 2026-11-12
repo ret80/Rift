@@ -1360,6 +1360,30 @@ check("Наследие: артефакт открывается волной и
   expectEqual(new LegacySystem("black_heart", 10).id, null, "закрытый артефакт");
 });
 
+check("Лок: Tab берёт ближайшую к прицелу цель, орудие наводится на неё", () => {
+  const world = createHeadlessWorld({ seed: 4242 });
+  world.spawnEnemy(EnemyKind.Drone, 240, 0, null);
+  world.spawnEnemy(EnemyKind.Drone, 0, 240, null);
+
+  expect(world.lockedTargetId === null, "лок появился до нажатия Tab");
+  world.cycleLock();
+  const id = world.lockedTargetId;
+  expect(id !== null, "лок не взялся при живых врагах");
+
+  const target = world.ecs.enemies().find((e) => e.marker.ecsId === id);
+  expect(target !== undefined, "цель лока потерялась до тика");
+  const player = world.getPlayerSnapshot();
+  const expected = Math.atan2(target!.position.y - player.y, target!.position.x - player.x);
+
+  world.tick(FIXED_DT);
+  const aim = world.weaponManager.getAimAngle();
+  // Враги за тик успевают сдвинуться, поэтому сверяем направление с допуском.
+  expect(
+    aim !== null && Math.abs(Math.atan2(Math.sin(aim - expected), Math.cos(aim - expected))) < 0.05,
+    "оружие не навелось на лок",
+  );
+});
+
 check("Щит: активный сектор гасит удар в курс и тратит энергию", () => {
   const shield = new ShieldSystem();
   shield.setOwned(true);
