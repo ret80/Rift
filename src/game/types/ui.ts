@@ -26,6 +26,8 @@ export interface HudData {
   rateT: number;
   drones: number;
   parts: number;
+  /** Бесконечные детали: HUD показывает ∞ вместо числа. */
+  partsInfinite: boolean;
   /** Снимок энергетического щита игрока. */
   shield: ShieldRenderState;
   /** Weapon + bonus slots rendered in the HUD loadout row. */

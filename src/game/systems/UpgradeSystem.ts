@@ -12,11 +12,14 @@ import {
   applyUpgrades as applyUpgradesRaw,
   defaultUpgrades,
   defaultWeaponLoadout,
+  upgradeCost,
   weaponCost,
   weaponUpgradeCost,
+  UPGRADE_TIERS,
   WEAPON_STAT_MAX_LEVEL,
   type PlayerUpgrades,
   type AppliedUpgrades,
+  type UpgradeKey,
   type WeaponStatKey,
 } from "../upgrades";
 import type {
@@ -27,6 +30,9 @@ import type {
 import { DroneSystem } from "../drones/DroneSystem";
 import type { DroneId, DroneLoadout, DroneStatKey } from "../drones/Drone";
 import { defaultDroneLoadout } from "../drones/DroneSystem";
+import { DRONE_STAT_MAX_LEVEL, droneCost, droneUpgradeCost } from "../drones/Drone";
+import { Wallet } from "../economy/Wallet";
+import { copyDroneLoadout, copyWeaponLoadout } from "../loadout/snapshots";
 
 /** Начальное состояние забега: используется симуляцией и реплеем. */
 export interface RunSeed {
@@ -53,6 +59,8 @@ export class UpgradeSystem {
   private _unlockedDrones: ReadonlySet<string> | null = null;
   /** Параметры корабля: базовый корпус задаётся профилем мира. */
   private _playerParams: PlayerParams = DEFAULT_PARAMS.player;
+  /** Детали забега: покупки идут только через кошелёк. */
+  private readonly _parts = new Wallet();
 
   private constructor() {
     this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses, this._playerParams);
@@ -72,7 +80,32 @@ export class UpgradeSystem {
     this._playerUpgrades = { ...defaultUpgrades(), ...(seed?.upgrades ?? {}) };
     this._loadout = seed?.weaponLoadout ?? defaultWeaponLoadout();
     this._droneSystem.setLoadout(seed?.droneLoadout ?? defaultDroneLoadout());
+    this._parts.set(0);
     this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses, this._playerParams);
+  }
+
+  /**
+   * Применить сохранённый набор покупок (тестовый профиль).
+   * Кошелёк не трогается: тестовая волна отдельно выдаёт запас деталей.
+   */
+  applyProfile(seed: RunSeed): void {
+    this._playerUpgrades = { ...defaultUpgrades(), ...(seed.upgrades ?? {}) };
+    this._loadout = seed.weaponLoadout
+      ? copyWeaponLoadout(seed.weaponLoadout)
+      : defaultWeaponLoadout();
+    this._droneSystem.setLoadout(
+      seed.droneLoadout ? copyDroneLoadout(seed.droneLoadout) : defaultDroneLoadout(),
+    );
+    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses, this._playerParams);
+  }
+
+  /** Снимок текущих покупок для тестового профиля (без деталей). */
+  captureProfile(): Required<RunSeed> {
+    return {
+      upgrades: { ...this._playerUpgrades },
+      weaponLoadout: copyWeaponLoadout(this._loadout),
+      droneLoadout: copyDroneLoadout(this._droneSystem.loadout),
+    };
   }
 
   /** Задать открытые достижениями виды оружия; null — все доступны. */
@@ -171,71 +204,60 @@ export class UpgradeSystem {
     this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses, this._playerParams);
   }
 
-  /* ======================== Purchase (debug) ======================== */
+  /* ======================== Purchase ======================== */
 
-  /** Debug-only: purchase upgrade without cost (dev only). */
-  purchaseNoCost(key: keyof Omit<PlayerUpgrades, "parts">): boolean {
+  /** Симуляция и самопроверка: купить уровень без списания (dev only). */
+  purchaseNoCost(key: UpgradeKey): boolean {
     if (this._playerUpgrades[key] == null) return false;
     (this._playerUpgrades[key] as number) += 1;
     this.refresh();
     return true;
   }
 
+  /** Купить уровень линии корабля/бонуса за детали. */
+  purchaseUpgrade(key: UpgradeKey): boolean {
+    const level = this._playerUpgrades[key];
+    if (level >= UPGRADE_TIERS[key].maxLevel) return false;
+    if (!this._parts.spend(upgradeCost(key, level))) return false;
+    (this._playerUpgrades[key] as number) = level + 1;
+    this.refresh();
+    return true;
+  }
+
   /* ======================== Parts management ======================== */
 
-  /** Добавить детали забега. */
+  /** Кошелёк деталей: единственный источник правды о балансе. */
+  get partsWallet(): Wallet {
+    return this._parts;
+  }
+
+  /** Добавить детали забега (в бесконечном режиме баланс не растёт). */
   addParts(amount: number): void {
-    this._playerUpgrades.parts += amount;
+    this._parts.add(amount);
   }
 
   /* ======================== Weapon loadout management ======================== */
 
   /** Купить оружие в арсенале забега. Возвращает true при успехе. */
   purchaseWeapon(id: WeaponId): boolean {
-    return this.purchaseWeaponImpl(id, false);
-  }
-
-  /** Debug-only: получить оружие без стоимости. */
-  purchaseWeaponNoCost(id: WeaponId): boolean {
-    return this.purchaseWeaponImpl(id, true);
-  }
-
-  /** Купить уровень линии оружия в арсенале. Возвращает true при успехе. */
-  upgradeWeaponStat(id: WeaponId, stat: WeaponStatKey): boolean {
-    return this.upgradeWeaponStatImpl(id, stat, false);
-  }
-
-  /** Debug-only: прокачать линию оружия без стоимости. */
-  upgradeWeaponStatNoCost(id: WeaponId, stat: WeaponStatKey): boolean {
-    return this.upgradeWeaponStatImpl(id, stat, true);
-  }
-
-  private purchaseWeaponImpl(id: WeaponId, free: boolean): boolean {
     const entry = this._loadout[id];
     if (!entry || entry.owned) return false;
     // Закрытое достижением оружие не купить: сначала нужно выполнить условие.
-    if (!free && !this.isWeaponUnlocked(id)) return false;
+    if (!this.isWeaponUnlocked(id)) return false;
     if (this.getUsedWeaponSlots() >= this.getApplied("weaponSlots")) return false;
-    if (!free) {
-      const cost = weaponCost(id);
-      if (this._playerUpgrades.parts < cost) return false;
-      this._playerUpgrades.parts -= cost;
-    }
+    if (!this._parts.spend(weaponCost(id))) return false;
     entry.owned = true;
     this.refresh();
     return true;
   }
 
-  private upgradeWeaponStatImpl(id: WeaponId, stat: WeaponStatKey, free: boolean): boolean {
+  /** Купить уровень линии оружия в арсенале. Возвращает true при успехе. */
+  upgradeWeaponStat(id: WeaponId, stat: WeaponStatKey): boolean {
     const entry = this._loadout[id];
     if (!entry || !entry.owned) return false;
     const level = entry.model[stat];
     if (level >= WEAPON_STAT_MAX_LEVEL) return false;
-    if (!free) {
-      const cost = weaponUpgradeCost(level);
-      if (this._playerUpgrades.parts < cost) return false;
-      this._playerUpgrades.parts -= cost;
-    }
+    if (!this._parts.spend(weaponUpgradeCost(level))) return false;
     entry.model[stat] = level + 1;
     this.refresh();
     return true;
@@ -244,7 +266,12 @@ export class UpgradeSystem {
   /* ======================== Accessors ======================== */
 
   getParts(): number {
-    return this._playerUpgrades.parts;
+    return this._parts.amount;
+  }
+
+  /** Включён ли бесконечный запас деталей. */
+  isPartsInfinite(): boolean {
+    return this._parts.infinite;
   }
 
   getApplied<T extends keyof AppliedUpgrades>(key: T): AppliedUpgrades[T] {
@@ -282,15 +309,22 @@ export class UpgradeSystem {
     return this._droneSystem.getStatLevel(id, stat);
   }
 
-  /** Купить единицу дрона (детали уже списаны вызывающим). */
-  buyDrone(id: DroneId): boolean {
+  /** Купить единицу дрона: слоты, достижение и детали проверяются здесь. */
+  purchaseDrone(id: DroneId): boolean {
+    if (!this.isDroneUnlocked(id)) return false;
+    if (this.getDroneTotalCount() >= this.getApplied("droneSlots")) return false;
+    if (!this._parts.spend(droneCost(id))) return false;
     const bought = this._droneSystem.buy(id);
     if (bought) this.refresh();
     return bought;
   }
 
-  /** Прокачать линию дрона (детали уже списаны вызывающим). */
+  /** Прокачать линию дрона за детали. */
   upgradeDroneStat(id: DroneId, stat: DroneStatKey): boolean {
+    if (this.getDroneCount(id) <= 0) return false;
+    const level = this._droneSystem.getStatLevel(id, stat);
+    if (level >= DRONE_STAT_MAX_LEVEL) return false;
+    if (!this._parts.spend(droneUpgradeCost(level))) return false;
     const upgraded = this._droneSystem.upgradeStat(id, stat);
     if (upgraded) this.refresh();
     return upgraded;

@@ -32,6 +32,7 @@ import {
 import {
   WEAPON_STAT_MAX_LEVEL,
   type PlayerUpgrades,
+  type UpgradeKey,
   type WeaponStatKey,
 } from "../../../game/upgrades";
 import type { WeaponId, WeaponLoadout } from "../../../game/weapons/Weapon";
@@ -59,7 +60,7 @@ const TAB_IDS: TabId[] = ["ship", "armory", "drones", "bonuses"];
 
 /** Действие, доступное для покупки на текущей вкладке. */
 type UpgradeAction =
-  | { id: string; kind: "upgrade"; key: keyof Omit<PlayerUpgrades, "parts"> }
+  | { id: string; kind: "upgrade"; key: UpgradeKey }
   | { id: string; kind: "weapon"; weaponId: WeaponId }
   | { id: string; kind: "weaponStat"; weaponId: WeaponId; stat: WeaponStatKey }
   | { id: string; kind: "drone"; droneId: DroneId }
@@ -144,7 +145,6 @@ function bonusActions(upgrades: PlayerUpgrades): UpgradeAction[] {
 
 export function UpgradeScreen(props: {
   game: Game | null;
-  detailsOn: boolean;
   onBack: () => void;
   isGamepad: boolean;
   gamepadNavRef: MutableRefObject<GamepadNavHandlers>;
@@ -153,13 +153,15 @@ export function UpgradeScreen(props: {
 }) {
   const t = useT();
   const isHangar = props.variant === "hangar";
-  const free = props.detailsOn;
   const [tab, setTab] = useState<TabId>("ship");
   const [upgrades, setUpgrades] = useState<PlayerUpgrades>({
-    parts: 0, hull: 0, speed: 0, guns: 0, drones: 0,
+    hull: 0, speed: 0, guns: 0, drones: 0,
     shield: 0, shieldPercent: 0, shieldRegen: 0, fireRate: 0, rateDuration: 0,
     healDuration: 0, healRate: 0,
   });
+  /** Детали читаются из кошелька, а не из состояния прокачки. */
+  const [parts, setParts] = useState(0);
+  const [partsInfinite, setPartsInfinite] = useState(false);
   const [loadout, setLoadout] = useState<WeaponLoadout | null>(null);
   const [droneLoadout, setDroneLoadout] = useState<DroneLoadout | null>(null);
   const [weaponSlots, setWeaponSlots] = useState(1);
@@ -177,6 +179,8 @@ export function UpgradeScreen(props: {
     const game = props.game;
     if (!game) return;
     setUpgrades({ ...game.getPlayerUpgrades() });
+    setParts(game.getParts());
+    setPartsInfinite(game.isPartsInfinite());
     setLoadout(copyWeaponLoadout(game.getWeaponLoadout()));
     setDroneLoadout(copyDroneLoadout(game.getDroneLoadout()));
     setWeaponSlots(game.getWeaponSlots());
@@ -200,50 +204,25 @@ export function UpgradeScreen(props: {
     refresh();
   }, [refresh]);
 
-  const handlePurchase = useCallback((key: keyof Omit<PlayerUpgrades, "parts">) => {
-    const game = props.game;
-    if (!game) return;
-    const success = free
-      ? game.purchaseUpgradeNoCost(key)
-      : game.purchaseUpgradeCosted(key);
-    if (success) refresh();
-  }, [props.game, free, refresh]);
+  const handlePurchase = useCallback((key: UpgradeKey) => {
+    if (props.game?.purchaseUpgrade(key)) refresh();
+  }, [props.game, refresh]);
 
   const handleBuyWeapon = useCallback((id: WeaponId) => {
-    const game = props.game;
-    if (!game) return;
-    const success = free
-      ? game.purchaseWeaponNoCost(id)
-      : game.purchaseWeapon(id);
-    if (success) refresh();
-  }, [props.game, free, refresh]);
+    if (props.game?.purchaseWeapon(id)) refresh();
+  }, [props.game, refresh]);
 
   const handleBuyStat = useCallback((id: WeaponId, stat: WeaponStatKey) => {
-    const game = props.game;
-    if (!game) return;
-    const success = free
-      ? game.upgradeWeaponStatNoCost(id, stat)
-      : game.upgradeWeaponStat(id, stat);
-    if (success) refresh();
-  }, [props.game, free, refresh]);
+    if (props.game?.upgradeWeaponStat(id, stat)) refresh();
+  }, [props.game, refresh]);
 
   const handleBuyDrone = useCallback((id: DroneId) => {
-    const game = props.game;
-    if (!game) return;
-    const success = free
-      ? game.purchaseDroneNoCost(id)
-      : game.purchaseDrone(id);
-    if (success) refresh();
-  }, [props.game, free, refresh]);
+    if (props.game?.purchaseDrone(id)) refresh();
+  }, [props.game, refresh]);
 
   const handleBuyDroneStat = useCallback((id: DroneId, stat: DroneStatKey) => {
-    const game = props.game;
-    if (!game) return;
-    const success = free
-      ? game.upgradeDroneStatNoCost(id, stat)
-      : game.upgradeDroneStat(id, stat);
-    if (success) refresh();
-  }, [props.game, free, refresh]);
+    if (props.game?.upgradeDroneStat(id, stat)) refresh();
+  }, [props.game, refresh]);
 
   /** Список покупок активной вкладки — по нему ходит фокус. */
   const actions = useMemo<UpgradeAction[]>(() => {
@@ -357,7 +336,7 @@ export function UpgradeScreen(props: {
             aside={
               <div
                 className="flex items-center gap-2 text-[12px] text-[#ffb84d]"
-                aria-label={`Parts: ${upgrades.parts ?? 0}`}
+                aria-label={`Parts: ${partsInfinite ? "∞" : parts}`}
               >
                 <svg
                   width="14"
@@ -386,7 +365,9 @@ export function UpgradeScreen(props: {
                   />
                   <circle cx="12" cy="12" r="3" />
                 </svg>
-                <span className="font-mono font-bold tracking-[0.15em]">{upgrades.parts}</span>
+                <span className="font-mono font-bold tracking-[0.15em]">
+                  {partsInfinite ? "∞" : parts}
+                </span>
                 <span className="text-[10px] text-[#6f86a8]">{t("upgrade.partsLabel")}</span>
               </div>
             }
@@ -433,7 +414,8 @@ export function UpgradeScreen(props: {
           {tab === "ship" && (
             <ShipTab
               upgrades={upgrades}
-              free={free}
+              parts={parts}
+              infinite={partsInfinite}
               onPurchase={handlePurchase}
               focusedId={focusedId}
             />
@@ -441,9 +423,9 @@ export function UpgradeScreen(props: {
 
           {tab === "armory" && (
             <ArmoryTab
-              upgrades={upgrades}
+              parts={parts}
+              infinite={partsInfinite}
               loadout={loadout}
-              free={free}
               weaponSlots={weaponSlots}
               usedWeaponSlots={usedWeaponSlots}
               lockedIds={lockedWeapons}
@@ -455,9 +437,9 @@ export function UpgradeScreen(props: {
 
           {tab === "drones" && (
             <DronesTab
-              upgrades={upgrades}
+              parts={parts}
+              infinite={partsInfinite}
               droneLoadout={droneLoadout}
-              free={free}
               droneSlots={droneSlots}
               usedDroneSlots={usedDroneSlots}
               lockedIds={lockedDrones}
@@ -470,7 +452,8 @@ export function UpgradeScreen(props: {
           {tab === "bonuses" && (
             <BonusesTab
               upgrades={upgrades}
-              free={free}
+              parts={parts}
+              infinite={partsInfinite}
               onPurchase={handlePurchase}
               focusedId={focusedId}
             />
@@ -479,7 +462,7 @@ export function UpgradeScreen(props: {
           {/* Footer */}
           <div className="mt-5 shrink-0 border-t border-[#5ef2ff]/15 pt-4 text-center">
             <GameButton onClick={props.onBack} variant="amber">
-              {isHangar ? t("upgrade.continueRun") : t("upgrade.back")}
+              {isHangar ? t("upgrade.close") : t("upgrade.back")}
             </GameButton>
           </div>
         </div>

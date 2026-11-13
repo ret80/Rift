@@ -11,6 +11,7 @@
  */
 
 import { t } from "../../i18n";
+import { clearTestProfile, loadTestProfile, saveTestProfile } from "../debug/TestProfile";
 import { AbilitySystem } from "../abilities/AbilitySystem";
 import { AsteroidField } from "../asteroids";
 import type { EnemyKind, PickupKind } from "../balance";
@@ -668,10 +669,64 @@ export class GameContext {
     this.world.testMode = true;
     this.spawnSystem.setEnabledEnemies(enemies);
     this.startRun();
+    // Тестовый профиль: игрок сразу появляется с собранным в ангаре набором.
+    const profile = loadTestProfile(this.storage);
+    if (profile) {
+      this.world.upgradeSystem.applyProfile(profile);
+      this.world.applyUpgrades(true);
+    }
+    // В тестовом режиме всё снаряжение открыто без достижений.
+    this.world.setDebugUnlocks(true);
     // Тестовый забег не зарабатывает детали: выдаём ровно запас на отладку,
     // без множителей меты и без учёта в добыче забега.
     this.world.upgradeSystem.addParts(TEST_LEVEL_PARTS);
     this.world.singleWaveTest = true;
+  }
+
+  /* ======================== Debug economy ======================== */
+
+  /** Бесконечные детали: тратятся всегда, баланс не меняется. */
+  setPartsInfinite(on: boolean): void {
+    this.world.upgradeSystem.partsWallet.setInfinite(on);
+  }
+
+  /** Бесконечные кредиты: покупки в Эхе Разлома никогда не уменьшают баланс. */
+  setCreditsInfinite(on: boolean): void {
+    this.world.creditSystem.setInfinite(on);
+  }
+
+  /** Запас деталей текущего забега (в бесконечном режиме — последний реальный). */
+  getParts(): number {
+    return this.world.upgradeSystem.getParts();
+  }
+
+  /** Включены ли бесконечные детали. */
+  isPartsInfinite(): boolean {
+    return this.world.upgradeSystem.isPartsInfinite();
+  }
+
+  /** Открыть тестовый ангар: правим сохранённый набор покупок вне забега. */
+  openTestHangar(): void {
+    const profile = loadTestProfile(this.storage);
+    this.world.upgradeSystem.applyProfile(profile ?? {});
+    this.world.setDebugUnlocks(true);
+    // Ангар — песочница: покупки идут за детали, поэтому выдаём запас,
+    // как на старте тестовой волны. Бесконечный режим всё равно главнее.
+    this.world.upgradeSystem.partsWallet.set(TEST_LEVEL_PARTS);
+    this.world.applyUpgrades(false);
+  }
+
+  /** Закрыть тестовый ангар: запоминаем покупки для тестовой волны. */
+  closeTestHangar(): void {
+    saveTestProfile(this.storage, this.world.upgradeSystem.captureProfile());
+    this.world.setDebugUnlocks(false);
+  }
+
+  /** Сбросить тестовый профиль к базовому кораблю. */
+  resetTestProfile(): void {
+    clearTestProfile(this.storage);
+    this.world.upgradeSystem.applyProfile({});
+    this.world.applyUpgrades(false);
   }
 
   toMenu(): void {
@@ -718,6 +773,11 @@ export class GameContext {
 
   setPhysicsEngine(id: PhysicsEngineId): void {
     this.world.setPhysicsEngine(id);
+  }
+
+  /** Открыть/закрыть всё снаряжение без достижений (отладка). */
+  setDebugUnlocks(on: boolean): void {
+    this.world.setDebugUnlocks(on);
   }
 
   setEnabledPickups(pickups: PickupKind[] | null): void {

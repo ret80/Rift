@@ -9,9 +9,7 @@ import type { PhysicsEngineId } from "../../game/physics";
 import { PHYSICS_ENGINE_IDS } from "../../game/physics";
 import { PARAM_PROFILE_IDS, type ParamProfileId } from "../../game/balance/params/profiles";
 import { DEBUG_SLIDERS, type DebugTuning } from "../debugTuning";
-
-/** Вкладки панели разработчика. */
-type DebugTab = "general" | "test";
+import type { DebugTab } from "../appState";
 
 const DEBUG_TABS: ReadonlyArray<{ id: DebugTab; labelKey: TKey }> = [
   { id: "general", labelKey: "debug.tabGeneral" },
@@ -352,8 +350,16 @@ export default function DebugScreen(props: {
   onToggleFps: () => void;
   onToggleGod: () => void;
   onChangeWave: (n: number) => void;
-  onToggleDetails: () => void;
-  detailsOn: boolean;
+  /** Отладочный режим бесконечных деталей. */
+  infiniteParts: boolean;
+  onToggleInfiniteParts: () => void;
+  /** Отладочный режим бесконечных кредитов. */
+  infiniteCredits: boolean;
+  onToggleInfiniteCredits: () => void;
+  /** Ангар тестового профиля: собрать набор покупок для теста. */
+  onOpenTestHangar: () => void;
+  /** Сброс тестового профиля к базовому кораблю. */
+  onResetTestProfile: () => void;
   physicsEngine: PhysicsEngineId;
   onPhysicsEngineChange: (v: PhysicsEngineId) => void;
   enabledEnemies: EnemyKind[];
@@ -363,10 +369,12 @@ export default function DebugScreen(props: {
   /** Запустить выбранную волну с текущим отладочным списком врагов. */
   onTestLevel: () => void;
   onBack: () => void;
+  /** Вкладка при открытии: возрат из теста ведёт сразу в «ТЕСТ». */
+  initialTab?: DebugTab;
 }) {
   const t = useT();
   const pct = ((props.startWave - 1) / 49) * 100;
-  const [tab, setTab] = useState<DebugTab>("general");
+  const [tab, setTab] = useState<DebugTab>(props.initialTab ?? "general");
 
   return (
     <div
@@ -423,10 +431,16 @@ export default function DebugScreen(props: {
               onClick={props.onToggleGod}
             />
             <DevToggle
-              label={t("debug.details")}
-              desc={t("debug.detailsDesc")}
-              on={props.detailsOn}
-              onClick={props.onToggleDetails}
+              label={t("debug.infiniteParts")}
+              desc={t("debug.infinitePartsDesc")}
+              on={props.infiniteParts}
+              onClick={props.onToggleInfiniteParts}
+            />
+            <DevToggle
+              label={t("debug.infiniteCredits")}
+              desc={t("debug.infiniteCreditsDesc")}
+              on={props.infiniteCredits}
+              onClick={props.onToggleInfiniteCredits}
             />
           </div>
           )}
@@ -485,6 +499,24 @@ export default function DebugScreen(props: {
             </div>
             <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-[#5f8f70]">
               {t("debug.profileDesc")}
+            </div>
+          </div>
+
+          {/* Тестовый профиль: покупки сохраняются для тестовой волны. */}
+          <div className="mt-4 border border-[#7dff9e]/15 bg-[#07130c]/70 px-4 py-3">
+            <div className="font-mono text-[13px] font-bold tracking-[0.12em] text-[#d9ffe4]">
+              {t("debug.testProfile")}
+            </div>
+            <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-[#5f8f70]">
+              {t("debug.testProfileDesc")}
+            </div>
+            <div className="mt-3 flex gap-2">
+              <GameButton onClick={props.onOpenTestHangar} variant="cyan" small className=" flex-1">
+                {t("debug.testHangar")}
+              </GameButton>
+              <GameButton onClick={props.onResetTestProfile} variant="amber" small className=" flex-1">
+                {t("debug.testProfileReset")}
+              </GameButton>
             </div>
           </div>
 

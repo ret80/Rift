@@ -3,8 +3,11 @@
  *
  * Кредиты начисляются один раз в конце забега по формуле GDD §3.3.
  * Расчёт отделён от баланса: `calculate` только считает, `award` начисляет.
- * Баланс живёт между забегами, поэтому загружается из хранилища владельцем.
+ * Баланс живёт между забегами, поэтому загружается из хранилища владельцем;
+ * все операции с ним идут через кошелёк с поддержкой бесконечного режима.
  */
+
+import { Wallet } from "../economy/Wallet";
 
 export interface CreditParams {
   /** Сколько деталей собрано за забег (не остаток на руках). */
@@ -38,16 +41,26 @@ export interface CreditBreakdown {
 }
 
 export class CreditSystem {
-  private balance = 0;
+  private readonly wallet = new Wallet();
 
   /** Установить баланс из хранилища (начало забега). */
   setBalance(amount: number): void {
-    this.balance = Math.max(0, Math.floor(amount));
+    this.wallet.set(amount);
   }
 
   /** Текущий баланс кредитов. */
   getBalance(): number {
-    return this.balance;
+    return this.wallet.amount;
+  }
+
+  /** Включить/выключить бесконечные кредиты (отладка). */
+  setInfinite(on: boolean): void {
+    this.wallet.setInfinite(on);
+  }
+
+  /** Включён ли бесконечный запас кредитов. */
+  isInfinite(): boolean {
+    return this.wallet.infinite;
   }
 
   /** Рассчитать кредиты за забег. Баланс не меняется. */
@@ -89,14 +102,11 @@ export class CreditSystem {
 
   /** Начислить рассчитанные кредиты. */
   award(breakdown: CreditBreakdown): void {
-    this.balance += breakdown.total;
+    this.wallet.add(breakdown.total);
   }
 
   /** Списать кредиты (покупка в Эхе Разлома). Возвращает true при успехе. */
   spend(amount: number): boolean {
-    if (amount <= 0) return true;
-    if (this.balance < amount) return false;
-    this.balance -= amount;
-    return true;
+    return this.wallet.spend(amount);
   }
 }

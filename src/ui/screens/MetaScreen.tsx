@@ -4,6 +4,8 @@ import { createLocalStoragePort } from "../../game/core/PersistencePort";
 import { META_TALENTS } from "../../game/meta/metaTalents";
 import { MetaTree } from "../../game/meta/MetaTree";
 import { loadCredits, saveCredits } from "../../game/meta/MetaStorage";
+import { Wallet } from "../../game/economy/Wallet";
+import { loadInfiniteCredits } from "../../game/economy/infinite";
 import { DOCTRINES, doctrineById } from "../../game/meta/doctrines";
 import { DoctrineSystem } from "../../game/meta/DoctrineSystem";
 import {
@@ -51,6 +53,7 @@ export default function MetaScreen(props: {
   const storage = useMemo(() => createLocalStoragePort(), []);
   const [tree, setTree] = useState(() => MetaTree.load(storage));
   const [credits, setCredits] = useState(0);
+  const [infiniteCredits, setInfiniteCredits] = useState(false);
   const [doctrineId, setDoctrineId] = useState<string | null>(null);
   const [artifactId, setArtifactId] = useState<string | null>(null);
   const [bestWave, setBestWave] = useState(1);
@@ -60,6 +63,7 @@ export default function MetaScreen(props: {
   const refresh = useCallback(() => {
     setTree(MetaTree.load(storage));
     setCredits(loadCredits(storage));
+    setInfiniteCredits(loadInfiniteCredits(storage));
     setDoctrineId(DoctrineSystem.load(storage).id);
     setArtifactId(LegacySystem.load(storage).id);
     setBestWave(loadBestWave(storage));
@@ -112,10 +116,16 @@ export default function MetaScreen(props: {
   }, [gamepadNavRef, onBack, tab]);
 
   const handleBuy = useCallback((talent: MetaTalent) => {
-    const nextCredits = tree.purchase(talent, loadCredits(storage));
-    if (nextCredits === null) return;
+    const cost = tree.nextCost(talent);
+    if (cost === null) return;
+    const wallet = new Wallet(loadCredits(storage));
+    wallet.setInfinite(loadInfiniteCredits(storage));
+    // Бесконечный кошелёк подтверждает любую сумму: передаём ровно цену.
+    const remaining = tree.purchase(talent, wallet.infinite ? cost : wallet.amount);
+    if (remaining === null) return;
+    wallet.spend(cost);
     tree.save(storage);
-    saveCredits(storage, nextCredits);
+    saveCredits(storage, wallet.amount);
     refresh();
   }, [tree, storage, refresh]);
 
@@ -127,7 +137,7 @@ export default function MetaScreen(props: {
     const maxed = level >= talent.maxLevel;
     const cost = tree.nextCost(talent);
     const locked = !tree.prerequisiteMet(talent);
-    const canBuy = !maxed && !locked && cost !== null && credits >= cost;
+    const canBuy = !maxed && !locked && cost !== null && (infiniteCredits || credits >= cost);
     return (
       <div
         key={talent.id}
@@ -152,7 +162,7 @@ export default function MetaScreen(props: {
                 onClick={() => handleBuy(talent)}
                 variant="cyan"
                 disabled={!canBuy}
-                title={credits < (cost ?? 0) ? t("meta.noCredits") : undefined}
+                title={!infiniteCredits && credits < (cost ?? 0) ? t("meta.noCredits") : undefined}
                 className="mt-1 px-3 py-1 text-xs"
               >
                 {t("meta.buy")} ({cost})
@@ -254,7 +264,7 @@ export default function MetaScreen(props: {
             title={t("meta.title")}
             aside={
               <div className="text-sm text-[#ffb84d]">
-                {t("meta.credits")}: {credits}
+                {t("meta.credits")}: {infiniteCredits ? "∞" : credits}
               </div>
             }
           />

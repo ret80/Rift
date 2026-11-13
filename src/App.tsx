@@ -33,7 +33,7 @@ export default function App() {
   const hudStore = hudStoreRef.current;
 
   const [state, dispatch] = useReducer(appReducer, INITIAL_APP_STATE);
-  const { screen, paused, stats, banner, toast, countdown } = state;
+  const { screen, debugTab, paused, stats, banner, toast, countdown } = state;
 
   const settings = usePersistentSettings();
   const [best, setBest] = useState(0);
@@ -132,11 +132,14 @@ export default function App() {
       case "settings":
       case "help":
       case "debug":
+      case "debugHangar":
       case "hangar":
         if (screen === "settings") {
           act.closeSettings();
         } else if (screen === "hangar") {
           act.closeHangar();
+        } else if (screen === "debugHangar") {
+          act.closeTestHangar();
         } else {
           act.openMenu();
         }
@@ -170,11 +173,14 @@ export default function App() {
       case "settings":
       case "help":
       case "debug":
+      case "debugHangar":
       case "hangar":
         if (screen === "settings") {
           act.closeSettings();
         } else if (screen === "hangar") {
           act.closeHangar();
+        } else if (screen === "debugHangar") {
+          act.closeTestHangar();
         } else {
           act.openMenu();
         }
@@ -208,6 +214,7 @@ export default function App() {
 
       <ScreenRouter
         screen={screen}
+        debugTab={debugTab}
         best={best}
         urlDebug={urlDebug}
         gameRef={gameRef}

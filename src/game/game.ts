@@ -8,7 +8,7 @@
  */
 
 import { EnemyKind, type PickupKind } from "./balance";
-import type { PlayerUpgrades, WeaponStatKey } from "./upgrades";
+import type { PlayerUpgrades, UpgradeKey, WeaponStatKey } from "./upgrades";
 import type { WeaponId } from "./weapons/Weapon";
 import type { DroneId, DroneStatKey } from "./drones/Drone";
 import type { PersistencePort } from "./core/PersistencePort";
@@ -120,14 +120,49 @@ export class Game {
     this.ctx.upgrades.refresh();
   }
 
-  /** Purchase upgrade bypassing cost check (debug/dev) */
-  purchaseUpgradeNoCost(key: keyof Omit<PlayerUpgrades, "parts">): boolean {
-    return this.ctx.upgrades.purchaseNoCost(key);
+  /** Купить апгрейд за детали (через кошелёк). */
+  purchaseUpgrade(key: UpgradeKey): boolean {
+    return this.ctx.upgrades.purchaseUpgrade(key);
   }
 
-  /** Купить апгрейд с проверкой стоимости (через порт хранилища). */
-  purchaseUpgradeCosted(key: keyof Omit<PlayerUpgrades, "parts">): boolean {
-    return this.ctx.upgrades.purchaseCosted(key);
+  /** Запас деталей забега. */
+  getParts(): number {
+    return this.ctx.getParts();
+  }
+
+  /** Включены ли бесконечные детали. */
+  isPartsInfinite(): boolean {
+    return this.ctx.isPartsInfinite();
+  }
+
+  /** Отладочный режим бесконечных деталей. */
+  setInfiniteParts(on: boolean): void {
+    this.ctx.setPartsInfinite(on);
+  }
+
+  /** Отладочный режим бесконечных кредитов. */
+  setInfiniteCredits(on: boolean): void {
+    this.ctx.setCreditsInfinite(on);
+  }
+
+  /** Открыть ангар тестового профиля из меню отладки. */
+  openTestHangar(): void {
+    this.ctx.openTestHangar();
+  }
+
+  /** Закрыть ангар тестового профиля: покупки запоминаются. */
+  closeTestHangar(): void {
+    this.ctx.closeTestHangar();
+  }
+
+  /** Сбросить тестовый профиль к базовому кораблю. */
+  resetTestProfile(): void {
+    this.ctx.resetTestProfile();
+  }
+
+  /** Открыть всё снаряжение без достижений (отладка). */
+  setDebugUnlocks(on: boolean): void {
+    this.ctx.setDebugUnlocks(on);
   }
 
   /** Открыто ли оружие достижением. */
@@ -145,19 +180,9 @@ export class Game {
     return this.ctx.upgrades.purchaseWeapon(id);
   }
 
-  /** Debug-only: получить оружие бесплатно. */
-  purchaseWeaponNoCost(id: WeaponId): boolean {
-    return this.ctx.upgrades.purchaseWeaponNoCost(id);
-  }
-
   /** Купить уровень линии оружия в арсенале. */
   upgradeWeaponStat(id: WeaponId, stat: WeaponStatKey): boolean {
     return this.ctx.upgrades.upgradeWeaponStat(id, stat);
-  }
-
-  /** Debug-only: прокачать линию оружия бесплатно. */
-  upgradeWeaponStatNoCost(id: WeaponId, stat: WeaponStatKey): boolean {
-    return this.ctx.upgrades.upgradeWeaponStatNoCost(id, stat);
   }
 
   /** Персистентный арсенал игрока. */
@@ -195,19 +220,9 @@ export class Game {
     return this.ctx.upgrades.purchaseDrone(id);
   }
 
-  /** Debug-only: получить единицу дрона бесплатно. */
-  purchaseDroneNoCost(id: DroneId): boolean {
-    return this.ctx.upgrades.purchaseDroneNoCost(id);
-  }
-
   /** Купить уровень линии дрона в ангаре. */
   upgradeDroneStat(id: DroneId, stat: DroneStatKey): boolean {
     return this.ctx.upgrades.upgradeDroneStat(id, stat);
-  }
-
-  /** Debug-only: прокачать линию дрона бесплатно. */
-  upgradeDroneStatNoCost(id: DroneId, stat: DroneStatKey): boolean {
-    return this.ctx.upgrades.upgradeDroneStatNoCost(id, stat);
   }
 
   public togglePause(): void {

@@ -11,16 +11,17 @@ import {
   type DroneLoadout,
   type DroneStatKey,
 } from "../../../game/drones/Drone";
-import type { PlayerUpgrades } from "../../../game/upgrades";
 import { achievementForReward } from "../../../game/meta/achievements";
 import { useT } from "../../../i18n";
 import { Icon } from "../../components/Icon";
 import { DRONE_STATS, WEAPON_STAT_ROW_CLASS, droneStatValue, gamepadFocusStyle } from "./model";
 
 export function DronesTab(props: {
-  upgrades: PlayerUpgrades;
+  /** Баланс деталей из кошелька. */
+  parts: number;
+  /** Бесконечные детали: покупка доступна всегда. */
+  infinite: boolean;
   droneLoadout: DroneLoadout | null;
-  free: boolean;
   droneSlots: number;
   usedDroneSlots: number;
   /** Виды, закрытые достижением: покупка недоступна. */
@@ -30,7 +31,7 @@ export function DronesTab(props: {
   focusedId?: string | null;
 }) {
   const t = useT();
-  const { upgrades, droneLoadout, free, droneSlots, usedDroneSlots } = props;
+  const { parts, infinite, droneLoadout, droneSlots, usedDroneSlots } = props;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -90,19 +91,19 @@ export function DronesTab(props: {
                 <button
                   onClick={() => props.onBuyDrone(drone.id)}
                   disabled={
-                    locked || noFreeSlots || (!free && upgrades.parts < droneCost(drone.id))
+                    locked || noFreeSlots || (!infinite && parts < droneCost(drone.id))
                   }
                   title={
                     locked && achievement
                       ? t("upgrade.lockHint", { name: t(achievement.nameKey) })
                       : noFreeSlots
                         ? t("upgrade.drone.noSlots")
-                        : !free && upgrades.parts < droneCost(drone.id)
+                        : !infinite && parts < droneCost(drone.id)
                           ? t("upgrade.noParts")
                           : undefined
                   }
                   className={`clip-btn btn-buy btn-pink text-xs font-mono tracking-[0.15em] ${
-                    !locked && !noFreeSlots && (free || upgrades.parts >= droneCost(drone.id))
+                    !locked && !noFreeSlots && (infinite || parts >= droneCost(drone.id))
                       ? "cursor-pointer"
                       : "cursor-not-allowed"
                   }`}
@@ -118,7 +119,7 @@ export function DronesTab(props: {
                     const level = entry!.model[row.stat];
                     const maxed = level >= DRONE_STAT_MAX_LEVEL;
                     const cost = droneUpgradeCost(level);
-                    const affordable = maxed ? false : upgrades.parts >= cost;
+                    const affordable = maxed ? false : infinite || parts >= cost;
                     const statFocused = !maxed && props.focusedId === `drone:${drone.id}:${row.stat}`;
                     return (
                       <div
@@ -150,10 +151,10 @@ export function DronesTab(props: {
                         ) : (
                           <button
                             onClick={() => props.onBuyStat(drone.id, row.stat)}
-                            disabled={!free && !affordable}
-                            title={!free && !affordable ? t("upgrade.noParts") : undefined}
+                            disabled={!affordable}
+                            title={!affordable ? t("upgrade.noParts") : undefined}
                             className={`clip-btn btn-buy text-xs font-mono tracking-[0.15em] ${
-                              free || affordable ? "cursor-pointer" : "cursor-not-allowed"
+                              affordable ? "cursor-pointer" : "cursor-not-allowed"
                             }`}
                           >
                             {cost}

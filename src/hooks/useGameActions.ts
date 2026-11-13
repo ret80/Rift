@@ -50,16 +50,23 @@ export interface GameActions {
   openHangar(): void;
   /** Закрыть ангар и продолжить забег. */
   closeHangar(): void;
+  /** Открыть ангар тестового профиля из меню отладки. */
+  openTestHangar(): void;
+  /** Закрыть тестовый ангар: покупки станут стартовым набором теста. */
+  closeTestHangar(): void;
+  /** Сбросить тестовый профиль к базовому кораблю. */
+  resetTestProfile(): void;
   openMeta(): void;
   closeMeta(): void;
   toggleEnemy(kind: EnemyKind): void;
   togglePickup(kind: PickupKind): void;
   toggleDebugFps(): void;
   toggleDebugGod(): void;
+  toggleDebugInfiniteParts(): void;
+  toggleDebugInfiniteCredits(): void;
   changeDebugWave(n: number): void;
   /** Отладочная скорость игрока в процентах (−50…+50), только тестовые уровни. */
   changeDebugTuning(next: DebugTuning): void;
-  toggleDebugDetails(): void;
 }
 
 export interface GameActionsOptions {
@@ -90,6 +97,22 @@ export function useGameActions(options: GameActionsOptions): GameActions {
     dispatch({ type: "SET_SCREEN", screen: "game" });
   }, [gameRef, dispatch]);
 
+  const openTestHangar = useCallback(() => {
+    gameRef.current?.openTestHangar();
+    dispatch({ type: "SET_SCREEN", screen: "debugHangar" });
+  }, [gameRef, dispatch]);
+
+  const closeTestHangar = useCallback(() => {
+    gameRef.current?.closeTestHangar();
+    // После ангара игрок продолжает настройку теста — показываем «ТЕСТ».
+    dispatch({ type: "SET_DEBUG_TAB", tab: "test" });
+    dispatch({ type: "SET_SCREEN", screen: "debug" });
+  }, [gameRef, dispatch]);
+
+  const resetTestProfile = useCallback(() => {
+    gameRef.current?.resetTestProfile();
+  }, [gameRef]);
+
   const resetOverlays = () => resetGameState({
     setStats: (s) => dispatch({ type: "SET_STATS", stats: s }),
     setBanner: (b) => dispatch({ type: "SET_BANNER", banner: b }),
@@ -106,6 +129,7 @@ export function useGameActions(options: GameActionsOptions): GameActions {
     // отладочный список не должен влиять на реальную игру.
     game.setStartWave(1);
     game.setTestMode(false);
+    game.setDebugUnlocks(false);
     game.setEnabledEnemies(null);
     // Обычный забег всегда идёт на базовом профиле: выбор в отладке
     // не должен влиять на рекорды.
@@ -131,6 +155,8 @@ export function useGameActions(options: GameActionsOptions): GameActions {
   const finishTestLevel = () => {
     gameRef.current?.toMenu();
     resetOverlays();
+    // Возврат из тестовой волны открывает ту вкладку, где ведётся тест.
+    dispatch({ type: "SET_DEBUG_TAB", tab: "test" });
     dispatch({ type: "SET_SCREEN", screen: "debug" });
   };
 
@@ -155,7 +181,8 @@ export function useGameActions(options: GameActionsOptions): GameActions {
   // capture — раньше игрового слушателя.
   useEffect(() => {
     const isMenuWithBack =
-      screen === "settings" || screen === "help" || screen === "debug" || screen === "meta" || screen === "hangar";
+      screen === "settings" || screen === "help" || screen === "debug" ||
+      screen === "debugHangar" || screen === "meta" || screen === "hangar";
     if (!isMenuWithBack) return;
 
     const handler = (e: KeyboardEvent) => {
@@ -169,13 +196,16 @@ export function useGameActions(options: GameActionsOptions): GameActions {
       } else if (screen === "hangar") {
         // Esc в ангаре = «продолжить»: забег не прерывается.
         closeHangar();
+      } else if (screen === "debugHangar") {
+        // Esc закрывает тестовый ангар так же, как кнопка: покупки сохраняются.
+        closeTestHangar();
       } else {
         dispatch({ type: "SET_SCREEN", screen: "menu" });
       }
     };
     window.addEventListener("keydown", handler, { capture: true });
     return () => window.removeEventListener("keydown", handler, { capture: true });
-  }, [screen, dispatch, closeHangar]);
+  }, [screen, dispatch, closeHangar, closeTestHangar]);
 
   return {
     startGame,
@@ -218,7 +248,11 @@ export function useGameActions(options: GameActionsOptions): GameActions {
     },
     openMenu: () => dispatch({ type: "SET_SCREEN", screen: "menu" }),
     openHelp: () => dispatch({ type: "SET_SCREEN", screen: "help" }),
-    openDebug: () => dispatch({ type: "SET_SCREEN", screen: "debug" }),
+    openDebug: () => {
+      // Из главного меню панель всегда открывается на общих настройках.
+      dispatch({ type: "SET_DEBUG_TAB", tab: "general" });
+      dispatch({ type: "SET_SCREEN", screen: "debug" });
+    },
     openSettings: (from) => {
       settingsFromRef.current = from;
       dispatch({ type: "SET_SCREEN", screen: "settings" });
@@ -226,6 +260,9 @@ export function useGameActions(options: GameActionsOptions): GameActions {
     closeSettings,
     openHangar,
     closeHangar,
+    openTestHangar,
+    closeTestHangar,
+    resetTestProfile,
     openMeta: () => dispatch({ type: "SET_SCREEN", screen: "meta" }),
     closeMeta: () => {
       // Эхо Разлома открывается из меню или с экрана смерти: после него
@@ -260,6 +297,16 @@ export function useGameActions(options: GameActionsOptions): GameActions {
       settings.setDebugGod(next);
       gameRef.current?.setDebugGod(next);
     },
+    toggleDebugInfiniteParts: () => {
+      const next = !settings.debugInfiniteParts;
+      settings.setDebugInfiniteParts(next);
+      gameRef.current?.setInfiniteParts(next);
+    },
+    toggleDebugInfiniteCredits: () => {
+      const next = !settings.debugInfiniteCredits;
+      settings.setDebugInfiniteCredits(next);
+      gameRef.current?.setInfiniteCredits(next);
+    },
     changeDebugWave: (n) => {
       settings.setDebugWave(n);
       gameRef.current?.setStartWave(n);
@@ -273,6 +320,5 @@ export function useGameActions(options: GameActionsOptions): GameActions {
     toggleRecording: () => gameRef.current?.toggleRecording(),
     toggleTactical: () => gameRef.current?.toggleTactical(),
     setDroneOrder: (order) => gameRef.current?.setDroneOrder(order),
-    toggleDebugDetails: () => settings.setDebugDetails(!settings.debugDetails),
   };
 }

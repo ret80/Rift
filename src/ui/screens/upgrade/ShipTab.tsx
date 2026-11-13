@@ -7,6 +7,7 @@ import {
   UPGRADE_LABEL,
   upgradeCost,
   type PlayerUpgrades,
+  type UpgradeKey,
 } from "../../../game/upgrades";
 import { shieldBlockPercent, shieldRegenPerSecond } from "../../../game/balance/player";
 import { useT, type TKey } from "../../../i18n";
@@ -24,20 +25,23 @@ import {
 interface UpgradeRowProps {
   upgradeKey: "hull" | "speed" | "guns" | "drones";
   upgrades: PlayerUpgrades;
-  onPurchase: (key: keyof Omit<PlayerUpgrades, "parts">) => void;
-  free: boolean;
+  /** Баланс деталей из кошелька. */
+  parts: number;
+  /** Бесконечные детали: покупка доступна всегда. */
+  infinite: boolean;
+  onPurchase: (key: UpgradeKey) => void;
   focused?: boolean;
 }
 
 function UpgradeRow(props: UpgradeRowProps) {
   const t = useT();
-  const { upgradeKey, upgrades, onPurchase, free, focused } = props;
+  const { upgradeKey, upgrades, parts, infinite, onPurchase, focused } = props;
 
   const level = upgrades[upgradeKey];
   const tier = UPGRADE_TIERS[upgradeKey];
   const maxed = level >= tier.maxLevel;
   const cost = upgradeCost(upgradeKey, level);
-  const affordable = maxed ? false : free ? true : upgrades.parts >= cost;
+  const affordable = maxed ? false : infinite || parts >= cost;
 
   const labelKey: TKey = UPGRADE_LABEL[upgradeKey].label;
   const descKey: TKey = UPGRADE_LABEL[upgradeKey].desc;
@@ -103,15 +107,16 @@ function UpgradeRow(props: UpgradeRowProps) {
  */
 function ShieldGroup(props: {
   upgrades: PlayerUpgrades;
-  free: boolean;
-  onPurchase: (key: keyof Omit<PlayerUpgrades, "parts">) => void;
+  parts: number;
+  infinite: boolean;
+  onPurchase: (key: UpgradeKey) => void;
   focusedId?: string | null;
 }) {
   const t = useT();
-  const { upgrades, free, onPurchase, focusedId } = props;
+  const { upgrades, parts, infinite, onPurchase, focusedId } = props;
   const owned = upgrades.shield > 0;
   const buyCost = upgradeCost("shield", upgrades.shield);
-  const canBuy = !owned && (free || upgrades.parts >= buyCost);
+  const canBuy = !owned && (infinite || parts >= buyCost);
 
   return (
     <div
@@ -170,7 +175,7 @@ function ShieldGroup(props: {
             const tier = UPGRADE_TIERS[key];
             const maxed = level >= tier.maxLevel;
             const cost = upgradeCost(key, level);
-            const affordable = maxed ? false : free || upgrades.parts >= cost;
+            const affordable = maxed ? false : infinite || parts >= cost;
             const rowFocused = !maxed && focusedId === `ship:${key}`;
             return (
               <div
@@ -222,8 +227,9 @@ function ShieldGroup(props: {
 
 export function ShipTab(props: {
   upgrades: PlayerUpgrades;
-  free: boolean;
-  onPurchase: (key: keyof Omit<PlayerUpgrades, "parts">) => void;
+  parts: number;
+  infinite: boolean;
+  onPurchase: (key: UpgradeKey) => void;
   focusedId?: string | null;
 }) {
   return (
@@ -231,7 +237,8 @@ export function ShipTab(props: {
       {SHIP_KEYS.map((upgradeKey) => (
         <UpgradeRow
           key={upgradeKey}
-          free={props.free}
+          parts={props.parts}
+          infinite={props.infinite}
           upgradeKey={upgradeKey}
           upgrades={props.upgrades}
           onPurchase={props.onPurchase}
@@ -240,7 +247,8 @@ export function ShipTab(props: {
       ))}
       <ShieldGroup
         upgrades={props.upgrades}
-        free={props.free}
+        parts={props.parts}
+        infinite={props.infinite}
         onPurchase={props.onPurchase}
         focusedId={props.focusedId}
       />

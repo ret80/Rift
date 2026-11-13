@@ -10,7 +10,7 @@ import type { MutableRefObject } from "react";
 import type { Game } from "../game/game";
 import type { GameActions } from "../hooks/useGameActions";
 import type { PersistentSettings } from "../hooks/usePersistentSettings";
-import type { Screen } from "./appState";
+import type { DebugTab, Screen } from "./appState";
 import DebugScreen from "./screens/DebugScreen";
 import HelpScreen from "./screens/HelpScreen";
 import MainMenu from "./screens/MainMenu";
@@ -42,6 +42,8 @@ export interface GamepadNavHandlers {
 
 export interface ScreenRouterProps {
   screen: Screen;
+  /** Вкладка, с которой открыть панель разработчика. */
+  debugTab: DebugTab;
   best: number;
   urlDebug: boolean;
   gameRef: MutableRefObject<Game | null>;
@@ -56,6 +58,7 @@ export interface ScreenRouterProps {
 export function ScreenRouter(props: ScreenRouterProps) {
   const {
     screen,
+    debugTab,
     best,
     urlDebug,
     gameRef,
@@ -116,7 +119,8 @@ export function ScreenRouter(props: ScreenRouterProps) {
           startWave={settings.debugWave}
           tuning={settings.tuning}
           onChangeTuning={actions.changeDebugTuning}
-          detailsOn={settings.debugDetails}
+          infiniteParts={settings.debugInfiniteParts}
+          infiniteCredits={settings.debugInfiniteCredits}
           physicsEngine={settings.physicsEngine}
           onPhysicsEngineChange={actions.changePhysicsEngine}
           enabledEnemies={settings.enabledEnemies}
@@ -126,9 +130,24 @@ export function ScreenRouter(props: ScreenRouterProps) {
           onToggleFps={actions.toggleDebugFps}
           onToggleGod={actions.toggleDebugGod}
           onChangeWave={actions.changeDebugWave}
-          onToggleDetails={actions.toggleDebugDetails}
+          onToggleInfiniteParts={actions.toggleDebugInfiniteParts}
+          onToggleInfiniteCredits={actions.toggleDebugInfiniteCredits}
+          onOpenTestHangar={actions.openTestHangar}
+          onResetTestProfile={actions.resetTestProfile}
           onTestLevel={actions.startTestLevel}
           onBack={actions.openMenu}
+          initialTab={debugTab}
+        />
+      );
+
+    case "debugHangar":
+      return (
+        <UpgradeScreen
+          game={gameRef.current}
+          onBack={actions.closeTestHangar}
+          isGamepad={isGamepad}
+          gamepadNavRef={gamepadNavRef}
+          variant="hangar"
         />
       );
 
@@ -136,7 +155,6 @@ export function ScreenRouter(props: ScreenRouterProps) {
       return (
         <UpgradeScreen
           game={gameRef.current}
-          detailsOn={settings.debugDetails}
           onBack={actions.closeHangar}
           isGamepad={isGamepad}
           gamepadNavRef={gamepadNavRef}

@@ -7,6 +7,7 @@ import {
   UPGRADE_LABEL,
   upgradeCost,
   type PlayerUpgrades,
+  type UpgradeKey,
 } from "../../../game/upgrades";
 import { useT, type TKey } from "../../../i18n";
 import { Icon } from "../../components/Icon";
@@ -14,18 +15,19 @@ import { STAT_ROW_CLASS, gamepadFocusStyle, getUpgradeValue } from "./model";
 
 /** Группа бонуса: несколько прокачиваемых параметров под общим заголовком. */
 function BonusGroup(props: {
-  keys: readonly (keyof Omit<PlayerUpgrades, "parts">)[];
+  keys: readonly UpgradeKey[];
   icon: "upgrade-fireRate" | "upgrade-heal";
   titleKey: TKey;
   descKey: TKey;
   accentClass: string;
   upgrades: PlayerUpgrades;
-  free: boolean;
-  onPurchase: (key: keyof Omit<PlayerUpgrades, "parts">) => void;
+  parts: number;
+  infinite: boolean;
+  onPurchase: (key: UpgradeKey) => void;
   focusedId?: string | null;
 }) {
   const t = useT();
-  const { keys, upgrades, free, onPurchase, focusedId } = props;
+  const { keys, upgrades, parts, infinite, onPurchase, focusedId } = props;
 
   return (
     <div className={`rounded border px-4 py-3 ${props.accentClass}`}>
@@ -42,7 +44,7 @@ function BonusGroup(props: {
           const tier = UPGRADE_TIERS[key];
           const maxed = level >= tier.maxLevel;
           const cost = upgradeCost(key, level);
-          const affordable = maxed ? false : free || upgrades.parts >= cost;
+          const affordable = maxed ? false : infinite || parts >= cost;
           const rowFocused = !maxed && focusedId === `bonus:${key}`;
           return (
             <div
@@ -93,8 +95,9 @@ function BonusGroup(props: {
 
 export function BonusesTab(props: {
   upgrades: PlayerUpgrades;
-  free: boolean;
-  onPurchase: (key: keyof Omit<PlayerUpgrades, "parts">) => void;
+  parts: number;
+  infinite: boolean;
+  onPurchase: (key: UpgradeKey) => void;
   focusedId?: string | null;
 }) {
   const { focusedId } = props;
@@ -107,7 +110,8 @@ export function BonusesTab(props: {
         descKey="upgrade.rateGroupDesc"
         accentClass="border-[#ff8c42]/40 bg-[#ff8c42]/5"
         upgrades={props.upgrades}
-        free={props.free}
+        parts={props.parts}
+        infinite={props.infinite}
         onPurchase={props.onPurchase}
         focusedId={focusedId}
       />
@@ -118,7 +122,8 @@ export function BonusesTab(props: {
         descKey="upgrade.healGroupDesc"
         accentClass="border-[#7dffb8]/40 bg-[#7dffb8]/5"
         upgrades={props.upgrades}
-        free={props.free}
+        parts={props.parts}
+        infinite={props.infinite}
         onPurchase={props.onPurchase}
         focusedId={focusedId}
       />

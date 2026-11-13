@@ -62,6 +62,7 @@ import { ScoringSystem } from "../ecs/systems/ScoringSystem";
 import { ShieldSystem } from "../ecs/systems/ShieldSystem";
 import { SpawnSystem, type SpawnDependencies } from "../ecs/systems/SpawnSystem";
 import { UpgradeSystem, type RunSeed } from "../systems/UpgradeSystem";
+import { loadInfiniteCredits, loadInfiniteParts } from "../economy/infinite";
 import { WaveFlowSystem } from "../ecs/systems/WaveFlowSystem";
 import { WaveOrchestrator } from "../waves/WaveOrchestrator";
 import { ZoneSystem } from "../ecs/systems/ZoneSystem";
@@ -221,6 +222,8 @@ export class GameWorld {
   params: GameParams = DEFAULT_PARAMS;
   /** Одиночный тест уровня: после зачистки/смерти вернуть в отладку. */
   singleWaveTest = false;
+  /** Отладочный режим: всё оружие и дроны открыты без достижений. */
+  private debugUnlocksAll = false;
   /** Тест уже завершён: защита от повторного возврата в отладку. */
   private testLevelEnded = false;
   /** Тестовая волна зачищена: ждём баннер «волна зачищена» и гашение зоны. */
@@ -305,8 +308,10 @@ export class GameWorld {
     this.unlocks = UnlockSystem.load(this.ports.storage);
     this.upgradeSystem.setMetaBonuses(this.activeMetaBonuses());
     this.applyUnlocks();
+    this.upgradeSystem.partsWallet.setInfinite(loadInfiniteParts(this.ports.storage));
     this.creditSystem = new CreditSystem();
     this.creditSystem.setBalance(loadCredits(this.ports.storage));
+    this.creditSystem.setInfinite(loadInfiniteCredits(this.ports.storage));
     this.anchorSystem = new AnchorSystem({
       getZone: () => this.waveOrchestrator.zoneState,
       getPlayer: () => this.getPlayerPosition(),
@@ -778,7 +783,9 @@ export class GameWorld {
     this.upgradeSystem.setMetaBonuses(this.activeMetaBonuses());
     this.applyUnlocks();
     this.upgradeSystem.resetRun(this.runSeed);
+    this.upgradeSystem.partsWallet.setInfinite(loadInfiniteParts(this.ports.storage));
     this.creditSystem.setBalance(loadCredits(this.ports.storage));
+    this.creditSystem.setInfinite(loadInfiniteCredits(this.ports.storage));
     this.runPartsEarned = 0;
     this.bossKills = 0;
     this.creditsAwarded = false;
@@ -944,18 +951,30 @@ export class GameWorld {
 
   /** Передать прокачке список открытого достижениями снаряжения. */
   private applyUnlocks(): void {
+    // Тестовый режим отладки: всё снаряжение доступно без достижений.
+    if (this.debugUnlocksAll) {
+      this.upgradeSystem.setUnlockedWeapons(null);
+      this.upgradeSystem.setUnlockedDrones(null);
+      return;
+    }
     this.upgradeSystem.setUnlockedWeapons(this.unlocks.weaponIds());
     this.upgradeSystem.setUnlockedDrones(this.unlocks.droneIds());
   }
 
-  /** Открыт ли вид оружия достижением. */
+  /** Отладка: открыть всё снаряжение независимо от достижений. */
+  setDebugUnlocks(on: boolean): void {
+    this.debugUnlocksAll = on;
+    this.applyUnlocks();
+  }
+
+  /** Открыт ли вид оружия достижением (в отладочном режиме — всегда). */
   isWeaponUnlocked(id: WeaponId): boolean {
-    return this.unlocks.isWeaponUnlocked(id);
+    return this.debugUnlocksAll || this.unlocks.isWeaponUnlocked(id);
   }
 
   /** Открыт ли вид дрона достижением. */
   isDroneUnlocked(id: DroneId): boolean {
-    return this.unlocks.isDroneUnlocked(id);
+    return this.debugUnlocksAll || this.unlocks.isDroneUnlocked(id);
   }
 
   /** Мета-бонусы забега: таланты Эха Разлома, доктрина и артефакт. */

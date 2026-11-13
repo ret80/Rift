@@ -67,6 +67,7 @@ export class GameRender {
       rateT: ctx.bonusManager.getRateT(),
       drones: ctx.weaponManager.getInstanceCount("drone"),
       parts: ctx.upgradeSystem.getParts(),
+      partsInfinite: ctx.upgradeSystem.isPartsInfinite(),
       shield: ctx.shieldSystem.getSnapshot(),
       loadout: ctx.loadoutSystem.getSlots(),
       recording: ctx.recorder.status,

@@ -38,8 +38,12 @@ export interface PersistentSettings {
   /** Отладочные сдвиги параметров мира: профиль и ползунки. */
   tuning: DebugTuning;
   setTuning: (next: DebugTuning) => void;
-  debugDetails: boolean;
-  setDebugDetails: (v: boolean) => void;
+  /** Отладочные бесконечные детали. */
+  debugInfiniteParts: boolean;
+  setDebugInfiniteParts: (v: boolean) => void;
+  /** Отладочные бесконечные кредиты. */
+  debugInfiniteCredits: boolean;
+  setDebugInfiniteCredits: (v: boolean) => void;
   enabledEnemies: EnemyKind[];
   setEnabledEnemies: React.Dispatch<React.SetStateAction<EnemyKind[]>>;
   enabledPickups: PickupKind[];
@@ -86,7 +90,14 @@ export function usePersistentSettings(): PersistentSettings {
   );
   const tuning = normalizeDebugTuning(tuningRaw);
   const setTuning = (next: DebugTuning) => setTuningRaw(normalizeDebugTuning(next));
-  const [debugDetails, setDebugDetails] = usePersistedState(STORAGE_KEYS.debugDetails, false);
+  const [debugInfiniteParts, setDebugInfiniteParts] = usePersistedState(
+    STORAGE_KEYS.debugInfiniteParts,
+    false
+  );
+  const [debugInfiniteCredits, setDebugInfiniteCredits] = usePersistedState(
+    STORAGE_KEYS.debugInfiniteCredits,
+    false
+  );
   const [enabledEnemies, setEnabledEnemies] = usePersistedState<EnemyKind[]>(
     STORAGE_KEYS.debugEnemies,
     [
@@ -125,7 +136,8 @@ export function usePersistentSettings(): PersistentSettings {
     debugGod, setDebugGod,
     debugWave, setDebugWave,
     tuning, setTuning,
-    debugDetails, setDebugDetails,
+    debugInfiniteParts, setDebugInfiniteParts,
+    debugInfiniteCredits, setDebugInfiniteCredits,
     enabledEnemies, setEnabledEnemies,
     enabledPickups, setEnabledPickups,
   };

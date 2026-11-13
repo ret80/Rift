@@ -13,7 +13,7 @@ import {
   weaponDamageMult,
   WEAPON_ACCURACY_PER_LEVEL,
   WEAPON_STAT_MAX_LEVEL,
-  type PlayerUpgrades,
+  type UpgradeKey,
   type WeaponStatKey,
 } from "../../../game/upgrades";
 import {
@@ -110,7 +110,7 @@ export { DRONE_CATALOG, DRONE_STAT_MAX_LEVEL };
 
 /** Текущее значение линии корабля/бонуса. */
 export function getUpgradeValue(
-  key: keyof Omit<PlayerUpgrades, "parts">,
+  key: UpgradeKey,
   level: number,
 ): string {
   switch (key) {
@@ -131,7 +131,7 @@ export function getUpgradeValue(
 
 /** Текст эффекта «текущее / максимум» для строки корабля. */
 export function getEffectText(
-  key: keyof Omit<PlayerUpgrades, "parts">,
+  key: UpgradeKey,
   level: number,
   tier: { baseCost: number; costStep: number; maxLevel: number },
 ): string {

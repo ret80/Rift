@@ -5,7 +5,7 @@
 export const ru = {
   title: "ПРОКАЧКА",
   hangarTitle: "АНГАР",
-  continueRun: "ПРОДОЛЖИТЬ ЗАБЕГ",
+  close: "ЗАКРЫТЬ",
   back: "НАЗАД",
   partsLabel: "ДЕТАЛИ",
   tabShip: "КОРАБЛЬ",
@@ -88,7 +88,7 @@ export const ru = {
 export const en: typeof ru = {
   title: "UPGRADES",
   hangarTitle: "HANGAR",
-  continueRun: "CONTINUE RUN",
+  close: "CLOSE",
   back: "BACK",
   partsLabel: "PARTS",
   tabShip: "SHIP",

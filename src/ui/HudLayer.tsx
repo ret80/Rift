@@ -84,7 +84,7 @@ export function HudLayer(props: {
                   }
                   aria-label={t("upgrade.partsLabel")}
                 >
-                  <PartsGlyph /> <span>{data?.parts ?? 0}</span>
+                  <PartsGlyph /> <span>{data?.partsInfinite ? "∞" : data?.parts ?? 0}</span>
                 </div>
               </div>
               <div className="text-[8px] tracking-[0.14em] text-[#6f86a8] sm:text-[9px]">

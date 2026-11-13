@@ -10,10 +10,24 @@ import { readUrlParam } from "../game/core/env";
 import { EnemyKind } from "../game/balance/enemies";
 import type { WaveCompositionOverride } from "../game/balance/waves";
 
-export type Screen = "menu" | "settings" | "help" | "debug" | "hangar" | "meta" | "game";
+/** Вкладки панели разработчика. */
+export type DebugTab = "general" | "test";
+
+export type Screen =
+  | "menu"
+  | "settings"
+  | "help"
+  | "debug"
+  /** Ангар тестового профиля: покупки для тестовой волны. */
+  | "debugHangar"
+  | "hangar"
+  | "meta"
+  | "game";
 
 export interface AppState {
   screen: Screen;
+  /** Вкладка отладки, которая откроется при следующем показе панели. */
+  debugTab: DebugTab;
   paused: boolean;
   /** Тактический режим: мир замер, открыт оверлей приказов дронам. */
   tactical: boolean;
@@ -25,6 +39,7 @@ export interface AppState {
 
 export type AppAction =
   | { type: "SET_SCREEN"; screen: Screen }
+  | { type: "SET_DEBUG_TAB"; tab: DebugTab }
   | { type: "SET_PAUSED"; paused: boolean }
   | { type: "SET_TACTICAL"; tactical: boolean }
   | { type: "SET_STATS"; stats: StatsData | null }
@@ -34,6 +49,7 @@ export type AppAction =
 
 export const INITIAL_APP_STATE: AppState = {
   screen: "menu",
+  debugTab: "general",
   paused: false,
   tactical: false,
   stats: null,
@@ -46,6 +62,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case "SET_SCREEN":
       return { ...state, screen: action.screen };
+    case "SET_DEBUG_TAB":
+      return { ...state, debugTab: action.tab };
     case "SET_PAUSED":
       return { ...state, paused: action.paused };
     case "SET_TACTICAL":

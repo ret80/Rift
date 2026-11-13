@@ -2,12 +2,14 @@
  * GameUpgrades — публичный фасад покупки/обновления апгрейдов.
  * Изолирует правила стоимости, сохранения и повторного применения
  * апгрейдов от фасада Game.
+ *
+ * Все траты выполняет `UpgradeSystem` через кошелёк деталей: фасад только
+ * пересчитывает боевые значения после успешной покупки.
  */
 
-import { UPGRADE_TIERS, upgradeCost, type PlayerUpgrades, type WeaponStatKey } from "../upgrades";
+import type { PlayerUpgrades, UpgradeKey, WeaponStatKey } from "../upgrades";
 import type { WeaponId } from "../weapons/Weapon";
 import type { DroneId, DroneStatKey } from "../drones/Drone";
-import { DRONE_STAT_MAX_LEVEL, droneCost, droneUpgradeCost } from "../drones/Drone";
 import type { GameContext } from "./GameContext";
 
 export class GameUpgrades {
@@ -19,28 +21,13 @@ export class GameUpgrades {
     this.ctx.applyUpgrades(false);
   }
 
-
-  /** Purchase upgrade bypassing cost check (debug/dev). */
-  purchaseNoCost(key: keyof Omit<PlayerUpgrades, "parts">): boolean {
-    const success = this.ctx.upgradeSystem.purchaseNoCost(key);
+  /** Купить уровень линии корабля/бонуса за детали. */
+  purchaseUpgrade(key: UpgradeKey): boolean {
+    const success = this.ctx.upgradeSystem.purchaseUpgrade(key);
     if (success) {
       this.refresh();
     }
     return success;
-  }
-
-  /** Purchase upgrade with cost check (через порт хранилища). */
-  purchaseCosted(key: keyof Omit<PlayerUpgrades, "parts">): boolean {
-    const ups = this.ctx.upgradeSystem.playerUpgrades;
-    const level = ups[key];
-    const cost = upgradeCost(key, level);
-    const tier = UPGRADE_TIERS[key];
-    if (level >= tier.maxLevel) return false;
-    if (ups.parts < cost) return false;
-    ups.parts -= cost;
-    (ups[key] as number) += 1;
-    this.refresh();
-    return true;
   }
 
   /** Get persistent player upgrades. */
@@ -57,27 +44,9 @@ export class GameUpgrades {
     return success;
   }
 
-  /** Debug-only: получить оружие бесплатно. */
-  purchaseWeaponNoCost(id: WeaponId): boolean {
-    const success = this.ctx.upgradeSystem.purchaseWeaponNoCost(id);
-    if (success) {
-      this.refresh();
-    }
-    return success;
-  }
-
   /** Купить уровень линии оружия в арсенале. */
   upgradeWeaponStat(id: WeaponId, stat: WeaponStatKey): boolean {
     const success = this.ctx.upgradeSystem.upgradeWeaponStat(id, stat);
-    if (success) {
-      this.refresh();
-    }
-    return success;
-  }
-
-  /** Debug-only: прокачать линию оружия бесплатно. */
-  upgradeWeaponStatNoCost(id: WeaponId, stat: WeaponStatKey): boolean {
-    const success = this.ctx.upgradeSystem.upgradeWeaponStatNoCost(id, stat);
     if (success) {
       this.refresh();
     }
@@ -118,73 +87,19 @@ export class GameUpgrades {
 
   /** Купить единицу дрона в ангаре. */
   purchaseDrone(id: DroneId): boolean {
-    const success = this.purchaseDroneImpl(id, false);
+    const success = this.ctx.upgradeSystem.purchaseDrone(id);
     if (success) {
       this.refresh();
     }
     return success;
-  }
-
-  /** Debug-only: получить единицу дрона бесплатно. */
-  purchaseDroneNoCost(id: DroneId): boolean {
-    const success = this.purchaseDroneImpl(id, true);
-    if (success) {
-      this.refresh();
-    }
-    return success;
-  }
-
-  private purchaseDroneImpl(id: DroneId, free: boolean): boolean {
-    // Закрытый достижением дрон не купить до выполнения условия.
-    if (!free && !this.ctx.upgradeSystem.isDroneUnlocked(id)) return false;
-    const ups = this.ctx.upgradeSystem.playerUpgrades;
-    const slots = this.getDroneSlots();
-    const used = this.getUsedDroneSlots();
-    if (used >= slots) return false;
-    const cost = droneCost(id);
-    if (!free) {
-      if (ups.parts < cost) return false;
-      ups.parts -= cost;
-    }
-    const bought = this.ctx.upgradeSystem.buyDrone(id);
-    if (!bought && !free) {
-      // Не должно случаться: откатываем списание для консистентности.
-      ups.parts += cost;
-    }
-    return bought;
   }
 
   /** Купить уровень линии дрона в ангаре. */
   upgradeDroneStat(id: DroneId, stat: DroneStatKey): boolean {
-    const success = this.upgradeDroneStatImpl(id, stat, false);
+    const success = this.ctx.upgradeSystem.upgradeDroneStat(id, stat);
     if (success) {
       this.refresh();
     }
     return success;
-  }
-
-  /** Debug-only: прокачать линию дрона бесплатно. */
-  upgradeDroneStatNoCost(id: DroneId, stat: DroneStatKey): boolean {
-    const success = this.upgradeDroneStatImpl(id, stat, true);
-    if (success) {
-      this.refresh();
-    }
-    return success;
-  }
-
-  private upgradeDroneStatImpl(id: DroneId, stat: DroneStatKey, free: boolean): boolean {
-    const ups = this.ctx.upgradeSystem.playerUpgrades;
-    const level = this.ctx.upgradeSystem.getDroneStatLevel(id, stat);
-    if (level >= DRONE_STAT_MAX_LEVEL) return false;
-    const cost = droneUpgradeCost(level);
-    if (!free) {
-      if (ups.parts < cost) return false;
-      ups.parts -= cost;
-    }
-    const upgraded = this.ctx.upgradeSystem.upgradeDroneStat(id, stat);
-    if (!upgraded && !free) {
-      ups.parts += cost;
-    }
-    return upgraded;
   }
 }

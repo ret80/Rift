@@ -1383,7 +1383,10 @@ check("Дроны: роли меняют урон, дистанцию и бон�
 
 check("Дроны: одинаковые единицы делят орбиту поровну", () => {
   const world = createHeadlessWorld({ seed: 5 });
-  for (let i = 0; i < 3; i++) world.upgradeSystem.buyDrone("scout");
+  world.upgradeSystem.partsWallet.setInfinite(true);
+  world.upgradeSystem.purchaseNoCost("drones");
+  world.upgradeSystem.purchaseNoCost("drones");
+  for (let i = 0; i < 3; i++) world.upgradeSystem.purchaseDrone("scout");
   world.applyUpgrades(false);
   for (let i = 0; i < 60; i++) world.tick(FIXED_DT);
 
@@ -1400,7 +1403,9 @@ check("Дроны: одинаковые единицы делят орбиту �
 
 check("Дроны: возврат из боя летит, а не телепортируется", () => {
   const world = createHeadlessWorld({ seed: 5 });
-  world.upgradeSystem.buyDrone("striker");
+  world.upgradeSystem.partsWallet.setInfinite(true);
+  world.upgradeSystem.setUnlockedDrones(null);
+  world.upgradeSystem.purchaseDrone("striker");
   world.applyUpgrades(false);
   world.setDroneOrder("assault");
   world.spawnEnemy(EnemyKind.Drone, 500, 300, null);

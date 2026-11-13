@@ -6,7 +6,6 @@ import {
   weaponCost,
   weaponUpgradeCost,
   WEAPON_STAT_MAX_LEVEL,
-  type PlayerUpgrades,
   type WeaponStatKey,
 } from "../../../game/upgrades";
 import type { WeaponId, WeaponLoadout } from "../../../game/weapons/Weapon";
@@ -22,9 +21,11 @@ import {
 } from "./model";
 
 export function ArmoryTab(props: {
-  upgrades: PlayerUpgrades;
+  /** Баланс деталей из кошелька. */
+  parts: number;
+  /** Бесконечные детали: покупка доступна всегда. */
+  infinite: boolean;
   loadout: WeaponLoadout | null;
-  free: boolean;
   weaponSlots: number;
   usedWeaponSlots: number;
   /** Виды, закрытые достижением: покупка недоступна. */
@@ -34,7 +35,7 @@ export function ArmoryTab(props: {
   focusedId?: string | null;
 }) {
   const t = useT();
-  const { upgrades, loadout, free, weaponSlots, usedWeaponSlots } = props;
+  const { parts, infinite, loadout, weaponSlots, usedWeaponSlots } = props;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -100,19 +101,19 @@ export function ArmoryTab(props: {
                   <button
                     onClick={() => props.onBuyWeapon(weapon.id)}
                     disabled={
-                      locked || noFreeSlots || (!free && upgrades.parts < weaponCost(weapon.id))
+                      locked || noFreeSlots || (!infinite && parts < weaponCost(weapon.id))
                     }
                     title={
                       locked && achievement
                         ? t("upgrade.lockHint", { name: t(achievement.nameKey) })
                         : noFreeSlots
                           ? t("upgrade.weapon.noSlots")
-                          : !free && upgrades.parts < weaponCost(weapon.id)
+                          : !infinite && parts < weaponCost(weapon.id)
                             ? t("upgrade.noParts")
                             : undefined
                     }
                     className={`clip-btn btn-buy btn-amber text-xs font-mono tracking-[0.15em] ${
-                      !locked && !noFreeSlots && (free || upgrades.parts >= weaponCost(weapon.id))
+                      !locked && !noFreeSlots && (infinite || parts >= weaponCost(weapon.id))
                         ? "cursor-pointer"
                         : "cursor-not-allowed"
                     }`}
@@ -129,7 +130,7 @@ export function ArmoryTab(props: {
                     const level = entry!.model[row.stat];
                     const maxed = level >= WEAPON_STAT_MAX_LEVEL;
                     const cost = weaponUpgradeCost(level);
-                    const affordable = maxed ? false : upgrades.parts >= cost;
+                    const affordable = maxed ? false : infinite || parts >= cost;
                     const statFocused = !maxed && props.focusedId === `weapon:${weapon.id}:${row.stat}`;
                     return (
                       <div
@@ -161,10 +162,10 @@ export function ArmoryTab(props: {
                         ) : (
                           <button
                             onClick={() => props.onBuyStat(weapon.id, row.stat)}
-                            disabled={!free && !affordable}
-                            title={!free && !affordable ? t("upgrade.noParts") : undefined}
+                            disabled={!affordable}
+                            title={!affordable ? t("upgrade.noParts") : undefined}
                             className={`clip-btn btn-buy text-xs font-mono tracking-[0.15em] ${
-                              free || affordable ? "cursor-pointer" : "cursor-not-allowed"
+                              affordable ? "cursor-pointer" : "cursor-not-allowed"
                             }`}
                           >
                             {cost}
