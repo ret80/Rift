@@ -38,8 +38,10 @@ export class EnemyComponent implements Component {
   shieldHp = 0;
   /** Максимальный щит элиты (для отрисовки). */
   maxShieldHp = 0;
-  /** Множитель меткости элиты (Hasted/Precise). */
+  /** Множитель меткости элиты (Precise). */
   accuracyMult = 1;
+  /** Множитель частоты стрельбы элиты (Hasted). */
+  fireRateMult = 1;
   /** Ориентация корпуса врага (угол движения/нос), радианы. */
   angle = 0;
   /**

@@ -67,6 +67,8 @@ export type EnemyPlayerSource = () => {
   vx?: number;
   vy?: number;
   turnRate?: number;
+  /** Максимальный запас корпуса: нужен для пределов урона по площади. */
+  maxHp?: number;
 };
 /** Источник границ игровой зоны. */
 export type ZoneBoundsSource = () => { x: number; y: number; radius: number; active: boolean; targetRadius: number };
@@ -338,6 +340,7 @@ export class EnemySystem extends PhasedSystem {
       parentId: parent?.marker.ecsId ?? null,
       kind, affix, shieldHp, maxShieldHp: shieldHp,
       accuracyMult: affixDef?.accuracyMult ?? 1,
+      fireRateMult: affixDef?.fireRateMult ?? 1,
       x, y, vx: 0, vy: 0, angle, turretAngle,
       hp: maxHp, maxHp, r: def.r, speed: def.speed * (affixDef?.speedMult ?? 1),
       contact: def.contact * damageMult * (affixDef?.damageMult ?? 1),

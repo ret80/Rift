@@ -1099,8 +1099,10 @@ export class GameWorld {
 
   // ============================== Reads ==============================
 
-  /** Позиция игрока + скорость + угловая скорость курса. */
-  getPlayerPosition(): { x: number; y: number; vx: number; vy: number; turnRate: number } {
+  /** Позиция игрока + скорость + угловая скорость курса и запас корпуса. */
+  getPlayerPosition(): {
+    x: number; y: number; vx: number; vy: number; turnRate: number; maxHp: number;
+  } {
     const ref = this.ecs.playerRef();
     return ref
       ? {
@@ -1109,8 +1111,9 @@ export class GameWorld {
           vx: ref.velocity.vx,
           vy: ref.velocity.vy,
           turnRate: ref.marker.turnRate,
+          maxHp: ref.life.max,
         }
-      : { x: 0, y: 0, vx: 0, vy: 0, turnRate: 0 };
+      : { x: 0, y: 0, vx: 0, vy: 0, turnRate: 0, maxHp: 0 };
   }
 
   /** Снимок игрока для оружия. */

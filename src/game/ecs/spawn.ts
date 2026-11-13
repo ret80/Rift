@@ -21,6 +21,8 @@ export interface EnemySpawn {
   maxShieldHp: number;
   /** Множитель меткости элиты. */
   accuracyMult: number;
+  /** Множитель частоты стрельбы элиты. */
+  fireRateMult: number;
   x: number;
   y: number;
   vx: number;

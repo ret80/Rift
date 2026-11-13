@@ -322,7 +322,7 @@ export class EnemyShootingSystem extends PhasedSystem {
     if (dist > NEEDLE_RANGE) return;
 
     e.fireGate = false;
-    e.fireCd = NEEDLE_FIRE_CD;
+    e.fireCd = NEEDLE_FIRE_CD / e.fireRateMult;
 
     const params = {
       sx: position.x,
@@ -373,7 +373,7 @@ export class EnemyShootingSystem extends PhasedSystem {
     const dist = Math.hypot(player.x - position.x, player.y - position.y) || 1;
     if (dist >= ENEMY_SHOOT_RANGE) return;
 
-    e.fireCd = HIVE_FIRE_CD;
+    e.fireCd = HIVE_FIRE_CD / e.fireRateMult;
     const weapon: EnemyWeapon = {
       boltSpeed: HIVE_BOLT_SPEED,
       leadTime: 1.2,
@@ -393,7 +393,9 @@ export class EnemyShootingSystem extends PhasedSystem {
   ): void {
     const { marker: e, position } = shot;
     const rate =
-      CRUISER_TURRET_RATE / (3 + this.wave * CRUISER_RATE_WAVE_STEP);
+      CRUISER_TURRET_RATE /
+      (3 + this.wave * CRUISER_RATE_WAVE_STEP) /
+      e.fireRateMult;
 
     // Дульные срезы разнесены поперёк наведения турели, а не курса корпуса.
     const fx = Math.cos(e.turretAngle) * CRUISER_MUZZLE_FORWARD;
@@ -473,7 +475,7 @@ export class EnemyShootingSystem extends PhasedSystem {
         e.fireGate = false;
         e.burstLeft = 0;
         e.burstAimOffset = null;
-        e.fireCd = FIGHTER_BURST_COOLDOWN;
+        e.fireCd = FIGHTER_BURST_COOLDOWN / e.fireRateMult;
       }
       return;
     }

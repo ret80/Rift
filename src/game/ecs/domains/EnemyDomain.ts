@@ -16,7 +16,11 @@ import {
   SHIELDBEARER_AURA_RADIUS,
   SHIELDBEARER_DAMAGE_MULT,
 } from "../../balance";
-import { VOLATILE_DAMAGE_MULT, VOLATILE_RADIUS } from "../../balance/affixes";
+import {
+  VOLATILE_DAMAGE_MULT,
+  VOLATILE_MAX_HP_SHARE,
+  VOLATILE_RADIUS,
+} from "../../balance/affixes";
 import type { GameParams } from "../../balance/params/GameParams";
 import type { EventBus } from "../../core/EventBus";
 import type { Rng } from "../../core/rng";
@@ -300,10 +304,11 @@ export class EnemyDomain {
         player.y - enemy.position.y,
       );
       if (dist <= VOLATILE_RADIUS) {
-        this.deps.damagePlayer?.(
-          enemy.marker.contact * VOLATILE_DAMAGE_MULT,
-          "volatile",
-        );
+        // Взрыв бьёт по площади и не должен убивать наверняка: предел — доля
+        // максимального корпуса игрока.
+        const raw = enemy.marker.contact * VOLATILE_DAMAGE_MULT;
+        const cap = (player.maxHp ?? 0) * VOLATILE_MAX_HP_SHARE;
+        this.deps.damagePlayer?.(cap > 0 ? Math.min(raw, cap) : raw, "volatile");
       }
     }
 
