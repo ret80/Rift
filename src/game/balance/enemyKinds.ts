@@ -35,6 +35,14 @@ export enum EnemyKind {
 
 export const ENEMY_KIND_COUNT = Object.keys(EnemyKind).length;
 
+/**
+ * Все виды врагов в порядке объявления.
+ *
+ * Единственный список для переключателей и тестовых волн: новый вид
+ * попадает сюда автоматически вместе с enum, без правок UI.
+ */
+export const ALL_ENEMY_KINDS: readonly EnemyKind[] = Object.values(EnemyKind);
+
 /** Проверить, что строка — известный вид врага (для сценариев/URL). */
 export function isEnemyKind(value: unknown): value is EnemyKind {
   return typeof value === "string" && (Object.values(EnemyKind) as string[]).includes(value);

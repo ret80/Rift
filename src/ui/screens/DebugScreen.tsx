@@ -2,14 +2,21 @@ import React, { useState } from "react";
 import GameButton from "../components/GameButton";
 import ScreenHeader from "../components/ScreenHeader";
 import { useT, type TKey } from "../../i18n";
-import { EnemyKind } from "../../game/balance/enemies";
-import { ALL_PICKUP_KINDS, pickupDisplayKey } from "../../game/balance";
+import { ALL_ENEMY_KINDS, EnemyKind } from "../../game/balance/enemies";
+import { PICKUP_CATALOG } from "../../game/balance";
 import type { PickupKind } from "../../game/balance";
-import type { PickupDisplay } from "../../game/balance/pickupCatalog";
 import type { PhysicsEngineId } from "../../game/physics";
 import { PHYSICS_ENGINE_IDS } from "../../game/physics";
 import { PARAM_PROFILE_IDS, type ParamProfileId } from "../../game/balance/params/profiles";
 import { DEBUG_SLIDERS, type DebugTuning } from "../debugTuning";
+
+/** Вкладки панели разработчика. */
+type DebugTab = "general" | "test";
+
+const DEBUG_TABS: ReadonlyArray<{ id: DebugTab; labelKey: TKey }> = [
+  { id: "general", labelKey: "debug.tabGeneral" },
+  { id: "test", labelKey: "debug.tabTest" },
+];
 
 /** Подписи профилей параметров. */
 const PROFILE_LABEL: Record<ParamProfileId, TKey> = {
@@ -44,8 +51,17 @@ const ENEMY_LABEL: Record<EnemyKind, TKey> = {
   [EnemyKind.HiveMother]: "debug.hivemother",
 };
 
-const PICKUP_LABEL: Record<PickupDisplay, TKey> = {
+/**
+ * Подписи пикапов по виду: скорость подбора разных ступеней различается.
+ *
+ * `Record<PickupKind, …>` гарантирует, что новый вид в каталоге без подписи
+ * не соберётся — список в отладке обновляется вместе с каталогом.
+ */
+const PICKUP_KIND_LABEL: Record<PickupKind, TKey> = {
   heal: "debug.heal",
+  rate20: "debug.rate20",
+  rate40: "debug.rate40",
+  rate60: "debug.rate60",
   rate: "debug.rate",
   gun: "debug.gun",
   shield: "debug.shield",
@@ -54,6 +70,9 @@ const PICKUP_LABEL: Record<PickupDisplay, TKey> = {
   laser: "debug.laser",
   quantum_swap: "debug.quantum_swap",
 };
+
+/** Все виды пикапов: источник — каталог, а не ручной список в UI. */
+const ALL_DEBUG_PICKUPS = Object.keys(PICKUP_CATALOG) as PickupKind[];
 
 interface EnemyToggleProps {
   kind: EnemyKind;
@@ -104,14 +123,8 @@ function EnemyDropdown(props: {
 }) {
   const t = useT();
   const [open, setOpen] = useState(false);
-  const allKinds: EnemyKind[] = [
-    EnemyKind.Drone,
-    EnemyKind.Hunter,
-    EnemyKind.Fighter,
-    EnemyKind.Cruiser,
-    EnemyKind.Carrier,
-    EnemyKind.Miner,
-  ];
+  // Список берётся из enum: новый вид врага появляется в отладке сам.
+  const allKinds = ALL_ENEMY_KINDS;
   const enabledCount = allKinds.filter((k) => props.enabledEnemies.includes(k)).length;
 
   return (
@@ -160,7 +173,7 @@ interface PickupToggleProps {
 
 function PickupToggle(props: PickupToggleProps) {
   const t = useT();
-  const label = t(PICKUP_LABEL[pickupDisplayKey(props.kind)]);
+  const label = t(PICKUP_KIND_LABEL[props.kind]);
   return (
     <button
       type="button"
@@ -201,7 +214,7 @@ function PickupDropdown(props: {
 }) {
   const t = useT();
   const [open, setOpen] = useState(false);
-  const enabledCount = ALL_PICKUP_KINDS.filter((k) => props.enabledPickups.includes(k)).length;
+  const enabledCount = ALL_DEBUG_PICKUPS.filter((k) => props.enabledPickups.includes(k)).length;
 
   return (
     <div className="mt-4 border border-[#7dff9e]/15 bg-[#07130c]/70 px-4 py-3">
@@ -215,7 +228,7 @@ function PickupDropdown(props: {
         </span>
         <div className="flex items-center gap-2">
           <span className="font-mono text-[10px] tracking-[0.1em] text-[#5f8f70]">
-            {enabledCount}/{ALL_PICKUP_KINDS.length}
+            {enabledCount}/{ALL_DEBUG_PICKUPS.length}
           </span>
           <span
             className="transition-transform"
@@ -227,7 +240,7 @@ function PickupDropdown(props: {
       </button>
       {open && (
         <div className="mt-3 flex flex-col gap-1">
-          {ALL_PICKUP_KINDS.map((kind) => (
+          {ALL_DEBUG_PICKUPS.map((kind) => (
             <PickupToggle
               key={kind}
               kind={kind}
@@ -353,6 +366,7 @@ export default function DebugScreen(props: {
 }) {
   const t = useT();
   const pct = ((props.startWave - 1) / 49) * 100;
+  const [tab, setTab] = useState<DebugTab>("general");
 
   return (
     <div
@@ -369,11 +383,32 @@ export default function DebugScreen(props: {
       >
         <ScreenHeader title={t("debug.title")} tone="debug" />
 
+        {/* Вкладки: общие настройки и всё для теста волны. */}
+        <div className="flex shrink-0 gap-1 border-b border-[#7dff9e]/15 px-3 pt-2">
+          {DEBUG_TABS.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              aria-pressed={tab === entry.id}
+              onClick={() => setTab(entry.id)}
+              className={
+                "border-b-2 px-3 py-2 font-mono text-[10px] tracking-[0.18em] transition-colors " +
+                (tab === entry.id
+                  ? "border-[#7dff9e] text-[#d9ffe4]"
+                  : "border-transparent text-[#5f8f70] hover:text-[#b0d8c0]")
+              }
+            >
+              {t(entry.labelKey)}
+            </button>
+          ))}
+        </div>
+
         {/* Body — scrollable */}
         <div className="flex-1 overflow-y-auto px-4 pb-2 pt-3">
           <div className="mb-3 font-mono text-[9px] tracking-[0.25em] text-[#5f8f70]">
             {"// "}{t("debug.note")}
           </div>
+          {tab === "general" && (
           <div className="flex flex-col gap-2">
             <DevToggle
               label={t("debug.fps")}
@@ -394,7 +429,10 @@ export default function DebugScreen(props: {
               onClick={props.onToggleDetails}
             />
           </div>
+          )}
 
+          {tab === "test" && (
+          <>
           <div className="mt-4 border border-[#7dff9e]/15 bg-[#07130c]/70 px-4 py-3">
             <div className="flex items-baseline justify-between">
               <span className="font-mono text-[13px] font-bold tracking-[0.12em] text-[#d9ffe4]">
@@ -498,19 +536,25 @@ export default function DebugScreen(props: {
             enabledPickups={props.enabledPickups}
             onTogglePickup={props.onTogglePickup}
           />
+          </>
+          )}
 
+          {tab === "general" && (
           <PhysicsSelector
             value={props.physicsEngine}
             onChange={props.onPhysicsEngineChange}
           />
+          )}
         </div>
 
         {/* Footer — fixed */}
         <div className="shrink-0 border-t border-[#7dff9e]/15 bg-[#07130c] px-4 py-3">
-          <div className="flex items-center justify-between gap-2">
-            <GameButton onClick={props.onTestLevel} variant="cyan" small>
-              {t("debug.testLevel")}
-            </GameButton>
+          <div className={`flex items-center gap-2 ${tab === "test" ? "justify-between" : "justify-end"}`}>
+            {tab === "test" && (
+              <GameButton onClick={props.onTestLevel} variant="cyan" small>
+                {t("debug.testLevel")}
+              </GameButton>
+            )}
             <GameButton onClick={props.onBack} variant="amber">
               {t("debug.back")}
             </GameButton>
