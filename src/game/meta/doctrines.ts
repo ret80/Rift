@@ -8,6 +8,7 @@
  */
 
 import type { TKey } from "../../i18n";
+import type { Rng } from "../core/rng";
 import type { MetaBonuses } from "./types";
 
 export interface Doctrine {
@@ -97,4 +98,37 @@ export const DOCTRINES: Doctrine[] = [
 export function doctrineById(id: string | null): Doctrine | null {
   if (!id) return null;
   return DOCTRINES.find((doctrine) => doctrine.id === id) ?? null;
+}
+
+/** Награда за босс-волну: игрок выбирает одну доктрину из предложенных. */
+export interface DoctrineOffer {
+  /** Босс-волна, за которую выдана награда. */
+  wave: number;
+  /** id предложенных доктрин. */
+  options: string[];
+}
+
+/**
+ * Предложить доктрины на выбор после босс-волны.
+ *
+ * Действующая доктрина исключается: игрок не должен брать одну и ту же
+ * дважды подряд. Порядок детерминирован потоком случайности мира, поэтому
+ * запись и симуляция воспроизводятся один в один.
+ */
+export function pickDoctrineOptions(
+  currentId: string | null,
+  rng: Rng,
+  count = 2,
+): string[] {
+  const pool = DOCTRINES.filter((doctrine) => doctrine.id !== currentId).map(
+    (doctrine) => doctrine.id,
+  );
+  // Тасование Фишера—Йетса: первые `count` и уходят в предложение.
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = rng.int(i + 1);
+    const swap = pool[i];
+    pool[i] = pool[j];
+    pool[j] = swap;
+  }
+  return pool.slice(0, Math.min(count, pool.length));
 }

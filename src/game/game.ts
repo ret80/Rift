@@ -18,6 +18,7 @@ import type { PhysicsEngineId } from "./physics";
 import type { WaveCompositionOverride } from "./balance/waves";
 import type { ParamProfileId } from "./balance/params/profiles";
 import type { DroneOrder } from "./ecs/components/AllyDroneComponent";
+import type { DoctrineOffer } from "./meta/doctrines";
 
 /* UI types — единый источник правды */
 export type { BannerData, CountData, HudData, StatsData, ToastData } from "./types/ui";
@@ -227,6 +228,16 @@ export class Game {
 
   public togglePause(): void {
     this.ctx.togglePause();
+  }
+
+  /** Награда за босс-волну: предложенные доктрины (null — выбора нет). */
+  getDoctrineOffer(): DoctrineOffer | null {
+    return this.ctx.doctrineOffer;
+  }
+
+  /** Выбрать доктрину из предложенных и продолжить забег. */
+  chooseDoctrine(id: string): void {
+    this.ctx.chooseDoctrine(id);
   }
 
   /** Открыть ангар между волнами (мир замирает). */

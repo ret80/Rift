@@ -16,6 +16,7 @@ import { AbilitySystem } from "../abilities/AbilitySystem";
 import { AsteroidField } from "../asteroids";
 import type { EnemyKind, PickupKind } from "../balance";
 import { estimateRunParts } from "../balance/drops";
+import type { DoctrineOffer } from "../meta/doctrines";
 import type { WaveCompositionOverride } from "../balance/waves";
 import type { ParamProfileId } from "../balance/params/profiles";
 import type { EnemyRef, PlayerRef } from "../ecs";
@@ -121,6 +122,8 @@ export class GameContext {
   private _paused = false;
   /** Тактический режим: мир стоит, игрок отдаёт приказы дронам. */
   private _tactical = false;
+  /** Выбор доктрины после босс-волны: мир стоит, но это не пауза. */
+  private _doctrineOffer: DoctrineOffer | null = null;
   /** Идёт запись тестового уровня: файл ждёт кнопки «Выгрузить». */
   private testRecording = false;
   /** Готовая запись тестового уровня для выгрузки. */
@@ -248,6 +251,18 @@ export class GameContext {
           onGameOver: () => hooks.onGameOver(),
           onStats: (stats) => hooks.onStats(stats),
           onWaveCleared: (wave) => hooks.onWaveCleared?.(wave),
+          // Награда за босс-волну: мир замирает на выбор, не показывая паузу.
+          onDoctrineOffer: (offer) => {
+            this._doctrineOffer = offer;
+            if (offer) {
+              this.setPaused(true);
+              this.audio.setSuspended(true);
+            } else if (!this._tactical) {
+              this.setPaused(false);
+              this.audio.setSuspended(false);
+            }
+            hooks.onDoctrineOffer?.(offer);
+          },
           // Микрозадача: не мутируем мир посреди тика/кадра, когда
           // зачистка тестовой волны приходит из WaveFlowSystem.
           onTestRunEnd: (reason) => {
@@ -550,6 +565,16 @@ export class GameContext {
     this.audio.setSuspended(true);
   }
 
+  /** Предложение доктрины после босс-волны; null — выбора нет. */
+  get doctrineOffer(): DoctrineOffer | null {
+    return this._doctrineOffer;
+  }
+
+  /** Выбрать доктрину из предложенных: мир снимает паузу и начинает отсчёт. */
+  chooseDoctrine(id: string): void {
+    this.world.chooseDoctrine(id);
+  }
+
   /** Закрыть ангар: забег продолжается со следующей волны. */
   closeHangar(): void {
     this.setPaused(false);
@@ -559,6 +584,8 @@ export class GameContext {
 
   togglePause(): void {
     if (this.fsm.is("menu", "over")) return;
+    // Выбор доктрины забирает паузу себе: Esc не должен снимать её без выбора.
+    if (this._doctrineOffer) return;
     // Esc в тактике закрывает тактику, а не открывает экран паузы.
     if (this._tactical) {
       this.exitTactical();

@@ -8,6 +8,7 @@
  */
 
 import type { PickupKind } from "../balance";
+import type { DoctrineOffer } from "../meta/doctrines";
 import type { Particle } from "../types/world";
 import type { BannerData, StatsData, ToastData } from "../types/ui";
 import type { PersistencePort } from "./PersistencePort";
@@ -73,6 +74,12 @@ export interface GameplayHooks {
   onTestRunEnd?(reason: "cleared" | "died"): void;
   /** Волна зачищена — хост открывает ангар между волнами. */
   onWaveCleared?(wave: number): void;
+  /**
+   * Награда за босс-волну: показать выбор доктрины (null — выбор закрыт).
+   *
+   * Пока предложение живо, мир стоит: отсчёт следующей волны ждёт выбора.
+   */
+  onDoctrineOffer?(offer: DoctrineOffer | null): void;
 }
 
 /** Полный набор портов мира. */

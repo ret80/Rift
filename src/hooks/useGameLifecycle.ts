@@ -17,6 +17,7 @@ import type { PhysicsEngineId } from "../game/physics";
 import type { HudStore } from "../ui/hud/HudStore";
 import { readUrlParam } from "../game/core/env";
 import type { WaveCompositionOverride } from "../game/balance/waves";
+import type { DoctrineOffer } from "../game/meta/doctrines";
 
 /** Начальные настройки, применяемые к новому экземпляру игры. */
 export interface GameInitialSettings {
@@ -42,6 +43,8 @@ export interface GameLifecycleCallbacks {
   onTactical: (active: boolean) => void;
   /** Волна зачищена — открыть ангар между волнами. */
   onWaveCleared: (wave: number) => void;
+  /** Награда за босс-волну: выбор доктрины (null — выбор закрыт). */
+  onDoctrineOffer: (offer: DoctrineOffer | null) => void;
   /** Одиночный тест уровня завершён — вернуть в меню отладки. */
   onTestRunEnd?: (reason: "cleared" | "died") => void;
   /** Игра создана и готова принимать команды. */
@@ -103,6 +106,7 @@ export function useGameLifecycle(
       onPause: events.onPause,
       onTactical: events.onTactical,
       onWaveCleared: events.onWaveCleared,
+      onDoctrineOffer: events.onDoctrineOffer,
       onTestRunEnd: events.onTestRunEnd,
       onGameOver: () => {
         // Итоги придут через onStats после перехода dying → over.

@@ -10,9 +10,11 @@ import { useEffect, useRef } from "react";
 import { useT } from "../i18n";
 import type { HudStore } from "./hud/HudStore";
 import type { BannerData, CountData, StatsData, ToastData } from "../game/types/ui";
+import type { DoctrineOffer } from "../game/meta/doctrines";
 import type { Screen } from "./appState";
 import ScreenDimmer from "./components/ScreenDimmer";
 import type { GamepadNavHandlers } from "./ScreenRouter";
+import DoctrineChoiceOverlay from "./screens/DoctrineChoiceOverlay";
 import GameOverScreen from "./screens/GameOverScreen";
 import PauseOverlay from "./screens/PauseOverlay";
 import TouchControls from "./components/TouchControls";
@@ -24,6 +26,9 @@ export interface GameOverlaysProps {
   banner: (BannerData & { id: number }) | null;
   toast: (ToastData & { id: number }) | null;
   countdown: CountData | null;
+  /** Награда за босс-волну: две доктрины на выбор. */
+  doctrineOffer: DoctrineOffer | null;
+  onChooseDoctrine: (id: string) => void;
   isTouch: boolean;
   isGamepad: boolean;
   debugFps: boolean;
@@ -63,7 +68,7 @@ export function GameOverlays(props: GameOverlaysProps) {
     return () => window.clearInterval(id);
   }, [props.debugFps]);
 
-  const { screen, paused, stats, banner, toast, countdown, isGamepad } = props;
+  const { screen, paused, stats, banner, toast, countdown, doctrineOffer, isGamepad } = props;
 
   return (
     <>
@@ -140,7 +145,16 @@ export function GameOverlays(props: GameOverlaysProps) {
       )}
 
       {/* затемнение фона при любом меню в игре */}
-      {(paused || stats) && <ScreenDimmer />}
+      {(paused || stats || doctrineOffer) && <ScreenDimmer />}
+
+      {screen === "game" && doctrineOffer && !stats && (
+        <DoctrineChoiceOverlay
+          offer={doctrineOffer}
+          onChoose={props.onChooseDoctrine}
+          isGamepad={isGamepad}
+          gamepadNavRef={props.gamepadNavRef}
+        />
+      )}
 
       {screen === "game" && paused && !stats && (
         <PauseOverlay
@@ -163,7 +177,7 @@ export function GameOverlays(props: GameOverlaysProps) {
         />
       )}
 
-      {screen === "game" && !stats && !paused && props.isTouch && (
+      {screen === "game" && !stats && !paused && !doctrineOffer && props.isTouch && (
         <TouchControls
           onVector={props.onVector}
           onPause={props.onPause}

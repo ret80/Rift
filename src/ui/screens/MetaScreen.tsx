@@ -6,8 +6,6 @@ import { MetaTree } from "../../game/meta/MetaTree";
 import { loadCredits, saveCredits } from "../../game/meta/MetaStorage";
 import { Wallet } from "../../game/economy/Wallet";
 import { loadInfiniteCredits } from "../../game/economy/infinite";
-import { DOCTRINES, doctrineById } from "../../game/meta/doctrines";
-import { DoctrineSystem } from "../../game/meta/DoctrineSystem";
 import {
   LEGACY_ARTIFACTS,
   artifactById,
@@ -23,11 +21,10 @@ import type { MutableRefObject } from "react";
 import GameButton from "../components/GameButton";
 import ScreenHeader from "../components/ScreenHeader";
 
-type MetaTab = "talents" | "doctrines" | "legacy" | "ascension";
+type MetaTab = "talents" | "legacy" | "ascension";
 
 const TABS: ReadonlyArray<{ id: MetaTab; key: TKey }> = [
   { id: "talents", key: "meta.tabsTalents" },
-  { id: "doctrines", key: "meta.tabsDoctrines" },
   { id: "legacy", key: "meta.tabsLegacy" },
   { id: "ascension", key: "meta.tabsAscension" },
 ];
@@ -42,8 +39,10 @@ function mult(value: number): string {
  *
  * Вкладки:
  *   • таланты — покупка за кредиты;
- *   • доктрины — один контракт на забег;
+ *   • наследие — один артефакт на забег;
  *   • асценсия — уровень угрозы и его награда.
+ *
+ * Доктрины в меню не выбираются: их выдаёт босс-волна (см. `DoctrineChoiceOverlay`).
  */
 export default function MetaScreen(props: {
   onBack: () => void;
@@ -54,7 +53,6 @@ export default function MetaScreen(props: {
   const [tree, setTree] = useState(() => MetaTree.load(storage));
   const [credits, setCredits] = useState(0);
   const [infiniteCredits, setInfiniteCredits] = useState(false);
-  const [doctrineId, setDoctrineId] = useState<string | null>(null);
   const [artifactId, setArtifactId] = useState<string | null>(null);
   const [bestWave, setBestWave] = useState(1);
   const [threatLevel, setThreatLevel] = useState(0);
@@ -64,7 +62,6 @@ export default function MetaScreen(props: {
     setTree(MetaTree.load(storage));
     setCredits(loadCredits(storage));
     setInfiniteCredits(loadInfiniteCredits(storage));
-    setDoctrineId(DoctrineSystem.load(storage).id);
     setArtifactId(LegacySystem.load(storage).id);
     setBestWave(loadBestWave(storage));
     setThreatLevel(AscensionSystem.load(storage).level);
@@ -73,11 +70,6 @@ export default function MetaScreen(props: {
   useEffect(() => {
     refresh();
   }, [refresh]);
-
-  const selectDoctrine = useCallback((id: string | null) => {
-    DoctrineSystem.load(storage).select(id, storage);
-    setDoctrineId(id);
-  }, [storage]);
 
   const selectArtifact = useCallback((id: string | null) => {
     LegacySystem.load(storage).select(id, storage);
@@ -170,40 +162,6 @@ export default function MetaScreen(props: {
             )}
           </div>
         </div>
-      </div>
-    );
-  };
-
-  const renderDoctrine = (id: string | null) => {
-    const doctrine = doctrineById(id);
-    const active = doctrineId === (doctrine?.id ?? null);
-    return (
-      <div
-        key={doctrine?.id ?? "none"}
-        className={
-          "mb-3 flex items-center justify-between gap-3 rounded border p-3 " +
-          (active ? "border-[#7dff9e]/60 bg-[#7dff9e]/5" : "border-[#5ef2ff]/20")
-        }
-      >
-        <div>
-          <div className="font-display text-sm text-[#eaffff]">
-            {doctrine ? t(doctrine.nameKey) : t("meta.doctrineNone")}
-          </div>
-          <div className="text-xs text-[#6f86a8]">
-            {doctrine ? t(doctrine.descKey) : t("meta.doctrineHint")}
-          </div>
-        </div>
-        {active ? (
-          <div className="shrink-0 text-xs text-[#7dff9e]">{t("meta.doctrineActive")}</div>
-        ) : (
-          <GameButton
-            onClick={() => selectDoctrine(doctrine?.id ?? null)}
-            variant="cyan"
-            className="shrink-0 px-3 py-1 text-xs"
-          >
-            {t("meta.doctrinePick")}
-          </GameButton>
-        )}
       </div>
     );
   };
@@ -304,16 +262,6 @@ export default function MetaScreen(props: {
                   </div>
                   {green.map(renderTalent)}
                 </div>
-              </>
-            )}
-
-            {tab === "doctrines" && (
-              <>
-                <p className="mb-3 text-xs leading-5 text-[#6f86a8]">
-                  {t("meta.doctrineHint")}
-                </p>
-                {renderDoctrine(null)}
-                {DOCTRINES.map((doctrine) => renderDoctrine(doctrine.id))}
               </>
             )}
 

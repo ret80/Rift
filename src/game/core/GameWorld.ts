@@ -15,6 +15,7 @@ import { CreditSystem } from "../systems/CreditSystem";
 import { AnchorSystem, type Anchor } from "../ecs/systems/AnchorSystem";
 import { MetaTree } from "../meta/MetaTree";
 import { DoctrineSystem } from "../meta/DoctrineSystem";
+import { pickDoctrineOptions, type DoctrineOffer } from "../meta/doctrines";
 import { LegacySystem } from "../meta/LegacySystem";
 import { UnlockSystem } from "../meta/UnlockSystem";
 import { recordCareerRun } from "../meta/PlayerStats";
@@ -27,6 +28,7 @@ import {
   GRAZE_PARTS_PER_COIN,
   GRAZE_PARTS_WAVE_CAP,
   JAMMER_RADIUS,
+  isBossWave,
   PLAYER_HITBOX_RADIUS,
   PLAYER_MAX_SPEED,
   WAVE_CLEAN_CLEAR_MULT,
@@ -250,6 +252,8 @@ export class GameWorld {
   private metaTree: MetaTree;
   /** Выбранная перед забегом доктрина. */
   private doctrineSystem: DoctrineSystem;
+  /** Награда за босс-волну ждёт выбора; пока живо — следующая волна не начинается. */
+  private doctrineOfferValue: DoctrineOffer | null = null;
   /** Выбранный артефакт наследия. */
   private legacySystem: LegacySystem;
   /** Открытые достижениями оружие и дроны. */
@@ -404,6 +408,8 @@ export class GameWorld {
         onWaveAdvanced: () => {
           const nextWave = this.waveOrchestrator.wave;
           this.ecs.setEnemyWave(nextWave);
+          // Босс-волна платит доктриной: отсчёт следующей ждёт выбора.
+          if (this.offerDoctrine(nextWave - 1)) return;
           this.countdownSystem.startWave(nextWave);
         },
       },
@@ -766,6 +772,9 @@ export class GameWorld {
    */
   startRun(): void {
     this.singleWaveTest = false;
+    // Незакрытый выбор доктрины не переживает новый забег.
+    this.doctrineOfferValue = null;
+    this.ports.hooks.onDoctrineOffer?.(null);
     this.testLevelEnded = false;
     this.testClearPending = false;
     this.testClearBannerShown = false;
@@ -1084,6 +1093,45 @@ export class GameWorld {
     const afterShield = this.shieldSystem.absorb(amount);
     this.playerSystem.hitRaw(afterShield);
     this.eventBus.publish("player_zone_damaged", { dmg: afterShield, source: "zone_storm" });
+  }
+
+  /** Предложение доктрины после босс-волны; null — выбора нет. */
+  get doctrineOffer(): DoctrineOffer | null {
+    return this.doctrineOfferValue;
+  }
+
+  /**
+   * Награда за босс-волну: предложить две доктрины.
+   *
+   * Действующая доктрина в выбор не попадает, поэтому одну и ту же нельзя
+   * взять дважды подряд. Возвращает true, если выбор открыт и отсчёт
+   * следующей волны должен подождать.
+   */
+  private offerDoctrine(clearedWave: number): boolean {
+    if (this.testMode || !isBossWave(clearedWave)) return false;
+    const options = pickDoctrineOptions(this.doctrineSystem.id, this.rng("drops"));
+    if (options.length < 2) return false;
+    this.doctrineOfferValue = { wave: clearedWave, options };
+    this.ports.hooks.onDoctrineOffer?.(this.doctrineOfferValue);
+    return true;
+  }
+
+  /**
+   * Применить выбранную доктрину и запустить отсчёт следующей волны.
+   *
+   * Выбор сохраняется в мете, бонусы пересчитываются сразу: доктрина
+   * начинает действовать с текущей волны. Корпус не восстанавливается —
+   * меняется только максимум.
+   */
+  chooseDoctrine(id: string): void {
+    const offer = this.doctrineOfferValue;
+    if (!offer || !offer.options.includes(id)) return;
+    this.doctrineOfferValue = null;
+    this.doctrineSystem.select(id, this.ports.storage);
+    this.upgradeSystem.setMetaBonuses(this.activeMetaBonuses());
+    this.applyUpgrades(false);
+    this.ports.hooks.onDoctrineOffer?.(null);
+    this.countdownSystem.startWave(this.waveOrchestrator.wave);
   }
 
   /** Включить тестовую волну точного состава. */

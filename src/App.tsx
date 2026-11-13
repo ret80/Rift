@@ -33,7 +33,7 @@ export default function App() {
   const hudStore = hudStoreRef.current;
 
   const [state, dispatch] = useReducer(appReducer, INITIAL_APP_STATE);
-  const { screen, debugTab, paused, stats, banner, toast, countdown } = state;
+  const { screen, debugTab, paused, stats, banner, toast, countdown, doctrineOffer } = state;
 
   const settings = usePersistentSettings();
   const [best, setBest] = useState(0);
@@ -77,6 +77,7 @@ export default function App() {
       onTactical: (active) => dispatch({ type: "SET_TACTICAL", tactical: active }),
       // Награды за волну начисляет мир; ангар открывается по кнопке во время отсчёта.
       onWaveCleared: () => {},
+      onDoctrineOffer: (offer) => dispatch({ type: "SET_DOCTRINE_OFFER", offer }),
       onTestRunEnd: () => actionsRef.current?.finishTestLevel(),
       onReady: (game) => setBest(game.getBest()),
       onAutoStart: () => dispatch({ type: "SET_SCREEN", screen: "game" }),
@@ -241,6 +242,8 @@ export default function App() {
         banner={banner}
         toast={toast}
         countdown={countdown}
+        doctrineOffer={doctrineOffer}
+        onChooseDoctrine={(id) => gameRef.current?.chooseDoctrine(id)}
         isTouch={isTouch}
         isGamepad={isGamepadConnected}
         debugFps={settings.debugFps}
