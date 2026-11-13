@@ -15,6 +15,7 @@ import { AbilitySystem } from "../abilities/AbilitySystem";
 import { AsteroidField } from "../asteroids";
 import type { EnemyKind, PickupKind } from "../balance";
 import type { WaveCompositionOverride } from "../balance/waves";
+import type { ParamProfileId } from "../balance/params/profiles";
 import type { EnemyRef, PlayerRef } from "../ecs";
 import type { DroneOrder } from "../ecs/components/AllyDroneComponent";
 import { EcsWorld } from "../ecs";
@@ -647,14 +648,19 @@ export class GameContext {
    * без сохранения рекорда и начисления деталей. После зачистки или смерти
    * мир сообщит хосту `onTestRunEnd`, и меню отладки откроется снова.
    */
-  /** Задать отладочный множитель скорости игрока для тестовых уровней. */
-  setTestSpeed(mult: number): void {
-    this.world.setTestSpeedMult(mult);
+  /** Отладочный сдвиг скорости игрока и врагов, проценты (−50…+50). */
+  setTestSpeed(percent: number): void {
+    this.world.setTestSpeed(percent);
   }
 
-  /** Задать отладочный масштаб арены для тестовых уровней. */
-  setTestZoneScale(scale: number): void {
-    this.world.setTestZoneScale(scale);
+  /** Отладочный сдвиг размера арены, проценты (−50…+50). */
+  setTestZone(percent: number): void {
+    this.world.setTestZone(percent);
+  }
+
+  /** Выбрать профиль параметров мира. */
+  setParamProfile(profileId: ParamProfileId): void {
+    this.world.setParamProfile(profileId);
   }
 
   startTestLevel(wave: number, enemies: EnemyKind[]): void {

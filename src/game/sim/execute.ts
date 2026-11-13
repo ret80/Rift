@@ -96,6 +96,7 @@ export function executeScenario(scenario: Scenario, options: ExecuteOptions = {}
     agent: scenarioAgentFactory(scenario),
     waveComposition: scenarioComposition(scenario) ?? undefined,
     balance: scenario.balance,
+    paramProfile: scenario.paramProfile,
     skipCountdown: scenario.skipCountdown ?? true,
   });
 

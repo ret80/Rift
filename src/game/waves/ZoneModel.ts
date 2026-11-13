@@ -19,16 +19,14 @@
 
 import {
   ZONE_CLEAR_FADE_TIME,
-  ZONE_COLLAPSE_DELAY,
   ZONE_COLLAPSE_MIN_WAVE,
-  ZONE_COLLAPSE_SPEED_MULT,
-  ZONE_COLLAPSE_TARGET_FRACTION,
   ZONE_COLLAPSE_TELEGRAPH,
   ZONE_INITIAL_RADIUS,
   ZONE_MAX_ALPHA,
   zoneRadiusFor,
   zoneExpandSpeed,
 } from "../balance";
+import { DEFAULT_PARAMS, type GameParams } from "../balance/params/GameParams";
 import type { ZoneData } from "../core/ZoneTypes";
 import { ZONE_NOT_COLLAPSING } from "../core/ZoneTypes";
 import { clamp } from "../math";
@@ -52,8 +50,8 @@ export class ZoneModel {
   private elapsed = 0;
   /** Номер волны, на которой сжатие разрешено. */
   private wave = 1;
-  /** Отладочный масштаб арены: 1 — базовый радиус волны. */
-  private radiusScale = 1;
+  /** Параметры мира: геометрия арены и тайминги сжатия. */
+  private params: GameParams = DEFAULT_PARAMS;
 
   /** Живое состояние зоны (единственный источник правды). */
   get state(): ZoneData {
@@ -97,16 +95,11 @@ export class ZoneModel {
     this.clearFromAlpha = this.zone.alpha;
   }
 
-  /**
-   * Задать отладочный масштаб арены (1 — базовый).
-   *
-   * Меняется только радиус текущей и следующих волн; плотность врагов и
-   * состав волны остаются прежними.
-   */
-  setRadiusScale(scale: number): void {
-    this.radiusScale = clamp(scale, 0.1, 4);
+  /** Передать параметры мира (профиль + отладочные сдвиги). */
+  setParams(params: GameParams): void {
+    this.params = params;
     if (!this.zone.active) return;
-    this.zone.targetRadius = zoneRadiusFor(this.wave) * this.radiusScale;
+    this.zone.targetRadius = zoneRadiusFor(this.wave, params);
   }
 
   /** Активировать зону вокруг игрока с радиусом по номеру волны. */
@@ -114,7 +107,7 @@ export class ZoneModel {
     this.zone.x = playerX;
     this.zone.y = playerY;
     // Единый источник радиуса зоны: те же значения использует спавн и ИИ.
-    this.zone.targetRadius = zoneRadiusFor(wave) * this.radiusScale;
+    this.zone.targetRadius = zoneRadiusFor(wave, this.params);
     this.zone.radius = ZONE_INITIAL_RADIUS;
     this.zone.alpha = 0;
     this.zone.collapseT = ZONE_NOT_COLLAPSING;
@@ -160,7 +153,7 @@ export class ZoneModel {
     if (this.zone.phase === "hold") {
       if (
         this.wave >= ZONE_COLLAPSE_MIN_WAVE &&
-        this.elapsed >= ZONE_COLLAPSE_DELAY
+        this.elapsed >= this.params.zone.collapse.delay
       ) {
         this.zone.collapseT = ZONE_COLLAPSE_TELEGRAPH;
         this.zone.phase = "collapse";
@@ -169,9 +162,9 @@ export class ZoneModel {
     }
 
     // 4. Сжатие до нижней границы. Скорость ниже скорости игрока.
-    const floor = this.zone.targetRadius * ZONE_COLLAPSE_TARGET_FRACTION;
+    const floor = this.zone.targetRadius * this.params.zone.collapse.targetFraction;
     if (this.zone.radius > floor) {
-      const collapseSpeed = playerMaxSpeed * speedMult * ZONE_COLLAPSE_SPEED_MULT;
+      const collapseSpeed = playerMaxSpeed * speedMult * this.params.zone.collapse.speedMult;
       this.zone.radius = Math.max(floor, this.zone.radius - collapseSpeed * dt);
     }
   }

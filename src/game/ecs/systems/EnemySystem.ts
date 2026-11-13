@@ -18,6 +18,7 @@ import { DroneSwarm } from "../../ai/DroneSwarm";
 import { ThreatDirector } from "../../ai/ThreatDirector";
 import { EnemyAvoidance, type IEnemyAvoidance } from "../../ai/EnemyAvoidance";
 import type { EnemyDef } from "../../balance";
+import { DEFAULT_PARAMS, type GameParams } from "../../balance/params/GameParams";
 import {
     AFFIXES,
     ELITE_CHANCE,
@@ -99,8 +100,8 @@ export class EnemySystem extends PhasedSystem {
     private readonly getHpMult: () => number = () => 1,
     /** Множитель урона врагов (болты и контакт) из `BalanceOverrides`. */
     private readonly getDamageMult: () => number = () => 1,
-    /** Множитель скорости врагов: отладочный сдвиг тестового уровня. */
-    private readonly getSpeedMult: () => number = () => 1,
+    /** Параметры мира: корпус и скорость врагов берутся из профиля. */
+    private readonly getParams: () => GameParams = () => DEFAULT_PARAMS,
     /** Импульс игроку от гарпунёра. */
     private readonly pullPlayer?: (vx: number, vy: number) => void,
     /** Урон игроку от непрерывных атак (вихрь). */
@@ -329,8 +330,7 @@ export class EnemySystem extends PhasedSystem {
       kind, affix, shieldHp, maxShieldHp: shieldHp,
       accuracyMult: affixDef?.accuracyMult ?? 1,
       x, y, vx: 0, vy: 0, angle, turretAngle,
-      hp: maxHp, maxHp, r: def.r,
-      speed: def.speed * (affixDef?.speedMult ?? 1) * this.getSpeedMult(),
+      hp: maxHp, maxHp, r: def.r, speed: def.speed * (affixDef?.speedMult ?? 1),
       contact: def.contact * damageMult * (affixDef?.damageMult ?? 1),
       score: def.score * (affix ? ELITE_SCORE_MULT : 1),
       boltDmg: def.bolt * damageMult * (affixDef?.damageMult ?? 1),
@@ -401,7 +401,7 @@ export class EnemySystem extends PhasedSystem {
   }
 
   private getEnemyDef(kind: EnemyKind): EnemyDef {
-    return enemyDefFor(kind, this.wave);
+    return enemyDefFor(kind, this.wave, this.getParams());
   }
 
   /**

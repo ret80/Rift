@@ -19,6 +19,7 @@ import { ALL_PICKUP_KINDS } from "../game/balance/drops";
 import type { MenuTrackId, CombatTrackId } from "../game/audio/tracks";
 import type { PhysicsEngineId } from "../game/physics";
 import type { DroneOrder } from "../game/ecs/components/AllyDroneComponent";
+import type { DebugTuning } from "../ui/debugTuning";
 
 export interface GameActions {
   startGame(): void;
@@ -57,8 +58,7 @@ export interface GameActions {
   toggleDebugGod(): void;
   changeDebugWave(n: number): void;
   /** Отладочная скорость игрока в процентах (−50…+50), только тестовые уровни. */
-  changeDebugSpeed(n: number): void;
-  changeDebugZone(n: number): void;
+  changeDebugTuning(next: DebugTuning): void;
   toggleDebugDetails(): void;
 }
 
@@ -107,6 +107,9 @@ export function useGameActions(options: GameActionsOptions): GameActions {
     game.setStartWave(1);
     game.setTestMode(false);
     game.setEnabledEnemies(null);
+    // Обычный забег всегда идёт на базовом профиле: выбор в отладке
+    // не должен влиять на рекорды.
+    game.setParamProfile("default");
     resetOverlays();
     dispatch({ type: "SET_SCREEN", screen: "game" });
     game.startRun();
@@ -117,8 +120,9 @@ export function useGameActions(options: GameActionsOptions): GameActions {
     if (!game) return;
     game.audio.init();
     game.audio.startMusic();
-    game.setTestSpeed(settings.debugSpeed);
-    game.setTestZone(settings.debugZone);
+    game.setTestSpeed(settings.tuning.speed);
+    game.setTestZone(settings.tuning.zone);
+    game.setParamProfile(settings.tuning.profile);
     game.startTestLevel(settings.debugWave, settings.enabledEnemies);
     resetOverlays();
     dispatch({ type: "SET_SCREEN", screen: "game" });
@@ -260,13 +264,11 @@ export function useGameActions(options: GameActionsOptions): GameActions {
       settings.setDebugWave(n);
       gameRef.current?.setStartWave(n);
     },
-    changeDebugSpeed: (n) => {
-      settings.setDebugSpeed(n);
-      gameRef.current?.setTestSpeed(n);
-    },
-    changeDebugZone: (n) => {
-      settings.setDebugZone(n);
-      gameRef.current?.setTestZone(n);
+    changeDebugTuning: (next) => {
+      settings.setTuning(next);
+      gameRef.current?.setParamProfile(next.profile);
+      gameRef.current?.setTestSpeed(next.speed);
+      gameRef.current?.setTestZone(next.zone);
     },
     toggleRecording: () => gameRef.current?.toggleRecording(),
     toggleTactical: () => gameRef.current?.toggleTactical(),

@@ -36,6 +36,7 @@ export interface RunSeed {
 }
 import type { MetaBonuses } from "../meta/types";
 import { noMetaBonuses } from "../meta/types";
+import { DEFAULT_PARAMS, type PlayerParams } from "../balance/params/GameParams";
 
 export class UpgradeSystem {
   private _playerUpgrades: PlayerUpgrades = defaultUpgrades();
@@ -50,9 +51,11 @@ export class UpgradeSystem {
    */
   private _unlockedWeapons: ReadonlySet<string> | null = null;
   private _unlockedDrones: ReadonlySet<string> | null = null;
+  /** Параметры корабля: базовый корпус задаётся профилем мира. */
+  private _playerParams: PlayerParams = DEFAULT_PARAMS.player;
 
   private constructor() {
-    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses);
+    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses, this._playerParams);
   }
 
   static create(): UpgradeSystem {
@@ -69,7 +72,7 @@ export class UpgradeSystem {
     this._playerUpgrades = { ...defaultUpgrades(), ...(seed?.upgrades ?? {}) };
     this._loadout = seed?.weaponLoadout ?? defaultWeaponLoadout();
     this._droneSystem.setLoadout(seed?.droneLoadout ?? defaultDroneLoadout());
-    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses);
+    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses, this._playerParams);
   }
 
   /** Задать открытые достижениями виды оружия; null — все доступны. */
@@ -92,10 +95,16 @@ export class UpgradeSystem {
     return this._unlockedDrones === null || this._unlockedDrones.has(id);
   }
 
+  /** Задать параметры корабля из профиля мира. */
+  setPlayerParams(params: PlayerParams): void {
+    this._playerParams = params;
+    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses, this._playerParams);
+  }
+
   /** Применить бонусы Эха Разлома к текущему забегу. */
   setMetaBonuses(bonuses: MetaBonuses): void {
     this._metaBonuses = bonuses;
-    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses);
+    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses, this._playerParams);
   }
 
   get playerUpgrades(): PlayerUpgrades {
@@ -159,7 +168,7 @@ export class UpgradeSystem {
 
   /** Пересчитать применённые значения (после покупки). */
   refresh(): void {
-    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses);
+    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses, this._playerParams);
   }
 
   /* ======================== Purchase (debug) ======================== */

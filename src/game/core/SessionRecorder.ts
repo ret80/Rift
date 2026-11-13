@@ -271,6 +271,9 @@ export class SessionRecorder implements SessionRecorderPort {
       replayable,
       startWave: world.waveOrchestrator.wave,
       testMode: world.testMode,
+      ...(world.paramProfileId !== "default"
+        ? { paramProfile: world.paramProfileId }
+        : {}),
       skipCountdown: world.skipCountdownEnabled,
       physics: world.physicsEngineId,
       ticks: 0,

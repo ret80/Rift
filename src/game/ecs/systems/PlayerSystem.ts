@@ -31,11 +31,9 @@ import {
   BOOST_DRAIN_PER_SECOND,
   BOOST_GAIN_PER_KILL,
   BOOST_SPEED_MULT,
-  PLAYER_ACCEL,
-  PLAYER_FRICTION_EXP,
   PLAYER_HIT_INVULN,
-  PLAYER_MAX_SPEED,
 } from '../../balance/player';
+import { DEFAULT_PARAMS, type PlayerParams } from '../../balance/params/GameParams';
 
 /** Флаг: должна ли система сама интегрировать позицию (true в custom-режиме). */
 export type PlayerIntegrateSource = () => boolean;
@@ -50,6 +48,8 @@ export class PlayerSystem extends PhasedSystem {
   private controls: PlayerControls;
   /** Постоянный множитель скорости из апгрейдов. */
   private speedMult = 1;
+  /** Параметры корабля из профиля мира. */
+  private params: PlayerParams = DEFAULT_PARAMS.player;
   /** Энергетический щит: блокирует часть урона. */
   private shield: ShieldSystem | null = null;
 
@@ -169,20 +169,20 @@ export class PlayerSystem extends PhasedSystem {
         const norm = length > 1 ? length : 1;
         ax /= norm;
         ay /= norm;
-        const accel = PLAYER_ACCEL * speedMult;
+        const accel = this.params.accel * speedMult;
         velocity.vx += ax * accel * dt;
         velocity.vy += ay * accel * dt;
       }
     }
 
     // Трение
-    const friction = Math.exp(-PLAYER_FRICTION_EXP * dt);
+    const friction = Math.exp(-this.params.frictionExp * dt);
     velocity.vx *= friction;
     velocity.vy *= friction;
 
     // Ограничение скорости
     const speed = Math.hypot(velocity.vx, velocity.vy);
-    const cap = PLAYER_MAX_SPEED * speedMult;
+    const cap = this.params.maxSpeed * speedMult;
     if (speed > cap) {
       velocity.vx *= cap / speed;
       velocity.vy *= cap / speed;
@@ -271,6 +271,11 @@ export class PlayerSystem extends PhasedSystem {
   /** Постоянный множитель скорости из апгрейда «скорость». */
   setSpeedMult(mult: number): void {
     this.speedMult = mult;
+  }
+
+  /** Параметры корабля (скорость, ускорение, трение) из профиля мира. */
+  setPlayerParams(params: PlayerParams): void {
+    this.params = params;
   }
 
   /** Подключить энергетический щит (блокирует часть урона). */

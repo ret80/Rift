@@ -4,9 +4,10 @@
    ============================================================ */
 
 import type { RandomSource } from "../math";
-import { clamp, ramp01 } from "../math";
+import { ramp01 } from "../math";
 import { BOSS_WAVE_INTERVAL, ENEMY_BASES, EnemyKind, massForRadius } from "./enemies";
-import { ZONE_RADIUS_SCALE } from "./zones";
+import { DEFAULT_PARAMS, type GameParams } from "./params/GameParams";
+import { arenaRadius, enemySpeed } from "./params/derived";
 
 /** Состав тестовой волны: вид → количество. */
 export type WaveCompositionOverride = Partial<Record<EnemyKind, number>>;
@@ -55,17 +56,29 @@ export function dmgScale(w: number): number {
 /**
  * Compute wave-scaled enemy definition from base template.
  */
-export function enemyDefFor(kind: EnemyKind, w: number): import("./enemies").EnemyDef {
+export function enemyDefFor(
+  kind: EnemyKind,
+  w: number,
+  params: GameParams = DEFAULT_PARAMS,
+): import("./enemies").EnemyDef {
   const hpS = hpScale(w);
   const dmgS = dmgScale(w);
   const base = ENEMY_BASES[kind];
+
+  // Корпус и скорость берутся из профиля параметров: правка одного числа
+  // (например `player.maxSpeed`) сразу меняет и связанные значения.
+  const hp = params.enemy.hpBase[kind] * hpS;
+  const speed = enemySpeed(params, kind);
+  // Прирост скорости по волнам масштабируется вместе с базовой скоростью:
+  // отладочный сдвиг иначе «размывался» бы постоянной добавкой за волну.
+  const growthScale = params.player.maxSpeed / DEFAULT_PARAMS.player.maxSpeed;
 
   switch (kind) {
     case EnemyKind.Drone: {
       return {
         r: base.r,
-        hp: base.hpBase * hpS,
-        speed: base.speed + w * 4,
+        hp,
+        speed: speed + w * 4 * growthScale,
         contact: base.contactBase * dmgS,
         score: base.score,
         bolt: base.boltBase,
@@ -75,10 +88,10 @@ export function enemyDefFor(kind: EnemyKind, w: number): import("./enemies").Ene
     case EnemyKind.Hunter: {
       return {
         r: base.r,
-        hp: base.hpBase * hpS,
+        hp,
         // Таран должен оставаться быстрее игрока и на поздних волнах,
         // когда скорость поднята апгрейдами (до +40%).
-        speed: base.speed + w * 2,
+        speed: speed + w * 2 * growthScale,
         contact: base.contactBase * dmgS,
         score: base.score,
         bolt: base.boltBase,
@@ -88,8 +101,8 @@ export function enemyDefFor(kind: EnemyKind, w: number): import("./enemies").Ene
     case EnemyKind.Fighter: {
       return {
         r: base.r,
-        hp: base.hpBase * hpS,
-        speed: (base.speed + w * 3) * 0.8,
+        hp,
+        speed: (speed + w * 3 * growthScale) * 0.8,
         contact: base.contactBase * dmgS,
         score: base.score,
         bolt: base.boltBase * dmgS,
@@ -99,8 +112,8 @@ export function enemyDefFor(kind: EnemyKind, w: number): import("./enemies").Ene
     case EnemyKind.Cruiser: {
       return {
         r: base.r,
-        hp: base.hpBase * hpS,
-        speed: base.speed + w * 1.5,
+        hp,
+        speed: speed + w * 1.5 * growthScale,
         contact: base.contactBase * dmgS,
         score: base.score,
         bolt: base.boltBase * dmgS,
@@ -110,8 +123,8 @@ export function enemyDefFor(kind: EnemyKind, w: number): import("./enemies").Ene
     case EnemyKind.Carrier: {
       return {
         r: base.r,
-        hp: base.hpBase * hpS,
-        speed: base.speed + w * 0.8,
+        hp,
+        speed: speed + w * 0.8 * growthScale,
         contact: base.contactBase * dmgS,
         score: base.score,
         bolt: base.boltBase,
@@ -121,9 +134,9 @@ export function enemyDefFor(kind: EnemyKind, w: number): import("./enemies").Ene
     case EnemyKind.Miner: {
       return {
         r: base.r,
-        hp: base.hpBase * hpS,
+        hp,
         // Медленнее игрока: он угрожает пространством, а не погоней.
-        speed: base.speed + w * 1.2,
+        speed: speed + w * 1.2 * growthScale,
         contact: base.contactBase * dmgS,
         score: base.score,
         bolt: base.boltBase,
@@ -133,9 +146,9 @@ export function enemyDefFor(kind: EnemyKind, w: number): import("./enemies").Ene
     case EnemyKind.Boss: {
       return {
         r: base.r,
-        hp: base.hpBase * hpS,
+        hp,
         // Босс медленнее игрока: его давление — залпы, а не погоня.
-        speed: base.speed + w * 0.5,
+        speed: speed + w * 0.5 * growthScale,
         contact: base.contactBase * dmgS,
         score: base.score,
         bolt: base.boltBase * dmgS,
@@ -145,7 +158,7 @@ export function enemyDefFor(kind: EnemyKind, w: number): import("./enemies").Ene
     case EnemyKind.Mine: {
       return {
         r: base.r,
-        hp: base.hpBase * hpS,
+        hp,
         speed: 0,
         contact: base.contactBase * dmgS,
         score: 0,
@@ -156,8 +169,8 @@ export function enemyDefFor(kind: EnemyKind, w: number): import("./enemies").Ene
     default: {
       return {
         r: base.r,
-        hp: base.hpBase * hpS,
-        speed: base.speed,
+        hp,
+        speed,
         contact: base.contactBase * dmgS,
         score: base.score,
         bolt: base.boltBase * dmgS,
@@ -190,10 +203,10 @@ export function bossCountForWave(w: number): number {
   return isBossWave(w) ? 1 : 0;
 }
 
-export function zoneRadiusFor(w: number): number {
+export function zoneRadiusFor(w: number, params: GameParams = DEFAULT_PARAMS): number {
   // Базовые 380…715 увеличиваются общим масштабом арены. Верхний предел
   // поднят на 10% от прежних 650, чтобы поздние волны не упирались в потолок.
-  return clamp(380 + (w - 1) * 10, 380, 715) * ZONE_RADIUS_SCALE;
+  return arenaRadius(params, w);
 }
 
 /**

@@ -17,6 +17,7 @@ import {
   SHIELDBEARER_DAMAGE_MULT,
 } from "../../balance";
 import { VOLATILE_DAMAGE_MULT, VOLATILE_RADIUS } from "../../balance/affixes";
+import type { GameParams } from "../../balance/params/GameParams";
 import type { EventBus } from "../../core/EventBus";
 import type { Rng } from "../../core/rng";
 import type { AudioPort } from "../../core/WorldPorts";
@@ -70,8 +71,8 @@ export interface EnemySystemDeps {
   getEnemyHpMult: () => number;
   /** Множитель урона врагов. */
   getEnemyDamageMult: () => number;
-  /** Множитель скорости врагов (отладочный сдвиг, в обычном забеге — 1). */
-  getEnemySpeedMult?: () => number;
+  /** Параметры мира для корпуса и скорости врагов. */
+  getEnemyParams?: () => GameParams;
   /** Импульс игроку от гарпуна. */
   pullPlayer?: (vx: number, vy: number) => void;
   /** Урон игроку от непрерывных атак. */
@@ -122,7 +123,7 @@ export class EnemyDomain {
       undefined,
       deps.getEnemyHpMult,
       deps.getEnemyDamageMult,
-      deps.getEnemySpeedMult,
+      deps.getEnemyParams,
       deps.pullPlayer,
       deps.damagePlayer,
     );

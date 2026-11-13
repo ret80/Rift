@@ -24,6 +24,7 @@ export const STORAGE_KEYS = {
   debugWave: "rift9_debug_wave",
   debugSpeed: "rift9_debug_speed",
   debugZone: "rift9_debug_zone",
+  debugTuning: "rift9_debug_tuning",
   debugDetails: "rift9_debug_details",
   debugEnemies: "rift9_debug_enemies",
   debugEnemiesVersion: "rift9_debug_enemies_version",

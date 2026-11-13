@@ -35,6 +35,9 @@ import {
   waveTotalFor,
 } from "../balance";
 import type { WaveCompositionOverride } from "../balance/waves";
+import { DEFAULT_PARAMS, type GameParams } from "../balance/params/GameParams";
+import { resolveParams } from "../balance/params/resolveParams";
+import type { ParamProfileId } from "../balance/params/profiles";
 import type { PickupKind } from "../balance";
 import { EcsWorld, resetGameEntityIds } from "../ecs";
 import type { EnemyRef, PlayerRef } from "../ecs";
@@ -138,6 +141,8 @@ export interface GameWorldConfig {
   testMode?: boolean;
   /** Явные множители баланса; при 1.0 поведение бит-в-бит прежнее. */
   balance?: BalanceOverrides;
+  /** Профиль параметров мира; по умолчанию — `default`. */
+  paramProfile?: ParamProfileId;
   /** Пассивный рекордер: только читает мир и не влияет на тики. */
   recorder?: SessionRecorderPort;
   /** Порт управления; по умолчанию — AgentControls (агент задаёт намерения). */
@@ -206,10 +211,14 @@ export class GameWorld {
   testMode: boolean;
   /** Базовый множитель скорости из прокачки и меты. */
   private speedMultBase = 1;
-  /** Отладочный множитель скорости тестового уровня (1 — без сдвига). */
-  private testSpeedMult = 1;
-  /** Отладочный масштаб арены тестового уровня (1 — базовый). */
-  private testZoneScale = 1;
+  /** Выбранный профиль параметров мира. */
+  private paramProfile: ParamProfileId = "default";
+  /** Отладочный сдвиг скорости в долях (−0.5…+0.5). */
+  private testSpeedMod = 0;
+  /** Отладочный сдвиг размера арены в долях (−0.5…+0.5). */
+  private testZoneMod = 0;
+  /** Разрешённые параметры мира: профиль + сдвиги тестового режима. */
+  params: GameParams = DEFAULT_PARAMS;
   /** Одиночный тест уровня: после зачистки/смерти вернуть в отладку. */
   singleWaveTest = false;
   /** Тест уже завершён: защита от повторного возврата в отладку. */
@@ -272,6 +281,7 @@ export class GameWorld {
     }
     this.startWave = config.startWave ?? 1;
     this.testMode = config.testMode ?? false;
+    this.paramProfile = config.paramProfile ?? "default";
     this.balance = resolveBalanceOverrides(config.balance);
     this.runSeed = config.runSeed;
     this.recorder = config.recorder ?? null;
@@ -325,9 +335,8 @@ export class GameWorld {
         rngSpawn: this.rng("spawn"),
         getEnemyHpMult: () => this.balance.enemyHpMult * this.ascension.hpMult,
         getEnemyDamageMult: () => this.balance.enemyDamageMult * this.ascension.damageMult,
-        // Отладочный сдвиг скорости действует на врагов так же, как на игрока:
-        // таран и погоня сохраняют прежний баланс скоростей.
-        getEnemySpeedMult: () => (this.testMode ? this.testSpeedMult : 1),
+        // Скорость и корпус врагов берутся из разрешённых параметров мира.
+        getEnemyParams: () => this.params,
         pullPlayer: (vx, vy) => this.eventBus.publish("drone_push_player", { vx, vy }),
         damagePlayer: (dmg, source) => this.eventBus.publish("player_damaged", { dmg, source }),
         isPickupMagnetDisabled: (x, y) => this.isJammedAt(x, y),
@@ -799,6 +808,9 @@ export class GameWorld {
     this.abilitySystem.reset();
     this.ecs.clearBeams();
 
+    // Параметры профиля должны быть разложены до применения прокачки:
+    // от них зависит базовый корпус и скорость.
+    this.applyParams();
     this.applyUpgrades(true);
 
     this.spawnSystem.clearAnnounced();
@@ -811,7 +823,6 @@ export class GameWorld {
     this.ecs.setEnemyWave(resetWaveStart);
 
     this.waveOrchestrator.reset(resetWaveStart);
-    this.waveOrchestrator.setZoneRadiusScale(this.testMode ? this.testZoneScale : 1);
 
     this.riftField.reset();
     this.anchorSystem.reset();
@@ -846,6 +857,11 @@ export class GameWorld {
     return this.allyDroneSystem.currentOrder;
   }
 
+  /** Выбранный профиль параметров мира. */
+  get paramProfileId(): ParamProfileId {
+    return this.paramProfile;
+  }
+
   /** Выбранный уровень угрозы текущего забега. */
   get threatLevel(): number {
     return this.ascension.level;
@@ -863,8 +879,7 @@ export class GameWorld {
     this.testClearPending = false;
     this.testClearBannerShown = false;
     this.testMode = false;
-    this.applyPlayerSpeed();
-    this.waveOrchestrator.setZoneRadiusScale(1);
+    this.applyParams();
     this.rngStreams.reset();
     this.tickIndex = 0;
     this.riftField.reset();
@@ -873,35 +888,58 @@ export class GameWorld {
     this.fx.reset();
   }
 
+  /** Выбрать профиль параметров мира. */
+  setParamProfile(profileId: ParamProfileId): void {
+    this.paramProfile = profileId;
+    this.applyParams();
+  }
+
   /**
-   * Отладочный множитель скорости игрока (только тестовые уровни).
+   * Отладочный сдвиг скорости в процентах (−50…+50).
    * В обычном забеге значение хранится, но не применяется.
    */
-  setTestSpeedMult(mult: number): void {
-    const next = Math.max(0.01, mult);
-    const ratio = next / this.testSpeedMult;
-    this.testSpeedMult = next;
+  setTestSpeed(percent: number): void {
+    this.testSpeedMod = Math.min(0.5, Math.max(-0.5, percent / 100));
+    this.applyParams();
+  }
+
+  /**
+   * Отладочный сдвиг размера арены в процентах (−50…+50).
+   * В обычном забеге значение хранится, но не применяется.
+   */
+  setTestZone(percent: number): void {
+    this.testZoneMod = Math.min(0.5, Math.max(-0.5, percent / 100));
+    this.applyParams();
+  }
+
+  /**
+   * Пересобрать параметры и разложить их по системам.
+   *
+   * Сдвиги скорости и арены входят в `resolveParams` и действуют только в
+   * тестовом режиме; профиль действует всегда.
+   */
+  private applyParams(): void {
+    const prevMaxSpeed = this.params.player.maxSpeed;
+    this.params = resolveParams(
+      this.paramProfile,
+      { speed: this.testSpeedMod, zone: this.testZoneMod },
+      this.testMode,
+    );
+    this.playerSystem.setPlayerParams(this.params.player);
+    this.upgradeSystem.setPlayerParams(this.params.player);
+    this.waveOrchestrator.setParams(this.params);
     this.applyPlayerSpeed();
+
     // Уже вышедшие враги меняют скорость вместе с игроком, а не только новые.
+    const ratio = prevMaxSpeed === 0 ? 1 : this.params.player.maxSpeed / prevMaxSpeed;
     if (this.testMode && ratio !== 1) {
       for (const enemy of this.ecs.enemies()) enemy.marker.speed *= ratio;
     }
   }
 
-  /**
-   * Отладочный масштаб арены (1 — базовый радиус волны).
-   * В обычном забеге значение хранится, но не применяется.
-   */
-  setTestZoneScale(scale: number): void {
-    this.testZoneScale = Math.min(4, Math.max(0.1, scale));
-    this.waveOrchestrator.setZoneRadiusScale(this.testMode ? this.testZoneScale : 1);
-  }
-
-  /** Пересчитать скорость игрока с учётом тестового множителя. */
+  /** Пересчитать скорость игрока из апгрейдов (тестовый сдвиг уже в параметрах). */
   private applyPlayerSpeed(): void {
-    this.playerSystem.setSpeedMult(
-      this.speedMultBase * (this.testMode ? this.testSpeedMult : 1),
-    );
+    this.playerSystem.setSpeedMult(this.speedMultBase);
   }
 
   /** Передать прокачке список открытого достижениями снаряжения. */

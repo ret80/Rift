@@ -7,6 +7,8 @@
    ============================================================ */
 
 import type { StarLayer } from "./waves";
+import { DEFAULT_PARAMS } from "./params/GameParams";
+import { EnemyKind } from "./enemyKinds";
 
 /* ------------------------------ palette ------------------------------ */
 
@@ -34,41 +36,41 @@ export const C = {
 
 /* --------------------------- player & limits --------------------------- */
 
-export const PLAYER_RADIUS = 13;
+export const PLAYER_RADIUS = DEFAULT_PARAMS.player.radius;
 /** Базовый запас корпуса без апгрейдов. */
-export const PLAYER_BASE_HP = 120;
+export const PLAYER_BASE_HP = DEFAULT_PARAMS.player.baseHp;
 /**
  * Предел скорости корабля. Снижен с 600 до 480: на экране шириной
  * ~1300 px корабль пересекал арену за 2.2 с, и игрок не успевал читать
  * угрозы; теперь на манёвр есть на 25 % больше времени.
  */
-export const PLAYER_MAX_SPEED = 480;
+export const PLAYER_MAX_SPEED = DEFAULT_PARAMS.player.maxSpeed;
 /** Drone base speed = 0.93 × player max speed. */
-export const DRONE_BASE_SPEED = PLAYER_MAX_SPEED * 0.93;
+export const DRONE_BASE_SPEED = PLAYER_MAX_SPEED * DEFAULT_PARAMS.enemy.speedFactor[EnemyKind.Drone];
 /**
  * Hunter speed = 1.15 × player max speed.
  * Таран обязан быть быстрее игрока: иначе уравнение встречи
  * |P + Vp·t − H| = Vs·t не имеет решения при отходе по прямой, и перехват
  * вырождается в обычное догоняющее преследование (поведение дрона).
  */
-export const HUNTER_SPEED = PLAYER_MAX_SPEED * 1.15;
+export const HUNTER_SPEED = PLAYER_MAX_SPEED * DEFAULT_PARAMS.enemy.speedFactor[EnemyKind.Hunter];
 /**
  * Fighter base speed = 0.9 × player max speed.
  * Истребитель обязан хотя бы приближаться к скорости игрока: иначе срез
  * орбиты (см. FighterStrategy, режим CUT) физически невозможен — он не
  * успевает выйти на внутреннее кольцо круга игрока.
  */
-export const FIGHTER_BASE_SPEED = PLAYER_MAX_SPEED * 0.9;
+export const FIGHTER_BASE_SPEED = PLAYER_MAX_SPEED * DEFAULT_PARAMS.enemy.speedFactor[EnemyKind.Fighter];
 /** Cruiser speed = 0.5 × player max speed. */
-export const CRUISER_BASE_SPEED = PLAYER_MAX_SPEED * 0.5;
+export const CRUISER_BASE_SPEED = PLAYER_MAX_SPEED * DEFAULT_PARAMS.enemy.speedFactor[EnemyKind.Cruiser];
 /** Carrier speed = 0.3 × player max speed. */
-export const CARRIER_BASE_SPEED = PLAYER_MAX_SPEED * 0.3;
+export const CARRIER_BASE_SPEED = PLAYER_MAX_SPEED * DEFAULT_PARAMS.enemy.speedFactor[EnemyKind.Carrier];
 /** Miner speed = 0.55 × player max speed: догоняет, но не обгоняет на прямой. */
-export const MINER_BASE_SPEED = PLAYER_MAX_SPEED * 0.55;
+export const MINER_BASE_SPEED = PLAYER_MAX_SPEED * DEFAULT_PARAMS.enemy.speedFactor[EnemyKind.Miner];
 /** Thrust applied per second while the player holds a direction. */
-export const PLAYER_ACCEL = 1240;
+export const PLAYER_ACCEL = DEFAULT_PARAMS.player.accel;
 /** Показатель экспоненциального трения скорости игрока, 1/с. */
-export const PLAYER_FRICTION_EXP = 2.4;
+export const PLAYER_FRICTION_EXP = DEFAULT_PARAMS.player.frictionExp;
 /** Zone expansion multiplier × текущая максимальная скорость игрока — игрок не может её догнать. */
 export const ZONE_EXPAND_SPEED_MULT = 1.3;
 

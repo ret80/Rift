@@ -4,6 +4,7 @@
    ============================================================ */
 
 import { ZONE_EXPAND_SPEED_MULT } from "./player";
+import { DEFAULT_PARAMS } from "./params/GameParams";
 
 /* ------------------------- zone constants ------------------------- */
 
@@ -14,7 +15,7 @@ export const ZONE_INITIAL_RADIUS = 26; // 2 × PLAYER_RADIUS (13)
  * На поздних волнах (19+) плотность врагов оставляла слишком мало места
  * для манёвра; расширение арены возвращает пространство, не меняя состав.
  */
-export const ZONE_RADIUS_SCALE = 1.1;
+export const ZONE_RADIUS_SCALE = DEFAULT_PARAMS.zone.radiusScale;
 /** Порог выхода: урон/предупреждение начинаются за реальной границей зоны. */
 export const ZONE_EXIT_EPSILON = 4;
 /** Порог возврата: урон выключается внутри зоны (защита от дребезга на краю). */
@@ -62,7 +63,7 @@ export const ZONE_ENEMY_PULL_MAX_SPEED = 700;
  * заставляет игрока хотя бы раз за волну сменить радиус и пройти ближе
  * к центру — сквозь толпу, а не по пустой кромке.
  */
-export const ZONE_COLLAPSE_DELAY = 45;
+export const ZONE_COLLAPSE_DELAY = DEFAULT_PARAMS.zone.collapse.delay;
 /**
  * С какой волны включается сжатие. Первые волны — обучение: у игрока ещё
  * нет ни апгрейдов, ни понимания арены, и сжатие там только запутывает.
@@ -74,13 +75,13 @@ export const ZONE_COLLAPSE_TELEGRAPH = 3;
  * Доля целевого радиуса, до которой зона сжимается.
  * Дальше сжатие останавливается: зона сама по себе не убивает.
  */
-export const ZONE_COLLAPSE_TARGET_FRACTION = 0.35;
+export const ZONE_COLLAPSE_TARGET_FRACTION = DEFAULT_PARAMS.zone.collapse.targetFraction;
 /**
  * Скорость сжатия как доля текущей максимальной скорости игрока.
  * Всегда меньше скорости игрока: выйти из сжатия можно, но только
  * двигаясь внутрь, а не по касательной.
  */
-export const ZONE_COLLAPSE_SPEED_MULT = 0.55;
+export const ZONE_COLLAPSE_SPEED_MULT = DEFAULT_PARAMS.zone.collapse.speedMult;
 
 /* ------------------------- буря на кромке ------------------------- */
 

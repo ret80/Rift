@@ -1,7 +1,29 @@
 # Профили параметров и связанные значения
 
 Дата: 2026-11-13
-Статус: предложение (реализована только связка «скорость игрока → скорость врагов»)
+Статус: реализовано (шаги 1–6 плана ниже; см. раздел «Что сделано»)
+
+## 0. Что сделано
+
+- `src/game/balance/enemyKinds.ts` — `EnemyKind` вынесен из `enemies.ts`,
+  чтобы DTO параметров не создавал цикл импортов.
+- `src/game/balance/params/` — `GameParams` (DTO + `DEFAULT_PARAMS`),
+  `profiles.ts` (`default` / `relaxed` / `stress`), `resolveParams.ts`
+  (профиль + отладочные сдвиги), `derived.ts` (`enemySpeed`, `arenaRadius`).
+- Скорости врагов хранятся долей от `player.maxSpeed`; скорость игрока
+  читается `PlayerSystem` из параметров, корпус — из `applyUpgrades`.
+- Зона получает параметры через `ZoneModel.setParams`; `zoneRadiusFor`
+  принимает `GameParams`.
+- `GameWorld` держит `params` и пересобирает их в `applyParams()`;
+  публичные входы — `setParamProfile`, `setTestSpeed`, `setTestZone`
+  (проценты), вместо прежних `setTestSpeedMult` / `setTestZoneScale`.
+- Отладка: `src/ui/debugTuning.ts` (`DebugTuning` + реестр `DEBUG_SLIDERS`),
+  один ключ хранения `rift9_debug_tuning` с миграцией старых
+  `rift9_debug_speed` / `rift9_debug_zone`; выбор профиля и ползунки в
+  панели разработчика строятся из реестра.
+- Сценарии: поле `paramProfile` в JSON сценария и в записи сессии;
+  `SessionRecorder` сохраняет профиль только если он не `default`,
+  поэтому хэши старых сценариев не меняются.
 
 ## 1. Что уже есть
 
@@ -174,9 +196,9 @@ interface DebugTuning {
 | `PLAYER_MAX_SPEED`, `HUNTER_SPEED`, … | `params.player.maxSpeed`, `enemySpeed(kind, params)` |
 | `ZONE_RADIUS_SCALE` | `params.zone.radiusScale` |
 | `zoneRadiusFor(wave, scale)` | `zoneRadiusFor(wave, params)` |
-| `world.getEnemySpeedMult()` | `enemySpeed` уже учитывает сдвиг |
+| `world.getEnemySpeedMult()` | `EnemySystemDeps.getEnemyParams()` → `enemyDefFor(kind, wave, params)` |
 | `debugSpeed`, `debugZone` + 6 файлов проводки | `DebugTuning` + описание слайдеров |
-| `BalanceOverrides` | остаётся, входит в `ParamModifiers.balance` |
+| `BalanceOverrides` | остаётся отдельным механизмом сценариев (hp/damage), не дублируется в `GameParams` |
 
 ## 5. План внедрения (по шагам, каждый шаг рабочий)
 
@@ -203,8 +225,11 @@ interface DebugTuning {
 - **Глобальное состояние запрещено.** Нельзя делать изменяемый
   module-level `let params`; иначе два мира в одном процессе
   (headless-прогоны) начнут влиять друг на друга.
-- **Связка «скорость игрока → враги» уже реализована** без полного
-  рефакторинга: `EnemySystemDeps.getEnemySpeedMult` возвращает
-  тестовый множитель, а `createEnemy` умножает на него скорость.
-  Это временный мост до шага 2 — после переноса на `speedFactor`
-  множитель станет частью `resolveParams`.
+- **Скорость врагов и отладочный сдвиг.** Сдвиг скорости применяется
+  только к `player.maxSpeed`: `enemySpeed` выводит скорость врага из неё,
+  поэтому множитель не удваивается. Прирост за волну тоже масштабируется
+  (`growthScale`), иначе на поздних волнах соотношение скоростей
+  «размывалось» бы постоянной добавкой.
+- **Живые враги при смене сдвига.** Уже вышедшие враги пересчитываются
+  пропорционально в `GameWorld.applyParams`; корпус существующих врагов
+  не меняется до следующего спавна (профили выбираются перед тестом).

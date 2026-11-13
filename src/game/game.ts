@@ -16,6 +16,7 @@ import { GameContext } from "./core/GameContext";
 import type { Hooks } from "./core/GameHooks";
 import type { PhysicsEngineId } from "./physics";
 import type { WaveCompositionOverride } from "./balance/waves";
+import type { ParamProfileId } from "./balance/params/profiles";
 import type { DroneOrder } from "./ecs/components/AllyDroneComponent";
 
 /* UI types — единый источник правды */
@@ -56,7 +57,7 @@ export class Game {
    * Действует только на тестовых уровнях из меню отладки.
    */
   setTestSpeed(percent: number): void {
-    this.ctx.setTestSpeed(1 + percent / 100);
+    this.ctx.setTestSpeed(percent);
   }
 
   /**
@@ -64,7 +65,12 @@ export class Game {
    * Действует только на тестовых уровнях из меню отладки.
    */
   setTestZone(percent: number): void {
-    this.ctx.setTestZoneScale(1 + percent / 100);
+    this.ctx.setTestZone(percent);
+  }
+
+  /** Выбрать профиль параметров мира (по умолчанию — `default`). */
+  setParamProfile(profileId: ParamProfileId): void {
+    this.ctx.setParamProfile(profileId);
   }
 
   /** Включить тестовую волну заданного состава (`?test=...`). */

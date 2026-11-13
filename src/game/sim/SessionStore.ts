@@ -129,6 +129,7 @@ export function scenarioFromSession(
     ...(weapons ? { weapons } : {}),
     ...(record.meta.droneLoadout ? { droneLoadout: record.meta.droneLoadout } : {}),
     balance: options.balance ?? record.run.balance,
+    ...(record.run.paramProfile ? { paramProfile: record.run.paramProfile } : {}),
   };
   return parseScenario(raw);
 }

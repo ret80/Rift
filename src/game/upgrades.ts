@@ -9,7 +9,7 @@
 import type { MetaBonuses } from "./meta/types";
 import { noMetaBonuses } from "./meta/types";
 import { PLAYER_AIM_BASE_CHANCE } from "./balance/accuracy";
-import { PLAYER_BASE_HP } from "./balance/player";
+import { DEFAULT_PARAMS, type PlayerParams } from "./balance/params/GameParams";
 import {
   BASE_WEAPON_MODEL,
   type WeaponId,
@@ -286,9 +286,10 @@ export interface AppliedUpgrades {
 export function applyUpgrades(
   upgrades: PlayerUpgrades,
   meta: MetaBonuses = noMetaBonuses(),
+  player: PlayerParams = DEFAULT_PARAMS.player,
 ): AppliedUpgrades {
   // hp: базовый запас + 20 за уровень корпуса, затем множитель меты
-  const baseHp = Math.round((PLAYER_BASE_HP + upgrades.hull * 20) * meta.hpMult);
+  const baseHp = Math.round((player.baseHp + upgrades.hull * 20) * meta.hpMult);
 
   // fire rate: 1.0 base + 0.08 per level
   const fireRateMult = (1.0 + upgrades.fireRate * 0.08) * meta.fireRateMult;

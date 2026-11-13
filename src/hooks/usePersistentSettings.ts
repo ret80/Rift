@@ -12,6 +12,11 @@ import {
 import type { PhysicsEngineId } from "../game/physics";
 import { normalizePhysicsEngine } from "../game/physics";
 import { STORAGE_KEYS } from "../game/core/storageKeys";
+import {
+  loadDebugTuning,
+  normalizeDebugTuning,
+  type DebugTuning,
+} from "../ui/debugTuning";
 import { usePersistedState } from "./usePersistedState";
 
 /** Персистентные настройки отладки/звука/врагов-пикапов. */
@@ -30,12 +35,9 @@ export interface PersistentSettings {
   setDebugGod: (v: boolean) => void;
   debugWave: number;
   setDebugWave: (n: number) => void;
-  /** Отладочная скорость игрока в процентах: −50…+50, только тестовые уровни. */
-  debugSpeed: number;
-  setDebugSpeed: (n: number) => void;
-  /** Отладочный размер арены в процентах: −50…+50, только тестовые уровни. */
-  debugZone: number;
-  setDebugZone: (n: number) => void;
+  /** Отладочные сдвиги параметров мира: профиль и ползунки. */
+  tuning: DebugTuning;
+  setTuning: (next: DebugTuning) => void;
   debugDetails: boolean;
   setDebugDetails: (v: boolean) => void;
   enabledEnemies: EnemyKind[];
@@ -77,8 +79,13 @@ export function usePersistentSettings(): PersistentSettings {
   const [debugFps, setDebugFps] = usePersistedState(STORAGE_KEYS.debugFps, false);
   const [debugGod, setDebugGod] = usePersistedState(STORAGE_KEYS.debugGod, false);
   const [debugWave, setDebugWave] = usePersistedState(STORAGE_KEYS.debugWave, 1);
-  const [debugSpeed, setDebugSpeed] = usePersistedState(STORAGE_KEYS.debugSpeed, 0);
-  const [debugZone, setDebugZone] = usePersistedState(STORAGE_KEYS.debugZone, 0);
+  // Старые ключи debugSpeed/debugZone мигрируют в общий объект один раз.
+  const [tuningRaw, setTuningRaw] = usePersistedState<DebugTuning>(
+    STORAGE_KEYS.debugTuning,
+    loadDebugTuning()
+  );
+  const tuning = normalizeDebugTuning(tuningRaw);
+  const setTuning = (next: DebugTuning) => setTuningRaw(normalizeDebugTuning(next));
   const [debugDetails, setDebugDetails] = usePersistedState(STORAGE_KEYS.debugDetails, false);
   const [enabledEnemies, setEnabledEnemies] = usePersistedState<EnemyKind[]>(
     STORAGE_KEYS.debugEnemies,
@@ -117,8 +124,7 @@ export function usePersistentSettings(): PersistentSettings {
     debugFps, setDebugFps,
     debugGod, setDebugGod,
     debugWave, setDebugWave,
-    debugSpeed, setDebugSpeed,
-    debugZone, setDebugZone,
+    tuning, setTuning,
     debugDetails, setDebugDetails,
     enabledEnemies, setEnabledEnemies,
     enabledPickups, setEnabledPickups,

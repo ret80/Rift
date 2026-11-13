@@ -8,6 +8,7 @@
 
 import type { WaveCompositionOverride } from "../game/balance/waves";
 import type { BalanceOverrides } from "../game/balance/BalanceOverrides";
+import type { ParamProfileId } from "../game/balance/params/profiles";
 import type { SessionRecorderPort } from "../game/core/SessionRecord";
 import { GameWorld, createGameWorld, type GameWorldConfig } from "../game/core/GameWorld";
 import type { PersistencePort } from "../game/core/PersistencePort";
@@ -46,6 +47,8 @@ export interface HeadlessRunConfig {
   testMode?: boolean;
   /** Явные множители баланса. */
   balance?: BalanceOverrides;
+  /** Профиль параметров мира. */
+  paramProfile?: ParamProfileId;
   /** Пропустить отсчёт; по умолчанию true (headless). */
   skipCountdown?: boolean;
   /** Пассивный рекордер забега. */
@@ -80,6 +83,7 @@ export function createHeadlessWorld(
     skipCountdown: config.skipCountdown ?? true,
     testMode: config.testMode ?? true,
     balance: config.balance,
+    paramProfile: config.paramProfile,
     recorder: config.recorder,
     agent: config.agent,
     controls: config.controls,

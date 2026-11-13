@@ -8,6 +8,15 @@ import type { PickupKind } from "../../game/balance";
 import type { PickupDisplay } from "../../game/balance/pickupCatalog";
 import type { PhysicsEngineId } from "../../game/physics";
 import { PHYSICS_ENGINE_IDS } from "../../game/physics";
+import { PARAM_PROFILE_IDS, type ParamProfileId } from "../../game/balance/params/profiles";
+import { DEBUG_SLIDERS, type DebugTuning } from "../debugTuning";
+
+/** Подписи профилей параметров. */
+const PROFILE_LABEL: Record<ParamProfileId, TKey> = {
+  default: "debug.profileDefault",
+  relaxed: "debug.profileRelaxed",
+  stress: "debug.profileStress",
+};
 
 /** Отображаемые имена физических движков (не переводятся). */
 const PHYSICS_ENGINE_LABELS: Record<PhysicsEngineId, string> = {
@@ -324,12 +333,9 @@ export default function DebugScreen(props: {
   fpsOn: boolean;
   godOn: boolean;
   startWave: number;
-  /** Отладочная скорость игрока в процентах (−50…+50). */
-  speed: number;
-  onChangeSpeed: (n: number) => void;
-  /** Отладочный размер арены в процентах (−50…+50 от базового). */
-  zone: number;
-  onChangeZone: (n: number) => void;
+  /** Отладочные сдвиги: профиль и ползунки. */
+  tuning: DebugTuning;
+  onChangeTuning: (next: DebugTuning) => void;
   onToggleFps: () => void;
   onToggleGod: () => void;
   onChangeWave: (n: number) => void;
@@ -347,10 +353,7 @@ export default function DebugScreen(props: {
 }) {
   const t = useT();
   const pct = ((props.startWave - 1) / 49) * 100;
-  const speedPct = ((props.speed + 50) / 100) * 100;
-  const speedLabel = `${props.speed > 0 ? "+" : ""}${props.speed}%`;
-  const zonePct = ((props.zone + 50) / 100) * 100;
-  const zoneLabel = `${props.zone > 0 ? "+" : ""}${props.zone}%`;
+
   return (
     <div
       className="anim-overlay absolute inset-0 z-20 flex items-center justify-center p-4"
@@ -421,62 +424,70 @@ export default function DebugScreen(props: {
           </div>
 
           <div className="mt-4 border border-[#7dff9e]/15 bg-[#07130c]/70 px-4 py-3">
-            <div className="flex items-baseline justify-between">
-              <span className="font-mono text-[13px] font-bold tracking-[0.12em] text-[#d9ffe4]">
-                {t("debug.speed")}
-              </span>
-              <span className="font-mono text-lg font-bold text-[#7dff9e]">
-                {speedLabel}
-              </span>
+            <div className="font-mono text-[13px] font-bold tracking-[0.12em] text-[#d9ffe4]">
+              {t("debug.profile")}
             </div>
-            <input
-              type="range"
-              min={-50}
-              max={50}
-              step={5}
-              value={props.speed}
-              onChange={(e) => props.onChangeSpeed(Number(e.target.value))}
-              className="vol-dev mt-2 w-full"
-              style={{ ["--fill" as string]: `${speedPct}%` }}
-            />
-            <div className="flex justify-between font-mono text-[9px] tracking-[0.2em] text-[#5f8f70]">
-              <span>-50%</span>
-              <span>0</span>
-              <span>+50%</span>
+            <div className="mt-2 flex gap-2">
+              {PARAM_PROFILE_IDS.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={props.tuning.profile === id}
+                  onClick={() => props.onChangeTuning({ ...props.tuning, profile: id })}
+                  className={
+                    "flex-1 border px-2 py-1.5 font-mono text-[10px] tracking-[0.12em] transition-colors " +
+                    (props.tuning.profile === id
+                      ? "border-[#7dff9e] bg-[#7dff9e]/15 text-[#d9ffe4]"
+                      : "border-[#7dff9e]/20 text-[#5f8f70] hover:border-[#7dff9e]/50")
+                  }
+                >
+                  {t(PROFILE_LABEL[id])}
+                </button>
+              ))}
             </div>
             <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-[#5f8f70]">
-              {t("debug.speedDesc")}
+              {t("debug.profileDesc")}
             </div>
           </div>
 
-          <div className="mt-4 border border-[#7dff9e]/15 bg-[#07130c]/70 px-4 py-3">
-            <div className="flex items-baseline justify-between">
-              <span className="font-mono text-[13px] font-bold tracking-[0.12em] text-[#d9ffe4]">
-                {t("debug.zone")}
-              </span>
-              <span className="font-mono text-lg font-bold text-[#7dff9e]">
-                {zoneLabel}
-              </span>
-            </div>
-            <input
-              type="range"
-              min={-50}
-              max={50}
-              step={5}
-              value={props.zone}
-              onChange={(e) => props.onChangeZone(Number(e.target.value))}
-              className="vol-dev mt-2 w-full"
-              style={{ ["--fill" as string]: `${zonePct}%` }}
-            />
-            <div className="flex justify-between font-mono text-[9px] tracking-[0.2em] text-[#5f8f70]">
-              <span>-50%</span>
-              <span>0</span>
-              <span>+50%</span>
-            </div>
-            <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-[#5f8f70]">
-              {t("debug.zoneDesc")}
-            </div>
-          </div>
+          {DEBUG_SLIDERS.map((slider) => {
+            const value = props.tuning[slider.key];
+            const label = `${value > 0 ? "+" : ""}${value}%`;
+            const fill = ((value - slider.min) / (slider.max - slider.min)) * 100;
+            return (
+              <div
+                key={slider.key}
+                className="mt-4 border border-[#7dff9e]/15 bg-[#07130c]/70 px-4 py-3"
+              >
+                <div className="flex items-baseline justify-between">
+                  <span className="font-mono text-[13px] font-bold tracking-[0.12em] text-[#d9ffe4]">
+                    {t(slider.labelKey)}
+                  </span>
+                  <span className="font-mono text-lg font-bold text-[#7dff9e]">{label}</span>
+                </div>
+                <input
+                  type="range"
+                  min={slider.min}
+                  max={slider.max}
+                  step={slider.step}
+                  value={value}
+                  onChange={(e) =>
+                    props.onChangeTuning({ ...props.tuning, [slider.key]: Number(e.target.value) })
+                  }
+                  className="vol-dev mt-2 w-full"
+                  style={{ ["--fill" as string]: `${fill}%` }}
+                />
+                <div className="flex justify-between font-mono text-[9px] tracking-[0.2em] text-[#5f8f70]">
+                  <span>{slider.min}%</span>
+                  <span>0</span>
+                  <span>+{slider.max}%</span>
+                </div>
+                <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-[#5f8f70]">
+                  {t(slider.descKey)}
+                </div>
+              </div>
+            );
+          })}
 
           <EnemyDropdown
             enabledEnemies={props.enabledEnemies}

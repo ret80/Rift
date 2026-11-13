@@ -10,6 +10,11 @@ import {
     HUNTER_SPEED,
     MINER_BASE_SPEED,
 } from "./player";
+import { EnemyKind } from "./enemyKinds";
+import { DEFAULT_PARAMS } from "./params/GameParams";
+
+// Виды врагов живут отдельным модулем; реэкспорт сохраняет прежние импорты.
+export * from "./enemyKinds";
 
 /* ----------------------- поведение у края зоны ----------------------- */
 
@@ -53,42 +58,6 @@ export const THREAT_CLASS_LIMITS = {
 } as const;
 /** Дистанция удержания для врага без жетона (хантер), px. */
 export const THREAT_HUNTER_STANDOFF = 520;
-
-/* ------------------------------- enemies ------------------------------- */
-
-export enum EnemyKind {
-  Drone = "drone",
-  Hunter = "hunter",
-  Fighter = "fighter",
-  Cruiser = "cruiser",
-  Carrier = "carrier",
-  Miner = "miner",
-  /** Босс: арена-событие каждые 10 волн, не входит в случайные веса. */
-  Boss = "boss",
-  /** Мина минёра: не входит в состав волны, спавнится только стратегией. */
-  Mine = "mine",
-  /** Снайпер: заряжает луч. */
-  Needle = "needle",
-  /** Щитоносец: аура −40%. */
-  Shieldbearer = "shieldbearer",
-  /** Гарпунёр: tether. */
-  Harpooner = "harpooner",
-  /** Делитель: делится при смерти. */
-  Splitter = "splitter",
-  /** Глушилка: зона отключения автонаведения. */
-  Jammer = "jammer",
-  /** Вихрь: вращающийся лазер. */
-  Vortex = "vortex",
-  /** Мать-улей: рой + босс-фаза. */
-  HiveMother = "hivemother",
-}
-
-export const ENEMY_KIND_COUNT = Object.keys(EnemyKind).length;
-
-/** Проверить, что строка — известный вид врага (для сценариев/URL). */
-export function isEnemyKind(value: unknown): value is EnemyKind {
-  return typeof value === "string" && (Object.values(EnemyKind) as string[]).includes(value);
-}
 
 /* Cruiser tuning */
 export const CRUISER_BULLET_SPEED = 436.8; // 260 × 1.68 — тяжёлые болты на 20% быстрее прежних 364
@@ -196,63 +165,63 @@ export interface EnemyBaseDef {
  */
 export const ENEMY_BASES: Record<EnemyKind, EnemyBaseDef> = {
   [EnemyKind.Drone]: {
-    r: 10, hpBase: 2, speed: DRONE_BASE_SPEED,
+    r: 10, hpBase: DEFAULT_PARAMS.enemy.hpBase[EnemyKind.Drone], speed: DRONE_BASE_SPEED,
     contactBase: 30, score: 10, boltBase: 0, mass: 0,
   },
   [EnemyKind.Hunter]: {
-    r: 9, hpBase: 2, speed: HUNTER_SPEED,
+    r: 9, hpBase: DEFAULT_PARAMS.enemy.hpBase[EnemyKind.Hunter], speed: HUNTER_SPEED,
     contactBase: 32, score: 40, boltBase: 0, mass: 0,
   },
   [EnemyKind.Fighter]: {
-    r: 13, hpBase: 34, speed: FIGHTER_BASE_SPEED,
+    r: 13, hpBase: DEFAULT_PARAMS.enemy.hpBase[EnemyKind.Fighter], speed: FIGHTER_BASE_SPEED,
     contactBase: 9.1, score: 25, boltBase: 4.55, mass: 0,
   },
   [EnemyKind.Cruiser]: {
-    r: 26, hpBase: 155, speed: CRUISER_BASE_SPEED,
+    r: 26, hpBase: DEFAULT_PARAMS.enemy.hpBase[EnemyKind.Cruiser], speed: CRUISER_BASE_SPEED,
     contactBase: 22, score: 60, boltBase: 12, mass: 0,
   },
   [EnemyKind.Carrier]: {
-    r: 41, hpBase: 350, speed: CARRIER_BASE_SPEED,
+    r: 41, hpBase: DEFAULT_PARAMS.enemy.hpBase[EnemyKind.Carrier], speed: CARRIER_BASE_SPEED,
     contactBase: 26, score: 100, boltBase: 0, mass: 0,
   },
   [EnemyKind.Miner]: {
-    r: 15, hpBase: 52, speed: MINER_BASE_SPEED,
+    r: 15, hpBase: DEFAULT_PARAMS.enemy.hpBase[EnemyKind.Miner], speed: MINER_BASE_SPEED,
     contactBase: 14, score: 55, boltBase: 0, mass: 0,
   },
   [EnemyKind.Boss]: {
-    r: 54, hpBase: 900, speed: CARRIER_BASE_SPEED * 0.9,
+    r: 54, hpBase: DEFAULT_PARAMS.enemy.hpBase[EnemyKind.Boss], speed: CARRIER_BASE_SPEED * 0.9,
     contactBase: 42, score: 1200, boltBase: 9, mass: 0,
   },
   [EnemyKind.Mine]: {
-    r: 7, hpBase: 3, speed: 0,
+    r: 7, hpBase: DEFAULT_PARAMS.enemy.hpBase[EnemyKind.Mine], speed: 0,
     contactBase: 22, score: 0, boltBase: 0, mass: 0,
   },
   [EnemyKind.Needle]: {
-    r: 11, hpBase: 40, speed: HUNTER_SPEED * 0.9,
+    r: 11, hpBase: DEFAULT_PARAMS.enemy.hpBase[EnemyKind.Needle], speed: HUNTER_SPEED * 0.9,
     contactBase: 18, score: 60, boltBase: 16, mass: 0,
   },
   [EnemyKind.Shieldbearer]: {
-    r: 16, hpBase: 90, speed: CRUISER_BASE_SPEED * 0.8,
+    r: 16, hpBase: DEFAULT_PARAMS.enemy.hpBase[EnemyKind.Shieldbearer], speed: CRUISER_BASE_SPEED * 0.8,
     contactBase: 20, score: 70, boltBase: 0, mass: 0,
   },
   [EnemyKind.Harpooner]: {
-    r: 14, hpBase: 55, speed: FIGHTER_BASE_SPEED,
+    r: 14, hpBase: DEFAULT_PARAMS.enemy.hpBase[EnemyKind.Harpooner], speed: FIGHTER_BASE_SPEED,
     contactBase: 16, score: 50, boltBase: 6, mass: 0,
   },
   [EnemyKind.Splitter]: {
-    r: 12, hpBase: 36, speed: DRONE_BASE_SPEED * 1.6,
+    r: 12, hpBase: DEFAULT_PARAMS.enemy.hpBase[EnemyKind.Splitter], speed: DRONE_BASE_SPEED * 1.6,
     contactBase: 14, score: 30, boltBase: 0, mass: 0,
   },
   [EnemyKind.Jammer]: {
-    r: 18, hpBase: 70, speed: CARRIER_BASE_SPEED * 0.6,
+    r: 18, hpBase: DEFAULT_PARAMS.enemy.hpBase[EnemyKind.Jammer], speed: CARRIER_BASE_SPEED * 0.6,
     contactBase: 12, score: 80, boltBase: 0, mass: 0,
   },
   [EnemyKind.Vortex]: {
-    r: 20, hpBase: 110, speed: CRUISER_BASE_SPEED * 0.7,
+    r: 20, hpBase: DEFAULT_PARAMS.enemy.hpBase[EnemyKind.Vortex], speed: CRUISER_BASE_SPEED * 0.7,
     contactBase: 18, score: 90, boltBase: 10, mass: 0,
   },
   [EnemyKind.HiveMother]: {
-    r: 44, hpBase: 500, speed: CARRIER_BASE_SPEED * 0.5,
+    r: 44, hpBase: DEFAULT_PARAMS.enemy.hpBase[EnemyKind.HiveMother], speed: CARRIER_BASE_SPEED * 0.5,
     contactBase: 30, score: 300, boltBase: 8, mass: 0,
   },
 };

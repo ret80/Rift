@@ -15,6 +15,7 @@ import {
   ZONE_CLEAR_BANNER_HOLD,
   ZONE_CLEAR_NEXT_WAVE,
 } from "../balance";
+import type { GameParams } from "../balance/params/GameParams";
 import type { ZoneData } from "../core/ZoneTypes";
 import type { BannerData } from "../types/ui";
 import { ZoneEdgeDamage, type PlayerPosition } from "./ZoneEdgeDamage";
@@ -144,9 +145,9 @@ export class WaveOrchestrator {
     this.speedMult = mult;
   }
 
-  /** Отладочный масштаб арены (1 — базовый радиус волны). */
-  setZoneRadiusScale(scale: number): void {
-    this.zone.setRadiusScale(scale);
+  /** Передать параметры мира в модель зоны (профиль + отладочные сдвиги). */
+  setParams(params: GameParams): void {
+    this.zone.setParams(params);
   }
 
   advanceWave(): void {

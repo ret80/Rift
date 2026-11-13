@@ -23,6 +23,7 @@ import type { WeaponLoadout } from "../weapons/Weapon";
 import type { RunMetrics } from "../sim/MetricsSink";
 import { hashSnapshot, takeSnapshot, type Snapshot } from "../sim/Snapshot";
 import type { GameWorld } from "./GameWorld";
+import type { ParamProfileId } from "../balance/params/profiles";
 
 /** Текущая версия схемы. */
 export const SESSION_SCHEMA_VERSION = 1;
@@ -58,6 +59,8 @@ export interface SessionRunInfo {
   replayable: boolean;
   startWave: number;
   testMode: boolean;
+  /** Профиль параметров мира; отсутствие — `default`. */
+  paramProfile?: ParamProfileId;
   skipCountdown: boolean;
   physics: PhysicsEngineId;
   /** Число вызовов `world.tick` за запись. */

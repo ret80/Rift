@@ -16,6 +16,11 @@ import {
   validateBalanceOverrides,
   type BalanceOverrides,
 } from "../balance/BalanceOverrides";
+import {
+  PARAM_PROFILE_IDS,
+  normalizeParamProfileId,
+  type ParamProfileId,
+} from "../balance/params/profiles";
 import type { DroneLoadout } from "../drones/Drone";
 import { isPhysicsEngineId, type PhysicsEngineId } from "../physics/index";
 import { WEAPON_IDS, type WeaponId } from "../weapons/WeaponCatalog";
@@ -71,6 +76,8 @@ export interface Scenario {
   skipCountdown?: boolean;
   /** Множители баланса; отсутствие поля — мир без изменений. */
   balance?: BalanceOverrides;
+  /** Профиль параметров; отсутствие поля — `default`. */
+  paramProfile?: ParamProfileId;
   viewport?: { width: number; height: number };
   player: ScenarioPlayer;
   enemies?: ScenarioEnemy[];
@@ -192,6 +199,11 @@ export function parseScenario(raw: unknown): Scenario {
 
   issues.push(...validateBalanceOverrides(data.balance));
 
+  const paramProfile = normalizeParamProfileId(data.paramProfile);
+  if (data.paramProfile !== undefined && paramProfile === "default" && data.paramProfile !== "default") {
+    issues.push(`paramProfile: неизвестный профиль (ожидается ${PARAM_PROFILE_IDS.join(" | ")})`);
+  }
+
   let droneLoadout: DroneLoadout | undefined;
   if (data.droneLoadout !== undefined) {
     if (typeof data.droneLoadout !== "object" || data.droneLoadout === null) {
@@ -252,6 +264,7 @@ export function parseScenario(raw: unknown): Scenario {
     ...(hasBalanceOverride(data.balance as BalanceOverrides | undefined)
       ? { balance: data.balance as BalanceOverrides }
       : {}),
+    ...(paramProfile !== "default" ? { paramProfile } : {}),
     ...(droneLoadout ? { droneLoadout } : {}),
     viewport:
       typeof data.viewport === "object" && data.viewport !== null
