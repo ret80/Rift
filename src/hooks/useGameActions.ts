@@ -102,9 +102,10 @@ export function useGameActions(options: GameActionsOptions): GameActions {
   }, [gameRef, dispatch]);
 
   const openTestHangar = useCallback(() => {
-    gameRef.current?.openTestHangar();
+    // Детали в ангаре — оценка реального забега до выбранной волны.
+    gameRef.current?.openTestHangar(settings.debugWave);
     dispatch({ type: "SET_SCREEN", screen: "debugHangar" });
-  }, [gameRef, dispatch]);
+  }, [gameRef, dispatch, settings.debugWave]);
 
   const closeTestHangar = useCallback(() => {
     gameRef.current?.closeTestHangar();

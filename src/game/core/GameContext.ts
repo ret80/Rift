@@ -15,6 +15,7 @@ import { clearTestProfile, loadTestProfile, saveTestProfile } from "../debug/Tes
 import { AbilitySystem } from "../abilities/AbilitySystem";
 import { AsteroidField } from "../asteroids";
 import type { EnemyKind, PickupKind } from "../balance";
+import { estimateRunParts } from "../balance/drops";
 import type { WaveCompositionOverride } from "../balance/waves";
 import type { ParamProfileId } from "../balance/params/profiles";
 import type { EnemyRef, PlayerRef } from "../ecs";
@@ -72,8 +73,7 @@ import type { WorldFrame } from "./WorldFrame";
 import { getViewport, readUrlParam } from "./env";
 import { createRandomSeed, createSeedSet } from "./rng";
 
-/** Детали, выдаваемые на старте тестового уровня, чтобы не гриндить. */
-const TEST_LEVEL_PARTS = 50_000;
+
 
 export class GameContext {
   readonly hooks: Hooks;
@@ -737,9 +737,9 @@ export class GameContext {
     }
     // В тестовом режиме всё снаряжение открыто без достижений.
     this.world.setDebugUnlocks(true);
-    // Тестовый забег не зарабатывает детали: выдаём ровно запас на отладку,
-    // без множителей меты и без учёта в добыче забега.
-    this.world.upgradeSystem.addParts(TEST_LEVEL_PARTS);
+    // Тестовый забег не зарабатывает детали: выдаём оценку того, что игрок
+    // заработал бы, дойдя до этой волны в обычном режиме.
+    this.world.upgradeSystem.addParts(estimateRunParts(wave));
     this.world.singleWaveTest = true;
   }
 
@@ -765,14 +765,18 @@ export class GameContext {
     return this.world.upgradeSystem.isPartsInfinite();
   }
 
-  /** Открыть тестовый ангар: правим сохранённый набор покупок вне забега. */
-  openTestHangar(): void {
+  /**
+   * Открыть тестовый ангар: правим сохранённый набор покупок вне забега.
+   *
+   * Детали соответствуют оценке реального забега до выбранной волны —
+   * так собранный корабль похож на тот, с которым игрок дошёл бы сюда сам.
+   */
+  openTestHangar(wave: number): void {
     const profile = loadTestProfile(this.storage);
     this.world.upgradeSystem.applyProfile(profile ?? {});
     this.world.setDebugUnlocks(true);
-    // Ангар — песочница: покупки идут за детали, поэтому выдаём запас,
-    // как на старте тестовой волны. Бесконечный режим всё равно главнее.
-    this.world.upgradeSystem.partsWallet.set(TEST_LEVEL_PARTS);
+    // Ангар — песочница: покупки идут за детали. Бесконечный режим главнее.
+    this.world.upgradeSystem.partsWallet.set(estimateRunParts(wave));
     this.world.applyUpgrades(false);
   }
 

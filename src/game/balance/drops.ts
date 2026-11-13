@@ -2,7 +2,8 @@
    Drop chances — per-enemy-kind pickup probability.
    ============================================================ */
 
-import type { EnemyKind } from "./enemies";
+import { EnemyKind } from "./enemies";
+import { bossCountForWave, kindWeights, waveTotalFor } from "./waves";
 
 /* ------------------------------- pickup kinds ------------------------------- */
 
@@ -99,6 +100,67 @@ export function killPartsMultiplier(comboMult: number): number {
 /** Детали за зачистку волны. */
 export function waveClearParts(wave: number): number {
   return WAVE_CLEAR_PARTS_BASE + WAVE_CLEAR_PARTS_PER_WAVE * Math.max(1, Math.floor(wave));
+}
+
+/** Детали за убийство врага (до множителей комбо и меты). */
+const KILL_PARTS: Record<EnemyKind, number> = {
+  [EnemyKind.Drone]: 3,
+  [EnemyKind.Hunter]: 6,
+  [EnemyKind.Fighter]: 7,
+  [EnemyKind.Cruiser]: 16,
+  [EnemyKind.Carrier]: 32,
+  [EnemyKind.Boss]: 100,
+  [EnemyKind.Mine]: 0,
+  [EnemyKind.Miner]: 12,
+  [EnemyKind.Needle]: 1,
+  [EnemyKind.Shieldbearer]: 1,
+  [EnemyKind.Harpooner]: 1,
+  [EnemyKind.Splitter]: 1,
+  [EnemyKind.Jammer]: 1,
+  [EnemyKind.Vortex]: 1,
+  [EnemyKind.HiveMother]: 1,
+  [EnemyKind.Tractor]: 1,
+};
+
+/** Детали за убийство врага данного вида. */
+export function killPartsFor(kind: EnemyKind): number {
+  return KILL_PARTS[kind];
+}
+
+/** Средний множитель награды за волну: чистая зачистка и якоря — не всегда. */
+const ESTIMATE_CLEAR_MULT = 1.15;
+/** Доля потолка graze, которую игрок обычно выбирает. */
+const ESTIMATE_GRAZE_SHARE = 0.5;
+
+/**
+ * Оценка деталей, которые игрок заработал бы, пройдя волны 1…`wave`.
+ *
+ * Считается по реальной экономике: убийства по весам состава волны,
+ * бонус зачистки со средней надбавкой, босс и типичная доля graze.
+ * Комбо и множители меты не учитываются — это оценка «снизу», чтобы
+ * тестовый корабль соответствовал реальному забегу.
+ *
+ * @param wave волна, до которой дошёл игрок
+ */
+export function estimateRunParts(wave: number): number {
+  const target = Math.max(1, Math.floor(wave));
+  let total = 0;
+  for (let w = 1; w <= target; w++) {
+    const weights = kindWeights(w);
+    let weightSum = 0;
+    let partsSum = 0;
+    for (const [kind, weight] of weights) {
+      weightSum += weight;
+      partsSum += weight * killPartsFor(kind);
+    }
+    const perKill = weightSum > 0 ? partsSum / weightSum : 0;
+    const regular = waveTotalFor(w) - bossCountForWave(w);
+    total += regular * perKill;
+    total += bossCountForWave(w) * killPartsFor(EnemyKind.Boss);
+    total += waveClearParts(w) * ESTIMATE_CLEAR_MULT;
+    total += GRAZE_PARTS_WAVE_CAP * ESTIMATE_GRAZE_SHARE;
+  }
+  return Math.round(total / 50) * 50;
 }
 
 export type AsteroidKind = "small" | "medium" | "large";

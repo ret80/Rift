@@ -6,7 +6,8 @@
  * (детали и бонусы), не за движение или подбор пикапов.
  */
 
-import { dropChanceFor, type PickupKind } from "../../balance";
+import { dropChanceFor, killPartsFor, type PickupKind } from "../../balance";
+import type { EnemyKind } from "../../balance";
 import type { EventBus } from "../../core/EventBus";
 import type { Rng } from "../../core/rng";
 import { PhasedSystem, Phase } from "../SystemSchedule";
@@ -66,19 +67,9 @@ export class PickupDropSystem extends PhasedSystem {
     this.enabledPickups = pickups;
   }
 
-  /** Amount of parts dropped by each enemy type */
+  /** Детали за убийство врага: таблица живёт в экономике (`balance/drops`). */
   partsAmountFor(enemyKind: string): number {
-    switch (enemyKind) {
-      case "drone": return 3;
-      case "hunter": return 6;
-      case "fighter": return 7;
-      case "cruiser": return 16;
-      case "carrier": return 32;
-      case "miner": return 12;
-      case "boss": return 100;
-      case "mine": return 0;
-      default: return 1;
-    }
+    return killPartsFor(enemyKind as EnemyKind);
   }
 
   /** Determine what kind of bonus drops from a destroyed enemy */

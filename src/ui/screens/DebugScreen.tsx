@@ -3,7 +3,7 @@ import GameButton from "../components/GameButton";
 import ScreenHeader from "../components/ScreenHeader";
 import { useT, type TKey } from "../../i18n";
 import { ALL_ENEMY_KINDS, EnemyKind } from "../../game/balance/enemies";
-import { PICKUP_CATALOG } from "../../game/balance";
+import { PICKUP_CATALOG, estimateRunParts } from "../../game/balance";
 import type { PickupKind } from "../../game/balance";
 import type { PhysicsEngineId } from "../../game/physics";
 import { PHYSICS_ENGINE_IDS } from "../../game/physics";
@@ -383,6 +383,11 @@ export default function DebugScreen(props: {
 }) {
   const t = useT();
   const pct = ((props.startWave - 1) / 49) * 100;
+  // Оценка заработка за путь до выбранной волны — с разбиением разрядов.
+  const partsLabel = String(estimateRunParts(props.startWave)).replace(
+    /\B(?=(\d{3})+(?!\d))/g,
+    " ",
+  );
   const [tab, setTab] = useState<DebugTab>(props.initialTab ?? "general");
   const [recordArmed, setRecordArmed] = useState(props.recordingArmed);
 
@@ -554,8 +559,14 @@ export default function DebugScreen(props: {
 
           {/* Тестовый профиль: покупки сохраняются для тестовой волны. */}
           <div className="mt-4 border border-[#7dff9e]/15 bg-[#07130c]/70 px-4 py-3">
-            <div className="font-mono text-[13px] font-bold tracking-[0.12em] text-[#d9ffe4]">
-              {t("debug.testProfile")}
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="font-mono text-[13px] font-bold tracking-[0.12em] text-[#d9ffe4]">
+                {t("debug.testProfile")}
+              </span>
+              {/* Детали, которые игрок заработал бы сам к выбранной волне. */}
+              <span className="font-mono text-[13px] font-bold text-[#7dff9e]">
+                {t("debug.testProfileParts", { n: partsLabel })}
+              </span>
             </div>
             <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-[#5f8f70]">
               {t("debug.testProfileDesc")}

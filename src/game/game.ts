@@ -145,9 +145,9 @@ export class Game {
     this.ctx.setCreditsInfinite(on);
   }
 
-  /** Открыть ангар тестового профиля из меню отладки. */
-  openTestHangar(): void {
-    this.ctx.openTestHangar();
+  /** Открыть ангар тестового профиля из меню отладки на выбранной волне. */
+  openTestHangar(wave: number): void {
+    this.ctx.openTestHangar(wave);
   }
 
   /** Закрыть ангар тестового профиля: покупки запоминаются. */
