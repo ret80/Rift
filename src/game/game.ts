@@ -59,6 +59,14 @@ export class Game {
     this.ctx.setTestSpeed(1 + percent / 100);
   }
 
+  /**
+   * Отладочный сдвиг размера арены в процентах (−50…+50).
+   * Действует только на тестовых уровнях из меню отладки.
+   */
+  setTestZone(percent: number): void {
+    this.ctx.setTestZoneScale(1 + percent / 100);
+  }
+
   /** Включить тестовую волну заданного состава (`?test=...`). */
   setWaveOverride(override: WaveCompositionOverride): void {
     this.ctx.setWaveOverride(override);

@@ -58,6 +58,7 @@ export interface GameActions {
   changeDebugWave(n: number): void;
   /** Отладочная скорость игрока в процентах (−50…+50), только тестовые уровни. */
   changeDebugSpeed(n: number): void;
+  changeDebugZone(n: number): void;
   toggleDebugDetails(): void;
 }
 
@@ -117,6 +118,7 @@ export function useGameActions(options: GameActionsOptions): GameActions {
     game.audio.init();
     game.audio.startMusic();
     game.setTestSpeed(settings.debugSpeed);
+    game.setTestZone(settings.debugZone);
     game.startTestLevel(settings.debugWave, settings.enabledEnemies);
     resetOverlays();
     dispatch({ type: "SET_SCREEN", screen: "game" });
@@ -261,6 +263,10 @@ export function useGameActions(options: GameActionsOptions): GameActions {
     changeDebugSpeed: (n) => {
       settings.setDebugSpeed(n);
       gameRef.current?.setTestSpeed(n);
+    },
+    changeDebugZone: (n) => {
+      settings.setDebugZone(n);
+      gameRef.current?.setTestZone(n);
     },
     toggleRecording: () => gameRef.current?.toggleRecording(),
     toggleTactical: () => gameRef.current?.toggleTactical(),

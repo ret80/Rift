@@ -52,6 +52,8 @@ export class ZoneModel {
   private elapsed = 0;
   /** Номер волны, на которой сжатие разрешено. */
   private wave = 1;
+  /** Отладочный масштаб арены: 1 — базовый радиус волны. */
+  private radiusScale = 1;
 
   /** Живое состояние зоны (единственный источник правды). */
   get state(): ZoneData {
@@ -95,12 +97,24 @@ export class ZoneModel {
     this.clearFromAlpha = this.zone.alpha;
   }
 
+  /**
+   * Задать отладочный масштаб арены (1 — базовый).
+   *
+   * Меняется только радиус текущей и следующих волн; плотность врагов и
+   * состав волны остаются прежними.
+   */
+  setRadiusScale(scale: number): void {
+    this.radiusScale = clamp(scale, 0.1, 4);
+    if (!this.zone.active) return;
+    this.zone.targetRadius = zoneRadiusFor(this.wave) * this.radiusScale;
+  }
+
   /** Активировать зону вокруг игрока с радиусом по номеру волны. */
   activate(playerX: number, playerY: number, wave: number): void {
     this.zone.x = playerX;
     this.zone.y = playerY;
     // Единый источник радиуса зоны: те же значения использует спавн и ИИ.
-    this.zone.targetRadius = zoneRadiusFor(wave);
+    this.zone.targetRadius = zoneRadiusFor(wave) * this.radiusScale;
     this.zone.radius = ZONE_INITIAL_RADIUS;
     this.zone.alpha = 0;
     this.zone.collapseT = ZONE_NOT_COLLAPSING;

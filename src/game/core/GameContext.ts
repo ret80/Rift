@@ -652,6 +652,11 @@ export class GameContext {
     this.world.setTestSpeedMult(mult);
   }
 
+  /** Задать отладочный масштаб арены для тестовых уровней. */
+  setTestZoneScale(scale: number): void {
+    this.world.setTestZoneScale(scale);
+  }
+
   startTestLevel(wave: number, enemies: EnemyKind[]): void {
     this.world.startWave = Math.max(1, Math.floor(wave));
     this.world.testMode = true;

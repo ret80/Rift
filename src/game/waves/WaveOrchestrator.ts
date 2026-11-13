@@ -144,6 +144,11 @@ export class WaveOrchestrator {
     this.speedMult = mult;
   }
 
+  /** Отладочный масштаб арены (1 — базовый радиус волны). */
+  setZoneRadiusScale(scale: number): void {
+    this.zone.setRadiusScale(scale);
+  }
+
   advanceWave(): void {
     const wave = this.waves.advance();
     // Зона будет активирована после следующего отсчёта.

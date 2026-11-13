@@ -70,6 +70,8 @@ export interface EnemySystemDeps {
   getEnemyHpMult: () => number;
   /** Множитель урона врагов. */
   getEnemyDamageMult: () => number;
+  /** Множитель скорости врагов (отладочный сдвиг, в обычном забеге — 1). */
+  getEnemySpeedMult?: () => number;
   /** Импульс игроку от гарпуна. */
   pullPlayer?: (vx: number, vy: number) => void;
   /** Урон игроку от непрерывных атак. */
@@ -120,6 +122,7 @@ export class EnemyDomain {
       undefined,
       deps.getEnemyHpMult,
       deps.getEnemyDamageMult,
+      deps.getEnemySpeedMult,
       deps.pullPlayer,
       deps.damagePlayer,
     );

@@ -99,6 +99,8 @@ export class EnemySystem extends PhasedSystem {
     private readonly getHpMult: () => number = () => 1,
     /** Множитель урона врагов (болты и контакт) из `BalanceOverrides`. */
     private readonly getDamageMult: () => number = () => 1,
+    /** Множитель скорости врагов: отладочный сдвиг тестового уровня. */
+    private readonly getSpeedMult: () => number = () => 1,
     /** Импульс игроку от гарпунёра. */
     private readonly pullPlayer?: (vx: number, vy: number) => void,
     /** Урон игроку от непрерывных атак (вихрь). */
@@ -327,7 +329,8 @@ export class EnemySystem extends PhasedSystem {
       kind, affix, shieldHp, maxShieldHp: shieldHp,
       accuracyMult: affixDef?.accuracyMult ?? 1,
       x, y, vx: 0, vy: 0, angle, turretAngle,
-      hp: maxHp, maxHp, r: def.r, speed: def.speed * (affixDef?.speedMult ?? 1),
+      hp: maxHp, maxHp, r: def.r,
+      speed: def.speed * (affixDef?.speedMult ?? 1) * this.getSpeedMult(),
       contact: def.contact * damageMult * (affixDef?.damageMult ?? 1),
       score: def.score * (affix ? ELITE_SCORE_MULT : 1),
       boltDmg: def.bolt * damageMult * (affixDef?.damageMult ?? 1),

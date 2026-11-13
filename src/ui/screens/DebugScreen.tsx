@@ -327,6 +327,9 @@ export default function DebugScreen(props: {
   /** Отладочная скорость игрока в процентах (−50…+50). */
   speed: number;
   onChangeSpeed: (n: number) => void;
+  /** Отладочный размер арены в процентах (−50…+50 от базового). */
+  zone: number;
+  onChangeZone: (n: number) => void;
   onToggleFps: () => void;
   onToggleGod: () => void;
   onChangeWave: (n: number) => void;
@@ -346,6 +349,8 @@ export default function DebugScreen(props: {
   const pct = ((props.startWave - 1) / 49) * 100;
   const speedPct = ((props.speed + 50) / 100) * 100;
   const speedLabel = `${props.speed > 0 ? "+" : ""}${props.speed}%`;
+  const zonePct = ((props.zone + 50) / 100) * 100;
+  const zoneLabel = `${props.zone > 0 ? "+" : ""}${props.zone}%`;
   return (
     <div
       className="anim-overlay absolute inset-0 z-20 flex items-center justify-center p-4"
@@ -359,7 +364,7 @@ export default function DebugScreen(props: {
           "shadow-[0_0_30px_rgba(125,255,158,0.08)]"
         }
       >
-        <ScreenHeader title={`rift9 — ${t("debug.title")}`} tone="debug" />
+        <ScreenHeader title={t("debug.title")} tone="debug" />
 
         {/* Body — scrollable */}
         <div className="flex-1 overflow-y-auto px-4 pb-2 pt-3">
@@ -441,6 +446,35 @@ export default function DebugScreen(props: {
             </div>
             <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-[#5f8f70]">
               {t("debug.speedDesc")}
+            </div>
+          </div>
+
+          <div className="mt-4 border border-[#7dff9e]/15 bg-[#07130c]/70 px-4 py-3">
+            <div className="flex items-baseline justify-between">
+              <span className="font-mono text-[13px] font-bold tracking-[0.12em] text-[#d9ffe4]">
+                {t("debug.zone")}
+              </span>
+              <span className="font-mono text-lg font-bold text-[#7dff9e]">
+                {zoneLabel}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={-50}
+              max={50}
+              step={5}
+              value={props.zone}
+              onChange={(e) => props.onChangeZone(Number(e.target.value))}
+              className="vol-dev mt-2 w-full"
+              style={{ ["--fill" as string]: `${zonePct}%` }}
+            />
+            <div className="flex justify-between font-mono text-[9px] tracking-[0.2em] text-[#5f8f70]">
+              <span>-50%</span>
+              <span>0</span>
+              <span>+50%</span>
+            </div>
+            <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-[#5f8f70]">
+              {t("debug.zoneDesc")}
             </div>
           </div>
 

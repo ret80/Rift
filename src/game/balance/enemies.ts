@@ -200,7 +200,7 @@ export const ENEMY_BASES: Record<EnemyKind, EnemyBaseDef> = {
     contactBase: 30, score: 10, boltBase: 0, mass: 0,
   },
   [EnemyKind.Hunter]: {
-    r: 9, hpBase: 30, speed: HUNTER_SPEED,
+    r: 9, hpBase: 2, speed: HUNTER_SPEED,
     contactBase: 32, score: 40, boltBase: 0, mass: 0,
   },
   [EnemyKind.Fighter]: {

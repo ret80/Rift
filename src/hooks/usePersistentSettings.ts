@@ -33,6 +33,9 @@ export interface PersistentSettings {
   /** Отладочная скорость игрока в процентах: −50…+50, только тестовые уровни. */
   debugSpeed: number;
   setDebugSpeed: (n: number) => void;
+  /** Отладочный размер арены в процентах: −50…+50, только тестовые уровни. */
+  debugZone: number;
+  setDebugZone: (n: number) => void;
   debugDetails: boolean;
   setDebugDetails: (v: boolean) => void;
   enabledEnemies: EnemyKind[];
@@ -75,6 +78,7 @@ export function usePersistentSettings(): PersistentSettings {
   const [debugGod, setDebugGod] = usePersistedState(STORAGE_KEYS.debugGod, false);
   const [debugWave, setDebugWave] = usePersistedState(STORAGE_KEYS.debugWave, 1);
   const [debugSpeed, setDebugSpeed] = usePersistedState(STORAGE_KEYS.debugSpeed, 0);
+  const [debugZone, setDebugZone] = usePersistedState(STORAGE_KEYS.debugZone, 0);
   const [debugDetails, setDebugDetails] = usePersistedState(STORAGE_KEYS.debugDetails, false);
   const [enabledEnemies, setEnabledEnemies] = usePersistedState<EnemyKind[]>(
     STORAGE_KEYS.debugEnemies,
@@ -114,6 +118,7 @@ export function usePersistentSettings(): PersistentSettings {
     debugGod, setDebugGod,
     debugWave, setDebugWave,
     debugSpeed, setDebugSpeed,
+    debugZone, setDebugZone,
     debugDetails, setDebugDetails,
     enabledEnemies, setEnabledEnemies,
     enabledPickups, setEnabledPickups,

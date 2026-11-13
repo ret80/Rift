@@ -208,6 +208,8 @@ export class GameWorld {
   private speedMultBase = 1;
   /** Отладочный множитель скорости тестового уровня (1 — без сдвига). */
   private testSpeedMult = 1;
+  /** Отладочный масштаб арены тестового уровня (1 — базовый). */
+  private testZoneScale = 1;
   /** Одиночный тест уровня: после зачистки/смерти вернуть в отладку. */
   singleWaveTest = false;
   /** Тест уже завершён: защита от повторного возврата в отладку. */
@@ -323,6 +325,9 @@ export class GameWorld {
         rngSpawn: this.rng("spawn"),
         getEnemyHpMult: () => this.balance.enemyHpMult * this.ascension.hpMult,
         getEnemyDamageMult: () => this.balance.enemyDamageMult * this.ascension.damageMult,
+        // Отладочный сдвиг скорости действует на врагов так же, как на игрока:
+        // таран и погоня сохраняют прежний баланс скоростей.
+        getEnemySpeedMult: () => (this.testMode ? this.testSpeedMult : 1),
         pullPlayer: (vx, vy) => this.eventBus.publish("drone_push_player", { vx, vy }),
         damagePlayer: (dmg, source) => this.eventBus.publish("player_damaged", { dmg, source }),
         isPickupMagnetDisabled: (x, y) => this.isJammedAt(x, y),
@@ -806,6 +811,7 @@ export class GameWorld {
     this.ecs.setEnemyWave(resetWaveStart);
 
     this.waveOrchestrator.reset(resetWaveStart);
+    this.waveOrchestrator.setZoneRadiusScale(this.testMode ? this.testZoneScale : 1);
 
     this.riftField.reset();
     this.anchorSystem.reset();
@@ -858,6 +864,7 @@ export class GameWorld {
     this.testClearBannerShown = false;
     this.testMode = false;
     this.applyPlayerSpeed();
+    this.waveOrchestrator.setZoneRadiusScale(1);
     this.rngStreams.reset();
     this.tickIndex = 0;
     this.riftField.reset();
@@ -871,8 +878,23 @@ export class GameWorld {
    * В обычном забеге значение хранится, но не применяется.
    */
   setTestSpeedMult(mult: number): void {
-    this.testSpeedMult = Math.max(0.01, mult);
+    const next = Math.max(0.01, mult);
+    const ratio = next / this.testSpeedMult;
+    this.testSpeedMult = next;
     this.applyPlayerSpeed();
+    // Уже вышедшие враги меняют скорость вместе с игроком, а не только новые.
+    if (this.testMode && ratio !== 1) {
+      for (const enemy of this.ecs.enemies()) enemy.marker.speed *= ratio;
+    }
+  }
+
+  /**
+   * Отладочный масштаб арены (1 — базовый радиус волны).
+   * В обычном забеге значение хранится, но не применяется.
+   */
+  setTestZoneScale(scale: number): void {
+    this.testZoneScale = Math.min(4, Math.max(0.1, scale));
+    this.waveOrchestrator.setZoneRadiusScale(this.testMode ? this.testZoneScale : 1);
   }
 
   /** Пересчитать скорость игрока с учётом тестового множителя. */
