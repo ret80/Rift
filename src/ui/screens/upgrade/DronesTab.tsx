@@ -95,17 +95,19 @@ export function DronesTab(props: {
                   title={
                     locked && achievement
                       ? t("upgrade.lockHint", { name: t(achievement.nameKey) })
-                      : noFreeSlots ? t("upgrade.drone.noSlots") : undefined
+                      : noFreeSlots
+                        ? t("upgrade.drone.noSlots")
+                        : !free && upgrades.parts < droneCost(drone.id)
+                          ? t("upgrade.noParts")
+                          : undefined
                   }
-                  className={`clip-btn px-4 py-2 text-xs font-mono tracking-[0.15em] transition-all ${
+                  className={`clip-btn btn-buy btn-pink text-xs font-mono tracking-[0.15em] ${
                     !locked && !noFreeSlots && (free || upgrades.parts >= droneCost(drone.id))
-                      ? "cursor-pointer border border-[#ff9de0]/60 bg-[#ff9de0]/15 " +
-                        "text-[#eaffff] hover:bg-[#ff9de0]/25"
-                      : "cursor-not-allowed border border-[#3d4f6d]/30 " +
-                        "bg-[#0a1020]/50 text-[#3d4f6d]"
+                      ? "cursor-pointer"
+                      : "cursor-not-allowed"
                   }`}
                 >
-                  ⚙ {droneCost(drone.id)}
+                  {droneCost(drone.id)}
                 </button>
               </div>
 
@@ -149,16 +151,12 @@ export function DronesTab(props: {
                           <button
                             onClick={() => props.onBuyStat(drone.id, row.stat)}
                             disabled={!free && !affordable}
-                            className={`clip-btn px-3 py-1.5 text-[10px] font-mono tracking-[0.15em] ` +
-                              `transition-all ${
-                              free || affordable
-                                ? "cursor-pointer border border-[#5ef2ff]/50 " +
-                                  "bg-[#5ef2ff]/15 text-[#eaffff] hover:bg-[#5ef2ff]/25"
-                                : "cursor-not-allowed border border-[#3d4f6d]/30 " +
-                                  "bg-[#0a1020]/50 text-[#3d4f6d]"
+                            title={!free && !affordable ? t("upgrade.noParts") : undefined}
+                            className={`clip-btn btn-buy text-xs font-mono tracking-[0.15em] ${
+                              free || affordable ? "cursor-pointer" : "cursor-not-allowed"
                             }`}
                           >
-                            ⚙ {cost}
+                            {cost}
                           </button>
                         )}
                       </div>

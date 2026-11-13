@@ -13,6 +13,7 @@ export const ru = {
   tabDrones: "ДРОНЫ",
   tabBonuses: "БОНУСЫ",
   lockHint: "ОТКРОЕТСЯ: {name}",
+  noParts: "Не хватает деталей",
   weapon: {
     cannon: "ПУШКА",
     cannonDesc: "Базовая автоматическая пушка с упреждением",
@@ -95,6 +96,7 @@ export const en: typeof ru = {
   tabDrones: "DRONES",
   tabBonuses: "BONUSES",
   lockHint: "UNLOCKS: {name}",
+  noParts: "Not enough parts",
   weapon: {
     cannon: "CANNON",
     cannonDesc: "Base auto-turret with target prediction",

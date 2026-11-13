@@ -149,7 +149,9 @@ export default function MetaScreen(props: {
             ) : (
               <GameButton
                 onClick={() => handleBuy(talent)}
-                variant={canBuy ? "cyan" : "default"}
+                variant="cyan"
+                disabled={!canBuy}
+                title={credits < (cost ?? 0) ? t("meta.noCredits") : undefined}
                 className="mt-1 px-3 py-1 text-xs"
               >
                 {t("meta.buy")} ({cost})
@@ -361,9 +363,11 @@ export default function MetaScreen(props: {
           </div>
 
           <div className="border-t border-[#5ef2ff]/15 px-5 py-3 sm:px-7">
-            <GameButton onClick={props.onBack} variant="amber" className="w-full px-6 py-2">
-              {t("meta.back")}
-            </GameButton>
+            <div className="flex justify-center">
+              <GameButton onClick={props.onBack} variant="amber">
+                {t("meta.back")}
+              </GameButton>
+            </div>
           </div>
         </div>
       </div>

@@ -473,7 +473,7 @@ export default function DebugScreen(props: {
             <GameButton onClick={props.onTestLevel} variant="cyan" small>
               {t("debug.testLevel")}
             </GameButton>
-            <GameButton onClick={props.onBack} variant="amber" small>
+            <GameButton onClick={props.onBack} variant="amber">
               {t("debug.back")}
             </GameButton>
           </div>

@@ -37,6 +37,7 @@ import {
 import type { WeaponId, WeaponLoadout } from "../../../game/weapons/Weapon";
 import { useGamepadFocus } from "../../../hooks/useGamepadFocus";
 import { useT } from "../../../i18n";
+import GameButton from "../../components/GameButton";
 import type { GamepadNavHandlers } from "../../ScreenRouter";
 import { ArmoryTab } from "./ArmoryTab";
 import { BonusesTab } from "./BonusesTab";
@@ -451,12 +452,9 @@ export function UpgradeScreen(props: {
 
           {/* Footer */}
           <div className="mt-5 shrink-0 border-t border-[#5ef2ff]/15 pt-4 text-center">
-            <button
-              onClick={props.onBack}
-              className="clip-btn px-8 py-3 text-sm transition-colors hover:bg-[#5ef2ff]/10"
-            >
+            <GameButton onClick={props.onBack} variant="amber">
               {isHangar ? t("upgrade.continueRun") : t("upgrade.back")}
-            </button>
+            </GameButton>
           </div>
         </div>
       </div>

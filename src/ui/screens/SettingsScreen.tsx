@@ -511,6 +511,7 @@ export default function SettingsScreen(props: {
                   setFocusIndex(ITEM.back);
                   props.onBack();
                 }}
+                variant="amber"
                 gamepadFocused={isFocused(ITEM.back)}
               >
                 {t("settings.back")}

@@ -13,6 +13,10 @@ export default function GameButton(props: {
   gamepadFocused?: boolean;
   /** Обработчик подтверждения (нажатие A на геймпаде). */
   onConfirm?: () => void;
+  /** Кнопка недоступна: играет роль подсказки, а не действия. */
+  disabled?: boolean;
+  /** Причина недоступности во всплывающей подсказке. */
+  title?: string;
 }) {
   const baseCls =
     "clip-btn " +
@@ -35,7 +39,10 @@ export default function GameButton(props: {
       } as React.CSSProperties)
     : undefined;
 
-  const cls = props.className ? baseCls + props.className : baseCls;
+  const stateCls = props.disabled
+    ? " cursor-not-allowed opacity-40 saturate-0 "
+    : " ";
+  const cls = (props.className ? baseCls + props.className : baseCls) + stateCls;
 
   const handleClick = () => {
     props.onClick();
@@ -49,6 +56,8 @@ export default function GameButton(props: {
       style={focusStyle}
       onClick={handleClick}
       autoFocus={props.autoFocus}
+      disabled={props.disabled}
+      title={props.title}
     >
       {props.children}
     </button>

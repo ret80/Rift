@@ -25,8 +25,8 @@ export default function MainMenu(props: {
 }) {
   const t = useT();
 
-  // Список кнопок меню (play, meta, settings, help, debug опционально).
-  const buttonCount = props.showDebug ? 5 : 4;
+  // Список кнопок меню (play, meta, settings, help).
+  const buttonCount = 4;
 
   const { focusIndex, onNavUp, onNavDown, onNavLeft, onNavRight } = useGamepadFocus({
     count: buttonCount,
@@ -39,7 +39,6 @@ export default function MainMenu(props: {
     props.onMeta,
     props.onSettings,
     props.onHelp,
-    ...(props.showDebug ? [props.onDebug] : []),
   ];
 
   // Регистрируем навигацию и confirm в общий ref для игрового движка.
@@ -68,7 +67,6 @@ export default function MainMenu(props: {
     "menu.meta",
     "menu.settings",
     "menu.help",
-    "menu.debug",
   ];
 
   return (

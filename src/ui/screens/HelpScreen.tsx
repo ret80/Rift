@@ -219,7 +219,7 @@ export default function HelpScreen(props: {
           {/* fixed footer — always visible, no scrolling needed to exit */}
           <div className="shrink-0 border-t border-[#5ef2ff]/15 bg-[#060d1a]/60 p-4">
             <div className="flex justify-center">
-              <GameButton onClick={props.onBack}>{t("help.back")}</GameButton>
+              <GameButton onClick={props.onBack} variant="amber">{t("help.back")}</GameButton>
             </div>
           </div>
         </div>

@@ -133,6 +133,25 @@ canvas.game-canvas {
   transform: translateY(1px) scale(0.985);
 }
 
+/* Недоступная покупка: серая рамка и серая цена. */
+.clip-btn.clip-btn:disabled,
+.clip-btn.clip-btn:disabled:hover {
+  --btn-c: #3d4f6d;
+  color: #3d4f6d;
+  background: rgba(10, 16, 32, 0.5);
+  cursor: not-allowed;
+  filter: none;
+  transform: none;
+}
+
+/* Кнопка покупки в ангаре: единый размер во всех вкладках. */
+.btn-buy {
+  flex: 0 0 5rem;
+  width: 5rem;
+  padding: 0.5rem 0;
+  text-align: center;
+}
+
 .clip-btn.btn-red {
   --btn-c: var(--c-red);
   color: #ffd9de;
@@ -141,6 +160,11 @@ canvas.game-canvas {
 .clip-btn.btn-amber {
   --btn-c: var(--c-amber);
   color: #ffe9c9;
+}
+
+.clip-btn.btn-pink {
+  --btn-c: #ff9de0;
+  color: #ffd7f3;
 }
 
 .clip-btn.btn-cyan {
