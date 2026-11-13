@@ -160,7 +160,10 @@ export class WaveOrchestrator {
   tryCheckWaveClear(allSpawned: boolean, allKilled: boolean): void {
     if (this.waves.tryClear(allSpawned, allKilled)) {
       this.waveClearSent = false;
-      // Волна зачищена: зона начинает гаснуть сразу, от текущей альфы.
+      // Волна зачищена: буря гаснет мгновенно, не дожидаясь конца своей
+      // вспышки, и только после этого зона начинает расходиться.
+      this.storm.reset();
+      // Зона начинает гаснуть сразу, от текущей альфы.
       this.zone.beginClear();
       this.hooks.onWaveCleared?.(this.waves.wave);
     }

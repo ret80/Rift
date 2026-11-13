@@ -117,14 +117,13 @@ export function renderZone(
 }
 
 /** Дуговых примитивов в рендере нет — сектор собирается ломаной. */
-const STORM_ARC_SEGMENTS = 18;
-
 /**
- * Нарисовать бурю на кромке: сектор во внешней полосе зоны.
+ * Нарисовать бурю на кромке: одну или несколько зон во внешней полосе.
  *
- * Сектор обведён ломаной по дугам и расчерчен радиальными штрихами — это
- * читаемое «штрихованное» предупреждение без новых примитивов рендера.
- * Телеграф пульсирует и ускоряется к моменту удара, сам удар горит ровно.
+ * Зона обведена ломаной по дугам и расчерчена радиальными штрихами по
+ * границам долей — это читаемое «штрихованное» предупреждение без новых
+ * примитивов рендера. Телеграф пульсирует и ускоряется к моменту удара,
+ * сам удар горит ровно.
  */
 export function renderZoneStorm(
   R: IRenderer,
@@ -132,12 +131,6 @@ export function renderZoneStorm(
   time: number,
 ): void {
   if (!storm.active || storm.outerRadius <= 0) return;
-  const cx = storm.cx;
-  const cy = storm.cy;
-  const from = storm.angle - storm.halfAngle;
-  const to = storm.angle + storm.halfAngle;
-  const step = (to - from) / STORM_ARC_SEGMENTS;
-
   const alpha =
     storm.phase === "telegraph"
       ? 0.22 + 0.5 * storm.telegraph * (0.65 + 0.35 * Math.sin(time * 18))
@@ -145,27 +138,36 @@ export function renderZoneStorm(
   const color = storm.phase === "telegraph" ? "#ffd23e" : "#ff8a3d";
   const line = rgba(color, alpha);
 
-  const pts: Array<[number, number]> = [];
-  for (let i = 0; i <= STORM_ARC_SEGMENTS; i++) {
-    const a = from + step * i;
-    pts.push([cx + Math.cos(a) * storm.innerRadius, cy + Math.sin(a) * storm.innerRadius]);
-  }
-  for (let i = STORM_ARC_SEGMENTS; i >= 0; i--) {
-    const a = from + step * i;
-    pts.push([cx + Math.cos(a) * storm.outerRadius, cy + Math.sin(a) * storm.outerRadius]);
-  }
-  R.polyline(pts, true, line);
+  for (const segment of storm.segments) {
+    const cx = storm.cx;
+    const cy = storm.cy;
+    const from = segment.angle - segment.halfAngle;
+    const to = segment.angle + segment.halfAngle;
+    const arcs = Math.max(4, segment.cells * 3);
+    const step = (to - from) / arcs;
 
-  // Радиальные штрихи: показывают, что опасна вся полоса, а не только контур.
-  for (let i = 0; i <= 6; i++) {
-    const a = from + ((to - from) * i) / 6;
-    R.pushLine(
-      cx + Math.cos(a) * storm.innerRadius,
-      cy + Math.sin(a) * storm.innerRadius,
-      cx + Math.cos(a) * storm.outerRadius,
-      cy + Math.sin(a) * storm.outerRadius,
-      line,
-    );
+    const pts: Array<[number, number]> = [];
+    for (let i = 0; i <= arcs; i++) {
+      const a = from + step * i;
+      pts.push([cx + Math.cos(a) * storm.innerRadius, cy + Math.sin(a) * storm.innerRadius]);
+    }
+    for (let i = arcs; i >= 0; i--) {
+      const a = from + step * i;
+      pts.push([cx + Math.cos(a) * storm.outerRadius, cy + Math.sin(a) * storm.outerRadius]);
+    }
+    R.polyline(pts, true, line);
+
+    // Радиальные штрихи: показывают, что опасна вся полоса, а не только контур.
+    for (let i = 0; i <= segment.cells; i++) {
+      const a = from + ((to - from) * i) / segment.cells;
+      R.pushLine(
+        cx + Math.cos(a) * storm.innerRadius,
+        cy + Math.sin(a) * storm.innerRadius,
+        cx + Math.cos(a) * storm.outerRadius,
+        cy + Math.sin(a) * storm.outerRadius,
+        line,
+      );
+    }
   }
 }
 

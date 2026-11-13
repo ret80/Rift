@@ -24,8 +24,8 @@ export const ru = {
     "Каждая 3-я волна — с якорями-разломами. Пока жив хотя бы один якорь, волна не закончится, " +
     "а из него каждые 6 секунд выходит подкрепление. Сними все якоря — получишь +40% деталей за волну.",
   objectiveStorm:
-    "С 3-й волны кромка зоны бьёт бурей: сектор вспыхивает после короткого телеграфа. " +
-    "Щит гасит урон бури.",
+    "С 3-й волны кромка зоны бьёт бурей: после короткого телеграфа вспыхивают одна-три зоны " +
+    "секторов. Щит гасит урон бури.",
   objectiveHangar:
     "Во время отсчёта перед волной внизу появляется кнопка «АНГАР»: только она открывает прокачку " +
     "между волнами. Корпус восстанавливается сам за время отсчёта.",
@@ -107,8 +107,8 @@ export const en: typeof ru = {
     "Every 3rd wave carries rift anchors. While at least one anchor is alive the wave cannot end, " +
     "and every 6 seconds it sends reinforcements. Clear every anchor for +40% wave parts.",
   objectiveStorm:
-    "From wave 3 the zone rim carries a storm: a sector flares up after a short telegraph. " +
-    "The shield absorbs storm damage.",
+    "From wave 3 the zone rim carries a storm: after a short telegraph one to three zones of " +
+    "sectors flare up. The shield absorbs storm damage.",
   objectiveHangar:
     "During the countdown before a wave a HANGAR button appears at the bottom: only it opens " +
     "upgrades between waves. The hull restores itself during the countdown.",
