@@ -212,6 +212,10 @@ export class GameWorld {
   singleWaveTest = false;
   /** Тест уже завершён: защита от повторного возврата в отладку. */
   private testLevelEnded = false;
+  /** Тестовая волна зачищена: ждём баннер «волна зачищена» и гашение зоны. */
+  private testClearPending = false;
+  /** Баннер зачистки уже показывался в тестовой волне. */
+  private testClearBannerShown = false;
   /** Множители баланса прогона. */
   readonly balance: ResolvedBalanceOverrides;
   /** Стартовое состояние забега (симуляция и реплей); в игре — пусто. */
@@ -331,7 +335,18 @@ export class GameWorld {
 
     this.waveOrchestrator = new WaveOrchestrator({
       hooks: {
-        onBanner: (banner) => this.ports.hooks.onBanner(banner),
+        onBanner: (banner) => {
+          if (this.singleWaveTest && this.testClearPending && banner) {
+            this.testClearBannerShown = true;
+          }
+          this.ports.hooks.onBanner(banner);
+          // В тестовой волне возврат в отладку — только после того, как
+          // баннер зачистки погас, а зона уже исчезла.
+          if (this.singleWaveTest && this.testClearPending && !banner
+            && this.testClearBannerShown) {
+            this.finishTestWaveClear();
+          }
+        },
         onToast: (text, color) => this.ports.hooks.onToast({ text, color }),
         hitPlayerRaw: (amount) => {
           this.waveDamaged = true;
@@ -342,7 +357,8 @@ export class GameWorld {
         onWarning: () => this.ports.audio.playZoneWarning(),
         onWaveCleared: (wave) => {
           if (this.singleWaveTest) {
-            this.endSingleWaveTest("cleared");
+            // Не выходим сразу: даём зоне погаснуть и баннеру отыграть.
+            this.testClearPending = true;
             return;
           }
           // Статистика волны для кредитов.
@@ -731,6 +747,8 @@ export class GameWorld {
   startRun(): void {
     this.singleWaveTest = false;
     this.testLevelEnded = false;
+    this.testClearPending = false;
+    this.testClearBannerShown = false;
     this.rngStreams.reset();
     this.agent?.reset();
     this.agentControls?.reset();
@@ -836,6 +854,8 @@ export class GameWorld {
   reset(): void {
     this.singleWaveTest = false;
     this.testLevelEnded = false;
+    this.testClearPending = false;
+    this.testClearBannerShown = false;
     this.testMode = false;
     this.applyPlayerSpeed();
     this.rngStreams.reset();
@@ -1214,10 +1234,21 @@ export class GameWorld {
     );
   }
 
+  /**
+   * Вернуть игрока в отладку после тестовой зачистки.
+   * Ждёт выполнения обоих условий: баннер уже был и погас, зона неактивна.
+   */
+  private finishTestWaveClear(): void {
+    if (this.waveOrchestrator.zoneState.active) return;
+    this.endSingleWaveTest("cleared");
+  }
+
   /** Завершить одиночный тест уровня ровно один раз. */
   private endSingleWaveTest(reason: "cleared" | "died"): void {
     if (!this.singleWaveTest || this.testLevelEnded) return;
     this.testLevelEnded = true;
+    this.testClearPending = false;
+    this.testClearBannerShown = false;
     this.ports.hooks.onTestRunEnd?.(reason);
   }
 
