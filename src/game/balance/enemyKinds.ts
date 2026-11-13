@@ -31,6 +31,8 @@ export enum EnemyKind {
   Vortex = "vortex",
   /** Мать-улей: рой + босс-фаза. */
   HiveMother = "hivemother",
+  /** Тягач: держит край зоны, притягивает астероид и запускает его в игрока. */
+  Tractor = "tractor",
 }
 
 export const ENEMY_KIND_COUNT = Object.keys(EnemyKind).length;

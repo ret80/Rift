@@ -30,6 +30,10 @@ export interface GameActions {
   toMenu(): void;
   /** Начать/остановить запись забега (`?record`). */
   toggleRecording(): void;
+  /** Отладка: записать следующий тестовый уровень. */
+  armTestRecording(): void;
+  /** Отладка: скачать готовую запись тестового уровня. */
+  downloadTestRecording(): void;
   /** Войти в тактический режим или выйти из него. */
   toggleTactical(): void;
   /** Приказ рою дронов в тактическом режиме. */
@@ -318,6 +322,10 @@ export function useGameActions(options: GameActionsOptions): GameActions {
       gameRef.current?.setTestZone(next.zone);
     },
     toggleRecording: () => gameRef.current?.toggleRecording(),
+    armTestRecording: () => gameRef.current?.armTestRecording(),
+    downloadTestRecording: () => {
+      gameRef.current?.downloadTestRecording();
+    },
     toggleTactical: () => gameRef.current?.toggleTactical(),
     setDroneOrder: (order) => gameRef.current?.setDroneOrder(order),
   };

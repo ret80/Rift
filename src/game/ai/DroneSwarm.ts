@@ -31,6 +31,15 @@ const PATROL_RADIUS_MIN = 170;
 const PATROL_RADIUS_MAX = 500;
 /** Угловая скорость патруля, рад/с. */
 const PATROL_OMEGA = 0.4;
+/**
+ * Прибавка к скорости кольца за каждого участника группы.
+ * Чем плотнее строй, тем быстрее он кружит: масса роя читается по движению.
+ */
+const GROUP_SPEED_PER_MEMBER = 0.05;
+/** Нижняя граница множителя: одиночка не должен еле плестись. */
+const GROUP_SPEED_MIN = 0.8;
+/** Верхняя граница множителя: строй не разгоняется до нечитаемого вихря. */
+const GROUP_SPEED_MAX = 2.2;
 /** Дальность отделения: не меньше 220 px и не меньше 0.35R. */
 const DETACH_MIN_RANGE = 220;
 const DETACH_RANGE_R = 0.35;
@@ -65,6 +74,8 @@ interface DroneGroup {
   slots: Set<number>;
   /** Секунды до следующего отделения. */
   cooldown: number;
+  /** Текущая угловая скорость кольца, рад/с: зависит от числа участников. */
+  omega: number;
 }
 
 export interface SwarmTarget {
@@ -73,6 +84,8 @@ export interface SwarmTarget {
   /** Желаемая скорость вдоль кольца. */
   vx: number;
   vy: number;
+  /** Множитель крейсерской скорости под скорость кольца группы. */
+  speedMult: number;
 }
 
 export class DroneSwarm {
@@ -149,9 +162,10 @@ export class DroneSwarm {
     out.y = context.zoneY + Math.sin(angle) * radial;
     // Скорость вдоль кольца: дрон не догоняет слот на полном ходу и не
     // проскакивает его, из-за чего рой раньше дёргался на месте.
-    const tangentSpeed = PATROL_OMEGA * radial;
+    const tangentSpeed = group.omega * radial;
     out.vx = -Math.sin(angle) * group.dir * tangentSpeed;
     out.vy = Math.cos(angle) * group.dir * tangentSpeed;
+    out.speedMult = this.speedMultFor(count);
     return true;
   }
 
@@ -203,7 +217,9 @@ export class DroneSwarm {
   }
 
   private ensureGroups(count: number): void {
-    const desired = Math.max(2, Math.min(MAX_GROUPS, 2 * Math.ceil(count / 16)));
+    // Группы набиваются до MAX_GROUP_SIZE, прежде чем заводить новую: иначе
+    // рост роя разбивал его на мелкие группы и скорость не росла.
+    const desired = Math.max(2, Math.min(MAX_GROUPS, Math.ceil(count / MAX_GROUP_SIZE)));
     while (this.groups.size < desired) {
       this.createGroup();
     }
@@ -233,6 +249,7 @@ export class DroneSwarm {
       members: new Set(),
       slots: new Set(),
       cooldown: 0,
+      omega: PATROL_OMEGA * GROUP_SPEED_MIN,
     };
     this.groups.set(group.id, group);
     return group;
@@ -296,9 +313,19 @@ export class DroneSwarm {
 
   private updateGroups(dt: number): void {
     for (const group of this.groups.values()) {
-      group.phase += group.dir * PATROL_OMEGA * dt;
+      group.omega = PATROL_OMEGA * this.speedMultFor(group.members.size);
+      group.phase += group.dir * group.omega * dt;
       group.cooldown = Math.max(0, group.cooldown - dt);
     }
+  }
+
+  /**
+   * Множитель скорости кольца по размеру группы.
+   * Линейный рост с потолком: большой рой быстрее, но не бесконечно.
+   */
+  private speedMultFor(memberCount: number): number {
+    const raw = GROUP_SPEED_MIN + GROUP_SPEED_PER_MEMBER * memberCount;
+    return Math.max(GROUP_SPEED_MIN, Math.min(GROUP_SPEED_MAX, raw));
   }
 
   /**
@@ -379,7 +406,7 @@ export class DroneSwarm {
       }
 
       if (marker.swarmState === "returning") {
-        const target = { x: 0, y: 0, vx: 0, vy: 0 };
+        const target = { x: 0, y: 0, vx: 0, vy: 0, speedMult: 1 };
         if (this.formationTarget(drone, context, target)) {
           const dist = Math.hypot(target.x - drone.position.x, target.y - drone.position.y);
           if (dist < 40) marker.swarmState = "formation";

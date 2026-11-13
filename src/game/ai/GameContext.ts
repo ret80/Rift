@@ -4,7 +4,7 @@
  */
 
 import type { Rng } from '../core/rng';
-import type { EnemyRef } from '../ecs';
+import type { AsteroidRef, EnemyRef } from '../ecs';
 import type { DroneSwarm } from './DroneSwarm';
 
 /** Данные для синхронизации контекста (объектный параметр вместо 12 positional args). */
@@ -49,6 +49,9 @@ export class GameContext {
   /** Живой список врагов (присваивается из EnemySystem перед AI pass). */
   public enemies: EnemyRef[] = [];
 
+  /** Астероиды арены: тягач тянет камни, меняя их скорости напрямую. */
+  public asteroids: AsteroidRef[] = [];
+
   /** Координатор групп дронов (присваивается из EnemySystem). */
   public swarm: DroneSwarm | null = null;
 
@@ -88,5 +91,6 @@ export class GameContext {
     this.damagePlayer = input.damagePlayer;
     this.carrierSpawns = [];
     this.mineSpawns = [];
+    this.asteroids = [];
   }
 }

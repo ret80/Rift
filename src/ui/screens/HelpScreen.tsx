@@ -52,6 +52,7 @@ const ENEMY_ROWS: ReadonlyArray<{ kind: EnemyKind; key: TKey }> = [
   { kind: EnemyKind.Jammer, key: "help.jammer" },
   { kind: EnemyKind.Vortex, key: "help.vortex" },
   { kind: EnemyKind.HiveMother, key: "help.hiveMother" },
+  { kind: EnemyKind.Tractor, key: "help.tractor" },
   { kind: EnemyKind.Boss, key: "help.boss" },
 ];
 

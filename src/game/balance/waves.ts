@@ -243,6 +243,8 @@ export function kindWeights(w: number): Array<[EnemyKind, number]> {
     [EnemyKind.Jammer, 0.06 * ramp01(w, 11, 22)],
     [EnemyKind.Vortex, 0.07 * ramp01(w, 12, 24)],
     [EnemyKind.HiveMother, 0.02 * ramp01(w, 18, 30)],
+    // Тягач — угроза от астероида: входит с 10-й волны, реже прочих.
+    [EnemyKind.Tractor, 0.14 * ramp01(w, 10, 22)],
   ];
 }
 

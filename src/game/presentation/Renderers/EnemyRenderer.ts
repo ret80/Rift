@@ -8,6 +8,8 @@ import {
   EnemyKind,
   JAMMER_RADIUS,
   SHIELDBEARER_AURA_RADIUS,
+  TRACTOR_DETECT_RANGE,
+  TRACTOR_TOW_DIST,
   VORTEX_RADIUS,
 } from "../../balance";
 import type { AffixId } from "../../balance/affixes";
@@ -286,6 +288,38 @@ export function renderEnemies(
           rgba(base, 0.75),
         );
         R.circle(e.x, e.y, 5, rgba(C.white, 0.8), 12);
+        break;
+      }
+      case EnemyKind.Tractor: {
+        // Корпус-кран: два луча захвата удерживаемого камня.
+        drawShipPoly(R, e.x, e.y, e.angle, hullOf(e.kind), col);
+        R.circle(e.x, e.y, 5, rgba(base, 0.7), 12);
+
+        const cos = Math.cos(e.lockAngle);
+        const sin = Math.sin(e.lockAngle);
+        if (e.mode === 1) {
+          // Перехват: пунктир до выбранного камня.
+          R.pushLine(
+            e.x,
+            e.y,
+            e.x + cos * TRACTOR_DETECT_RANGE,
+            e.y + sin * TRACTOR_DETECT_RANGE,
+            rgba(base, 0.35),
+          );
+        } else if (e.mode >= 2) {
+          // Захват: два луча, сходящихся на камне перед корпусом.
+          const gx = -sin * 8;
+          const gy = cos * 8;
+          for (const side of [1, -1]) {
+            R.pushLine(
+              e.x + gx * side,
+              e.y + gy * side,
+              e.x + cos * (TRACTOR_TOW_DIST + 22) + gx * side * 0.4,
+              e.y + sin * (TRACTOR_TOW_DIST + 22) + gy * side * 0.4,
+              rgba(base, 0.9),
+            );
+          }
+        }
         break;
       }
       case EnemyKind.HiveMother: {

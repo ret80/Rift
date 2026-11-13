@@ -86,6 +86,7 @@ export const DEFAULT_PARAMS: GameParams = {
       [EnemyKind.Jammer]: 0.18,
       [EnemyKind.Vortex]: 0.35,
       [EnemyKind.HiveMother]: 0.15,
+      [EnemyKind.Tractor]: 0.62,
     },
     hpBase: {
       [EnemyKind.Drone]: 2,
@@ -103,6 +104,7 @@ export const DEFAULT_PARAMS: GameParams = {
       [EnemyKind.Jammer]: 70,
       [EnemyKind.Vortex]: 110,
       [EnemyKind.HiveMother]: 500,
+      [EnemyKind.Tractor]: 70,
     },
   },
   zone: {

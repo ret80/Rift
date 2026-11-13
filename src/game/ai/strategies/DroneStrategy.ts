@@ -44,11 +44,14 @@ export class DroneStrategy implements IEnemyStrategy {
       return;
     }
 
-    const target = { x: 0, y: 0, vx: 0, vy: 0 };
+    const target = { x: 0, y: 0, vx: 0, vy: 0, speedMult: 1 };
     if (context.swarm?.formationTarget(enemy, context, target)) {
       const returning = enemy.marker.swarmState === "returning";
       const dist = Math.hypot(target.x - enemy.position.x, target.y - enemy.position.y);
-      const speedMult = returning ? RETURN_SPEED_MULT : FORMATION_SPEED_MULT;
+      // Чем плотнее группа, тем быстрее её кольцо — и тем быстрее должен
+      // лететь дрон, иначе он отстаёт от собственного слота.
+      const speedMult =
+        (returning ? RETURN_SPEED_MULT : FORMATION_SPEED_MULT) * target.speedMult;
       // Если дрон сильно отстал, догоняем группу быстрее.
       const catchUp = dist > 180 ? 1.15 : 1;
       if (!returning && dist <= FORMATION_ARRIVE_RADIUS) {

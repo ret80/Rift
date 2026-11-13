@@ -17,6 +17,7 @@ import { GameContext } from "../../ai/GameContext";
 import { DroneSwarm } from "../../ai/DroneSwarm";
 import { ThreatDirector } from "../../ai/ThreatDirector";
 import { EnemyAvoidance, type IEnemyAvoidance } from "../../ai/EnemyAvoidance";
+import { AsteroidAvoidance } from "../../ai/AsteroidAvoidance";
 import type { EnemyDef } from "../../balance";
 import { DEFAULT_PARAMS, type GameParams } from "../../balance/params/GameParams";
 import {
@@ -35,7 +36,7 @@ import {
     enemyDefFor,
     massForRadius
 } from "../../balance";
-import type { EnemyRef } from "..";
+import type { AsteroidRef, EnemyRef } from "..";
 import { EnemyComponent } from "../components/EnemyComponent";
 import { GameEntity } from "../GameEntity";
 import type { Rng } from "../../core/rng";
@@ -77,6 +78,8 @@ export class EnemySystem extends PhasedSystem {
   private ai: EnemyAI;
   private context: GameContext;
   private swarm = new DroneSwarm();
+  /** Уклонение от быстрых астероидов (после AI-стратегий). */
+  private readonly asteroidAvoidance = new AsteroidAvoidance();
   /** Координатор одновременно атакующих: жетоны атаки по классам. */
   private threatDirector = new ThreatDirector();
   /** Последний срез врагов — только для диагностики роя. */
@@ -106,6 +109,8 @@ export class EnemySystem extends PhasedSystem {
     private readonly pullPlayer?: (vx: number, vy: number) => void,
     /** Урон игроку от непрерывных атак (вихрь). */
     private readonly damagePlayer?: (dmg: number, source?: string) => void,
+    /** Астероиды арены: тягач тянет камни, остальные враги от них уклоняются. */
+    private readonly getAsteroids: () => AsteroidRef[] = () => [],
   ) {
     super(Phase.Enemies);
     this.ai = new EnemyAI();
@@ -182,6 +187,7 @@ export class EnemySystem extends PhasedSystem {
     const enemyRefs = entities.map((e) => e.ref);
     this.lastEnemyRefs = enemyRefs;
     this.context.enemies = enemyRefs;
+    this.context.asteroids = this.getAsteroids();
     this.context.swarm = this.swarm;
     this.context.rng = this.rng;
     // Жетоны атаки раздаются до AI pass: стратегии читают attackAllowed.
@@ -268,6 +274,9 @@ export class EnemySystem extends PhasedSystem {
 
     // Расталкивание вынесено в сменный решатель (см. EnemyAvoidance).
     this.avoidance.solve(enemyRefs);
+    // Уклонение от камней — после стратегий: тягач уже задал скорости
+    // камням, а враги успевают отвернуть от запущенного.
+    this.asteroidAvoidance.solve(enemyRefs, this.context.asteroids, dt);
   }
 
   /** Собрать сущности с EnemyComponent. */

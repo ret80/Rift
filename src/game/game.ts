@@ -266,6 +266,21 @@ export class Game {
     this.ctx.toggleRecordButton();
   }
 
+  /** Отладка: записать следующий тестовый уровень. */
+  armTestRecording(): void {
+    this.ctx.armTestRecording();
+  }
+
+  /** Отладка: есть ли готовая запись теста и взведена ли новая. */
+  getTestRecordingState(): { armed: boolean; ready: boolean } {
+    return this.ctx.getTestRecordingState();
+  }
+
+  /** Отладка: скачать готовую запись тестового уровня. */
+  downloadTestRecording(): boolean {
+    return this.ctx.downloadTestRecording();
+  }
+
   /** Войти в тактический режим или выйти из него. */
   toggleTactical(): void {
     this.ctx.toggleTactical();

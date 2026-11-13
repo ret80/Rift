@@ -41,7 +41,7 @@ import { LifeComponent } from "../components/LifeComponent";
 import { PositionComponent } from "../components/PositionComponent";
 import { RadiusComponent } from "../components/RadiusComponent";
 import { VelocityComponent } from "../components/VelocityComponent";
-import type { EnemyRef } from "../refs";
+import type { AsteroidRef, EnemyRef } from "../refs";
 import type { EnemySpawn } from "../spawn";
 
 /** Колбэк спавна вражеского снаряда (реализуется доменом пуль). */
@@ -79,6 +79,8 @@ export interface EnemySystemDeps {
   damagePlayer?: (dmg: number, source?: string) => void;
   /** Зона глушилки: магнит пикапов отключён. */
   isPickupMagnetDisabled?: (x: number, y: number) => boolean;
+  /** Астероиды арены: притяжение тягачом и уклонение врагов. */
+  getAsteroids?: () => AsteroidRef[];
 }
 
 export class EnemyDomain {
@@ -126,6 +128,7 @@ export class EnemyDomain {
       deps.getEnemyParams,
       deps.pullPlayer,
       deps.damagePlayer,
+      deps.getAsteroids,
     );
     const shootingSystem = new EnemyShootingSystem(
       deps.audio,

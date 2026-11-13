@@ -224,6 +224,11 @@ export const ENEMY_BASES: Record<EnemyKind, EnemyBaseDef> = {
     r: 44, hpBase: DEFAULT_PARAMS.enemy.hpBase[EnemyKind.HiveMother], speed: CARRIER_BASE_SPEED * 0.5,
     contactBase: 30, score: 300, boltBase: 8, mass: 0,
   },
+  [EnemyKind.Tractor]: {
+    // Средний корпус и скорость: угроза в камне, а не в самом корабле.
+    r: 17, hpBase: DEFAULT_PARAMS.enemy.hpBase[EnemyKind.Tractor], speed: CRUISER_BASE_SPEED * 1.24,
+    contactBase: 16, score: 75, boltBase: 0, mass: 0,
+  },
 };
 
 /* ------------------------------ miner ------------------------------ */
@@ -242,6 +247,25 @@ export const MINER_RETREAT_TIME = 3;
 export const MINE_LIFETIME = 18;
 /** Предел одновременных мин в мире: защита от заполнения арены. */
 export const MINE_MAX_ALIVE = 6;
+
+/* ------------------------------ tractor ------------------------------ */
+
+/** Доля радиуса зоны: внешняя орбита, на которой тягач ждёт камни. */
+export const TRACTOR_HOLD_R = 0.82;
+/** Дальность поиска камня-цели, px. */
+export const TRACTOR_DETECT_RANGE = 460;
+/** Дистанция захвата камня двумя лучами, px. */
+export const TRACTOR_CAPTURE_DIST = 95;
+/** Дистанция удержания камня перед корпусом, px. */
+export const TRACTOR_TOW_DIST = 85;
+/** Доля радиуса зоны: внутренняя точка, куда тягач тащит камень. */
+export const TRACTOR_INNER_R = 0.5;
+/** Время прицеливания перед запуском, секунды. */
+export const TRACTOR_AIM_TIME = 0.55;
+/** Пауза после запуска, секунды. */
+export const TRACTOR_FIRE_CD = 3.0;
+/** Скорость запущенного камня, px/с. */
+export const TRACTOR_LAUNCH_SPEED = 860;
 
 /* ---------------------- Mechanic 3 archetypes ---------------------- */
 

@@ -22,6 +22,7 @@ import { SplitterStrategy } from './strategies/SplitterStrategy';
 import { JammerStrategy } from './strategies/JammerStrategy';
 import { VortexStrategy } from './strategies/VortexStrategy';
 import { HiveMotherStrategy } from './strategies/HiveMotherStrategy';
+import { TractorStrategy } from './strategies/TractorStrategy';
 import { angleTo, smoothVelocity } from '../math';
 
 export class EnemyAI {
@@ -50,6 +51,7 @@ export class EnemyAI {
     this.strategies.set(EnemyKind.Jammer, new JammerStrategy());
     this.strategies.set(EnemyKind.Vortex, new VortexStrategy());
     this.strategies.set(EnemyKind.HiveMother, new HiveMotherStrategy());
+    this.strategies.set(EnemyKind.Tractor, new TractorStrategy());
   }
 
   /**

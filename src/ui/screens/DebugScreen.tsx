@@ -47,6 +47,7 @@ const ENEMY_LABEL: Record<EnemyKind, TKey> = {
   [EnemyKind.Jammer]: "debug.jammer",
   [EnemyKind.Vortex]: "debug.vortex",
   [EnemyKind.HiveMother]: "debug.hivemother",
+  [EnemyKind.Tractor]: "debug.tractor",
 };
 
 /**
@@ -368,6 +369,14 @@ export default function DebugScreen(props: {
   onTogglePickup: (kind: PickupKind) => void;
   /** Запустить выбранную волну с текущим отладочным списком врагов. */
   onTestLevel: () => void;
+  /** Взведена ли запись следующего тестового уровня. */
+  recordingArmed: boolean;
+  /** Есть ли готовая запись теста для выгрузки. */
+  recordingReady: boolean;
+  /** Включить запись следующего теста. */
+  onArmRecording: () => void;
+  /** Скачать готовую запись теста. */
+  onDownloadRecording: () => void;
   onBack: () => void;
   /** Вкладка при открытии: возрат из теста ведёт сразу в «ТЕСТ». */
   initialTab?: DebugTab;
@@ -375,6 +384,7 @@ export default function DebugScreen(props: {
   const t = useT();
   const pct = ((props.startWave - 1) / 49) * 100;
   const [tab, setTab] = useState<DebugTab>(props.initialTab ?? "general");
+  const [recordArmed, setRecordArmed] = useState(props.recordingArmed);
 
   return (
     <div
@@ -472,6 +482,46 @@ export default function DebugScreen(props: {
             </div>
             <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-[#5f8f70]">
               {t("debug.waveDesc")}
+            </div>
+          </div>
+
+          {/* Запись тестового уровня для симулятора. */}
+          <div className="mt-4 border border-[#7dff9e]/15 bg-[#07130c]/70 px-4 py-3">
+            <div className="flex items-baseline justify-between">
+              <span className="font-mono text-[13px] font-bold tracking-[0.12em] text-[#d9ffe4]">
+                {t("debug.record")}
+              </span>
+              {recordArmed && (
+                <span className="font-mono text-[9px] tracking-[0.15em] text-[#ffd166]">
+                  {t("debug.recordArmed")}
+                </span>
+              )}
+            </div>
+            <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-[#5f8f70]">
+              {t("debug.recordDesc")}
+            </div>
+            <div className="mt-3 flex gap-2">
+              <GameButton
+                onClick={() => {
+                  props.onArmRecording();
+                  setRecordArmed(true);
+                }}
+                variant={recordArmed ? "amber" : "cyan"}
+                small
+                className="flex-1"
+              >
+                {t("debug.record")}
+              </GameButton>
+              {props.recordingReady && (
+                <GameButton
+                  onClick={props.onDownloadRecording}
+                  variant="cyan"
+                  small
+                  className="flex-1"
+                >
+                  {t("debug.download")}
+                </GameButton>
+              )}
             </div>
           </div>
 

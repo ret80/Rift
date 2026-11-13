@@ -29,6 +29,7 @@ export const ENEMY_HULLS: Partial<Record<EnemyKind, readonly HullPoint[]>> = {
   [EnemyKind.Harpooner]: [[15, 0], [4, 9], [-12, 7], [-12, -7], [4, -9]],
   [EnemyKind.Splitter]: [[13, 0], [0, 11], [-13, 0], [0, -11]],
   [EnemyKind.HiveMother]: [[34, 0], [16, 22], [-20, 18], [-30, 0], [-20, -18], [16, -22]],
+  [EnemyKind.Tractor]: [[20, 0], [8, 13], [-14, 10], [-18, 0], [-14, -10], [8, -13]],
 };
 
 /** Цвет корпуса врага. */
@@ -49,6 +50,7 @@ export function enemyColor(kind: EnemyKind): string {
     case EnemyKind.Jammer: return "#f72585";
     case EnemyKind.Vortex: return "#ff9f1c";
     case EnemyKind.HiveMother: return "#b5179e";
+    case EnemyKind.Tractor: return "#56cfe1";
     default: return C.drone;
   }
 }

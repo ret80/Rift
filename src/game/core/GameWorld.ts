@@ -345,6 +345,7 @@ export class GameWorld {
         pullPlayer: (vx, vy) => this.eventBus.publish("drone_push_player", { vx, vy }),
         damagePlayer: (dmg, source) => this.eventBus.publish("player_damaged", { dmg, source }),
         isPickupMagnetDisabled: (x, y) => this.isJammedAt(x, y),
+        getAsteroids: () => this.ecs.asteroids(),
       },
       (kind) => this.pickupEffects.apply(kind),
     );

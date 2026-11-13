@@ -55,6 +55,8 @@ const DEFAULT_PROFILES: Record<EnemyKind, AvoidanceProfile> = {
   [EnemyKind.Jammer]: { padding: 18, mobility: 0.35, maxStep: 5 },
   [EnemyKind.Vortex]: { padding: 16, mobility: 0.5, maxStep: 5 },
   [EnemyKind.HiveMother]: { padding: 30, mobility: 0.15, maxStep: 4 },
+  // Тягач удерживает внешнюю орбиту и уступает только тяжёлым корпусам.
+  [EnemyKind.Tractor]: { padding: 12, mobility: 0.55, maxStep: 5 },
 };
 
 /** Доля перекрытия, которая исправляется за один кадр. */

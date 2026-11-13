@@ -121,6 +121,10 @@ export class GameContext {
   private _paused = false;
   /** Тактический режим: мир стоит, игрок отдаёт приказы дронам. */
   private _tactical = false;
+  /** Идёт запись тестового уровня: файл ждёт кнопки «Выгрузить». */
+  private testRecording = false;
+  /** Готовая запись тестового уровня для выгрузки. */
+  private testRecord: SessionRecordV1 | null = null;
 
   /** Текущее направление навигации (стик или D-pad). */
   private _navDir: "up" | "down" | "left" | "right" | null = null;
@@ -144,7 +148,16 @@ export class GameContext {
     const dev = import.meta.env.DEV || readUrlParam("debug") === "1";
     this.recorder = new SessionRecorder({
       gitSha: "dev",
-      onFinalize: (record) => this.downloadRecord(record),
+      onFinalize: (record) => {
+        // Запись тестового уровня не скачивается сама: её забирают
+        // кнопкой «Выгрузить» в меню отладки.
+        if (this.testRecording) {
+          this.testRecording = false;
+          this.testRecord = record;
+          return;
+        }
+        this.downloadRecord(record);
+      },
     });
 
     // Рендер-бэкенд: PicoGL; NullRenderer — через URL-параметр ?renderer=null
@@ -213,6 +226,8 @@ export class GameContext {
       startWave: 1,
       physics: (physicsParam as PhysicsEngineId | null) ?? "planck",
       controls: this.controls,
+      // Без этого порта мир не пишет тики, и любая запись остаётся пустой.
+      recorder: this.recorder,
       ports: {
         audio: this.audio,
         storage,
@@ -235,8 +250,12 @@ export class GameContext {
           onWaveCleared: (wave) => hooks.onWaveCleared?.(wave),
           // Микрозадача: не мутируем мир посреди тика/кадра, когда
           // зачистка тестовой волны приходит из WaveFlowSystem.
-          onTestRunEnd: (reason) =>
-            queueMicrotask(() => hooks.onTestRunEnd?.(reason)),
+          onTestRunEnd: (reason) => {
+            // Тест закончился (зачистка/смерть): закрываем запись, но файл
+            // остаётся в памяти до кнопки «Выгрузить».
+            this.finishTestRecording();
+            queueMicrotask(() => hooks.onTestRunEnd?.(reason));
+          },
         },
       },
       view: { width, height, cameraX: 0, cameraY: 0, zoom: 1 },
@@ -435,6 +454,47 @@ export class GameContext {
   }
 
   // ============================== Recording ==============================
+
+  /**
+   * Включить запись следующего тестового уровня.
+   *
+   * Взведённый рекордер стартует вместе с миром с тика 0, поэтому запись
+   * пригодна и для профиля поведения, и для точного реплея.
+   */
+  armTestRecording(): void {
+    this.testRecord = null;
+    this.testRecording = true;
+    this.recorder.discard();
+    this.recorder.arm();
+  }
+
+  /** Состояние записи для кнопок в меню отладки. */
+  getTestRecordingState(): { armed: boolean; ready: boolean } {
+    return {
+      armed: this.testRecording && this.recorder.status === "armed",
+      ready: this.testRecord !== null,
+    };
+  }
+
+  /** Скачать готовую запись тестового уровня (JSONL для симулятора). */
+  downloadTestRecording(): boolean {
+    if (!this.testRecord) return false;
+    this.downloadRecord(this.testRecord);
+    return true;
+  }
+
+  /** Закрыть запись теста: файл заберут кнопкой, автоскачивания нет. */
+  private finishTestRecording(): void {
+    if (!this.testRecording) return;
+    if (this.recorder.status === "recording") {
+      this.recorder.stop(this.world, "user_stop");
+      return;
+    }
+    if (this.recorder.status === "armed") {
+      this.recorder.discard();
+      this.testRecording = false;
+    }
+  }
 
   /** F9: взвести до старта, начать/остановить во время забега. */
   private toggleRecording(): void {
@@ -731,6 +791,8 @@ export class GameContext {
 
   toMenu(): void {
     this.exitTactical();
+    // Выход из теста закрывает запись, не теряя уже записанные тики.
+    this.finishTestRecording();
     // Досрочный выход не должен сжигать забег: кредиты начисляются так же,
     // как при смерти (защита от двойного начисления внутри мира).
     this.world.abandonRun();

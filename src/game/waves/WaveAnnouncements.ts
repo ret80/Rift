@@ -25,6 +25,7 @@ const TOAST_KEY: Record<EnemyKind, TKey> = {
   [EnemyKind.Jammer]: "toast.jammer",
   [EnemyKind.Vortex]: "toast.vortex",
   [EnemyKind.HiveMother]: "toast.hivemother",
+  [EnemyKind.Tractor]: "toast.tractor",
 };
 
 /** Получатель тостов (GameHooks.onToast). */

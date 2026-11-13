@@ -18,6 +18,7 @@ export const ru = {
   jammer: "НОВАЯ ЦЕЛЬ: ГЛУШИЛКА",
   vortex: "НОВАЯ ЦЕЛЬ: ВИХРЬ",
   hivemother: "НОВАЯ ЦЕЛЬ: МАТЬ-УЛЕЙ",
+  tractor: "НОВАЯ ЦЕЛЬ: ТЯГАЧ",
 };
 
 export const en: typeof ru = {
@@ -36,4 +37,5 @@ export const en: typeof ru = {
   jammer: "NEW TARGET: JAMMER",
   vortex: "NEW TARGET: VORTEX",
   hivemother: "NEW TARGET: HIVE MOTHER",
+  tractor: "NEW TARGET: TRACTOR",
 };

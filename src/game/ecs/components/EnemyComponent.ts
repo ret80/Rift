@@ -127,6 +127,8 @@ export class EnemyComponent implements Component {
   splitDepth = 0;
   /** Гарпунёр натянул трос (визуальный признак). */
   tetherActive = false;
+  /** Id астероида, захваченного тягачом (null — цели нет). */
+  tractorTargetId: number | string | null = null;
 
   constructor(state: Partial<EnemyComponent> = {}) {
     Object.assign(this, state);

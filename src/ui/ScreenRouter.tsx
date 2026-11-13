@@ -135,6 +135,10 @@ export function ScreenRouter(props: ScreenRouterProps) {
           onOpenTestHangar={actions.openTestHangar}
           onResetTestProfile={actions.resetTestProfile}
           onTestLevel={actions.startTestLevel}
+          recordingArmed={gameRef.current?.getTestRecordingState().armed ?? false}
+          recordingReady={gameRef.current?.getTestRecordingState().ready ?? false}
+          onArmRecording={actions.armTestRecording}
+          onDownloadRecording={actions.downloadTestRecording}
           onBack={actions.openMenu}
           initialTab={debugTab}
         />
