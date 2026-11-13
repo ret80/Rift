@@ -7,8 +7,7 @@ export const ru = {
   settings: "НАСТРОЙКИ",
   help: "ПОМОЩЬ",
   debug: "ОТЛАДКА",
-  meta: "ЗЕРКАЛО НОЧИ",
-  hint: "WASD / СТРЕЛКИ — ДВИЖЕНИЕ · АВТОПУШКА ВЕДЁТ ОГОНЬ САМА",
+  meta: "ЭХО РАЗЛОМА",
 };
 
 export const en: typeof ru = {
@@ -16,6 +15,5 @@ export const en: typeof ru = {
   settings: "SETTINGS",
   help: "HELP",
   debug: "DEBUG",
-  meta: "MIRROR OF NIGHT",
-  hint: "WASD / ARROWS — MOVE · AUTO-TURRET FIRES ON ITS OWN",
+  meta: "RIFT ECHO",
 };

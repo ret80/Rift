@@ -4,7 +4,7 @@
  * Держит линии корабля, арсенал и ангар дронов текущего забега и
  * пересчитывает боевые значения (`AppliedUpgrades`) после каждой покупки.
  * Ничего из этого не сохраняется: смерть/новый забег начинаются с
- * базового корабля. Постоянный слой — кредиты и таланты Зеркала Ночи,
+ * базового корабля. Постоянный слой — кредиты и таланты Эха Разлома,
  * их бонусы применяются поверх прокачки забега.
  */
 
@@ -92,7 +92,7 @@ export class UpgradeSystem {
     return this._unlockedDrones === null || this._unlockedDrones.has(id);
   }
 
-  /** Применить бонусы Зеркала Ночи к текущему забегу. */
+  /** Применить бонусы Эха Разлома к текущему забегу. */
   setMetaBonuses(bonuses: MetaBonuses): void {
     this._metaBonuses = bonuses;
     this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses);

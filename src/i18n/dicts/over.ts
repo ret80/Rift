@@ -13,7 +13,7 @@ export const ru = {
   credits: "КРЕДИТЫ",
   creditsEarned: "ЗАРАБОТАНО",
   retry: "ЕЩЁ РАЗ",
-  meta: "ЗЕРКАЛО НОЧИ",
+  meta: "ЭХО РАЗЛОМА",
   menu: "В МЕНЮ",
 };
 
@@ -28,6 +28,6 @@ export const en: typeof ru = {
   credits: "CREDITS",
   creditsEarned: "EARNED",
   retry: "RETRY",
-  meta: "MIRROR OF NIGHT",
+  meta: "RIFT ECHO",
   menu: "MENU",
 };

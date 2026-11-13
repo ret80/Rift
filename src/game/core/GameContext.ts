@@ -70,6 +70,9 @@ import type { WorldFrame } from "./WorldFrame";
 import { getViewport, readUrlParam } from "./env";
 import { createRandomSeed, createSeedSet } from "./rng";
 
+/** Детали, выдаваемые на старте тестового уровня, чтобы не гриндить. */
+const TEST_LEVEL_PARTS = 50_000;
+
 export class GameContext {
   readonly hooks: Hooks;
   readonly storage: PersistencePort;
@@ -644,11 +647,19 @@ export class GameContext {
    * без сохранения рекорда и начисления деталей. После зачистки или смерти
    * мир сообщит хосту `onTestRunEnd`, и меню отладки откроется снова.
    */
+  /** Задать отладочный множитель скорости игрока для тестовых уровней. */
+  setTestSpeed(mult: number): void {
+    this.world.setTestSpeedMult(mult);
+  }
+
   startTestLevel(wave: number, enemies: EnemyKind[]): void {
     this.world.startWave = Math.max(1, Math.floor(wave));
     this.world.testMode = true;
     this.spawnSystem.setEnabledEnemies(enemies);
     this.startRun();
+    // Тестовый забег не зарабатывает детали: выдаём ровно запас на отладку,
+    // без множителей меты и без учёта в добыче забега.
+    this.world.upgradeSystem.addParts(TEST_LEVEL_PARTS);
     this.world.singleWaveTest = true;
   }
 

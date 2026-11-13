@@ -204,6 +204,10 @@ export class GameWorld {
   startWave: number;
   /** Тестовый режим `?test=...`: не сохранять рекорд и не начислять детали. */
   testMode: boolean;
+  /** Базовый множитель скорости из прокачки и меты. */
+  private speedMultBase = 1;
+  /** Отладочный множитель скорости тестового уровня (1 — без сдвига). */
+  private testSpeedMult = 1;
   /** Одиночный тест уровня: после зачистки/смерти вернуть в отладку. */
   singleWaveTest = false;
   /** Тест уже завершён: защита от повторного возврата в отладку. */
@@ -224,7 +228,7 @@ export class GameWorld {
   private grazePartsAwarded = 0;
   /** Игрок получил урон на текущей волне (чистая зачистка уже невозможна). */
   private waveDamaged = false;
-  /** Мета-дерево Зеркала Ночи (загружается на старте забега). */
+  /** Мета-дерево Эха Разлома (загружается на старте забега). */
   private metaTree: MetaTree;
   /** Выбранная перед забегом доктрина. */
   private doctrineSystem: DoctrineSystem;
@@ -833,12 +837,29 @@ export class GameWorld {
     this.singleWaveTest = false;
     this.testLevelEnded = false;
     this.testMode = false;
+    this.applyPlayerSpeed();
     this.rngStreams.reset();
     this.tickIndex = 0;
     this.riftField.reset();
     this.asteroidField.reset();
     this.physics.reset();
     this.fx.reset();
+  }
+
+  /**
+   * Отладочный множитель скорости игрока (только тестовые уровни).
+   * В обычном забеге значение хранится, но не применяется.
+   */
+  setTestSpeedMult(mult: number): void {
+    this.testSpeedMult = Math.max(0.01, mult);
+    this.applyPlayerSpeed();
+  }
+
+  /** Пересчитать скорость игрока с учётом тестового множителя. */
+  private applyPlayerSpeed(): void {
+    this.playerSystem.setSpeedMult(
+      this.speedMultBase * (this.testMode ? this.testSpeedMult : 1),
+    );
   }
 
   /** Передать прокачке список открытого достижениями снаряжения. */
@@ -857,7 +878,7 @@ export class GameWorld {
     return this.unlocks.isDroneUnlocked(id);
   }
 
-  /** Мета-бонусы забега: таланты Зеркала Ночи, доктрина и артефакт. */
+  /** Мета-бонусы забега: таланты Эха Разлома, доктрина и артефакт. */
   private activeMetaBonuses(): MetaBonuses {
     return mergeMetaBonuses(
       mergeMetaBonuses(this.metaTree.bonuses(), this.doctrineSystem.bonuses()),
@@ -872,7 +893,10 @@ export class GameWorld {
     this.upgradeSystem.applyToSystems({
       setMaxHp: (v) => this.playerSystem.setMaxHp(v),
       setWeaponUpgrades: (upgrades) => this.weaponManager.applyUpgrades(upgrades),
-      setSpeedMult: (v) => this.playerSystem.setSpeedMult(v),
+      setSpeedMult: (v) => {
+        this.speedMultBase = v;
+        this.applyPlayerSpeed();
+      },
       setShieldBlockLevel: (v) => this.shieldSystem.setBlockLevel(v),
       setShieldRegenLevel: (v) => this.shieldSystem.setRegenLevel(v),
       setShieldOwned: (v) => this.shieldSystem.setOwned(v),
@@ -934,7 +958,7 @@ export class GameWorld {
    * Начислить детали забега.
    *
    * Единственная точка выдачи деталей: она же копит сумму за забег для
-   * формулы кредитов и применяет множитель деталей из Зеркала Ночи.
+   * формулы кредитов и применяет множитель деталей из Эха Разлома.
    */
   addParts(amount: number): void {
     if (amount <= 0) return;

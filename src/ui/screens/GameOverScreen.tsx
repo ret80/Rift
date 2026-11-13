@@ -17,7 +17,7 @@ import { formatTime } from "../utils/formatTime";
 export default function GameOverScreen(props: {
   stats: StatsData;
   onRetry: () => void;
-  /** Зеркало Ночи: потратить заработанные кредиты. */
+  /** Эхо Разлома: потратить заработанные кредиты. */
   onMeta: () => void;
   onMenu: () => void;
   isGamepad: boolean;

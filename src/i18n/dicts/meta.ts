@@ -1,5 +1,5 @@
 export const ru = {
-  title: "ЗЕРКАЛО НОЧИ",
+  title: "ЭХО РАЗЛОМА",
   credits: "КРЕДИТЫ",
   branchRed: "КРАСНАЯ ВЕТКА",
   branchGreen: "ЗЕЛЁНАЯ ВЕТКА",
@@ -29,7 +29,7 @@ export const ru = {
   tabsDoctrines: "ДОКТРИНЫ",
   tabsLegacy: "НАСЛЕДИЕ",
   tabsAscension: "АСЦЕНСИЯ",
-  doctrineHint: "Одна доктрина на забег: бонус и его цена. Таланты Зеркала Ночи действуют вместе с ней.",
+  doctrineHint: "Одна доктрина на забег: бонус и его цена. Таланты Эха Разлома действуют вместе с ней.",
   doctrineNone: "БЕЗ ДОКТРИНЫ",
   doctrinePick: "ВЫБРАТЬ",
   doctrineActive: "ВЫБРАНО",
@@ -107,7 +107,7 @@ export const ru = {
 };
 
 export const en: typeof ru = {
-  title: "MIRROR OF NIGHT",
+  title: "RIFT ECHO",
   credits: "CREDITS",
   branchRed: "RED BRANCH",
   branchGreen: "GREEN BRANCH",
@@ -137,7 +137,7 @@ export const en: typeof ru = {
   tabsDoctrines: "DOCTRINES",
   tabsLegacy: "LEGACY",
   tabsAscension: "ASCENSION",
-  doctrineHint: "One doctrine per run: a bonus and its price. Mirror of Night talents stack with it.",
+  doctrineHint: "One doctrine per run: a bonus and its price. Rift Echo talents stack with it.",
   doctrineNone: "NO DOCTRINE",
   doctrinePick: "SELECT",
   doctrineActive: "SELECTED",

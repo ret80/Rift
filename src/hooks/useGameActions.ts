@@ -56,6 +56,8 @@ export interface GameActions {
   toggleDebugFps(): void;
   toggleDebugGod(): void;
   changeDebugWave(n: number): void;
+  /** Отладочная скорость игрока в процентах (−50…+50), только тестовые уровни. */
+  changeDebugSpeed(n: number): void;
   toggleDebugDetails(): void;
 }
 
@@ -114,6 +116,7 @@ export function useGameActions(options: GameActionsOptions): GameActions {
     if (!game) return;
     game.audio.init();
     game.audio.startMusic();
+    game.setTestSpeed(settings.debugSpeed);
     game.startTestLevel(settings.debugWave, settings.enabledEnemies);
     resetOverlays();
     dispatch({ type: "SET_SCREEN", screen: "game" });
@@ -219,7 +222,7 @@ export function useGameActions(options: GameActionsOptions): GameActions {
     closeHangar,
     openMeta: () => dispatch({ type: "SET_SCREEN", screen: "meta" }),
     closeMeta: () => {
-      // Зеркало Ночи открывается из меню или с экрана смерти: после него
+      // Эхо Разлома открывается из меню или с экрана смерти: после него
       // забег уже завершён, поэтому возвращаемся в меню.
       gameRef.current?.toMenu();
       resetOverlays();
@@ -254,6 +257,10 @@ export function useGameActions(options: GameActionsOptions): GameActions {
     changeDebugWave: (n) => {
       settings.setDebugWave(n);
       gameRef.current?.setStartWave(n);
+    },
+    changeDebugSpeed: (n) => {
+      settings.setDebugSpeed(n);
+      gameRef.current?.setTestSpeed(n);
     },
     toggleRecording: () => gameRef.current?.toggleRecording(),
     toggleTactical: () => gameRef.current?.toggleTactical(),

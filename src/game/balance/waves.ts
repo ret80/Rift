@@ -191,8 +191,9 @@ export function bossCountForWave(w: number): number {
 }
 
 export function zoneRadiusFor(w: number): number {
-  // Базовые 380…650 увеличиваются общим масштабом арены.
-  return clamp(380 + (w - 1) * 10, 380, 650) * ZONE_RADIUS_SCALE;
+  // Базовые 380…715 увеличиваются общим масштабом арены. Верхний предел
+  // поднят на 10% от прежних 650, чтобы поздние волны не упирались в потолок.
+  return clamp(380 + (w - 1) * 10, 380, 715) * ZONE_RADIUS_SCALE;
 }
 
 /**

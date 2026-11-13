@@ -92,7 +92,7 @@ export class CreditSystem {
     this.balance += breakdown.total;
   }
 
-  /** Списать кредиты (покупка в Зеркале Ночи). Возвращает true при успехе. */
+  /** Списать кредиты (покупка в Эхе Разлома). Возвращает true при успехе. */
   spend(amount: number): boolean {
     if (amount <= 0) return true;
     if (this.balance < amount) return false;

@@ -239,17 +239,6 @@ export class RendererSystem {
     const cyclePos = time % 4.0;
     const { lenP, widP, alpha, snake } = calcMenuRiftAnim(cyclePos, time);
     drawRift(R, { x: 0, y: -30, size: 130, seed: 7, rot: time * 0.05, time }, lenP, widP, alpha, snake);
-
-    for (let i = 0; i < 3; i++) {
-      const a = time * (0.5 + i * 0.12) + (i * Math.PI * 2) / 3;
-      const ox = Math.cos(a) * (200 + i * 46);
-      const oy = -30 + Math.sin(a) * (115 + i * 28);
-      drawShipPoly(
-        R, ox, oy, a + Math.PI / 2,
-        [[10, 0], [-8, 8], [-4, 0], [-8, -8]],
-        rgba(C.drone, 0.35)
-      );
-    }
   }
 
   private drawMenuRifts(R: IRenderer, rifts: MenuRift[]): void {

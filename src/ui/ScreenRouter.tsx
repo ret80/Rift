@@ -114,6 +114,8 @@ export function ScreenRouter(props: ScreenRouterProps) {
           fpsOn={settings.debugFps}
           godOn={settings.debugGod}
           startWave={settings.debugWave}
+          speed={settings.debugSpeed}
+          onChangeSpeed={actions.changeDebugSpeed}
           detailsOn={settings.debugDetails}
           physicsEngine={settings.physicsEngine}
           onPhysicsEngineChange={actions.changePhysicsEngine}

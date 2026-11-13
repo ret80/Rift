@@ -123,9 +123,6 @@ export default function MainMenu(props: {
         </button>
       )}
 
-      <div className="absolute bottom-5 text-center text-[9px] tracking-[0.3em] text-[#4d5f7d]">
-        {t("menu.hint")}
-      </div>
     </div>
   );
 }

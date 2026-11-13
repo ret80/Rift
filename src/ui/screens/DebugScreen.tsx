@@ -323,6 +323,9 @@ export default function DebugScreen(props: {
   fpsOn: boolean;
   godOn: boolean;
   startWave: number;
+  /** Отладочная скорость игрока в процентах (−50…+50). */
+  speed: number;
+  onChangeSpeed: (n: number) => void;
   onToggleFps: () => void;
   onToggleGod: () => void;
   onChangeWave: (n: number) => void;
@@ -340,6 +343,8 @@ export default function DebugScreen(props: {
 }) {
   const t = useT();
   const pct = ((props.startWave - 1) / 49) * 100;
+  const speedPct = ((props.speed + 50) / 100) * 100;
+  const speedLabel = `${props.speed > 0 ? "+" : ""}${props.speed}%`;
   return (
     <div
       className="anim-overlay absolute inset-0 z-20 flex items-center justify-center p-4"
@@ -414,6 +419,35 @@ export default function DebugScreen(props: {
             </div>
             <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-[#5f8f70]">
               {t("debug.waveDesc")}
+            </div>
+          </div>
+
+          <div className="mt-4 border border-[#7dff9e]/15 bg-[#07130c]/70 px-4 py-3">
+            <div className="flex items-baseline justify-between">
+              <span className="font-mono text-[13px] font-bold tracking-[0.12em] text-[#d9ffe4]">
+                {t("debug.speed")}
+              </span>
+              <span className="font-mono text-lg font-bold text-[#7dff9e]">
+                {speedLabel}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={-50}
+              max={50}
+              step={5}
+              value={props.speed}
+              onChange={(e) => props.onChangeSpeed(Number(e.target.value))}
+              className="vol-dev mt-2 w-full"
+              style={{ ["--fill" as string]: `${speedPct}%` }}
+            />
+            <div className="flex justify-between font-mono text-[9px] tracking-[0.2em] text-[#5f8f70]">
+              <span>-50%</span>
+              <span>0</span>
+              <span>+50%</span>
+            </div>
+            <div className="mt-1 font-mono text-[10px] tracking-[0.04em] text-[#5f8f70]">
+              {t("debug.speedDesc")}
             </div>
           </div>
 

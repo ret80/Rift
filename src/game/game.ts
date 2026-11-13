@@ -51,6 +51,14 @@ export class Game {
     this.ctx.startWave = wave;
   }
 
+  /**
+   * Отладочный сдвиг скорости игрока в процентах (−50…+50).
+   * Действует только на тестовых уровнях из меню отладки.
+   */
+  setTestSpeed(percent: number): void {
+    this.ctx.setTestSpeed(1 + percent / 100);
+  }
+
   /** Включить тестовую волну заданного состава (`?test=...`). */
   setWaveOverride(override: WaveCompositionOverride): void {
     this.ctx.setWaveOverride(override);
