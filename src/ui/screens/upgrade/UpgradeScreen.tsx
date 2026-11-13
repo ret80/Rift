@@ -38,6 +38,7 @@ import type { WeaponId, WeaponLoadout } from "../../../game/weapons/Weapon";
 import { useGamepadFocus } from "../../../hooks/useGamepadFocus";
 import { useT } from "../../../i18n";
 import GameButton from "../../components/GameButton";
+import ScreenHeader from "../../components/ScreenHeader";
 import type { GamepadNavHandlers } from "../../ScreenRouter";
 import { ArmoryTab } from "./ArmoryTab";
 import { BonusesTab } from "./BonusesTab";
@@ -350,21 +351,46 @@ export function UpgradeScreen(props: {
       <div className="anim-fade-up flex h-[min(640px,90vh)] w-[min(620px,96vw)] flex-col">
         <div className="hud-panel flex min-h-0 flex-1 flex-col p-5 sm:p-7">
           {/* Header */}
-          <div className="mb-5 text-center">
-            <div className="hud-label mb-2">
-              {isHangar ? t("upgrade.hangarTitle") : t("upgrade.title")}
-            </div>
-            <div
-              className="flex items-center justify-center gap-2 text-[12px] text-[#ffb84d]"
-              aria-label={`Parts: ${upgrades.parts ?? 0}`}
-            >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#ffb84d" strokeWidth="1.5">
-                <polygon points="7,1 9,5 13,5 10,8 11,13 7,10 3,13 4,8 1,5 5,5" />
-              </svg>
-              <span className="font-mono font-bold tracking-[0.15em]">⚙ {upgrades.parts}</span>
-              <span className="text-[10px] text-[#6f86a8]">{t("upgrade.partsLabel")}</span>
-            </div>
-          </div>
+          <ScreenHeader
+            title={isHangar ? t("upgrade.hangarTitle") : t("upgrade.title")}
+            className="-mx-5 -mt-5 mb-5 sm:-mx-7 sm:-mt-7"
+            aside={
+              <div
+                className="flex items-center gap-2 text-[12px] text-[#ffb84d]"
+                aria-label={`Parts: ${upgrades.parts ?? 0}`}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#ffb84d"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                >
+                  <path
+                    d={
+                      "M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25" +
+                      "a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38" +
+                      "a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51" +
+                      "a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38" +
+                      "a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25" +
+                      "a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2" +
+                      "v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08" +
+                      "a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73" +
+                      "l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74" +
+                      "l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73" +
+                      "l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4" +
+                      "a2 2 0 0 0-2-2z"
+                    }
+                  />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                <span className="font-mono font-bold tracking-[0.15em]">{upgrades.parts}</span>
+                <span className="text-[10px] text-[#6f86a8]">{t("upgrade.partsLabel")}</span>
+              </div>
+            }
+          />
 
           {/* Tabs */}
           <div className="mb-4 shrink-0 overflow-x-auto pb-1">

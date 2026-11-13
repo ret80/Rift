@@ -19,6 +19,7 @@ import type { MetaTalent } from "../../game/meta/types";
 import type { GamepadNavHandlers } from "../ScreenRouter";
 import type { MutableRefObject } from "react";
 import GameButton from "../components/GameButton";
+import ScreenHeader from "../components/ScreenHeader";
 
 type MetaTab = "talents" | "doctrines" | "legacy" | "ascension";
 
@@ -249,11 +250,14 @@ export default function MetaScreen(props: {
     >
       <div className="flex max-h-[92vh] w-[min(560px,96vw)] flex-col">
         <div className="hud-panel flex min-h-0 flex-1 flex-col">
-          {/* Заголовок и кредиты не скроллятся: они всегда видны. */}
-          <div className="flex items-center justify-between gap-3 border-b border-[#5ef2ff]/15 px-5 py-4 sm:px-7">
-            <div className="hud-label">{t("meta.title")}</div>
-            <div className="text-sm text-[#ffb84d]">{t("meta.credits")}: {credits}</div>
-          </div>
+          <ScreenHeader
+            title={t("meta.title")}
+            aside={
+              <div className="text-sm text-[#ffb84d]">
+                {t("meta.credits")}: {credits}
+              </div>
+            }
+          />
 
           <div className="flex gap-1 border-b border-[#5ef2ff]/10 px-3 pt-2 sm:px-5">
             {TABS.map((entry) => (

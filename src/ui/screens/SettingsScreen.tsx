@@ -6,6 +6,7 @@ import { useGamepadFocus } from "../../hooks/useGamepadFocus";
 import { setLang, useLang, useT } from "../../i18n";
 import type { GamepadNavHandlers } from "../ScreenRouter";
 import GameButton from "../components/GameButton";
+import ScreenHeader from "../components/ScreenHeader";
 import SliderRow from "../components/SliderRow";
 
 /** Варианты языка для выпадающего списка. */
@@ -292,10 +293,7 @@ export default function SettingsScreen(props: {
     >
       <div className="flex max-h-[92vh] w-[min(400px,94vw)] flex-col">
         <div className="hud-panel flex min-h-0 flex-1 flex-col">
-          {/* Header — fixed */}
-          <div className="shrink-0 border-b border-[#5ef2ff]/15 px-5 pb-3 pt-5 sm:px-7 sm:pt-7">
-            <div className="hud-label text-center">{t("settings.title")}</div>
-          </div>
+          <ScreenHeader title={t("settings.title")} />
 
           {/* Settings — scrollable */}
           <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7">

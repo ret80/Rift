@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import GameButton from "../components/GameButton";
+import ScreenHeader from "../components/ScreenHeader";
 import { useT, type TKey } from "../../i18n";
 import { EnemyKind } from "../../game/balance/enemies";
 import { ALL_PICKUP_KINDS, pickupDisplayKey } from "../../game/balance";
@@ -358,15 +359,7 @@ export default function DebugScreen(props: {
           "shadow-[0_0_30px_rgba(125,255,158,0.08)]"
         }
       >
-        {/* Header — fixed */}
-        <div className="flex shrink-0 items-center gap-2 border-b border-[#7dff9e]/30 bg-[#07130c] px-4 py-2">
-          <span className="h-2 w-2 bg-[#ff5c54]" />
-          <span className="h-2 w-2 bg-[#ffb84d]" />
-          <span className="h-2 w-2 bg-[#7dff9e]" />
-          <span className="ml-2 font-mono text-[10px] tracking-[0.3em] text-[#7dff9e]/80">
-            rift9 — {t("debug.title")}
-          </span>
-        </div>
+        <ScreenHeader title={`rift9 — ${t("debug.title")}`} tone="debug" />
 
         {/* Body — scrollable */}
         <div className="flex-1 overflow-y-auto px-4 pb-2 pt-3">

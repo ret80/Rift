@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, type MutableRefObject } from "react";
 import GameButton from "../components/GameButton";
+import ScreenHeader from "../components/ScreenHeader";
 import { EnemySprite } from "../components/EnemySprite";
 import { Icon, type IconKind } from "../components/Icon";
 import { useT, type TKey } from "../../i18n";
@@ -113,9 +114,9 @@ export default function HelpScreen(props: {
     >
       <div className="flex max-h-[92vh] w-[min(560px,96vw)] flex-col">
         <div className="hud-panel flex min-h-0 flex-1 flex-col">
-          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-7">
-            <div className="hud-label mb-5 text-center">{t("help.title")}</div>
+          <ScreenHeader title={t("help.title")} />
 
+          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-7">
             <Section title={t("help.controls")} />
             <div className="mb-2 space-y-2 text-[13px] text-[#9db4d6]">
               <div className="flex flex-wrap items-center gap-2">
