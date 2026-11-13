@@ -25,6 +25,8 @@ import { DRONE_ROLES, droneShotDamage } from "../../drones/Drone";
 
 /** Скорость вращения роя вокруг корабля. */
 const DRONE_ORBIT_SPEED = 0.5;
+/** Скорость возврата дрона на орбиту, px/с. */
+const DRONE_RETURN_SPEED = 420;
 /** Максимальное число дронов в рое (и слотов корабля). */
 export const MAX_ALLY_DRONES = 8;
 /** Период смены цели дроном, секунды. */
@@ -58,6 +60,8 @@ export class AllyDroneSystem extends PhasedSystem {
   private focusTargetId: number | string | null = null;
   /** Цель, взятая игроком в лок: дроны бьют её до ближайших врагов. */
   private lockedTargetId: number | string | null = null;
+  /** Общий угол вращения строя вокруг корабля. */
+  private orbitPhase = 0;
 
   constructor(private h: AllyDroneHooks) {
     super(Phase.Allies);
@@ -87,6 +91,7 @@ export class AllyDroneSystem extends PhasedSystem {
     this.order = "escort";
     this.focusTargetId = null;
     this.lockedTargetId = null;
+    this.orbitPhase = 0;
   }
 
   onAddedToEngine(engine: Engine): void {
@@ -99,6 +104,11 @@ export class AllyDroneSystem extends PhasedSystem {
 
     const player = this.h.getPlayer();
     const enemies = this.h.getEnemies();
+    // Строй вращается целиком, а слоты делят круг поровну: при трёх дронах
+    // шаг 120°, поэтому они никогда не слипаются в одну точку.
+    const units = [...aspect.entities];
+    const slots = units.length;
+    this.orbitPhase += dt * DRONE_ORBIT_SPEED;
     const enemiesById = new Map<number | string, EnemyRef | null>();
     for (const e of enemies) {
       if (e.marker.ecsId !== null && e.marker.ecsId !== undefined) enemiesById.set(e.marker.ecsId, e);
@@ -107,7 +117,8 @@ export class AllyDroneSystem extends PhasedSystem {
     const toRemove: GameEntity[] = [];
     let anyFired = false;
 
-    for (const entity of [...aspect.entities]) {
+    for (let unitIndex = 0; unitIndex < units.length; unitIndex++) {
+      const entity = units[unitIndex]!;
       const drone = entity.components.get(AllyDroneComponent);
       if (!drone) continue;
       const position = entity.components.get(PositionComponent);
@@ -163,7 +174,8 @@ export class AllyDroneSystem extends PhasedSystem {
       if (this.order !== "escort" && target && !target.marker.dead) {
         this.updateCombatPosition(drone, position, target, dt, role.standoff, role.speed);
       } else {
-        this.updateOrbit(drone, position, player, dt, role.orbitRadius);
+        const slotAngle = this.orbitPhase + (unitIndex / Math.max(1, slots)) * Math.PI * 2;
+        this.updateOrbit(drone, position, player, dt, role.orbitRadius, slotAngle);
       }
 
       if (!target) continue;
@@ -221,18 +233,38 @@ export class AllyDroneSystem extends PhasedSystem {
     for (const entity of toRemove) this.engine?.entities.remove(entity);
   }
 
-  /** Орбита дрона вокруг корабля. */
+  /**
+   * Орбита дрона вокруг корабля.
+   *
+   * Место в строю задаёт слот, а не собственная фаза: соседи стоят через
+   * равные углы. Если дрон возвращается из боя, он летит к своему слоту
+   * с ограниченной скоростью, а не телепортируется на орбиту.
+   */
   private updateOrbit(
     drone: AllyDroneComponent,
     position: PositionComponent,
     player: PlayerRef,
     dt: number,
     radius: number,
+    slotAngle: number,
   ): void {
-    drone.phase += dt * DRONE_ORBIT_SPEED;
-    position.x = player.position.x + Math.cos(drone.phase) * radius;
-    position.y = player.position.y + Math.sin(drone.phase) * radius;
-    drone.angle = drone.phase + Math.PI / 2;
+    const tx = player.position.x + Math.cos(slotAngle) * radius;
+    const ty = player.position.y + Math.sin(slotAngle) * radius;
+    const dx = tx - position.x;
+    const dy = ty - position.y;
+    const dist = Math.hypot(dx, dy);
+    const step = DRONE_RETURN_SPEED * dt;
+
+    if (dist <= step || dist < 1) {
+      position.x = tx;
+      position.y = ty;
+      drone.angle = slotAngle + Math.PI / 2;
+      return;
+    }
+
+    position.x += (dx / dist) * step;
+    position.y += (dy / dist) * step;
+    drone.angle = Math.atan2(dy, dx);
   }
 
   /**

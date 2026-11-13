@@ -1381,6 +1381,48 @@ check("Дроны: роли меняют урон, дистанцию и бон�
   );
 });
 
+check("Дроны: одинаковые единицы делят орбиту поровну", () => {
+  const world = createHeadlessWorld({ seed: 5 });
+  for (let i = 0; i < 3; i++) world.upgradeSystem.buyDrone("scout");
+  world.applyUpgrades(false);
+  for (let i = 0; i < 60; i++) world.tick(FIXED_DT);
+
+  const drones = world.ecs.allyDrones();
+  expectEqual(drones.length, 3, "на орбите не три дрона");
+  const angles = drones.map((d) => Math.atan2(d.position.y, d.position.x));
+  const step = Math.PI * 2 / 3;
+  for (let i = 0; i < angles.length; i++) {
+    const next = angles[(i + 1) % angles.length]!;
+    const diff = Math.abs(Math.atan2(Math.sin(next - angles[i]!), Math.cos(next - angles[i]!)));
+    expect(Math.abs(diff - step) < 0.05, `шаг между дронами ${diff.toFixed(2)} вместо ${step.toFixed(2)}`);
+  }
+});
+
+check("Дроны: возврат из боя летит, а не телепортируется", () => {
+  const world = createHeadlessWorld({ seed: 5 });
+  world.upgradeSystem.buyDrone("striker");
+  world.applyUpgrades(false);
+  world.setDroneOrder("assault");
+  world.spawnEnemy(EnemyKind.Drone, 500, 300, null);
+  for (let i = 0; i < 120; i++) world.tick(FIXED_DT);
+
+  const drone = world.ecs.allyDrones()[0]!;
+  const before = { x: drone.position.x, y: drone.position.y };
+  for (const enemy of world.ecs.enemies()) {
+    world.ecs.damageEnemy(enemy.marker.ecsId ?? "", 1e9);
+  }
+
+  let prev = before;
+  let maxStep = 0;
+  for (let i = 0; i < 30; i++) {
+    world.tick(FIXED_DT);
+    maxStep = Math.max(maxStep, Math.hypot(drone.position.x - prev.x, drone.position.y - prev.y));
+    prev = { x: drone.position.x, y: drone.position.y };
+  }
+  // Скорость возврата 420 px/с при 60 тиках в секунду — не больше 7 px за тик.
+  expect(maxStep <= 7.5, `дрон прыгнул на ${maxStep.toFixed(1)} px за тик`);
+});
+
 check("Лок: Tab берёт ближайшую к прицелу цель, орудие наводится на неё", () => {
   const world = createHeadlessWorld({ seed: 4242 });
   world.spawnEnemy(EnemyKind.Drone, 240, 0, null);
