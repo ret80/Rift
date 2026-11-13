@@ -67,7 +67,9 @@ export class ZoneSystem extends PhasedSystem {
     // Constrain asteroids - keep them outside the zone
     const asteroids = this.config.getAsteroids();
     for (const asteroid of asteroids) {
-      const { position, velocity, radius } = asteroid;
+      const { position, velocity, radius, marker } = asteroid;
+      // Камень в лучах и запущенный снаряд — часть атаки, а не препятствие зоны.
+      if (marker.towed || marker.launched) continue;
       const adx = position.x - zoneCenterX;
       const ady = position.y - zoneCenterY;
       const dist = Math.hypot(adx, ady);

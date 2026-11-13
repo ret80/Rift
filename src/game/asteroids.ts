@@ -20,7 +20,7 @@ import type { Rng } from "./core/rng";
 import { softResolveCollision } from "./utils/EntityCollision";
 import { TAU, clamp, mulberry32, rgba } from "./math";
 import type { AsteroidKind, PickupKind } from "./balance";
-import { massForRadius } from "./balance";
+import { TRACTOR_LAUNCH_TRAIL, massForRadius } from "./balance";
 import type { EcsWorld, AsteroidRef } from "./ecs";
 
 export interface AsteroidEnv {
@@ -276,19 +276,30 @@ export class AsteroidField {
         position.y += velocity.vy * dt;
       }
       marker.angle += marker.spin * dt;
+      if (marker.launchT > 0) marker.launchT = Math.max(0, marker.launchT - dt);
 
-      // the wave zone is sacred ground — shove rocks out and keep them out
-      if (env.zone) {
-        const zdx = position.x - env.zone.x;
-        const zdy = position.y - env.zone.y;
-        const zd = Math.hypot(zdx, zdy) || 1;
-        const lim = env.zone.r + radius.r + 26;
-        if (zd < lim) {
-          const push = 260 * dt;
-          velocity.vx += (zdx / zd) * push * 8;
-          velocity.vy += (zdy / zd) * push * 8;
-          position.x = env.zone.x + (zdx / zd) * lim;
-          position.y = env.zone.y + (zdy / zd) * lim;
+      // the wave zone is sacred ground — shove rocks out and keep them out.
+      // Исключение — камень в лучах тягача и запущенный им снаряд: они
+      // намеренно летят внутри зоны. Как только снаряд покинул её, пояс
+      // снова ведёт камень по обычным правилам.
+      const zone = env.zone;
+      if (zone) {
+        if (marker.launched) {
+          // Снаряд тягача: как только он покинул зону, действуют обычные правила.
+          const zd = Math.hypot(position.x - zone.x, position.y - zone.y);
+          if (zd > zone.r + radius.r + 40) marker.launched = false;
+        } else if (!marker.towed) {
+          const zdx = position.x - zone.x;
+          const zdy = position.y - zone.y;
+          const zd = Math.hypot(zdx, zdy) || 1;
+          const lim = zone.r + radius.r + 26;
+          if (zd < lim) {
+            const push = 260 * dt;
+            velocity.vx += (zdx / zd) * push * 8;
+            velocity.vy += (zdy / zd) * push * 8;
+            position.x = zone.x + (zdx / zd) * lim;
+            position.y = zone.y + (zdy / zd) * lim;
+          }
         }
       }
 
@@ -439,10 +450,28 @@ export class AsteroidField {
 
   draw(R: IRenderer, time: number) {
     for (const a of this.asteroidList) {
-      const { marker, position, radius, life } = a;
+      const { marker, position, velocity, radius, life } = a;
       if (marker.dead) continue;
       const n = marker.verts.length;
       if (n === 0) continue;
+      // Запуск тягачом: короткий яркий след, чтобы камень читался в полёте.
+      if (marker.launchT > 0) {
+        const k = marker.launchT / TRACTOR_LAUNCH_TRAIL;
+        const speed = Math.hypot(velocity.vx, velocity.vy) || 1;
+        // Длина — от текущей скорости, гаснет только яркость.
+        const len = clamp(speed * 0.16, 50, 170);
+        const dx = velocity.vx / speed;
+        const dy = velocity.vy / speed;
+        R.pushBeam(
+          position.x - dx * len,
+          position.y - dy * len,
+          position.x,
+          position.y,
+          7,
+          rgba("#ff4fd0", 0.85 * k),
+          marker.key.length
+        );
+      }
       const pts: Array<[number, number]> = [];
       for (let i = 0; i < n; i++) {
         const ang = marker.angle + (i / n) * TAU;

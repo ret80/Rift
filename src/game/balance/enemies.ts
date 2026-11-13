@@ -266,6 +266,8 @@ export const TRACTOR_AIM_TIME = 0.55;
 export const TRACTOR_FIRE_CD = 3.0;
 /** Скорость запущенного камня, px/с. */
 export const TRACTOR_LAUNCH_SPEED = 860;
+/** Сколько секунд запущенный камень светится следом, с. */
+export const TRACTOR_LAUNCH_TRAIL = 0.6;
 
 /* ---------------------- Mechanic 3 archetypes ---------------------- */
 

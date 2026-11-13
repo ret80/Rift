@@ -13,8 +13,9 @@
  *   2 — буксировка камня к внутренней точке зоны;
  *   3 — прицел на игрока и запуск.
  *
- * Удерживаемый камень медленнее порога AsteroidAvoidance, поэтому союзники
- * не шарахаются от «приманки», а уклоняются только от запущенного камня.
+ * Камень в лучах помечен `towed`: AsteroidAvoidance не шарахается от
+ * «приманки», а уклоняется только от запущенного камня, у которого есть
+ * яркий след разгона.
  */
 
 import {
@@ -25,6 +26,7 @@ import {
   TRACTOR_HOLD_R,
   TRACTOR_INNER_R,
   TRACTOR_LAUNCH_SPEED,
+  TRACTOR_LAUNCH_TRAIL,
   TRACTOR_TOW_DIST,
   EnemyKind,
 } from "../../balance";
@@ -43,8 +45,10 @@ const AIM = 3;
 const APPROACH_TIMEOUT = 5;
 /** Насколько далеко камень может уйти от точки удержания, прежде чем сорвётся. */
 const TOW_BREAK_DIST = 300;
-/** Предел скорости, с которой камень следует за точкой удержания, px/с. */
-const TOW_MAX_SPEED = 700;
+/** Жёсткость пружины удержания камня, 1/с. */
+const TOW_GAIN = 12;
+/** Предел скорости, с которой камень догоняет точку удержания, px/с. */
+const TOW_MAX_SPEED = 600;
 
 export class TractorStrategy implements IEnemyStrategy {
   update(enemy: EnemyRef, context: GameContext, dt: number): void {
@@ -172,14 +176,16 @@ export class TractorStrategy implements IEnemyStrategy {
     const dist = Math.hypot(dx, dy);
 
     if (dist <= TRACTOR_CAPTURE_DIST) {
-      // Камень больше не принадлежит поясу: его держат лучи тягача.
+      // Камень больше не принадлежит поясу и не выталкивается зоной:
+      // его держат лучи тягача.
       rock.marker.beltState = "none";
+      rock.marker.towed = true;
       marker.mode = TOW;
       marker.modeT = 0;
       return;
     }
     if (marker.modeT <= 0 || dist > TRACTOR_DETECT_RANGE * 1.7) {
-      this.release(enemy);
+      this.release(enemy, rock);
       return;
     }
 
@@ -213,7 +219,7 @@ export class TractorStrategy implements IEnemyStrategy {
       3.0,
       dt,
     );
-    this.holdRock(enemy, rock, dt);
+    this.holdRock(enemy, rock);
     marker.lockAngle = Math.atan2(
       rock.position.y - enemy.position.y,
       rock.position.x - enemy.position.x,
@@ -224,7 +230,7 @@ export class TractorStrategy implements IEnemyStrategy {
       rock.position.y - enemy.position.y,
     );
     if (lost > TRACTOR_TOW_DIST + TOW_BREAK_DIST) {
-      this.release(enemy);
+      this.release(enemy, rock);
       return;
     }
 
@@ -253,7 +259,7 @@ export class TractorStrategy implements IEnemyStrategy {
     marker.angle = lerpAngle(marker.angle, toPlayer, 1 - Math.exp(-6 * dt));
     marker.lockAngle = marker.angle;
 
-    this.holdRock(enemy, rock, dt, marker.angle);
+    this.holdRock(enemy, rock, marker.angle);
 
     marker.modeT -= dt;
     marker.telegraphActive = true;
@@ -288,38 +294,42 @@ export class TractorStrategy implements IEnemyStrategy {
   }
 
   /**
-   * Удержать камень перед корпусом.
+   * Удержать камень перед корпусом пружиной скорости.
    *
-   * Камень висит на лучах кинематически: позиция ставится в точку
-   * удержания, а скорость считается из перемещения этой точки. Пружина
-   * скорости не годится: тягач летит быстрее, чем успевал бы камень, и
-   * тот отрывался назад. Здесь камень не может отстать по построению.
+   * Скорость ведёт камень к точке удержания, а не телепортирует его:
+   * позицию интегрирует физика, поэтому удержание работает одинаково в
+   * custom-режиме и в Planck/p2. Буксируемый камень помечен `towed`, и
+   * ZoneSystem не выталкивает его из зоны.
    *
    * @param heading направление удержания; по умолчанию — курс корпуса
    */
   private holdRock(
     enemy: EnemyRef,
     rock: AsteroidRef,
-    dt: number,
     heading = enemy.marker.angle,
   ): void {
     const holdX =
       enemy.position.x + Math.cos(heading) * (TRACTOR_TOW_DIST + rock.radius.r);
     const holdY =
       enemy.position.y + Math.sin(heading) * (TRACTOR_TOW_DIST + rock.radius.r);
-    const step = Math.max(dt, 1 / 240);
+    const dx = holdX - rock.position.x;
+    const dy = holdY - rock.position.y;
+    const dist = Math.hypot(dx, dy);
 
-    let vx = (holdX - rock.position.x) / step;
-    let vy = (holdY - rock.position.y) / step;
+    if (dist < 3) {
+      rock.velocity.vx = 0;
+      rock.velocity.vy = 0;
+      return;
+    }
+
+    let vx = dx * TOW_GAIN;
+    let vy = dy * TOW_GAIN;
     const speed = Math.hypot(vx, vy);
     if (speed > TOW_MAX_SPEED) {
       const k = TOW_MAX_SPEED / speed;
       vx *= k;
       vy *= k;
     }
-
-    rock.position.x = holdX;
-    rock.position.y = holdY;
     rock.velocity.vx = vx;
     rock.velocity.vy = vy;
   }
@@ -332,6 +342,10 @@ export class TractorStrategy implements IEnemyStrategy {
   ): void {
     const angle = this.aimAngle(enemy, context, rock);
     rock.marker.beltState = "none";
+    rock.marker.towed = false;
+    rock.marker.launched = true;
+    // След на время разгона: без него запуск мелкого камня не читается.
+    rock.marker.launchT = TRACTOR_LAUNCH_TRAIL;
     rock.velocity.vx = Math.cos(angle) * TRACTOR_LAUNCH_SPEED;
     rock.velocity.vy = Math.sin(angle) * TRACTOR_LAUNCH_SPEED;
   }
@@ -358,7 +372,8 @@ export class TractorStrategy implements IEnemyStrategy {
   }
 
   /** Бросить цель и вернуться к облёту края. */
-  private release(enemy: EnemyRef): void {
+  private release(enemy: EnemyRef, rock?: AsteroidRef): void {
+    if (rock) rock.marker.towed = false;
     enemy.marker.tractorTargetId = null;
     enemy.marker.mode = PATROL;
     enemy.marker.modeT = 0;

@@ -62,7 +62,7 @@ export class AsteroidAvoidance {
       let steerY = 0;
 
       for (const rock of asteroids) {
-        if (rock.marker.dead) continue;
+        if (rock.marker.dead || rock.marker.towed) continue;
 
         const rockSpeed = Math.hypot(rock.velocity.vx, rock.velocity.vy);
         if (rockSpeed < MIN_ASTEROID_SPEED) continue;
