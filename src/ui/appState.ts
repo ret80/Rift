@@ -7,6 +7,7 @@
 
 import type { BannerData, CountData, StatsData, ToastData } from "../game/types/ui";
 import type { DoctrineOffer } from "../game/meta/doctrines";
+import type { LegacyAward } from "../game/meta/legacy";
 import { readUrlParam } from "../game/core/env";
 import { EnemyKind } from "../game/balance/enemies";
 import type { WaveCompositionOverride } from "../game/balance/waves";
@@ -38,6 +39,8 @@ export interface AppState {
   countdown: CountData | null;
   /** Награда за босс-волну: две доктрины на выбор (null — выбора нет). */
   doctrineOffer: DoctrineOffer | null;
+  /** Награда за первую волну: карточка артефакта Наследия (null — карточки нет). */
+  legacyAward: LegacyAward | null;
 }
 
 export type AppAction =
@@ -49,7 +52,8 @@ export type AppAction =
   | { type: "SET_BANNER"; banner: (BannerData & { id: number }) | null }
   | { type: "SET_TOAST"; toast: (ToastData & { id: number }) | null }
   | { type: "SET_COUNTDOWN"; countdown: CountData | null }
-  | { type: "SET_DOCTRINE_OFFER"; offer: DoctrineOffer | null };
+  | { type: "SET_DOCTRINE_OFFER"; offer: DoctrineOffer | null }
+  | { type: "SET_LEGACY_AWARD"; award: LegacyAward | null };
 
 export const INITIAL_APP_STATE: AppState = {
   screen: "menu",
@@ -61,6 +65,7 @@ export const INITIAL_APP_STATE: AppState = {
   toast: null,
   countdown: null,
   doctrineOffer: null,
+  legacyAward: null,
 };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -83,6 +88,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, countdown: action.countdown };
     case "SET_DOCTRINE_OFFER":
       return { ...state, doctrineOffer: action.offer };
+    case "SET_LEGACY_AWARD":
+      return { ...state, legacyAward: action.award };
     default:
       return state;
   }

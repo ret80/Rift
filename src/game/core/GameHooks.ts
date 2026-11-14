@@ -5,6 +5,7 @@
  */
 
 import type { DoctrineOffer } from "../meta/doctrines";
+import type { LegacyAward } from "../meta/legacy";
 import type { BannerData, CountData, HudData, StatsData, ToastData } from "../types/ui";
 
 export interface Hooks {
@@ -21,6 +22,8 @@ export interface Hooks {
   onWaveCleared?: (wave: number) => void;
   /** Награда за босс-волну: выбор доктрины (null — выбор закрыт). */
   onDoctrineOffer?: (offer: DoctrineOffer | null) => void;
+  /** Награда за первую зачищенную волну: карточка артефакта (null — закрыта). */
+  onLegacyAward?: (award: LegacyAward | null) => void;
   /** Тестовая волна завершена (зачистка или смерть) — вернуть в отладку. */
   onTestRunEnd?: (reason: "cleared" | "died") => void;
   /** Нажатие кнопки подтверждения геймпада (A/Cross). */

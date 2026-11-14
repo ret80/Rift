@@ -19,6 +19,7 @@ import type { WaveCompositionOverride } from "./balance/waves";
 import type { ParamProfileId } from "./balance/params/profiles";
 import type { DroneOrder } from "./ecs/components/AllyDroneComponent";
 import type { DoctrineOffer } from "./meta/doctrines";
+import type { LegacyAward } from "./meta/legacy";
 
 /* UI types — единый источник правды */
 export type { BannerData, CountData, HudData, StatsData, ToastData } from "./types/ui";
@@ -238,6 +239,16 @@ export class Game {
   /** Выбрать доктрину из предложенных и продолжить забег. */
   chooseDoctrine(id: string): void {
     this.ctx.chooseDoctrine(id);
+  }
+
+  /** Награда за первую зачищенную волну: артефакт Наследия (null — карточки нет). */
+  getLegacyAward(): LegacyAward | null {
+    return this.ctx.legacyAward;
+  }
+
+  /** Закрыть карточку наследия и начать отсчёт следующей волны. */
+  dismissLegacyAward(): void {
+    this.ctx.dismissLegacyAward();
   }
 
   /** Открыть ангар между волнами (мир замирает). */

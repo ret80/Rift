@@ -16,6 +16,7 @@ import { AnchorSystem, type Anchor } from "../ecs/systems/AnchorSystem";
 import { MetaTree } from "../meta/MetaTree";
 import { DoctrineSystem } from "../meta/DoctrineSystem";
 import { pickDoctrineOptions, type DoctrineOffer } from "../meta/doctrines";
+import { pickLegacyArtifact, type LegacyAward } from "../meta/legacy";
 import { LegacySystem } from "../meta/LegacySystem";
 import { UnlockSystem } from "../meta/UnlockSystem";
 import { recordCareerRun } from "../meta/PlayerStats";
@@ -256,8 +257,12 @@ export class GameWorld {
   private doctrineSystem: DoctrineSystem;
   /** Награда за босс-волну ждёт выбора; пока живо — следующая волна не начинается. */
   private doctrineOfferValue: DoctrineOffer | null = null;
-  /** Выбранный артефакт наследия. */
+  /** Артефакт Наследия, выданный в этом забеге. */
   private legacySystem: LegacySystem;
+  /** Карточка награды за первую зачищенную волну; пока жива — отсчёт ждёт. */
+  private legacyAwardValue: LegacyAward | null = null;
+  /** Наследие за этот забег уже выдано (одна карточка на забег). */
+  private legacyAwarded = false;
   /** Открытые достижениями оружие и дроны. */
   private unlocks: UnlockSystem;
   /** Выбранный уровень угрозы (асценсия). */
@@ -309,7 +314,9 @@ export class GameWorld {
     this.upgradeSystem = UpgradeSystem.create();
     this.metaTree = MetaTree.load(this.ports.storage);
     this.doctrineSystem = DoctrineSystem.load(this.ports.storage);
-    this.legacySystem = LegacySystem.load(this.ports.storage);
+    // Наследие выдаётся забегом после первой зачищенной волны, поэтому
+    // новый забег всегда начинается без артефакта.
+    this.legacySystem = new LegacySystem();
     this.ascension = AscensionSystem.load(this.ports.storage);
     this.unlocks = UnlockSystem.load(this.ports.storage);
     this.upgradeSystem.setMetaBonuses(this.activeMetaBonuses());
@@ -411,6 +418,9 @@ export class GameWorld {
         onWaveAdvanced: () => {
           const nextWave = this.waveOrchestrator.wave;
           this.ecs.setEnemyWave(nextWave);
+          // Первая зачищенная волна платит артефактом Наследия: карточка
+          // висит между концом волны и отсчётом следующей.
+          if (this.awardLegacy(nextWave - 1)) return;
           // Босс-волна платит доктриной: отсчёт следующей ждёт выбора.
           if (this.offerDoctrine(nextWave - 1)) return;
           this.countdownSystem.startWave(nextWave);
@@ -778,6 +788,9 @@ export class GameWorld {
     // Незакрытый выбор доктрины не переживает новый забег.
     this.doctrineOfferValue = null;
     this.ports.hooks.onDoctrineOffer?.(null);
+    this.legacyAwardValue = null;
+    this.legacyAwarded = false;
+    this.ports.hooks.onLegacyAward?.(null);
     this.testLevelEnded = false;
     this.testClearPending = false;
     this.testClearBannerShown = false;
@@ -790,7 +803,9 @@ export class GameWorld {
     // Кредиты загружаются из хранилища: смерть их только добавляет.
     this.metaTree = MetaTree.load(this.ports.storage);
     this.doctrineSystem = DoctrineSystem.load(this.ports.storage);
-    this.legacySystem = LegacySystem.load(this.ports.storage);
+    // Наследие выдаётся забегом после первой зачищенной волны, поэтому
+    // новый забег всегда начинается без артефакта.
+    this.legacySystem = new LegacySystem();
     this.ascension = AscensionSystem.load(this.ports.storage);
     this.unlocks = UnlockSystem.load(this.ports.storage);
     this.upgradeSystem.setMetaBonuses(this.activeMetaBonuses());
@@ -1112,6 +1127,39 @@ export class GameWorld {
   /** Предложение доктрины после босс-волны; null — выбора нет. */
   get doctrineOffer(): DoctrineOffer | null {
     return this.doctrineOfferValue;
+  }
+
+  /** Карточка награды Наследия; null — карточки нет. */
+  get legacyAward(): LegacyAward | null {
+    return this.legacyAwardValue;
+  }
+
+  /**
+   * Награда за первую зачищенную волну: один случайный артефакт.
+   *
+   * Артефакт действует сразу — бонусы пересчитываются тем же путём, что у
+   * доктрины, — а карточка висит до подтверждения: отсчёт следующей волны
+   * ждёт её закрытия. Возвращает true, если отсчёт должен подождать.
+   */
+  private awardLegacy(clearedWave: number): boolean {
+    if (this.testMode || this.singleWaveTest || this.legacyAwarded) return false;
+    const artifact = pickLegacyArtifact(this.rng("drops"));
+    if (!artifact) return false;
+    this.legacyAwarded = true;
+    this.legacySystem.award(artifact.id);
+    this.upgradeSystem.setMetaBonuses(this.activeMetaBonuses());
+    this.applyUpgrades(false);
+    this.legacyAwardValue = { wave: clearedWave, id: artifact.id };
+    this.ports.hooks.onLegacyAward?.(this.legacyAwardValue);
+    return true;
+  }
+
+  /** Закрыть карточку наследия и запустить отсчёт следующей волны. */
+  dismissLegacyAward(): void {
+    if (!this.legacyAwardValue) return;
+    this.legacyAwardValue = null;
+    this.ports.hooks.onLegacyAward?.(null);
+    this.countdownSystem.startWave(this.waveOrchestrator.wave);
   }
 
   /**

@@ -11,10 +11,12 @@ import { useT } from "../i18n";
 import type { HudStore } from "./hud/HudStore";
 import type { BannerData, CountData, StatsData, ToastData } from "../game/types/ui";
 import type { DoctrineOffer } from "../game/meta/doctrines";
+import type { LegacyAward } from "../game/meta/legacy";
 import type { Screen } from "./appState";
 import ScreenDimmer from "./components/ScreenDimmer";
 import type { GamepadNavHandlers } from "./ScreenRouter";
 import DoctrineChoiceOverlay from "./screens/DoctrineChoiceOverlay";
+import LegacyAwardOverlay from "./screens/LegacyAwardOverlay";
 import GameOverScreen from "./screens/GameOverScreen";
 import PauseOverlay from "./screens/PauseOverlay";
 import TouchControls from "./components/TouchControls";
@@ -29,6 +31,9 @@ export interface GameOverlaysProps {
   /** Награда за босс-волну: две доктрины на выбор. */
   doctrineOffer: DoctrineOffer | null;
   onChooseDoctrine: (id: string) => void;
+  /** Награда за первую волну: карточка артефакта Наследия. */
+  legacyAward: LegacyAward | null;
+  onDismissLegacyAward: () => void;
   isTouch: boolean;
   isGamepad: boolean;
   debugFps: boolean;
@@ -68,7 +73,9 @@ export function GameOverlays(props: GameOverlaysProps) {
     return () => window.clearInterval(id);
   }, [props.debugFps]);
 
-  const { screen, paused, stats, banner, toast, countdown, doctrineOffer, isGamepad } = props;
+  const {
+    screen, paused, stats, banner, toast, countdown, doctrineOffer, legacyAward, isGamepad,
+  } = props;
 
   return (
     <>
@@ -145,12 +152,21 @@ export function GameOverlays(props: GameOverlaysProps) {
       )}
 
       {/* затемнение фона при любом меню в игре */}
-      {(paused || stats || doctrineOffer) && <ScreenDimmer />}
+      {(paused || stats || doctrineOffer || legacyAward) && <ScreenDimmer />}
 
       {screen === "game" && doctrineOffer && !stats && (
         <DoctrineChoiceOverlay
           offer={doctrineOffer}
           onChoose={props.onChooseDoctrine}
+          isGamepad={isGamepad}
+          gamepadNavRef={props.gamepadNavRef}
+        />
+      )}
+
+      {screen === "game" && legacyAward && !stats && (
+        <LegacyAwardOverlay
+          award={legacyAward}
+          onDismiss={props.onDismissLegacyAward}
           isGamepad={isGamepad}
           gamepadNavRef={props.gamepadNavRef}
         />
@@ -177,7 +193,8 @@ export function GameOverlays(props: GameOverlaysProps) {
         />
       )}
 
-      {screen === "game" && !stats && !paused && !doctrineOffer && props.isTouch && (
+      {screen === "game" && !stats && !paused && !doctrineOffer && !legacyAward &&
+        props.isTouch && (
         <TouchControls
           onVector={props.onVector}
           onPause={props.onPause}

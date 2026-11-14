@@ -9,6 +9,7 @@
 
 import type { PickupKind } from "../balance";
 import type { DoctrineOffer } from "../meta/doctrines";
+import type { LegacyAward } from "../meta/legacy";
 import type { Particle } from "../types/world";
 import type { BannerData, StatsData, ToastData } from "../types/ui";
 import type { PersistencePort } from "./PersistencePort";
@@ -80,6 +81,11 @@ export interface GameplayHooks {
    * Пока предложение живо, мир стоит: отсчёт следующей волны ждёт выбора.
    */
   onDoctrineOffer?(offer: DoctrineOffer | null): void;
+  /**
+   * Награда за первую зачищенную волну: карточка артефакта Наследия
+   * (null — карточка закрыта). Пока она жива, отсчёт волны ждёт.
+   */
+  onLegacyAward?(award: LegacyAward | null): void;
 }
 
 /** Полный набор портов мира. */

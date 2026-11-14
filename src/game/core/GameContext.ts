@@ -17,6 +17,7 @@ import { AsteroidField } from "../asteroids";
 import type { EnemyKind, PickupKind } from "../balance";
 import { estimateRunParts } from "../balance/drops";
 import type { DoctrineOffer } from "../meta/doctrines";
+import type { LegacyAward } from "../meta/legacy";
 import type { WaveCompositionOverride } from "../balance/waves";
 import type { ParamProfileId } from "../balance/params/profiles";
 import type { EnemyRef, PlayerRef } from "../ecs";
@@ -124,6 +125,8 @@ export class GameContext {
   private _tactical = false;
   /** Выбор доктрины после босс-волны: мир стоит, но это не пауза. */
   private _doctrineOffer: DoctrineOffer | null = null;
+  /** Карточка награды Наследия: мир стоит на том же праве. */
+  private _legacyAward: LegacyAward | null = null;
   /** Идёт запись тестового уровня: файл ждёт кнопки «Выгрузить». */
   private testRecording = false;
   /** Готовая запись тестового уровня для выгрузки. */
@@ -262,6 +265,18 @@ export class GameContext {
               this.audio.setSuspended(false);
             }
             hooks.onDoctrineOffer?.(offer);
+          },
+          // Награда за первую волну: мир замирает на карточке артефакта.
+          onLegacyAward: (award) => {
+            this._legacyAward = award;
+            if (award) {
+              this.setPaused(true);
+              this.audio.setSuspended(true);
+            } else if (!this._tactical) {
+              this.setPaused(false);
+              this.audio.setSuspended(false);
+            }
+            hooks.onLegacyAward?.(award);
           },
           // Микрозадача: не мутируем мир посреди тика/кадра, когда
           // зачистка тестовой волны приходит из WaveFlowSystem.
@@ -583,6 +598,16 @@ export class GameContext {
     this.world.chooseDoctrine(id);
   }
 
+  /** Карточка награды Наследия; null — карточки нет. */
+  get legacyAward(): LegacyAward | null {
+    return this._legacyAward;
+  }
+
+  /** Закрыть карточку наследия: мир снимает паузу и начинает отсчёт. */
+  dismissLegacyAward(): void {
+    this.world.dismissLegacyAward();
+  }
+
   /** Закрыть ангар: забег продолжается со следующей волны. */
   closeHangar(): void {
     this.setPaused(false);
@@ -593,7 +618,7 @@ export class GameContext {
   togglePause(): void {
     if (this.fsm.is("menu", "over")) return;
     // Выбор доктрины забирает паузу себе: Esc не должен снимать её без выбора.
-    if (this._doctrineOffer) return;
+    if (this._doctrineOffer || this._legacyAward) return;
     // Esc в тактике закрывает тактику, а не открывает экран паузы.
     if (this._tactical) {
       this.exitTactical();

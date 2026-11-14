@@ -46,19 +46,6 @@ export function saveSelectedDoctrine(storage: PersistencePort, id: string | null
   storage.set(STORAGE_KEYS.doctrine, id);
 }
 
-/** Выбранный артефакт наследия; null — без артефакта. */
-export function loadSelectedArtifact(storage: PersistencePort): string | null {
-  return storage.get(STORAGE_KEYS.legacy);
-}
-
-export function saveSelectedArtifact(storage: PersistencePort, id: string | null): void {
-  if (id === null) {
-    storage.remove(STORAGE_KEYS.legacy);
-    return;
-  }
-  storage.set(STORAGE_KEYS.legacy, id);
-}
-
 /** Выбранный уровень угрозы; отсутствие ключа — обычная сложность. */
 export function loadThreatLevel(storage: PersistencePort): number {
   return Number(storage.get(STORAGE_KEYS.threatLevel)) || 0;

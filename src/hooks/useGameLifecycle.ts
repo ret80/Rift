@@ -18,6 +18,7 @@ import type { HudStore } from "../ui/hud/HudStore";
 import { readUrlParam } from "../game/core/env";
 import type { WaveCompositionOverride } from "../game/balance/waves";
 import type { DoctrineOffer } from "../game/meta/doctrines";
+import type { LegacyAward } from "../game/meta/legacy";
 
 /** Начальные настройки, применяемые к новому экземпляру игры. */
 export interface GameInitialSettings {
@@ -45,6 +46,8 @@ export interface GameLifecycleCallbacks {
   onWaveCleared: (wave: number) => void;
   /** Награда за босс-волну: выбор доктрины (null — выбор закрыт). */
   onDoctrineOffer: (offer: DoctrineOffer | null) => void;
+  /** Награда за первую волну: карточка артефакта Наследия (null — закрыта). */
+  onLegacyAward: (award: LegacyAward | null) => void;
   /** Одиночный тест уровня завершён — вернуть в меню отладки. */
   onTestRunEnd?: (reason: "cleared" | "died") => void;
   /** Игра создана и готова принимать команды. */
@@ -107,6 +110,7 @@ export function useGameLifecycle(
       onTactical: events.onTactical,
       onWaveCleared: events.onWaveCleared,
       onDoctrineOffer: events.onDoctrineOffer,
+      onLegacyAward: events.onLegacyAward,
       onTestRunEnd: events.onTestRunEnd,
       onGameOver: () => {
         // Итоги придут через onStats после перехода dying → over.

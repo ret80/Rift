@@ -64,7 +64,7 @@ import {
   UPGRADE_TIERS,
 } from "../game/upgrades";
 import { DOCTRINES } from "../game/meta/doctrines";
-import { LEGACY_ARTIFACTS, isArtifactUnlocked } from "../game/meta/legacy";
+import { LEGACY_ARTIFACTS, artifactChance, pickLegacyArtifact } from "../game/meta/legacy";
 import { LegacySystem } from "../game/meta/LegacySystem";
 import { UnlockSystem } from "../game/meta/UnlockSystem";
 import { DRONE_ROLES, droneShotDamage } from "../game/drones/Drone";
@@ -1444,16 +1444,45 @@ check("Мета: доктрина и уровень угрозы меняют с
   expectEqual(threatLevelDef(5).creditsMult, 2, "кредиты на TL 5");
 });
 
-check("Наследие: артефакт открывается волной и даёт бонус", () => {
+check("Наследие: артефакт выдаётся случайно и даёт бонус", () => {
   const plate = LEGACY_ARTIFACTS.find((artifact) => artifact.id === "hull_plate");
   expect(plate !== undefined, "артефакт hull_plate отсутствует");
-  expect(!isArtifactUnlocked(plate!, 2), "артефакт открылся слишком рано");
-  expect(isArtifactUnlocked(plate!, 3), "артефакт не открылся на нужной волне");
 
   const bonuses = mergeMetaBonuses(noMetaBonuses(), plate!.effect);
   expectEqual(bonuses.hpMult, 1.15, "бонус артефакта");
-  expectEqual(new LegacySystem("hull_plate", 99).id, "hull_plate", "выбранный артефакт");
-  expectEqual(new LegacySystem("black_heart", 10).id, null, "закрытый артефакт");
+
+  // Забег начинается без наследия: артефакт выдаёт первая зачищенная волна.
+  const legacy = new LegacySystem();
+  expectEqual(legacy.id, null, "забег начался с артефактом");
+  legacy.award("hull_plate");
+  expectEqual(legacy.id, "hull_plate", "выданный артефакт");
+  expectEqual(legacy.bonuses().hpMult, 1.15, "бонус выданного артефакта");
+  legacy.award("unknown");
+  expectEqual(legacy.id, null, "выдан неизвестный артефакт");
+  legacy.award("hull_plate");
+  legacy.clear();
+  expectEqual(legacy.id, null, "артефакт не забыт после забега");
+
+  // Выбор идёт потоком мира: одинаковый seed — одинаковый артефакт.
+  const first = pickLegacyArtifact(createRngStream(12345));
+  const second = pickLegacyArtifact(createRngStream(12345));
+  expect(first !== null, "артефакт не выдан");
+  expectEqual(first!.id, second!.id, "выбор артефакта недетерминирован");
+  expect(LEGACY_ARTIFACTS.includes(first!), "выдан артефакт вне списка");
+
+  // Шансы нормированы, а редкость работает: сильные выпадают реже.
+  const totalChance = LEGACY_ARTIFACTS.reduce((sum, artifact) => sum + artifactChance(artifact), 0);
+  expect(Math.abs(totalChance - 100) < 1e-6, `сумма шансов ${totalChance}`);
+
+  const taken = { common: 0, rare: 0, epic: 0 };
+  const stream = createRngStream(777);
+  for (let i = 0; i < 4000; i++) {
+    const picked = pickLegacyArtifact(stream);
+    if (picked) taken[picked.rarity]++;
+  }
+  expect(taken.common > taken.rare, `обычные ${taken.common} ≤ редких ${taken.rare}`);
+  expect(taken.rare > taken.epic, `редкие ${taken.rare} ≤ эпических ${taken.epic}`);
+  expect(taken.epic > 0, "эпические не выпадают вовсе");
 });
 
 check("Дроны: роли меняют урон, дистанцию и бонус за фокус", () => {

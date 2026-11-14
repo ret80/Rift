@@ -1,21 +1,38 @@
 /**
- * Наследие — артефакты, которые открываются достижениями и выбираются
- * перед забегом.
+ * Наследие — артефакты, которые выдаёт забег.
  *
- * Артефакт не покупается: он открывается за лучшую дошедшую волну и даёт
- * постоянный бонус, пока выбран. Слот один, поэтому игрок выбирает между
- * знакомыми бонусами, а не собирает всё сразу.
+ * Артефакт не покупается и не выбирается заранее: после зачистки первой
+ * волны забег выдаёт один случайный артефакт и показывает его карточку.
+ * Бонус действует до конца забега и складывается с доктриной и талантами
+ * Эха Разлома.
  */
 
 import type { TKey } from "../../i18n";
+import type { Rng } from "../core/rng";
 import type { MetaBonuses } from "./types";
+
+/**
+ * Редкость артефакта.
+ *
+ * Чем сильнее бонус, тем ниже редкость: забег платит карточкой раз в жизни,
+ * поэтому «Чёрное сердце» или ядро Эгиды должны выпадать заметно реже
+ * обычной пластины предков.
+ */
+export type LegacyRarity = "common" | "rare" | "epic";
+
+/** Вес выпадения по редкости; доли считаются от суммы весов всех артефактов. */
+export const LEGACY_RARITY_WEIGHTS: Record<LegacyRarity, number> = {
+  common: 10,
+  rare: 5,
+  epic: 2,
+};
 
 export interface LegacyArtifact {
   id: string;
   nameKey: TKey;
   descKey: TKey;
-  /** Лучшая волна, начиная с которой артефакт открыт. */
-  unlockWave: number;
+  /** Редкость: задаёт шанс выпадения. */
+  rarity: LegacyRarity;
   /** Бонусы артефакта поверх талантов и доктрины. */
   effect: Partial<MetaBonuses>;
 }
@@ -25,87 +42,95 @@ export const LEGACY_ARTIFACTS: LegacyArtifact[] = [
     id: "hull_plate",
     nameKey: "meta.legHullPlate",
     descKey: "meta.legHullPlateDesc",
-    unlockWave: 3,
+    rarity: "common",
     effect: { hpMult: 1.15 },
   },
   {
     id: "ion_drive",
     nameKey: "meta.legIonDrive",
     descKey: "meta.legIonDriveDesc",
-    unlockWave: 6,
+    rarity: "common",
     effect: { speedMult: 1.08 },
   },
   {
     id: "targeting_core",
     nameKey: "meta.legTargetingCore",
     descKey: "meta.legTargetingCoreDesc",
-    unlockWave: 10,
+    rarity: "common",
     effect: { fireRateMult: 1.1 },
   },
   {
     id: "drone_bay",
     nameKey: "meta.legDroneBay",
     descKey: "meta.legDroneBayDesc",
-    unlockWave: 14,
+    rarity: "rare",
     effect: { droneSlots: 1 },
   },
   {
     id: "weapon_hardpoint",
     nameKey: "meta.legWeaponHardpoint",
     descKey: "meta.legWeaponHardpointDesc",
-    unlockWave: 18,
+    rarity: "rare",
     effect: { weaponSlots: 1 },
   },
   {
     id: "salvage_magnet",
     nameKey: "meta.legSalvageMagnet",
     descKey: "meta.legSalvageMagnetDesc",
-    unlockWave: 22,
+    rarity: "common",
     effect: { partsMult: 1.2 },
   },
   {
     id: "credit_note",
     nameKey: "meta.legCreditNote",
     descKey: "meta.legCreditNoteDesc",
-    unlockWave: 26,
+    rarity: "common",
     effect: { creditsMult: 1.15 },
   },
   {
     id: "shield_matrix",
     nameKey: "meta.legShieldMatrix",
     descKey: "meta.legShieldMatrixDesc",
-    unlockWave: 30,
+    rarity: "rare",
     effect: { shieldBlockLevel: 1, shieldRegenLevel: 1 },
   },
   {
     id: "overdrive",
     nameKey: "meta.legOverdrive",
     descKey: "meta.legOverdriveDesc",
-    unlockWave: 35,
+    rarity: "epic",
     effect: { speedMult: 1.08, fireRateMult: 1.06 },
   },
   {
     id: "aegis_core",
     nameKey: "meta.legAegisCore",
     descKey: "meta.legAegisCoreDesc",
-    unlockWave: 40,
+    rarity: "epic",
     effect: { shieldBlockLevel: 2 },
   },
   {
     id: "archivist",
     nameKey: "meta.legArchivist",
     descKey: "meta.legArchivistDesc",
-    unlockWave: 45,
+    rarity: "rare",
     effect: { partsMult: 1.15, creditsMult: 1.1 },
   },
   {
     id: "black_heart",
     nameKey: "meta.legBlackHeart",
     descKey: "meta.legBlackHeartDesc",
-    unlockWave: 55,
+    rarity: "epic",
     effect: { hpMult: 1.2, speedMult: 0.95 },
   },
 ];
+
+/** Карточка выданного артефакта: за какую волну и что именно досталось. */
+export interface LegacyAward {
+  /** Зачищенная волна, за которую выдан артефакт. */
+  wave: number;
+  /** id выданного артефакта. */
+  id: string;
+}
 
 /** Артефакт по id; null — неизвестный id. */
 export function artifactById(id: string | null): LegacyArtifact | null {
@@ -113,7 +138,33 @@ export function artifactById(id: string | null): LegacyArtifact | null {
   return LEGACY_ARTIFACTS.find((artifact) => artifact.id === id) ?? null;
 }
 
-/** Открыт ли артефакт на текущей лучшей волне. */
-export function isArtifactUnlocked(artifact: LegacyArtifact, bestWave: number): boolean {
-  return bestWave >= artifact.unlockWave;
+/** Шанс артефакта в процентах (для документации и отладки). */
+export function artifactChance(artifact: LegacyArtifact): number {
+  const total = LEGACY_ARTIFACTS.reduce(
+    (sum, entry) => sum + LEGACY_RARITY_WEIGHTS[entry.rarity],
+    0,
+  );
+  return total > 0 ? (LEGACY_RARITY_WEIGHTS[artifact.rarity] / total) * 100 : 0;
+}
+
+/**
+ * Случайный артефакт с учётом редкости.
+ *
+ * Один бросок `rng.next()` и взвешенное вычитание весов: сильные артефакты
+ * выпадают реже, но никогда не исключены полностью. Источник случайности —
+ * поток мира, поэтому запись и симуляция воспроизводятся один в один.
+ */
+export function pickLegacyArtifact(rng: Rng): LegacyArtifact | null {
+  const total = LEGACY_ARTIFACTS.reduce(
+    (sum, artifact) => sum + LEGACY_RARITY_WEIGHTS[artifact.rarity],
+    0,
+  );
+  if (total <= 0) return null;
+  let roll = rng.next() * total;
+  for (const artifact of LEGACY_ARTIFACTS) {
+    roll -= LEGACY_RARITY_WEIGHTS[artifact.rarity];
+    if (roll < 0) return artifact;
+  }
+  // Попадание ровно в верхнюю границу: последний элемент забирает остаток.
+  return LEGACY_ARTIFACTS[LEGACY_ARTIFACTS.length - 1] ?? null;
 }
