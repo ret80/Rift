@@ -46,7 +46,7 @@ export class Game {
   }
 
   setDebugGod(on: boolean): void {
-    this.ctx.debugSystem.setGodMode(on);
+    this.ctx.setDebugGod(on);
   }
 
   setStartWave(wave: number): void {

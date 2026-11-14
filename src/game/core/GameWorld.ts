@@ -226,6 +226,8 @@ export class GameWorld {
   singleWaveTest = false;
   /** Отладочный режим: всё оружие и дроны открыты без достижений. */
   private debugUnlocksAll = false;
+  /** Отладочное бессмертие: среда и урон не снимают корпус. */
+  private godMode = false;
   /** Тест уже завершён: защита от повторного возврата в отладку. */
   private testLevelEnded = false;
   /** Тестовая волна зачищена: ждём баннер «волна зачищена» и гашение зоны. */
@@ -373,6 +375,7 @@ export class GameWorld {
         },
         onToast: (text, color) => this.ports.hooks.onToast({ text, color }),
         hitPlayerRaw: (amount) => {
+          if (this.godMode) return;
           this.waveDamaged = true;
           this.playerSystem.hitRaw(amount);
         },
@@ -1089,10 +1092,21 @@ export class GameWorld {
    * неуязвимости и с отдельным источником в метриках.
    */
   hitPlayerByEnvironment(amount: number): void {
-    if (amount <= 0) return;
+    if (amount <= 0 || this.godMode) return;
     const afterShield = this.shieldSystem.absorb(amount);
     this.playerSystem.hitRaw(afterShield);
     this.eventBus.publish("player_zone_damaged", { dmg: afterShield, source: "zone_storm" });
+  }
+
+  /**
+   * Отладочное бессмертие.
+   *
+   * Флаг живёт в мире, а не в презентационном DebugSystem: урон считают
+   * мир и PlayerSystem, поэтому без этого переключатель ничего не менял.
+   */
+  setDebugGod(on: boolean): void {
+    this.godMode = on;
+    this.playerSystem.setGodMode(on);
   }
 
   /** Предложение доктрины после босс-волны; null — выбора нет. */

@@ -41,6 +41,13 @@ export class DebugSystem {
   private debugShow = false;
   private debugToggleTimer = 0;
   private _debugKeys: Record<string, boolean> | null = null;
+  /**
+   * Слушатель смены бессмертия.
+   *
+   * Сам DebugSystem — про отрисовку и клавиши; урон считают мир
+   * и PlayerSystem, поэтому флаг передаётся им этим колбэком.
+   */
+  onGodChange: ((on: boolean) => void) | null = null;
 
   get isGodMode(): boolean {
     return this.debugGod;
@@ -57,6 +64,7 @@ export class DebugSystem {
 
   setGodMode(on: boolean): void {
     this.debugGod = on;
+    this.onGodChange?.(on);
   }
 
   /** Обработка клавиш (G — god mode, ` — debug overlay, R/Enter/Space — рестарт) */
@@ -77,7 +85,7 @@ export class DebugSystem {
     // G for god mode
     if (isKey('KeyG')) {
       if (!keys['G']) {
-        this.debugGod = !this.debugGod;
+        this.setGodMode(!this.debugGod);
         keys['G'] = true;
       }
     } else {
@@ -182,7 +190,7 @@ export class DebugSystem {
 
   /** Сброс отладочных данных */
   reset(): void {
-    this.debugGod = false;
+    this.setGodMode(false);
     this.debugShow = false;
     this.debugToggleTimer = 0;
     this._debugKeys = null;

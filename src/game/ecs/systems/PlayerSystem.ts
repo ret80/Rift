@@ -62,6 +62,8 @@ export class PlayerSystem extends PhasedSystem {
   private boost = 0;
   /** Форсаж включён и тратит энергию прямо сейчас. */
   private boostOn = false;
+  /** Отладочное бессмертие: урон не доходит ни до корпуса, ни до щита. */
+  private godMode = false;
 
   constructor(
     eventBus: EventBus,
@@ -320,11 +322,17 @@ export class PlayerSystem extends PhasedSystem {
 
   // ---- Core methods ----
 
+  /** Включить/выключить отладочное бессмертие. */
+  setGodMode(on: boolean): void {
+    this.godMode = on;
+  }
+
   /**
    * Урон по кораблю. `impactAngle` — направление на источник удара:
    * по нему активный щит решает, попал ли удар в его сектор.
    */
   hit(dmg: number, impactAngle?: number): void {
+    if (this.godMode) return;
     const ref = this.playerRefSource();
     if (!ref) return;
     // Кадры неуязвимости после попадания: без них рой и две турели
@@ -341,6 +349,7 @@ export class PlayerSystem extends PhasedSystem {
    * ровно заданную долю максимального HP, щит не должен это уменьшать.
    */
   hitRaw(dmg: number): void {
+    if (this.godMode) return;
     const ref = this.playerRefSource();
     if (!ref) return;
     this.applyDamage(ref, dmg);

@@ -276,6 +276,9 @@ export class GameContext {
       view: { width, height, cameraX: 0, cameraY: 0, zoom: 1 },
     });
 
+    // Бессмертие из отладки должно дойти до мира: урон считают он и PlayerSystem.
+    this.debugSystem.onGodChange = (on) => this.world.setDebugGod(on);
+
     console.info(`[Rift] seed ${this.seedSet.master}`);
 
     this.inputSystem = new InputSystem(canvas, {
@@ -563,6 +566,11 @@ export class GameContext {
     this.setPaused(true);
     this.hooks.onPause(true);
     this.audio.setSuspended(true);
+  }
+
+  /** Отладка: переключатель бессмертия (меню и клавиша G ведут сюда). */
+  setDebugGod(on: boolean): void {
+    this.debugSystem.setGodMode(on);
   }
 
   /** Предложение доктрины после босс-волны; null — выбора нет. */
