@@ -56,7 +56,13 @@ import { createHeadlessWorld, runHeadless, ticksForSeconds } from "./runner";
 import { WeaponManager } from "../game/weapons/WeaponManager";
 import { createWeaponRegistry } from "../game/weapons/WeaponRegistry";
 import { WEAPON_CATALOG, WEAPON_IDS } from "../game/weapons/WeaponCatalog";
-import { applyUpgrades, defaultUpgrades } from "../game/upgrades";
+import {
+  applyUpgrades,
+  defaultUpgrades,
+  MAX_DRONE_SLOTS,
+  MAX_WEAPON_SLOTS,
+  UPGRADE_TIERS,
+} from "../game/upgrades";
 import { DOCTRINES } from "../game/meta/doctrines";
 import { LEGACY_ARTIFACTS, isArtifactUnlocked } from "../game/meta/legacy";
 import { LegacySystem } from "../game/meta/LegacySystem";
@@ -1399,12 +1405,17 @@ check("WeaponCatalog: реестр покрывает все виды оружи
   expect(WEAPON_IDS.length >= 8, "в каталоге меньше 8 видов оружия");
 });
 
-check("Орудия: слотов хватает на весь арсенал", () => {
+check("Орудия: слоты упираются в потолок", () => {
   expectEqual(applyUpgrades(defaultUpgrades()).weaponSlots, 1, "стартовые слоты");
   expectEqual(
-    applyUpgrades({ ...defaultUpgrades(), guns: 6 }).weaponSlots,
-    WEAPON_IDS.length - 1,
+    applyUpgrades({ ...defaultUpgrades(), guns: UPGRADE_TIERS.guns.maxLevel }).weaponSlots,
+    MAX_WEAPON_SLOTS,
     "слоты при максимуме орудий",
+  );
+  expectEqual(
+    applyUpgrades({ ...defaultUpgrades(), drones: UPGRADE_TIERS.drones.maxLevel }).droneSlots,
+    MAX_DRONE_SLOTS,
+    "слоты дронов при максимуме",
   );
 });
 

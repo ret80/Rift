@@ -9,6 +9,7 @@ import {
     FIGHTER_BASE_SPEED,
     HUNTER_SPEED,
     MINER_BASE_SPEED,
+    SPLITTER_BASE_SPEED,
 } from "./player";
 import { EnemyKind } from "./enemyKinds";
 import { DEFAULT_PARAMS } from "./params/GameParams";
@@ -209,7 +210,7 @@ export const ENEMY_BASES: Record<EnemyKind, EnemyBaseDef> = {
     contactBase: 16, score: 50, boltBase: 6, mass: 0,
   },
   [EnemyKind.Splitter]: {
-    r: 12, hpBase: DEFAULT_PARAMS.enemy.hpBase[EnemyKind.Splitter], speed: DRONE_BASE_SPEED * 1.6,
+    r: 12, hpBase: DEFAULT_PARAMS.enemy.hpBase[EnemyKind.Splitter], speed: SPLITTER_BASE_SPEED,
     contactBase: 14, score: 30, boltBase: 0, mass: 0,
   },
   [EnemyKind.Jammer]: {

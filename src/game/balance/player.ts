@@ -45,8 +45,20 @@ export const PLAYER_BASE_HP = DEFAULT_PARAMS.player.baseHp;
  * угрозы; теперь на манёвр есть на 25 % больше времени.
  */
 export const PLAYER_MAX_SPEED = DEFAULT_PARAMS.player.maxSpeed;
-/** Drone base speed = 0.93 × player max speed. */
+/**
+ * Drone base speed = 1.05 × player max speed.
+ *
+ * Базовая скорость дрона была ниже игрока (0.93), и рой безнадёжно отставал
+ * от любого маневра. Ровно +5 % к скорости игрока: дрон догоняет прямую, но
+ * форсаж и прокачка скорости всё ещё позволяют от него оторваться.
+ */
 export const DRONE_BASE_SPEED = PLAYER_MAX_SPEED * DEFAULT_PARAMS.enemy.speedFactor[EnemyKind.Drone];
+/**
+ * Делитель быстрее дрона (1.6 ×), но задан своей долей от игрока, а не
+ * множителем от `DRONE_BASE_SPEED`: правка скорости дронов не должна
+ * заодно ускорять осколки.
+ */
+export const SPLITTER_BASE_SPEED = PLAYER_MAX_SPEED * DEFAULT_PARAMS.enemy.speedFactor[EnemyKind.Splitter];
 /**
  * Hunter speed = 1.15 × player max speed.
  * Таран обязан быть быстрее игрока: иначе уравнение встречи

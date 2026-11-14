@@ -81,7 +81,7 @@ export const DEFAULT_PARAMS: GameParams = {
   },
   enemy: {
     speedFactor: {
-      [EnemyKind.Drone]: 0.93,
+      [EnemyKind.Drone]: 1.05,
       [EnemyKind.Hunter]: 1.15,
       [EnemyKind.Fighter]: 0.9,
       [EnemyKind.Cruiser]: 0.5,

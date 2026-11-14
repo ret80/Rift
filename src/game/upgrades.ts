@@ -18,7 +18,6 @@ import {
   type WeaponLoadoutEntry,
   type WeaponModelUpgrades,
 } from "./weapons/Weapon";
-import { ARMORY_WEAPON_COUNT } from "./weapons/WeaponCatalog";
 import type { TKey } from "../i18n";
 import type { PersistencePort } from "./core/PersistencePort";
 import { STORAGE_KEYS } from "./core/storageKeys";
@@ -163,6 +162,19 @@ export function defaultUpgrades(): PlayerUpgrades {
   };
 }
 
+/* ======================== Slot caps ======================== */
+
+/**
+ * Максимум слотов оружия на корабле.
+ *
+ * Арсенал шире (7 орудий), но корабль несёт не больше 5 стволов: выбор
+ * сборки важнее, чем «поставить всё сразу».
+ */
+export const MAX_WEAPON_SLOTS = 5;
+
+/** Максимум слотов под дроны на корабле. */
+export const MAX_DRONE_SLOTS = 4;
+
 /* ======================== Tier definitions ======================== */
 
 /**
@@ -190,11 +202,11 @@ export const UPGRADE_TIERS: Record<UpgradeKey, UpgradeTier> = {
   // Скорость: 8 уровней дают в сумме ~2 080 деталей вместо 460. Мобильность
   // должна быть выбором с ценой, а не бесплатным билетом в безопасность.
   speed:         { baseCost: 160, costStep: 30,  maxLevel: 8  },
-  // Орудия: 1 + уровень слотов, всего 7 оружий в арсенале (пушка, ракета,
-  // лазер, рельса, картечница, цепь, пожиратель), поэтому 6 уровней —
-  // последний открывает всё.
-  guns:          { baseCost: 214, costStep: 160, maxLevel: 6  },
-  drones:        { baseCost: 341, costStep: 239, maxLevel: 7  },
+  // Орудия: 1 базовый слот + уровень, всего не больше MAX_WEAPON_SLOTS (5),
+  // поэтому 4 уровня — последний упирается в потолок слотов.
+  guns:          { baseCost: 214, costStep: 160, maxLevel: MAX_WEAPON_SLOTS - 1 },
+  // Дроны: 1 базовый слот + уровень, потолок — MAX_DRONE_SLOTS (4).
+  drones:        { baseCost: 341, costStep: 239, maxLevel: MAX_DRONE_SLOTS - 1 },
   shield:        { baseCost: 420, costStep: 0,   maxLevel: 1  },
   shieldPercent: { baseCost: 160, costStep: 120, maxLevel: 7  },
   shieldRegen:   { baseCost: 110, costStep: 85,  maxLevel: 5  },
@@ -261,9 +273,9 @@ export interface AppliedUpgrades {
   healRateMult: number;
   /** Множитель скорости: 1.0 база + 0.05 за уровень. */
   speedMult: number;
-  /** Число слотов оружия корабля: 1 база + уровень, макс — число оружий в арсенале. */
+  /** Число слотов оружия корабля: 1 база + уровень, макс MAX_WEAPON_SLOTS. */
   weaponSlots: number;
-  /** Число слотов под дроны корабля: 1 база + уровень, макс 8. */
+  /** Число слотов под дроны корабля: 1 база + уровень, макс MAX_DRONE_SLOTS. */
   droneSlots: number;
   /** Щит куплен — без него блокировка урона и HUD-полоса не работают. */
   shieldOwned: boolean;
@@ -305,11 +317,11 @@ export function applyUpgrades(
   // speed: 1.0 base + 0.05 per level
   const speedMult = (1.0 + upgrades.speed * 0.05) * meta.speedMult;
 
-  // weapon slots: base 1 + level + мета, но не больше числа оружий в арсенале
-  const weaponSlots = Math.min(1 + upgrades.guns + meta.weaponSlots, ARMORY_WEAPON_COUNT);
+  // weapon slots: base 1 + level + мета, но не больше MAX_WEAPON_SLOTS
+  const weaponSlots = Math.min(1 + upgrades.guns + meta.weaponSlots, MAX_WEAPON_SLOTS);
 
-  // drone slots: base 1 + level + мета, capped at 8
-  const droneSlots = Math.min(1 + upgrades.drones + meta.droneSlots, 8);
+  // drone slots: base 1 + level + мета, capped at MAX_DRONE_SLOTS
+  const droneSlots = Math.min(1 + upgrades.drones + meta.droneSlots, MAX_DRONE_SLOTS);
 
   // Щит: покупается один раз, после покупки работают под-линии.
   const shieldOwned = Math.max(0, upgrades.shield) > 0;

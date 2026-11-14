@@ -110,15 +110,10 @@ export function renderZone(
   R.circle(zone.x, zone.y, zr, rgba(C.zone, edgeAlpha), 128);
 
   // Рывок сжатия: пунктирное кольцо уезжает внутрь, арена ещё стоит на месте.
-  // Полоса между пунктиром и краем показывает, сколько арены вот-вот уйдёт.
+  // Заливки между пунктиром и краем нет: уходящая часть арены остаётся
+  // чистой, о будущем сжатии говорит только само кольцо.
   if (zone.dashRadius > 0) {
     const blink = 0.5 + 0.5 * Math.sin(time * 14);
-    if (zone.dashRadius < zr - 0.5) {
-      R.fillRing(
-        zone.x, zone.y, zone.dashRadius, zr,
-        rgba(C.zone, 0.16 * a), rgba(C.zone, 0.16 * a), 96,
-      );
-    }
     R.dashedCircle(
       zone.x, zone.y, zone.dashRadius,
       rgba(C.zone, (0.35 + 0.45 * blink) * a), 26, time * 1.6, 0.45,
