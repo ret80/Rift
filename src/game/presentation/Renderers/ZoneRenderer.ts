@@ -14,7 +14,6 @@
 
 import {
     C,
-    ZONE_COLLAPSE_TARGET_FRACTION,
     ZONE_EDGE_ALPHA,
     ZONE_FILL_ALPHA,
     ZONE_FILL_INNER_FADE,
@@ -34,8 +33,12 @@ export interface ZoneRenderState {
   radius: number;
   targetRadius: number;
   alpha: number;
-  /** Остаток телеграфа сжатия; < 0 — телеграфа нет. */
+  /** Остаток текущей стадии сжатия; < 0 — сжатия нет. */
   collapseT: number;
+  /** Радиус пунктирного кольца; 0 — пунктира нет. */
+  dashRadius: number;
+  /** Вспышка края после схлопывания арены: 1 → 0. */
+  snapFlash: number;
   /** Фаза зоны внутри волны. */
   phase: ZonePhase;
 }
@@ -51,15 +54,22 @@ export function buildZoneState(
   targetRadius: number,
   alpha: number,
   collapseT: number,
+  dashRadius: number,
+  snapFlash: number,
   phase: ZonePhase
 ): ZoneRenderState {
   return {
-    active, x, y, radius, targetRadius, alpha, collapseT, phase,
+    active, x, y, radius, targetRadius, alpha, collapseT, dashRadius, snapFlash, phase,
   };
 }
 
 /** Порог, с которого игрок считается снаружи (совпадает с ZoneEdgeDamage). */
 const OUTSIDE_EPSILON = 4;
+
+/** Ограничить долю в 0..1 (вспышка края приходит как 1 → 0). */
+function clamp01(value: number): number {
+  return value < 0 ? 0 : value > 1 ? 1 : value;
+}
 
 /**
  * Нарисовать зону: заливка-полоса + чёткая граница.
@@ -91,21 +101,26 @@ export function renderZone(
 
   // Внутренний круг — реальная граница зоны. Пульс минимальной амплитуды:
   // зона должна быть еле заметной, а не мигающим «неоновым» ободком.
-  // Во время сжатия пульс быстрее и ярче: это телеграф, его нужно заметить.
-  const collapsing = zone.phase === "collapse" && zone.collapseT < 0;
-  const pulse = collapsing
+  // Сразу после схлопывания край вспыхивает: скачок должен читаться.
+  const flash = clamp01(zone.snapFlash);
+  const pulse = flash > 0
     ? 0.85 + 0.35 * Math.sin(time * 9)
     : 0.9 + 0.1 * Math.sin(time * 2);
-  const edgeAlpha = ZONE_EDGE_ALPHA * a * pulse * (collapsing ? 2.2 : 1);
+  const edgeAlpha = ZONE_EDGE_ALPHA * a * pulse * (1 + flash * 3);
   R.circle(zone.x, zone.y, zr, rgba(C.zone, edgeAlpha), 128);
 
-  // Телеграф: пунктирное кольцо на радиусе, до которого зона сожмётся.
-  // Игрок заранее видит, сколько места останется, и успевает сместиться.
-  if (zone.collapseT >= 0 && zone.targetRadius > 0) {
-    const floor = zone.targetRadius * ZONE_COLLAPSE_TARGET_FRACTION;
+  // Рывок сжатия: пунктирное кольцо уезжает внутрь, арена ещё стоит на месте.
+  // Полоса между пунктиром и краем показывает, сколько арены вот-вот уйдёт.
+  if (zone.dashRadius > 0) {
     const blink = 0.5 + 0.5 * Math.sin(time * 14);
+    if (zone.dashRadius < zr - 0.5) {
+      R.fillRing(
+        zone.x, zone.y, zone.dashRadius, zr,
+        rgba(C.zone, 0.16 * a), rgba(C.zone, 0.16 * a), 96,
+      );
+    }
     R.dashedCircle(
-      zone.x, zone.y, floor,
+      zone.x, zone.y, zone.dashRadius,
       rgba(C.zone, (0.35 + 0.45 * blink) * a), 26, time * 1.6, 0.45,
     );
   }

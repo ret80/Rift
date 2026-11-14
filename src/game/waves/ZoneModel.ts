@@ -8,19 +8,25 @@
  * Фазы волны:
  *   1. expand  — зона растёт из точки старта до радиуса волны;
  *   2. hold    — держится на радиусе (по ней игрок читает арену);
- *   3. collapse — через ZONE_COLLAPSE_DELAY секунд боя включается телеграф
- *      на ZONE_COLLAPSE_TELEGRAPH секунд, затем зона сжимается к
- *      ZONE_COLLAPSE_TARGET_FRACTION от радиуса волны и там останавливается.
+ *   3. collapse — пошаговое сжатие рывками (см. ниже).
  *
- * Сжатие всегда медленнее игрока: выйти из него можно, но только двигаясь
- * внутрь, сквозь толпу. Само по себе сжатие не убивает — урон наносит
- * только край зоны.
+ * Сжатие — не непрерывное движение края, а серия рывков:
+ *   • через `collapse.delay` секунд боя от текущего края появляется
+ *     пунктирное кольцо;
+ *   • за `collapse.dashTime` оно уезжает внутрь на `collapse.stepFraction`
+ *     от радиуса волны, арена при этом не двигается;
+ *   • короткая пауза `collapse.pauseTime`;
+ *   • арена резко схлопывается до пунктира, пунктир исчезает, край вспыхивает;
+ *   • отдых `collapse.cooldown`, затем следующий рывок.
+ * Рывки идут, пока арена не потеряет `collapse.maxLoss` радиуса волны.
+ *
+ * Сжатие уступает буре: пока на кромке идёт телеграф или удар, рывок не
+ * начинается. Во время самого рывка буря скрыта (см. ZoneStorm).
+ * Урон наносит только край зоны: сам рывок не убивает.
  */
 
 import {
   ZONE_CLEAR_FADE_TIME,
-  ZONE_COLLAPSE_MIN_WAVE,
-  ZONE_COLLAPSE_TELEGRAPH,
   ZONE_INITIAL_RADIUS,
   ZONE_MAX_ALPHA,
   zoneRadiusFor,
@@ -31,6 +37,15 @@ import type { ZoneData } from "../core/ZoneTypes";
 import { ZONE_NOT_COLLAPSING } from "../core/ZoneTypes";
 import { clamp } from "../math";
 
+/** Стадия сжатия: покой/отдых, движение пунктира, пауза перед рывком. */
+type CollapseStage = "idle" | "dash" | "pause";
+
+/** Сколько длится вспышка края после схлопывания, секунды. */
+const SNAP_FLASH_TIME = 0.35;
+
+/** Запас, ниже которого арена считается доехавшей до дна сжатия, px. */
+const FLOOR_EPSILON = 0.5;
+
 export class ZoneModel {
   private readonly zone: ZoneData = {
     active: false,
@@ -40,6 +55,8 @@ export class ZoneModel {
     targetRadius: 0,
     alpha: 0,
     collapseT: ZONE_NOT_COLLAPSING,
+    dashRadius: 0,
+    snapFlash: 0,
     phase: "expand",
   };
 
@@ -52,6 +69,17 @@ export class ZoneModel {
   private wave = 1;
   /** Параметры мира: геометрия арены и тайминги сжатия. */
   private params: GameParams = DEFAULT_PARAMS;
+
+  /** Текущая стадия сжатия. */
+  private stage: CollapseStage = "idle";
+  /** Остаток отдыха между рывками, секунды. */
+  private cooldown = 0;
+  /** Радиус края в начале рывка. */
+  private dashFrom = 0;
+  /** Радиус, до которого рывок сожмёт арену. */
+  private dashTo = 0;
+  /** Зона уже доросла до радиуса волны (расширение больше не повторяется). */
+  private expanded = false;
 
   /** Живое состояние зоны (единственный источник правды). */
   get state(): ZoneData {
@@ -66,10 +94,10 @@ export class ZoneModel {
     this.zone.radius = 0;
     this.zone.targetRadius = 0;
     this.zone.alpha = 0;
-    this.zone.collapseT = ZONE_NOT_COLLAPSING;
     this.zone.phase = "expand";
     this.elapsed = 0;
     this.wave = 1;
+    this.resetCollapse();
   }
 
   /** Подготовить зону к новой волне: центр у игрока, радиус 0, выключена. */
@@ -80,9 +108,9 @@ export class ZoneModel {
     this.zone.radius = 0;
     this.zone.targetRadius = 0;
     this.zone.alpha = 0;
-    this.zone.collapseT = ZONE_NOT_COLLAPSING;
     this.zone.phase = "expand";
     this.elapsed = 0;
+    this.resetCollapse();
   }
 
   /** Скрыть зону между волнами, сохранив геометрию. */
@@ -90,9 +118,10 @@ export class ZoneModel {
     this.zone.active = false;
   }
 
-  /** Волна зачищена: запомнить текущую альфу для плавного гашения. */
+  /** Волна зачищена: запомнить текущую альфу и оборвать сжатие. */
   beginClear(): void {
     this.clearFromAlpha = this.zone.alpha;
+    this.resetCollapse();
   }
 
   /** Передать параметры мира (профиль + отладочные сдвиги). */
@@ -110,63 +139,100 @@ export class ZoneModel {
     this.zone.targetRadius = zoneRadiusFor(wave, this.params);
     this.zone.radius = ZONE_INITIAL_RADIUS;
     this.zone.alpha = 0;
-    this.zone.collapseT = ZONE_NOT_COLLAPSING;
     this.zone.phase = "expand";
     this.zone.active = true;
     this.wave = wave;
     this.elapsed = 0;
+    this.resetCollapse();
   }
 
   /**
-   * Один кадр боя: расширение, удержание, телеграф и сжатие.
+   * Один кадр боя: расширение и пошаговое сжатие рывками.
    * @param speedMult множитель скорости из прокачки «скорость»
    * @param playerMaxSpeed базовая максимальная скорость игрока
+   * @param stormBusy на кромке идёт буря — рывок ждёт её окончания
    */
-  update(dt: number, speedMult: number, playerMaxSpeed: number): void {
+  update(
+    dt: number,
+    speedMult: number,
+    playerMaxSpeed: number,
+    stormBusy: boolean = false,
+  ): void {
     if (!this.zone.active) return;
     this.elapsed += dt;
+    if (this.zone.snapFlash > 0) {
+      this.zone.snapFlash = Math.max(0, this.zone.snapFlash - dt / SNAP_FLASH_TIME);
+    }
 
-    // 1. Расширение до радиуса волны.
-    if (this.zone.radius < this.zone.targetRadius) {
-      const expandSpeed = zoneExpandSpeed(speedMult, playerMaxSpeed);
+    // 1. Расширение до радиуса волны выполняется ровно один раз за волну:
+    // иначе сжатый край снова «отрастал» бы к радиусу волны.
+    if (!this.expanded) {
       this.zone.radius = Math.min(
         this.zone.targetRadius,
-        this.zone.radius + expandSpeed * dt,
+        this.zone.radius + zoneExpandSpeed(speedMult, playerMaxSpeed) * dt,
       );
       this.zone.alpha = Math.min(ZONE_MAX_ALPHA, this.zone.alpha + dt * 1.2);
       this.zone.phase = "expand";
+      if (this.zone.radius >= this.zone.targetRadius) {
+        this.zone.radius = this.zone.targetRadius;
+        this.expanded = true;
+        this.zone.phase = "hold";
+      }
       return;
     }
-    if (this.zone.phase === "expand") this.zone.phase = "hold";
 
-    // 2. Телеграф сжатия: зона уже не растёт, но ещё не сжимается.
-    if (this.zone.collapseT >= 0) {
+    // 2. Рывок: пунктирное кольцо уезжает внутрь, арена ещё стоит.
+    if (this.stage === "dash") {
+      const duration = Math.max(0.01, this.params.zone.collapse.dashTime);
+      this.zone.collapseT = Math.max(0, this.zone.collapseT - dt);
+      const progress = 1 - clamp(this.zone.collapseT / duration, 0, 1);
+      this.zone.dashRadius = this.dashFrom + (this.dashTo - this.dashFrom) * progress;
+      if (this.zone.collapseT <= 0) {
+        this.stage = "pause";
+        this.zone.collapseT = Math.max(0, this.params.zone.collapse.pauseTime);
+        this.zone.dashRadius = this.dashTo;
+      }
+      return;
+    }
+
+    // 3. Пауза перед схлопыванием: пунктир стоит, арена держит прежний край.
+    if (this.stage === "pause") {
       this.zone.collapseT -= dt;
       if (this.zone.collapseT <= 0) {
+        this.zone.radius = this.dashTo;
+        this.zone.dashRadius = 0;
         this.zone.collapseT = ZONE_NOT_COLLAPSING;
-        this.zone.phase = "collapse";
+        this.zone.snapFlash = 1;
+        this.zone.phase = "hold";
+        this.stage = "idle";
+        this.cooldown = Math.max(0, this.params.zone.collapse.cooldown);
       }
       return;
     }
 
-    // 3. Запуск телеграфа по времени боя.
-    if (this.zone.phase === "hold") {
-      if (
-        this.wave >= ZONE_COLLAPSE_MIN_WAVE &&
-        this.elapsed >= this.params.zone.collapse.delay
-      ) {
-        this.zone.collapseT = ZONE_COLLAPSE_TELEGRAPH;
-        this.zone.phase = "collapse";
-      }
+    // 4. Отдых между рывками.
+    if (this.cooldown > 0) {
+      this.cooldown = Math.max(0, this.cooldown - dt);
       return;
     }
 
-    // 4. Сжатие до нижней границы. Скорость ниже скорости игрока.
-    const floor = this.zone.targetRadius * this.params.zone.collapse.targetFraction;
-    if (this.zone.radius > floor) {
-      const collapseSpeed = playerMaxSpeed * speedMult * this.params.zone.collapse.speedMult;
-      this.zone.radius = Math.max(floor, this.zone.radius - collapseSpeed * dt);
-    }
+    // 5. Пока буря активна, сжатие не начинается.
+    if (stormBusy) return;
+
+    const collapse = this.params.zone.collapse;
+    if (this.wave < collapse.minWave) return;
+    if (this.elapsed < collapse.delay) return;
+
+    const floor = this.zone.targetRadius * (1 - collapse.maxLoss);
+    if (this.zone.radius <= floor + FLOOR_EPSILON) return;
+
+    const step = this.zone.targetRadius * collapse.stepFraction;
+    this.dashFrom = this.zone.radius;
+    this.dashTo = Math.max(floor, this.zone.radius - step);
+    this.stage = "dash";
+    this.zone.collapseT = Math.max(0.01, collapse.dashTime);
+    this.zone.dashRadius = this.dashFrom;
+    this.zone.phase = "collapse";
   }
 
   /**
@@ -191,5 +257,17 @@ export class ZoneModel {
       this.zone.alpha = 0;
       this.zone.active = false;
     }
+  }
+
+  /** Сбросить сжатие и вернуть зону к состоянию «ещё не расширялась». */
+  private resetCollapse(): void {
+    this.stage = "idle";
+    this.cooldown = 0;
+    this.dashFrom = 0;
+    this.dashTo = 0;
+    this.expanded = false;
+    this.zone.collapseT = ZONE_NOT_COLLAPSING;
+    this.zone.dashRadius = 0;
+    this.zone.snapFlash = 0;
   }
 }

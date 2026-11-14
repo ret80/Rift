@@ -71,6 +71,10 @@ import {
   threatLevelDef,
 } from "../game/meta/ascension";
 import { WaveOrchestrator } from "../game/waves/WaveOrchestrator";
+import { ZoneModel } from "../game/waves/ZoneModel";
+import { ZoneStorm } from "../game/waves/ZoneStorm";
+import { ZONE_NOT_COLLAPSING, type ZoneData } from "../game/core/ZoneTypes";
+import { DEFAULT_PARAMS } from "../game/balance/params/GameParams";
 import { WaveFlowSystem } from "../game/ecs/systems/WaveFlowSystem";
 import type { BulletSpawn } from "../game/ecs";
 
@@ -378,6 +382,86 @@ check("WaveStateMachine: objective-тип волны явный и стабил�
   expectEqual(machine.waveType, "combat", "advance wave 4");
   machine.reset(9);
   expectEqual(machine.waveType, "objective", "reset wave 9");
+});
+
+check("ZoneModel: сжатие рывками до −40 % радиуса и ожидание бури", () => {
+  const model = new ZoneModel();
+  model.setParams(DEFAULT_PARAMS);
+  model.activate(0, 0, 6);
+  const target = model.state.targetRadius;
+  const collapse = DEFAULT_PARAMS.zone.collapse;
+
+  const step = (seconds: number, stormBusy = false): void => {
+    const ticks = Math.round(seconds / FIXED_DT);
+    for (let i = 0; i < ticks; i++) {
+      model.update(FIXED_DT, 1, DEFAULT_PARAMS.player.maxSpeed, stormBusy);
+    }
+  };
+
+  // Расширение до радиуса волны и удержание.
+  step(5);
+  expectEqual(Math.round(model.state.radius), Math.round(target), "зона не доросла до радиуса волны");
+  expectEqual(model.state.phase, "hold", "после расширения должна быть фаза hold");
+
+  // Пока буря на кромке активна, рывок не начинается.
+  step(collapse.delay + 1, true);
+  expectEqual(model.state.dashRadius, 0, "рывок начался во время бури");
+  expectEqual(Math.round(model.state.radius), Math.round(target), "арена сдвинулась до рывка");
+
+  // Рывок: арена стоит, пунктир едет внутрь.
+  step(FIXED_DT * 2);
+  const dashStart = model.state.dashRadius;
+  expect(dashStart > 0, "пунктирное кольцо не появилось");
+  step(collapse.dashTime * 0.5);
+  expectEqual(Math.round(model.state.radius), Math.round(target), "арена сжалась до схлопывания");
+  expect(model.state.dashRadius < dashStart - 1, "пунктир не движется внутрь");
+
+  // Пауза и резкое схлопывание арены до пунктира.
+  step(collapse.dashTime + collapse.pauseTime + FIXED_DT * 2);
+  const afterFirst = target * (1 - collapse.stepFraction);
+  expect(
+    Math.abs(model.state.radius - afterFirst) < 1,
+    `после рывка радиус ${model.state.radius.toFixed(1)}, ожидали ${afterFirst.toFixed(1)}`,
+  );
+  expectEqual(model.state.dashRadius, 0, "пунктир не исчез после схлопывания");
+
+  // Рывки повторяются, пока арена не потеряет 40 % радиуса волны.
+  step((collapse.dashTime + collapse.pauseTime + collapse.cooldown) * 5);
+  const floor = target * (1 - collapse.maxLoss);
+  expect(
+    Math.abs(model.state.radius - floor) < 1,
+    `радиус ${model.state.radius.toFixed(1)}, дно сжатия ${floor.toFixed(1)}`,
+  );
+  expectEqual(model.state.dashRadius, 0, "сжатие не остановилось на дне");
+});
+
+check("ZoneStorm: работает после сжатия и молчит во время рывка", () => {
+  const zone: ZoneData = {
+    active: true, x: 0, y: 0,
+    // Арена уже потеряла 40 % радиуса — буря всё равно должна появляться.
+    radius: 284, targetRadius: 473,
+    alpha: 1, collapseT: ZONE_NOT_COLLAPSING, dashRadius: 0, snapFlash: 0,
+    phase: "hold",
+  };
+  const storm = new ZoneStorm();
+  const hooks = { hitPlayerShielded: () => {} };
+  const ticks = Math.round(15 / FIXED_DT);
+
+  let visibleAfterCollapse = false;
+  for (let i = 0; i < ticks; i++) {
+    storm.update(FIXED_DT, zone, { x: 0, y: 0 }, 100, 6, hooks);
+    if (storm.state.active) visibleAfterCollapse = true;
+  }
+  expect(visibleAfterCollapse, "после сжатия буря не появляется");
+
+  zone.phase = "collapse";
+  zone.collapseT = 1;
+  let visibleDuringDash = false;
+  for (let i = 0; i < ticks; i++) {
+    storm.update(FIXED_DT, zone, { x: 0, y: 0 }, 100, 6, hooks);
+    if (storm.state.active) visibleDuringDash = true;
+  }
+  expect(!visibleDuringDash, "во время рывка буря не должна появляться");
 });
 
 check("GameWorld: якоря появляются после активации зоны и остаются внутри неё", () => {

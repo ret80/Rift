@@ -44,12 +44,22 @@ export interface ZoneParams {
     max: number;
     perWave: number;
   };
-  /** Сжатие зоны в бою. */
+  /** Сжатие зоны в бою (серия рывков после задержки). */
   collapse: {
+    /** Задержка от активации зоны до первого рывка, секунды. */
     delay: number;
+    /** С какой волны включается сжатие. */
     minWave: number;
-    targetFraction: number;
-    speedMult: number;
+    /** Сколько радиуса арены отнимает один рывок, доля радиуса волны. */
+    stepFraction: number;
+    /** Сколько длится движение пунктирного кольца, секунды. */
+    dashTime: number;
+    /** Пауза перед схлопыванием арены, секунды. */
+    pauseTime: number;
+    /** Отдых между рывками, секунды. */
+    cooldown: number;
+    /** Предельная потеря радиуса за волну, доля радиуса волны. */
+    maxLoss: number;
   };
 }
 
@@ -113,8 +123,11 @@ export const DEFAULT_PARAMS: GameParams = {
     collapse: {
       delay: 45,
       minWave: 3,
-      targetFraction: 0.35,
-      speedMult: 0.55,
+      stepFraction: 0.1,
+      dashTime: 1.5,
+      pauseTime: 0.5,
+      cooldown: 5,
+      maxLoss: 0.4,
     },
   },
 };

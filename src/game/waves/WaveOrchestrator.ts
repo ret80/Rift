@@ -191,7 +191,14 @@ export class WaveOrchestrator {
     }
 
     if (state === "active") {
-      this.zone.update(dt, this.speedMult, this.playerMaxSpeed);
+      // Рывок сжатия уступает буре: пока на кромке идёт телеграф или удар,
+      // арена не начинает сжиматься.
+      this.zone.update(
+        dt,
+        this.speedMult,
+        this.playerMaxSpeed,
+        this.storm.state.phase !== "idle",
+      );
       this.storm.update(
         dt,
         this.zone.state,
@@ -232,12 +239,12 @@ export class WaveOrchestrator {
   /**
    * Один раз за волну предупредить о сжатии зоны.
    *
-   * Телеграф виден и на арене (пульсирующее кольцо), но тост объясняет
-   * новичку, что происходит и что делать: двигаться внутрь.
+   * Пунктирное кольцо видно и на арене, но тост объясняет новичку, что
+   * происходит и что делать: двигаться внутрь.
    */
   private announceCollapse(): void {
     if (this.collapseAnnounced) return;
-    if (this.zone.state.collapseT < 0) return;
+    if (this.zone.state.dashRadius <= 0) return;
     this.collapseAnnounced = true;
     this.hooks.onToast(t("game.zoneCollapsing"), "#ff8a8a");
   }

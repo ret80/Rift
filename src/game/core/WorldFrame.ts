@@ -27,8 +27,12 @@ export interface ZoneWorld {
   radius: number;
   targetRadius: number;
   alpha: number;
-  /** Остаток телеграфа сжатия; < 0 — телеграфа нет. */
+  /** Остаток текущей стадии сжатия; < 0 — сжатие не идёт. */
   collapseT: number;
+  /** Радиус пунктирного кольца; 0 — пунктира нет. */
+  dashRadius: number;
+  /** Вспышка края после схлопывания арены: 1 → 0. */
+  snapFlash: number;
   /** Фаза зоны внутри волны. */
   phase: ZonePhase;
 }

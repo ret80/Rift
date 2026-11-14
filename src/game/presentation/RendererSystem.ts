@@ -103,7 +103,8 @@ export class RendererSystem {
       zone: zoneState ? buildZoneState(
         zoneState.active, zoneState.x, zoneState.y,
         zoneState.radius, zoneState.targetRadius, zoneState.alpha,
-        zoneState.collapseT, zoneState.phase
+        zoneState.collapseT, zoneState.dashRadius, zoneState.snapFlash,
+        zoneState.phase
       ) : null,
       storm,
       beams,
