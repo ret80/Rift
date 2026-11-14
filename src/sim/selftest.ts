@@ -63,8 +63,13 @@ import {
   MAX_WEAPON_SLOTS,
   UPGRADE_TIERS,
 } from "../game/upgrades";
-import { DOCTRINES } from "../game/meta/doctrines";
-import { LEGACY_ARTIFACTS, artifactChance, pickLegacyArtifact } from "../game/meta/legacy";
+import { DOCTRINES, pickDoctrineOptions } from "../game/meta/doctrines";
+import {
+  LEGACY_ARTIFACTS,
+  artifactChance,
+  availableArtifacts,
+  pickLegacyArtifact,
+} from "../game/meta/legacy";
 import { LegacySystem } from "../game/meta/LegacySystem";
 import { UnlockSystem } from "../game/meta/UnlockSystem";
 import { DRONE_ROLES, droneShotDamage } from "../game/drones/Drone";
@@ -72,9 +77,13 @@ import { ShieldSystem } from "../game/ecs/systems/ShieldSystem";
 import { UpgradeSystem } from "../game/systems/UpgradeSystem";
 import { mergeMetaBonuses, noMetaBonuses } from "../game/meta/types";
 import {
+  ASCENSION_MODIFIERS,
   MAX_THREAT_LEVEL,
-  clampThreatLevel,
-  threatLevelDef,
+  ascensionEffects,
+  canAddModifier,
+  isAscensionUnlocked,
+  selectionCost,
+  threatLevelOf,
 } from "../game/meta/ascension";
 import { WaveOrchestrator } from "../game/waves/WaveOrchestrator";
 import { ZoneModel } from "../game/waves/ZoneModel";
@@ -1438,10 +1447,70 @@ check("Мета: доктрина и уровень угрозы меняют с
   );
   expectEqual(armed.weaponSlots, 2, "слот оружия от доктрины");
 
-  expectEqual(clampThreatLevel(-5), 0, "нижняя граница TL");
-  expectEqual(clampThreatLevel(999), MAX_THREAT_LEVEL, "верхняя граница TL");
-  expectEqual(threatLevelDef(5).hpMult, 1.75, "корпус врагов на TL 5");
-  expectEqual(threatLevelDef(5).creditsMult, 2, "кредиты на TL 5");
+  // Асценсия: TL — сумма стоимостей модификаторов, награды — по диапазонам.
+  expectEqual(threatLevelOf([]), 0, "TL без модификаторов");
+  expectEqual(threatLevelOf(["angry"]), 1, "TL за «злых врагов»");
+  expectEqual(
+    selectionCost(ASCENSION_MODIFIERS.map((def) => def.id)),
+    MAX_THREAT_LEVEL,
+    "сумма всех модификаторов равна потолку",
+  );
+  expect(
+    ASCENSION_MODIFIERS.every((def) => canAddModifier([], def.id)),
+    "каждый модификатор влезает в пустой набор",
+  );
+  expectEqual(ascensionEffects(["angry"]).enemyHpMult, 1.1, "корпус от «злых врагов»");
+  expectEqual(ascensionEffects(["angry"]).enemyDamageMult, 1.1, "урон от «злых врагов»");
+
+  const tl5 = ["angry", "fast", "precise", "cramped", "stormy"] as const;
+  expectEqual(threatLevelOf(tl5), 5, "TL набора из пяти модификаторов");
+  expect(
+    Math.abs(ascensionEffects(tl5).creditsMult - 1.5) < 1e-9,
+    "кредиты на TL 5: +10% за уровень",
+  );
+  expectEqual(ascensionEffects(tl5).partsMult, 1, "детали не растут до TL 6");
+  expect(
+    Math.abs(ascensionEffects([...tl5, "collapse"]).partsMult - 1.05) < 1e-9,
+    "детали на TL 6: +5%",
+  );
+
+  const hardcore = ascensionEffects(["hardcore"]);
+  expectEqual(hardcore.healMult, 0, "хардкор без лечения");
+  expect(
+    Math.abs(hardcore.creditsMult - 3.9) < 1e-9,
+    "хардкор: ×3 кредитов поверх TL-бонуса",
+  );
+  expectEqual(ascensionEffects(["bosses"]).bossInterval, 5, "боссы чаще: интервал 5");
+  expectEqual(ascensionEffects([]).bossInterval, 10, "базовый интервал боссов");
+  expectEqual(ascensionEffects(["blind_pickup"]).pickupMagnetMult, 0.5, "магнит подбора");
+  expect(ascensionEffects(["affixes"]).extraAffixes, "новые аффиксы не открылись");
+
+  expect(!isAscensionUnlocked(9), "Асценсия открывается не раньше 10-й волны");
+  expect(isAscensionUnlocked(10), "Асценсия открыта после 10-й волны");
+
+  // Награды TL 11–20: доктрины и артефакты открываются по угрозе.
+  const lowPool = pickDoctrineOptions(null, createRngStream(9), 99, 10);
+  expect(!lowPool.includes("absolute"), "доктрина TL 20 не предлагается на TL 10");
+  expect(!lowPool.includes("siege"), "доктрина TL 11 не предлагается на TL 10");
+  const midPool = pickDoctrineOptions(null, createRngStream(9), 99, 14);
+  expect(midPool.includes("siege") && midPool.includes("ash"), "доктрины TL 11/14 не открылись");
+  expect(!midPool.includes("predator"), "доктрина TL 17 открылась раньше времени");
+  const highPool = pickDoctrineOptions(null, createRngStream(9), 99, 20);
+  expect(highPool.includes("absolute"), "доктрина TL 20 не открылась на TL 20");
+
+  const rollArtifacts = (threatLevel: number) => {
+    const rng = createRngStream(31);
+    const ids = new Set<string>();
+    for (let i = 0; i < 400; i++) {
+      const artifact = pickLegacyArtifact(rng, threatLevel);
+      if (artifact) ids.add(artifact.id);
+    }
+    return ids;
+  };
+  expect(!rollArtifacts(10).has("rift_core"), "артефакт TL 12 выпал на TL 10");
+  expect(!rollArtifacts(10).has("abyss_crown"), "артефакт TL 20 выпал на TL 10");
+  expect(rollArtifacts(12).has("rift_core"), "артефакт TL 12 не выпадает на TL 12");
+  expect(rollArtifacts(20).has("abyss_crown"), "артефакт TL 20 не выпадает на TL 20");
 });
 
 check("Наследие: артефакт выдаётся случайно и даёт бонус", () => {
@@ -1470,8 +1539,10 @@ check("Наследие: артефакт выдаётся случайно и �
   expectEqual(first!.id, second!.id, "выбор артефакта недетерминирован");
   expect(LEGACY_ARTIFACTS.includes(first!), "выдан артефакт вне списка");
 
-  // Шансы нормированы, а редкость работает: сильные выпадают реже.
-  const totalChance = LEGACY_ARTIFACTS.reduce((sum, artifact) => sum + artifactChance(artifact), 0);
+  // Шансы нормированы внутри доступного пула, а редкость работает:
+  // сильные выпадают реже. Артефакты Асценсии в пул TL 0 не входят.
+  const basePool = availableArtifacts(0);
+  const totalChance = basePool.reduce((sum, artifact) => sum + artifactChance(artifact), 0);
   expect(Math.abs(totalChance - 100) < 1e-6, `сумма шансов ${totalChance}`);
 
   const taken = { common: 0, rare: 0, epic: 0 };

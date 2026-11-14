@@ -97,6 +97,7 @@ export function executeScenario(scenario: Scenario, options: ExecuteOptions = {}
     waveComposition: scenarioComposition(scenario) ?? undefined,
     balance: scenario.balance,
     paramProfile: scenario.paramProfile,
+    ascension: scenario.ascension,
     skipCountdown: scenario.skipCountdown ?? true,
   });
 

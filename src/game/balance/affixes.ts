@@ -10,7 +10,11 @@ export type AffixId =
   | "hasted"
   | "splitting"
   | "precise"
-  | "regenerating";
+  | "regenerating"
+  | "bulwark"
+  | "frenzied"
+  | "marksman"
+  | "leech";
 
 export interface AffixDef {
   id: AffixId;
@@ -98,7 +102,57 @@ export const AFFIXES: Record<AffixId, AffixDef> = {
     accuracyMult: 1.0,
     regenPercent: 0.02,
   },
+  // Дополнительные аффиксы: открываются модификатором Асценсии «новые аффиксы».
+  bulwark: {
+    id: "bulwark",
+    nameKey: "affix.bulwark",
+    hpMult: 2.0,
+    speedMult: 0.75,
+    damageMult: 1.0,
+    accuracyMult: 1.0,
+  },
+  frenzied: {
+    id: "frenzied",
+    nameKey: "affix.frenzied",
+    hpMult: 1.0,
+    speedMult: 1.25,
+    damageMult: 1.1,
+    accuracyMult: 1.0,
+    fireRateMult: 1.6,
+  },
+  marksman: {
+    id: "marksman",
+    nameKey: "affix.marksman",
+    hpMult: 1.0,
+    speedMult: 1.0,
+    damageMult: 1.15,
+    accuracyMult: 2.0,
+  },
+  leech: {
+    id: "leech",
+    nameKey: "affix.leech",
+    hpMult: 1.2,
+    speedMult: 1.0,
+    damageMult: 1.0,
+    accuracyMult: 1.0,
+    lifesteal: 0.1,
+  },
 };
+
+/** Базовые аффиксы: доступны в любом забеге. */
+export const DEFAULT_AFFIX_IDS: readonly AffixId[] = [
+  "armored",
+  "volatile",
+  "shielded",
+  "vampiric",
+  "hasted",
+  "splitting",
+  "precise",
+  "regenerating",
+];
+
+/** Дополнительные аффиксы: открывает Асценсия. */
+export const EXTRA_AFFIX_IDS: readonly AffixId[] = ["bulwark", "frenzied", "marksman", "leech"];
 
 export const ELITE_CHANCE = 0.08; // 8%
 export const ELITE_PACK_INTERVAL = 5; // каждые 5 волн

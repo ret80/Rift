@@ -63,11 +63,78 @@ export interface ZoneParams {
   };
 }
 
+/**
+ * Эффекты выбранных модификаторов Асценсии (GDD §12).
+ *
+ * Слой сложности поверх профиля: модификаторы не правят баланс напрямую, а
+ * задают множители, которые `resolveParams` применяет так же, как отладочные
+ * сдвиги. Нейтральные значения — «без модификаторов».
+ */
+export interface AscensionParams {
+  /** Множитель корпуса врагов. */
+  enemyHpMult: number;
+  /** Множитель урона врагов (контакт и болты). */
+  enemyDamageMult: number;
+  /** Множитель доли скорости врагов. */
+  enemySpeedMult: number;
+  /** Множитель меткости врагов (шанс попадания). */
+  enemyAccuracyMult: number;
+  /** Множитель радиуса арены. */
+  zoneRadiusMult: number;
+  /** Множитель задержки сжатия арены. */
+  collapseDelayMult: number;
+  /** Множитель периода бури: <1 — вспышки чаще. */
+  stormPeriodMult: number;
+  /** Множитель эффективности лечения игрока: 0 — лечения нет. */
+  healMult: number;
+  /** Добавка к шансу элиты (0.08 = +8 п.п.). */
+  eliteChanceBonus: number;
+  /** Открыть дополнительные элитные аффиксы. */
+  extraAffixes: boolean;
+  /** Волна босса: 10 — базовая, 5 — босс каждые пять волн. */
+  bossInterval: number;
+  /** Подкрепления приходят клещами — парой с противоположных сторон. */
+  pincer: boolean;
+  /** Множитель радиуса магнита подбора. */
+  pickupMagnetMult: number;
+  /** Зеркальный мир: враги маневрируют и входят зеркально. */
+  mirrorWorld: boolean;
+  /** Бесконечный скейл: после 40-й волны давление продолжает расти. */
+  endlessScaling: boolean;
+  /** Множитель кредитов за забег (награда Асценсии). */
+  creditsMult: number;
+  /** Множитель деталей за забег (награда Асценсии). */
+  partsMult: number;
+}
+
+/** Нейтральные эффекты: обычная сложность без модификаторов. */
+export const DEFAULT_ASCENSION_PARAMS: AscensionParams = {
+  enemyHpMult: 1,
+  enemyDamageMult: 1,
+  enemySpeedMult: 1,
+  enemyAccuracyMult: 1,
+  zoneRadiusMult: 1,
+  collapseDelayMult: 1,
+  stormPeriodMult: 1,
+  healMult: 1,
+  eliteChanceBonus: 0,
+  extraAffixes: false,
+  bossInterval: 10,
+  pincer: false,
+  pickupMagnetMult: 1,
+  mirrorWorld: false,
+  endlessScaling: false,
+  creditsMult: 1,
+  partsMult: 1,
+};
+
 /** Полный набор параметров мира. */
 export interface GameParams {
   player: PlayerParams;
   enemy: EnemyParams;
   zone: ZoneParams;
+  /** Эффекты Асценсии текущего забега. */
+  ascension: AscensionParams;
 }
 
 /** Параметры по умолчанию: текущий баланс игры. */
@@ -130,4 +197,5 @@ export const DEFAULT_PARAMS: GameParams = {
       maxLoss: 0.4,
     },
   },
+  ascension: { ...DEFAULT_ASCENSION_PARAMS },
 };

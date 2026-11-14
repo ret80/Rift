@@ -43,6 +43,8 @@ export interface SpawnDependencies {
   killedWave: number;
   playerX: number;
   playerY: number;
+  /** Интервал волн босса: 10 — базовый, 5 — модификатор Асценсии. */
+  bossInterval?: number;
 }
 
 /** Источник зависимостей спавна (из GameContext) для engine.run(dt). */
@@ -180,10 +182,10 @@ export class SpawnSystem extends PhasedSystem {
    */
   private initWave(deps: SpawnDependencies): void {
     const override = this.composition ? this.expandComposition(this.composition) : null;
-    this.total = override ? override.length : waveTotal(deps.wave);
+    this.total = override ? override.length : waveTotal(deps.wave, deps.bossInterval);
     // Босс — отдельная цель события: он входит в total, но не в случайный
     // состав и не размазывается по подкреплениям.
-    const bossWave = !override && isBossWave(deps.wave);
+    const bossWave = !override && isBossWave(deps.wave, deps.bossInterval);
     const normalTotal = this.total - (bossWave ? 1 : 0);
     this.spawned = 0;
     this.killed = 0;

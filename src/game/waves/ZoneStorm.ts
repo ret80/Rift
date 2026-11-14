@@ -84,7 +84,7 @@ export interface ZoneStormHooks {
   hitPlayerShielded: (amount: number) => void;
 }
 
-/** Длительность паузы между вспышками, секунды. */
+/** Длительность паузы между вспышками по умолчанию, секунды. */
 const IDLE_TIME = ZONE_STORM_PERIOD - ZONE_STORM_TELEGRAPH - ZONE_STORM_DURATION;
 
 /** Попадает ли угол в зону бури (с учётом перехода через 0). */
@@ -133,6 +133,28 @@ export class ZoneStorm {
   private layout: ZoneStormLayout = 1;
   /** Номер вспышки в волне: сдвигает выбор раскладки. */
   private strikeIndex = 0;
+  /** Множитель периода бури из модификаторов Асценсии (<1 — чаще). */
+  private periodMult = 1;
+
+  /**
+   * Период вспышек с учётом Асценсии, секунды.
+   *
+   * Телеграф и сам удар не сжимаются: ускорять вспышки за счёт честности
+   * предупреждения нельзя, поэтому меняется только пауза.
+   */
+  private get idleTime(): number {
+    const period = Math.max(
+      ZONE_STORM_TELEGRAPH + ZONE_STORM_DURATION + 0.5,
+      ZONE_STORM_PERIOD * this.periodMult,
+    );
+    return period - ZONE_STORM_TELEGRAPH - ZONE_STORM_DURATION;
+  }
+
+  /** Задать множитель периода бури: 5/7 — вспышка каждые 5 с вместо 7. */
+  setPeriodMult(mult: number): void {
+    this.periodMult = Number.isFinite(mult) && mult > 0 ? mult : 1;
+    if (this.phase === "idle") this.timer = Math.min(this.timer, this.idleTime);
+  }
 
   /** Живое состояние бури (единственный источник правды). */
   get state(): ZoneStormState {
@@ -143,7 +165,7 @@ export class ZoneStorm {
   reset(): void {
     this.stateValue = emptyState();
     this.phase = "idle";
-    this.timer = IDLE_TIME;
+    this.timer = this.idleTime;
     this.sweep = 0;
     this.strikeAngle = 0;
     this.layout = 1;
@@ -178,7 +200,7 @@ export class ZoneStorm {
       this.stateValue.phase = "idle";
       this.stateValue.telegraph = 0;
       this.phase = "idle";
-      this.timer = IDLE_TIME;
+      this.timer = this.idleTime;
       return;
     }
 
@@ -250,7 +272,7 @@ export class ZoneStorm {
         break;
       default:
         this.phase = "idle";
-        this.timer = IDLE_TIME;
+        this.timer = this.idleTime;
         this.sweep = this.strikeAngle + ZONE_STORM_SPIN * ZONE_STORM_DURATION;
         break;
     }

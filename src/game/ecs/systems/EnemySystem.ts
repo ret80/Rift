@@ -22,9 +22,11 @@ import type { EnemyDef } from "../../balance";
 import { DEFAULT_PARAMS, type GameParams } from "../../balance/params/GameParams";
 import {
     AFFIXES,
+    DEFAULT_AFFIX_IDS,
     ELITE_CHANCE,
     ELITE_PACK_INTERVAL,
     ELITE_SCORE_MULT,
+    EXTRA_AFFIX_IDS,
     type AffixId,
 } from "../../balance/affixes";
 import {
@@ -54,8 +56,8 @@ export interface EnemySpawnPort {
   healEnemy(enemy: EnemyRef, amount: number): void;
 }
 
-/** Все доступные аффиксы в стабильном порядке. */
-const AFFIX_IDS = Object.keys(AFFIXES) as AffixId[];
+/** Все аффиксы в стабильном порядке: базовые и открываемые Асценсией. */
+const ALL_AFFIX_IDS: readonly AffixId[] = [...DEFAULT_AFFIX_IDS, ...EXTRA_AFFIX_IDS];
 
 /**
  * Источник состояния игрока для AI: мировые координаты, скорость и угловая
@@ -305,6 +307,7 @@ export class EnemySystem extends PhasedSystem {
     // а астероиды и зона не затрагиваются.
     const hpMult = this.getHpMult();
     const damageMult = this.getDamageMult();
+    const ascension = this.getParams().ascension;
     const affix = eliteEligible ? this.rollEliteAffix(kind) : null;
     const affixDef = affix ? AFFIXES[affix] : null;
     const maxHp = def.hp * hpMult * (affixDef?.hpMult ?? 1);
@@ -339,7 +342,7 @@ export class EnemySystem extends PhasedSystem {
     return {
       parentId: parent?.marker.ecsId ?? null,
       kind, affix, shieldHp, maxShieldHp: shieldHp,
-      accuracyMult: affixDef?.accuracyMult ?? 1,
+      accuracyMult: (affixDef?.accuracyMult ?? 1) * ascension.enemyAccuracyMult,
       fireRateMult: affixDef?.fireRateMult ?? 1,
       x, y, vx: 0, vy: 0, angle, turretAngle,
       hp: maxHp, maxHp, r: def.r, speed: def.speed * (affixDef?.speedMult ?? 1),
@@ -347,7 +350,9 @@ export class EnemySystem extends PhasedSystem {
       score: def.score * (affix ? ELITE_SCORE_MULT : 1),
       boltDmg: def.bolt * damageMult * (affixDef?.damageMult ?? 1),
       fireCd: this.rngSpawn.range(0.3, 1), mode: 0, modeT: freshModeT,
-      strafeDir: this.rngSpawn.next() < 0.5 ? -1 : 1,
+      // Зеркальный мир переворачивает боковой манёвр: враг обходит игрока
+      // с другой стороны и уходит от огня зеркально.
+      strafeDir: (this.rngSpawn.next() < 0.5 ? -1 : 1) * (ascension.mirrorWorld ? -1 : 1),
       seed: this.rngSpawn.next() * 100, spawnCd: this.rngSpawn.range(1, 2),
       flash: 0, hitCd: 0, dead: false,
       mass,
@@ -435,14 +440,14 @@ export class EnemySystem extends PhasedSystem {
       this.wave > 0 &&
       this.wave % ELITE_PACK_INTERVAL === 0 &&
       !this.eliteSpawnedThisWave;
+    const ascension = this.getParams().ascension;
+    const chance = Math.min(0.5, ELITE_CHANCE + ascension.eliteChanceBonus);
     const roll = this.rngSpawn.next();
-    if (!guaranteed && roll >= ELITE_CHANCE) return null;
-    const index = Math.min(
-      AFFIX_IDS.length - 1,
-      Math.floor(this.rngSpawn.next() * AFFIX_IDS.length),
-    );
+    if (!guaranteed && roll >= chance) return null;
+    const pool = ascension.extraAffixes ? ALL_AFFIX_IDS : DEFAULT_AFFIX_IDS;
+    const index = Math.min(pool.length - 1, Math.floor(this.rngSpawn.next() * pool.length));
     this.eliteSpawnedThisWave = true;
-    return AFFIX_IDS[index]!;
+    return pool[index]!;
   }
 
   /** Сколько живых дронов уже висит на орбите указанного носителя. */

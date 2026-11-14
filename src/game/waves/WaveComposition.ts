@@ -24,9 +24,9 @@ export const WAVE_RIFT_THRESHOLD = 0.9;
 /** Доля врагов в одном подкреплении. */
 const WAVE_REINFORCEMENT_PCT = 0.1;
 
-/** Общее количество врагов на волне. */
-export function waveTotal(wave: number): number {
-  return waveTotalFor(wave);
+/** Общее количество врагов на волне; интервал боссов задаёт Асценсия. */
+export function waveTotal(wave: number, bossInterval?: number): number {
+  return waveTotalFor(wave, bossInterval);
 }
 
 /** Радиус зоны волны. */

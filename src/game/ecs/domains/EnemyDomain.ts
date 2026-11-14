@@ -83,6 +83,8 @@ export interface EnemySystemDeps {
   damagePlayer?: (dmg: number, source?: string) => void;
   /** Зона глушилки: магнит пикапов отключён. */
   isPickupMagnetDisabled?: (x: number, y: number) => boolean;
+  /** Радиус магнита подбора: учитывает модификатор «без подбора». */
+  getPickupMagnetRadius?: () => number;
   /** Астероиды арены: притяжение тягачом и уклонение врагов. */
   getAsteroids?: () => AsteroidRef[];
 }

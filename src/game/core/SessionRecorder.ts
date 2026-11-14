@@ -260,6 +260,9 @@ export class SessionRecorder implements SessionRecorderPort {
       droneLoadout: world.upgradeSystem.droneLoadout,
       bestWave: loadBestWave(world.ports.storage),
       physicsEngine: world.physicsEngineId,
+      ...(world.ascensionModifiers.length > 0
+        ? { ascension: [...world.ascensionModifiers] }
+        : {}),
     };
     this.build = {
       gitSha: this.gitSha,

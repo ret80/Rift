@@ -59,6 +59,27 @@ export function saveThreatLevel(storage: PersistencePort, level: number): void {
   storage.set(STORAGE_KEYS.threatLevel, String(Math.floor(level)));
 }
 
+/** Выбранные модификаторы Асценсии; пусто — обычная сложность. */
+export function loadAscensionSelection(storage: PersistencePort): string[] {
+  const raw = storage.get(STORAGE_KEYS.ascension);
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((entry): entry is string => typeof entry === "string");
+  } catch {
+    return [];
+  }
+}
+
+export function saveAscensionSelection(storage: PersistencePort, ids: readonly string[]): void {
+  if (ids.length === 0) {
+    storage.remove(STORAGE_KEYS.ascension);
+    return;
+  }
+  storage.set(STORAGE_KEYS.ascension, JSON.stringify(ids));
+}
+
 /** Полный сброс мета-прогресса: кредиты, таланты и рекорды. */
 export function resetMetaProgress(storage: PersistencePort): void {
   storage.remove(STORAGE_KEYS.credits);
@@ -66,6 +87,7 @@ export function resetMetaProgress(storage: PersistencePort): void {
   storage.remove(STORAGE_KEYS.doctrine);
   storage.remove(STORAGE_KEYS.legacy);
   storage.remove(STORAGE_KEYS.threatLevel);
+  storage.remove(STORAGE_KEYS.ascension);
   storage.remove(STORAGE_KEYS.career);
   storage.remove(STORAGE_KEYS.best);
   storage.remove(STORAGE_KEYS.bestWave);

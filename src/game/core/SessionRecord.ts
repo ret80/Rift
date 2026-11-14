@@ -41,6 +41,8 @@ export interface SessionMeta {
   droneLoadout: DroneLoadout;
   bestWave: number;
   physicsEngine: PhysicsEngineId;
+  /** Выбранные модификаторы Асценсии: без них повтор собьётся. */
+  ascension?: string[];
 }
 
 /** Паспорт сборки: по нему видно, чем писалась запись. */

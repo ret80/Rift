@@ -66,6 +66,8 @@ export interface HeadlessRunConfig {
   onTick?: (world: GameWorld, tick: number) => void;
   /** Начальное содержимое хранилища (мета, рекорды). */
   storage?: Record<string, string>;
+  /** Модификаторы Асценсии: повтор записи и сценарии. */
+  ascension?: readonly string[];
   /** Стартовое состояние забега: прокачка, арсенал, ангар дронов. */
   runSeed?: RunSeed;
 }
@@ -84,6 +86,7 @@ export function createHeadlessWorld(
     testMode: config.testMode ?? true,
     balance: config.balance,
     paramProfile: config.paramProfile,
+    ascension: config.ascension,
     recorder: config.recorder,
     agent: config.agent,
     controls: config.controls,

@@ -7,7 +7,18 @@ import { loadCredits, saveCredits } from "../../game/meta/MetaStorage";
 import { Wallet } from "../../game/economy/Wallet";
 import { loadInfiniteCredits } from "../../game/economy/infinite";
 import { AscensionSystem } from "../../game/meta/AscensionSystem";
-import { THREAT_LEVELS } from "../../game/meta/ascension";
+import {
+  ASCENSION_MODIFIERS,
+  MAX_THREAT_LEVEL,
+  THREAT_UNLOCK_BEST_WAVE,
+  ascensionEffects,
+  isAscensionUnlocked,
+  threatLevelOf,
+  type AscensionModifierId,
+} from "../../game/meta/ascension";
+import { loadBestWave } from "../../game/upgrades";
+import { DOCTRINES } from "../../game/meta/doctrines";
+import { LEGACY_ARTIFACTS } from "../../game/meta/legacy";
 import type { MetaTalent } from "../../game/meta/types";
 import type { GamepadNavHandlers } from "../ScreenRouter";
 import type { MutableRefObject } from "react";
@@ -46,23 +57,31 @@ export default function MetaScreen(props: {
   const [tree, setTree] = useState(() => MetaTree.load(storage));
   const [credits, setCredits] = useState(0);
   const [infiniteCredits, setInfiniteCredits] = useState(false);
-  const [threatLevel, setThreatLevel] = useState(0);
+  const [selection, setSelection] = useState<readonly AscensionModifierId[]>([]);
+  const [bestWave, setBestWave] = useState(0);
   const [tab, setTab] = useState<MetaTab>("talents");
 
   const refresh = useCallback(() => {
     setTree(MetaTree.load(storage));
     setCredits(loadCredits(storage));
     setInfiniteCredits(loadInfiniteCredits(storage));
-    setThreatLevel(AscensionSystem.load(storage).level);
+    setSelection([...AscensionSystem.load(storage).selected]);
+    setBestWave(loadBestWave(storage));
   }, [storage]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  const selectThreat = useCallback((level: number) => {
-    AscensionSystem.load(storage).setLevel(level, storage);
-    setThreatLevel(level);
+  const toggleModifier = useCallback((id: AscensionModifierId) => {
+    const system = AscensionSystem.load(storage);
+    system.toggle(id, storage);
+    setSelection([...system.selected]);
+  }, [storage]);
+
+  const clearModifiers = useCallback(() => {
+    AscensionSystem.load(storage).clear(storage);
+    setSelection([]);
   }, [storage]);
 
   // Геймпад: LB/RB листают вкладки, B возвращает в меню. Кнопки вкладок
@@ -206,53 +225,137 @@ export default function MetaScreen(props: {
               </>
             )}
 
-            {tab === "ascension" && (
-              <>
-                <p className="mb-3 text-xs leading-5 text-[#6f86a8]">
-                  {t("meta.ascensionHint")}
-                </p>
-                {THREAT_LEVELS.map((def) => {
-                  const active = threatLevel === def.level;
-                  return (
-                    <div
-                      key={def.level}
-                      className={
-                        "mb-2 flex items-center justify-between gap-3 rounded border p-3 " +
-                        (active ? "border-[#ff8c42]/60 bg-[#ff8c42]/5" : "border-[#5ef2ff]/20")
-                      }
-                    >
-                      <div>
-                        <div className="font-display text-sm text-[#eaffff]">
-                          {def.level === 0
-                            ? t("meta.ascensionBase")
-                            : t("meta.ascensionLevel", { lv: String(def.level) })}
-                        </div>
-                        <div className="text-xs text-[#6f86a8]">
-                          {t("meta.ascensionMods", {
-                            h: mult(def.hpMult),
-                            d: mult(def.damageMult),
-                            c: mult(def.creditsMult),
-                          })}
-                        </div>
+            {tab === "ascension" && (() => {
+              const unlocked = isAscensionUnlocked(bestWave);
+              const effects = ascensionEffects(selection);
+              const level = threatLevelOf(selection);
+              const rewardRows = [
+                ...DOCTRINES.filter((doctrine) => doctrine.minThreatLevel).map((doctrine) => ({
+                  id: doctrine.id,
+                  kind: "doctrine" as const,
+                  nameKey: doctrine.nameKey,
+                  tl: doctrine.minThreatLevel ?? 0,
+                })),
+                ...LEGACY_ARTIFACTS.filter((artifact) => artifact.minThreatLevel).map((artifact) => ({
+                  id: artifact.id,
+                  kind: "artifact" as const,
+                  nameKey: artifact.nameKey,
+                  tl: artifact.minThreatLevel ?? 0,
+                })),
+              ].sort((a, b) => a.tl - b.tl);
+              return (
+                <>
+                  <p className="mb-3 text-xs leading-5 text-[#6f86a8]">
+                    {t("meta.ascensionHint")}
+                  </p>
+
+                  <div className="mb-4 rounded border border-[#5ef2ff]/20 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-display text-sm text-[#eaffff]">
+                        {unlocked
+                          ? t("meta.ascensionTotal", {
+                              lv: String(level),
+                              max: String(MAX_THREAT_LEVEL),
+                            })
+                          : t("meta.ascensionLocked", {
+                              wave: String(THREAT_UNLOCK_BEST_WAVE),
+                            })}
                       </div>
-                      {active ? (
-                        <div className="shrink-0 text-xs text-[#7dff9e]">
-                          {t("meta.doctrineActive")}
-                        </div>
-                      ) : (
+                      {selection.length > 0 && (
                         <GameButton
-                          onClick={() => selectThreat(def.level)}
-                          variant="cyan"
+                          onClick={clearModifiers}
+                          variant="amber"
                           className="shrink-0 px-3 py-1 text-xs"
                         >
-                          {t("meta.doctrinePick")}
+                          {t("meta.ascensionReset")}
                         </GameButton>
                       )}
                     </div>
-                  );
-                })}
-              </>
-            )}
+                    <div className="mt-1 text-xs text-[#6f86a8]">
+                      {t("meta.ascensionReward", {
+                        c: mult(effects.creditsMult),
+                        p: mult(effects.partsMult),
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {ASCENSION_MODIFIERS.map((def) => {
+                      const active = selection.includes(def.id);
+                      const exceeds = level + def.tl > MAX_THREAT_LEVEL;
+                      const disabled = !unlocked || (!active && exceeds);
+                      return (
+                        <button
+                          key={def.id}
+                          type="button"
+                          onClick={() => toggleModifier(def.id)}
+                          disabled={disabled}
+                          className={
+                            "rounded border p-3 text-left transition " +
+                            (active
+                              ? "border-[#ff8c42]/60 bg-[#ff8c42]/5"
+                              : "border-[#5ef2ff]/20") +
+                            (disabled
+                              ? " cursor-not-allowed opacity-40"
+                              : " hover:border-[#5ef2ff]/50")
+                          }
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span
+                              className={
+                                "font-display text-sm " +
+                                (active ? "text-[#ffd28c]" : "text-[#eaffff]")
+                              }
+                            >
+                              {t(def.nameKey as TKey)}
+                            </span>
+                            <span className="shrink-0 text-xs text-[#ff8c42]">
+                              {t("meta.ascensionCost", { n: String(def.tl) })}
+                            </span>
+                          </div>
+                          <div className="mt-1 text-xs leading-5 text-[#6f86a8]">
+                            {t(def.descKey as TKey)}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-5 mb-2 text-xs tracking-[0.2em] text-[#ff8c42]">
+                    {t("meta.ascensionUnlocks")}
+                  </div>
+
+                  <div className="grid gap-1 sm:grid-cols-2">
+                    {rewardRows.map((row) => {
+                      const open = level >= row.tl;
+                      return (
+                        <div
+                          key={`${row.kind}:${row.id}`}
+                          className={
+                            "flex items-center justify-between gap-2 rounded border px-2 py-1 " +
+                            (open
+                              ? "border-[#7dff9e]/30 text-[#a8ffc0]"
+                              : "border-[#5ef2ff]/15 text-[#6f86a8]")
+                          }
+                        >
+                          <span className="min-w-0 truncate text-xs">
+                            <span className="text-[8px] uppercase tracking-[0.16em] opacity-70">
+                              {row.kind === "doctrine"
+                                ? t("meta.ascensionKindDoctrine")
+                                : t("meta.ascensionKindArtifact")}{" "}
+                            </span>
+                            {t(row.nameKey)}
+                          </span>
+                          <span className="shrink-0 text-xs">
+                            {t("meta.ascensionUnlockAt", { tl: String(row.tl) })}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              );
+            })()}
           </div>
 
           <div className="border-t border-[#5ef2ff]/15 px-5 py-3 sm:px-7">

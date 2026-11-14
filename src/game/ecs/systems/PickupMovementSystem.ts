@@ -26,6 +26,8 @@ export class PickupMovementSystem extends PhasedSystem {
     private readonly getPlayer: PlayerPositionSource,
     /** Зона глушилки: в ней магнит пикапов отключён. */
     private readonly isMagnetDisabled?: (x: number, y: number) => boolean,
+    /** Радиус магнита: Асценсия может его урезать. */
+    private readonly getMagnetRadius: () => number = () => ZONE_PICKUP_MAGNET,
   ) {
     super(Phase.Enemies);
   }
@@ -56,8 +58,9 @@ export class PickupMovementSystem extends PhasedSystem {
       const dy = player.y - position.y;
       const dist = Math.hypot(dx, dy);
       const magnetOff = this.isMagnetDisabled?.(player.x, player.y) ?? false;
-      if (!magnetOff && dist < ZONE_PICKUP_MAGNET && dist > 2) {
-        const fraction = Math.pow(1 - dist / ZONE_PICKUP_MAGNET, 0.5) * 25;
+      const magnetRadius = this.getMagnetRadius();
+      if (!magnetOff && magnetRadius > 0 && dist < magnetRadius && dist > 2) {
+        const fraction = Math.pow(1 - dist / magnetRadius, 0.5) * 25;
         position.x += dx * fraction * dt;
         position.y += dy * fraction * dt;
       }

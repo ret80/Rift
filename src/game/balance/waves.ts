@@ -61,8 +61,12 @@ export function enemyDefFor(
   w: number,
   params: GameParams = DEFAULT_PARAMS,
 ): import("./enemies").EnemyDef {
-  const hpS = hpScale(w);
-  const dmgS = dmgScale(w);
+  // «Бесконечный скейл»: после 40-й волны обе кривые перестают плато и
+  // продолжают расти — иначе поздний забег упирается в потолок сложности.
+  const endless =
+    params.ascension.endlessScaling && w > ENDLESS_SCALING_WAVE ? w - ENDLESS_SCALING_WAVE : 0;
+  const hpS = hpScale(w) * (1 + ENDLESS_HP_PER_WAVE * endless);
+  const dmgS = dmgScale(w) * (1 + ENDLESS_DMG_PER_WAVE * endless);
   const base = ENEMY_BASES[kind];
 
   // Корпус и скорость берутся из профиля параметров: правка одного числа
@@ -182,6 +186,13 @@ export function enemyDefFor(
 
 /* ------------------------------- waves ------------------------------- */
 
+/** С какой волны «бесконечный скейл» снова наращивает давление. */
+export const ENDLESS_SCALING_WAVE = 40;
+/** Прирост корпуса врагов за волну сверх 40-й (доля), только с модификатором. */
+export const ENDLESS_HP_PER_WAVE = 0.06;
+/** Прирост урона врагов за волну сверх 40-й (доля), только с модификатором. */
+export const ENDLESS_DMG_PER_WAVE = 0.04;
+
 /**
  * Врагов на волне: 24 на первой, рост медленнее прежнего, потолок 64
  * плюс отдельный босс на каждой 10-й волне.
@@ -189,18 +200,21 @@ export function enemyDefFor(
  * Прежние 100 врагов заполняли арену и не оставляли места для манёвра;
  * давление теперь идёт от состава (минёр, тяжёлые цели), а не от массы.
  */
-export function waveTotalFor(w: number): number {
-  return Math.min(64, Math.round(24 + (w - 1) * 1.35)) + bossCountForWave(w);
+export function waveTotalFor(w: number, bossInterval: number = BOSS_WAVE_INTERVAL): number {
+  return Math.min(64, Math.round(24 + (w - 1) * 1.35)) + bossCountForWave(w, bossInterval);
 }
 
-/** Волна босса: каждая 10-я, начиная с 10-й. */
-export function isBossWave(w: number): boolean {
-  return w > 0 && w % BOSS_WAVE_INTERVAL === 0;
+/**
+ * Волна босса: каждая 10-я, начиная с 10-й.
+ * Модификатор «боссы чаще» меняет интервал до 5 волн.
+ */
+export function isBossWave(w: number, bossInterval: number = BOSS_WAVE_INTERVAL): boolean {
+  return w > 0 && w % bossInterval === 0;
 }
 
 /** Добавка к обычному составу волны: один босс. */
-export function bossCountForWave(w: number): number {
-  return isBossWave(w) ? 1 : 0;
+export function bossCountForWave(w: number, bossInterval: number = BOSS_WAVE_INTERVAL): number {
+  return isBossWave(w, bossInterval) ? 1 : 0;
 }
 
 export function zoneRadiusFor(w: number, params: GameParams = DEFAULT_PARAMS): number {

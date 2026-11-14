@@ -17,6 +17,8 @@ export interface Doctrine {
   descKey: TKey;
   /** Бонусы доктрины поверх талантов мета-дерева. */
   effect: Partial<MetaBonuses>;
+  /** Минимальный TL Асценсии: до него доктрина в выбор не попадает. */
+  minThreatLevel?: number;
 }
 
 export const DOCTRINES: Doctrine[] = [
@@ -92,7 +94,41 @@ export const DOCTRINES: Doctrine[] = [
     descKey: "meta.docSteadyDesc",
     effect: { hpMult: 1.08, speedMult: 1.08, fireRateMult: 1.08 },
   },
+  // Награды Асценсии: доктрины появляются в выборе только с нужного TL.
+  {
+    id: "siege",
+    nameKey: "meta.docSiege",
+    descKey: "meta.docSiegeDesc",
+    effect: { weaponSlots: 1, fireRateMult: 1.12, speedMult: 0.9 },
+    minThreatLevel: 11,
+  },
+  {
+    id: "ash",
+    nameKey: "meta.docAsh",
+    descKey: "meta.docAshDesc",
+    effect: { shieldBlockLevel: 2, hpMult: 1.1, partsMult: 0.9 },
+    minThreatLevel: 14,
+  },
+  {
+    id: "predator",
+    nameKey: "meta.docPredator",
+    descKey: "meta.docPredatorDesc",
+    effect: { speedMult: 1.2, fireRateMult: 1.15, hpMult: 0.85 },
+    minThreatLevel: 17,
+  },
+  {
+    id: "absolute",
+    nameKey: "meta.docAbsolute",
+    descKey: "meta.docAbsoluteDesc",
+    effect: { weaponSlots: 1, droneSlots: 1, hpMult: 1.15, partsMult: 0.8 },
+    minThreatLevel: 20,
+  },
 ];
+
+/** Открыта ли доктрина на этом TL. */
+export function doctrineUnlocked(doctrine: Doctrine, threatLevel: number): boolean {
+  return (doctrine.minThreatLevel ?? 0) <= threatLevel;
+}
 
 /** Доктрина по id; null — неизвестный id. */
 export function doctrineById(id: string | null): Doctrine | null {
@@ -119,10 +155,11 @@ export function pickDoctrineOptions(
   currentId: string | null,
   rng: Rng,
   count = 2,
+  threatLevel = 0,
 ): string[] {
-  const pool = DOCTRINES.filter((doctrine) => doctrine.id !== currentId).map(
-    (doctrine) => doctrine.id,
-  );
+  const pool = DOCTRINES.filter(
+    (doctrine) => doctrine.id !== currentId && doctrineUnlocked(doctrine, threatLevel),
+  ).map((doctrine) => doctrine.id);
   // Тасование Фишера—Йетса: первые `count` и уходят в предложение.
   for (let i = pool.length - 1; i > 0; i--) {
     const j = rng.int(i + 1);

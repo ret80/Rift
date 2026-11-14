@@ -437,6 +437,10 @@ function affixColor(affix: AffixId): string {
     case "splitting": return "#c77dff";
     case "precise": return "#90be6d";
     case "regenerating": return "#52b788";
+    case "bulwark": return "#8d99ae";
+    case "frenzied": return "#ff6b35";
+    case "marksman": return "#f2e9e4";
+    case "leech": return "#9d0208";
   }
 }
 

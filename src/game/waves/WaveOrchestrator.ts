@@ -145,9 +145,10 @@ export class WaveOrchestrator {
     this.speedMult = mult;
   }
 
-  /** Передать параметры мира в модель зоны (профиль + отладочные сдвиги). */
+  /** Передать параметры мира в модель зоны и тайминги бури. */
   setParams(params: GameParams): void {
     this.zone.setParams(params);
+    this.storm.setPeriodMult(params.ascension.stormPeriodMult);
   }
 
   advanceWave(): void {

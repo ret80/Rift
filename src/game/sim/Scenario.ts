@@ -21,6 +21,7 @@ import {
   normalizeParamProfileId,
   type ParamProfileId,
 } from "../balance/params/profiles";
+import { isAscensionModifierId, normalizeSelection } from "../meta/ascension";
 import type { DroneLoadout } from "../drones/Drone";
 import { isPhysicsEngineId, type PhysicsEngineId } from "../physics/index";
 import { WEAPON_IDS, type WeaponId } from "../weapons/WeaponCatalog";
@@ -78,6 +79,8 @@ export interface Scenario {
   balance?: BalanceOverrides;
   /** Профиль параметров; отсутствие поля — `default`. */
   paramProfile?: ParamProfileId;
+  /** Модификаторы Асценсии; отсутствие поля — обычная сложность. */
+  ascension?: string[];
   viewport?: { width: number; height: number };
   player: ScenarioPlayer;
   enemies?: ScenarioEnemy[];
@@ -204,6 +207,20 @@ export function parseScenario(raw: unknown): Scenario {
     issues.push(`paramProfile: неизвестный профиль (ожидается ${PARAM_PROFILE_IDS.join(" | ")})`);
   }
 
+  let ascension: string[] | undefined;
+  if (data.ascension !== undefined) {
+    if (!Array.isArray(data.ascension)) {
+      issues.push("ascension: ожидается массив id модификаторов");
+    } else {
+      const unknown = data.ascension.filter((id) => !isAscensionModifierId(id));
+      if (unknown.length > 0) {
+        issues.push(`ascension: неизвестные модификаторы (${unknown.join(", ")})`);
+      } else {
+        ascension = normalizeSelection(data.ascension);
+      }
+    }
+  }
+
   let droneLoadout: DroneLoadout | undefined;
   if (data.droneLoadout !== undefined) {
     if (typeof data.droneLoadout !== "object" || data.droneLoadout === null) {
@@ -265,6 +282,7 @@ export function parseScenario(raw: unknown): Scenario {
       ? { balance: data.balance as BalanceOverrides }
       : {}),
     ...(paramProfile !== "default" ? { paramProfile } : {}),
+    ...(ascension && ascension.length > 0 ? { ascension } : {}),
     ...(droneLoadout ? { droneLoadout } : {}),
     viewport:
       typeof data.viewport === "object" && data.viewport !== null

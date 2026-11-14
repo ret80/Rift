@@ -1,50 +1,92 @@
 /**
- * AscensionSystem — выбранный уровень угрозы.
+ * AscensionSystem — выбранный набор модификаторов Асценсии.
  *
- * Уровень постоянный: он меняет каждый следующий забег, пока игрок его не
- * сменит. Мир читает множители через геттеры живыми, поэтому смена уровня
- * в меню действует со следующего старта.
+ * Выбор постоянный: он меняет каждый следующий забег, пока игрок его не
+ * сменит. Мир читает эффекты при старте забега, поэтому смена набора в меню
+ * действует со следующего старта.
  */
 
 import type { PersistencePort } from "../core/PersistencePort";
-import { loadThreatLevel, saveThreatLevel } from "./MetaStorage";
-import { clampThreatLevel, threatLevelDef, type ThreatLevelDef } from "./ascension";
+import { loadAscensionSelection, saveAscensionSelection } from "./MetaStorage";
+import {
+  ascensionEffects,
+  canAddModifier,
+  hasModifier,
+  normalizeSelection,
+  threatLevelOf,
+  type AscensionModifierId,
+  type AscensionSelection,
+} from "./ascension";
+import type { AscensionParams } from "../balance/params/GameParams";
 
 export class AscensionSystem {
-  private threatLevel: number;
+  private selection: AscensionModifierId[];
 
-  constructor(level: number = 0) {
-    this.threatLevel = clampThreatLevel(level);
+  constructor(ids: readonly unknown[] = []) {
+    this.selection = normalizeSelection(ids);
   }
 
-  /** Загрузить уровень из хранилища. */
+  /** Загрузить набор из хранилища. */
   static load(storage: PersistencePort): AscensionSystem {
-    return new AscensionSystem(loadThreatLevel(storage));
+    return new AscensionSystem(loadAscensionSelection(storage));
   }
 
+  /** Выбранные модификаторы. */
+  get selected(): AscensionSelection {
+    return this.selection;
+  }
+
+  /** Уровень угрозы: сумма стоимостей выбранных модификаторов. */
   get level(): number {
-    return this.threatLevel;
+    return threatLevelOf(this.selection);
   }
 
-  get definition(): ThreatLevelDef {
-    return threatLevelDef(this.threatLevel);
+  /** Эффекты для мира и наград. */
+  get effects(): AscensionParams {
+    return ascensionEffects(this.selection);
   }
 
   get hpMult(): number {
-    return this.definition.hpMult;
+    return this.effects.enemyHpMult;
   }
 
   get damageMult(): number {
-    return this.definition.damageMult;
+    return this.effects.enemyDamageMult;
   }
 
   get creditsMult(): number {
-    return this.definition.creditsMult;
+    return this.effects.creditsMult;
   }
 
-  /** Сменить уровень и сохранить выбор. */
-  setLevel(level: number, storage: PersistencePort): void {
-    this.threatLevel = clampThreatLevel(level);
-    saveThreatLevel(storage, this.threatLevel);
+  get partsMult(): number {
+    return this.effects.partsMult;
+  }
+
+  /** Включён ли модификатор. */
+  has(id: AscensionModifierId): boolean {
+    return hasModifier(this.selection, id);
+  }
+
+  /** Можно ли включить модификатор, не выходя за потолок. */
+  canAdd(id: AscensionModifierId): boolean {
+    return canAddModifier(this.selection, id);
+  }
+
+  /** Включить/выключить модификатор и сохранить набор. */
+  toggle(id: AscensionModifierId, storage: PersistencePort): void {
+    if (this.has(id)) {
+      this.selection = this.selection.filter((entry) => entry !== id);
+    } else if (this.canAdd(id)) {
+      this.selection = [...this.selection, id];
+    } else {
+      return;
+    }
+    saveAscensionSelection(storage, this.selection);
+  }
+
+  /** Сбросить выбор — обычная сложность. */
+  clear(storage: PersistencePort): void {
+    this.selection = [];
+    saveAscensionSelection(storage, this.selection);
   }
 }

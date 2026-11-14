@@ -28,6 +28,7 @@ export function cloneParams(params: GameParams): GameParams {
       baseRadius: { ...params.zone.baseRadius },
       collapse: { ...params.zone.collapse },
     },
+    ascension: { ...params.ascension },
   };
 }
 

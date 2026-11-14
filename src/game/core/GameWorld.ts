@@ -33,6 +33,7 @@ import {
   PLAYER_HITBOX_RADIUS,
   PLAYER_MAX_SPEED,
   WAVE_CLEAN_CLEAR_MULT,
+  ZONE_PICKUP_MAGNET,
   killPartsMultiplier,
   waveClearParts,
   waveTotalFor,
@@ -147,6 +148,8 @@ export interface GameWorldConfig {
   balance?: BalanceOverrides;
   /** Профиль параметров мира; по умолчанию — `default`. */
   paramProfile?: ParamProfileId;
+  /** Модификаторы Асценсии из записи/сценария; иначе — выбор из меню. */
+  ascension?: readonly string[];
   /** Пассивный рекордер: только читает мир и не влияет на тики. */
   recorder?: SessionRecorderPort;
   /** Порт управления; по умолчанию — AgentControls (агент задаёт намерения). */
@@ -267,6 +270,8 @@ export class GameWorld {
   private unlocks: UnlockSystem;
   /** Выбранный уровень угрозы (асценсия). */
   private ascension: AscensionSystem;
+  /** Набор Асценсии из записи/сценария: переживает перезагрузку забега. */
+  private ascensionOverride: readonly string[] | null = null;
   /** Детали, собранные за забег: база для начисления кредитов. */
   private runPartsEarned = 0;
   /** Убито боссов за забег. */
@@ -317,7 +322,10 @@ export class GameWorld {
     // Наследие выдаётся забегом после первой зачищенной волны, поэтому
     // новый забег всегда начинается без артефакта.
     this.legacySystem = new LegacySystem();
-    this.ascension = AscensionSystem.load(this.ports.storage);
+    this.ascensionOverride = config.ascension ?? null;
+    this.ascension = this.ascensionOverride
+      ? new AscensionSystem(this.ascensionOverride)
+      : AscensionSystem.load(this.ports.storage);
     this.unlocks = UnlockSystem.load(this.ports.storage);
     this.upgradeSystem.setMetaBonuses(this.activeMetaBonuses());
     this.applyUnlocks();
@@ -358,6 +366,8 @@ export class GameWorld {
         pullPlayer: (vx, vy) => this.eventBus.publish("drone_push_player", { vx, vy }),
         damagePlayer: (dmg, source) => this.eventBus.publish("player_damaged", { dmg, source }),
         isPickupMagnetDisabled: (x, y) => this.isJammedAt(x, y),
+        getPickupMagnetRadius: () =>
+          ZONE_PICKUP_MAGNET * this.params.ascension.pickupMagnetMult,
         getAsteroids: () => this.ecs.asteroids(),
       },
       (kind) => this.pickupEffects.apply(kind),
@@ -459,7 +469,11 @@ export class GameWorld {
     );
 
     this.bonusManager = new BonusManager();
-    this.bonusManager.setHealHook((amount) => this.playerSystem.heal(amount));
+    // Эффективность лечения задаёт Асценсия: «меньше лечения» вдвое слабее,
+    // «хардкор» выключает его совсем.
+    this.bonusManager.setHealHook((amount) =>
+      this.playerSystem.heal(amount * this.params.ascension.healMult),
+    );
     this.shieldSystem = new ShieldSystem();
     this.grazeSystem = new GrazeSystem(this.eventBus, fxPort, this.scoringSystem);
 
@@ -538,7 +552,11 @@ export class GameWorld {
           this.fsm.fire("countdown_done");
         },
         onCountdownTick: (dt, remaining) => {
-          this.playerSystem.restoreHpDuringCountdown(dt, remaining);
+          // Отсчётное лечение — тоже лечение: хардкор его выключает.
+          this.playerSystem.restoreHpDuringCountdown(
+            dt * this.params.ascension.healMult,
+            remaining,
+          );
         },
       },
       eventBus: this.eventBus,
@@ -806,7 +824,9 @@ export class GameWorld {
     // Наследие выдаётся забегом после первой зачищенной волны, поэтому
     // новый забег всегда начинается без артефакта.
     this.legacySystem = new LegacySystem();
-    this.ascension = AscensionSystem.load(this.ports.storage);
+    this.ascension = this.ascensionOverride
+      ? new AscensionSystem(this.ascensionOverride)
+      : AscensionSystem.load(this.ports.storage);
     this.unlocks = UnlockSystem.load(this.ports.storage);
     this.upgradeSystem.setMetaBonuses(this.activeMetaBonuses());
     this.applyUnlocks();
@@ -897,6 +917,11 @@ export class GameWorld {
     return this.paramProfile;
   }
 
+  /** Модификаторы Асценсии текущего забега (для записи и повтора). */
+  get ascensionModifiers(): readonly string[] {
+    return this.ascension.selected;
+  }
+
   /** Выбранный уровень угрозы текущего забега. */
   get threatLevel(): number {
     return this.ascension.level;
@@ -959,6 +984,7 @@ export class GameWorld {
       this.paramProfile,
       { speed: this.testSpeedMod, zone: this.testZoneMod },
       this.testMode,
+      this.ascension.effects,
     );
     this.playerSystem.setPlayerParams(this.params.player);
     this.upgradeSystem.setPlayerParams(this.params.player);
@@ -1089,17 +1115,47 @@ export class GameWorld {
    */
   addParts(amount: number): void {
     if (amount <= 0) return;
-    const total = Math.max(1, Math.round(amount * this.upgradeSystem.getApplied("partsMult")));
+    const total = Math.max(
+      1,
+      Math.round(
+        amount * this.upgradeSystem.getApplied("partsMult") * this.params.ascension.partsMult,
+      ),
+    );
     this.upgradeSystem.addParts(total);
     this.runPartsEarned += total;
   }
 
-  /** Подкрепление из разлома якоря: разлом открыт, пока якорь жив. */
+  /**
+   * Подкрепление из разлома якоря: разлом открыт, пока якорь жив.
+   *
+   * Модификаторы Асценсии меняют точку входа, а не состав: «зеркальный мир»
+   * проводит врага зеркально относительно игрока, «клещи» — каждое второе
+   * подкрепление парой с противоположной стороны.
+   */
   private spawnAnchorReinforcement(anchor: Anchor): void {
     const wave = this.waveOrchestrator.wave;
     const pool = [EnemyKind.Drone, EnemyKind.Hunter, EnemyKind.Fighter];
     const kind = wave < 6 ? EnemyKind.Drone : pool[anchor.spawned % pool.length];
-    this.spawnEnemy(kind, anchor.x, anchor.y, null);
+    const player = this.getPlayerPosition();
+    const zone = this.waveOrchestrator.zoneState;
+    const mirror = (x: number, y: number): { x: number; y: number } => {
+      const dx = 2 * player.x - x;
+      const dy = 2 * player.y - y;
+      const dist = Math.hypot(dx - zone.x, dy - zone.y);
+      const limit = Math.max(0, zone.radius - 40);
+      const scale = dist > limit && dist > 0 ? limit / dist : 1;
+      return { x: zone.x + (dx - zone.x) * scale, y: zone.y + (dy - zone.y) * scale };
+    };
+
+    const entry = this.params.ascension.mirrorWorld
+      ? mirror(anchor.x, anchor.y)
+      : { x: anchor.x, y: anchor.y };
+    this.spawnEnemy(kind, entry.x, entry.y, null);
+
+    const pincer = this.params.ascension.pincer && anchor.spawned % 2 === 1;
+    if (!pincer) return;
+    const opposite = mirror(entry.x, entry.y);
+    this.spawnEnemy(kind, opposite.x, opposite.y, null);
   }
 
   /**
@@ -1143,7 +1199,7 @@ export class GameWorld {
    */
   private awardLegacy(clearedWave: number): boolean {
     if (this.testMode || this.singleWaveTest || this.legacyAwarded) return false;
-    const artifact = pickLegacyArtifact(this.rng("drops"));
+    const artifact = pickLegacyArtifact(this.rng("drops"), this.ascension.level);
     if (!artifact) return false;
     this.legacyAwarded = true;
     this.legacySystem.award(artifact.id);
@@ -1170,8 +1226,15 @@ export class GameWorld {
    * следующей волны должен подождать.
    */
   private offerDoctrine(clearedWave: number): boolean {
-    if (this.testMode || !isBossWave(clearedWave)) return false;
-    const options = pickDoctrineOptions(this.doctrineSystem.id, this.rng("drops"));
+    if (this.testMode || !isBossWave(clearedWave, this.params.ascension.bossInterval)) {
+      return false;
+    }
+    const options = pickDoctrineOptions(
+      this.doctrineSystem.id,
+      this.rng("drops"),
+      2,
+      this.ascension.level,
+    );
     if (options.length < 2) return false;
     this.doctrineOfferValue = { wave: clearedWave, options };
     this.ports.hooks.onDoctrineOffer?.(this.doctrineOfferValue);
@@ -1371,6 +1434,7 @@ export class GameWorld {
       killedWave: this.scoringSystem.killedWave,
       playerX: player.position.x,
       playerY: player.position.y,
+      bossInterval: this.params.ascension.bossInterval,
     };
   }
 
@@ -1465,7 +1529,9 @@ export class GameWorld {
         this.resetWaveEconomy();
         this.spawnSystem.reset();
         const pos = this.getPlayerPosition();
-        const total = this.spawnSystem.compositionTotal ?? waveTotalFor(wave);
+        const total =
+          this.spawnSystem.compositionTotal ??
+          waveTotalFor(wave, this.params.ascension.bossInterval);
         this.waveOrchestrator.initWave(pos.x, pos.y, wave, total, waveType);
         this.waveOrchestrator.setSpeedMult(this.upgradeSystem.getApplied("speedMult"));
       }),

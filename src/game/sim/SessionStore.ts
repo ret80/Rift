@@ -130,6 +130,9 @@ export function scenarioFromSession(
     ...(record.meta.droneLoadout ? { droneLoadout: record.meta.droneLoadout } : {}),
     balance: options.balance ?? record.run.balance,
     ...(record.run.paramProfile ? { paramProfile: record.run.paramProfile } : {}),
+    ...(record.meta.ascension && record.meta.ascension.length > 0
+      ? { ascension: [...record.meta.ascension] }
+      : {}),
   };
   return parseScenario(raw);
 }

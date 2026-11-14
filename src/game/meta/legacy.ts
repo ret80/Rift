@@ -35,6 +35,8 @@ export interface LegacyArtifact {
   rarity: LegacyRarity;
   /** Бонусы артефакта поверх талантов и доктрины. */
   effect: Partial<MetaBonuses>;
+  /** Минимальный TL Асценсии: до него артефакт не выпадает. */
+  minThreatLevel?: number;
 }
 
 export const LEGACY_ARTIFACTS: LegacyArtifact[] = [
@@ -122,7 +124,45 @@ export const LEGACY_ARTIFACTS: LegacyArtifact[] = [
     rarity: "epic",
     effect: { hpMult: 1.2, speedMult: 0.95 },
   },
+  // Награды Асценсии: артефакты выпадают только начиная с нужного TL.
+  {
+    id: "rift_core",
+    nameKey: "meta.legRiftCore",
+    descKey: "meta.legRiftCoreDesc",
+    rarity: "epic",
+    effect: { shieldBlockLevel: 3, shieldRegenLevel: 2 },
+    minThreatLevel: 12,
+  },
+  {
+    id: "hunter_mark",
+    nameKey: "meta.legHunterMark",
+    descKey: "meta.legHunterMarkDesc",
+    rarity: "epic",
+    effect: { fireRateMult: 1.2, speedMult: 1.1 },
+    minThreatLevel: 15,
+  },
+  {
+    id: "ancestral_alloy",
+    nameKey: "meta.legAncestralAlloy",
+    descKey: "meta.legAncestralAlloyDesc",
+    rarity: "epic",
+    effect: { hpMult: 1.3, partsMult: 1.15 },
+    minThreatLevel: 18,
+  },
+  {
+    id: "abyss_crown",
+    nameKey: "meta.legAbyssCrown",
+    descKey: "meta.legAbyssCrownDesc",
+    rarity: "epic",
+    effect: { hpMult: 1.25, fireRateMult: 1.15, speedMult: 1.1 },
+    minThreatLevel: 20,
+  },
 ];
+
+/** Артефакты, доступные на этом TL. */
+export function availableArtifacts(threatLevel: number): LegacyArtifact[] {
+  return LEGACY_ARTIFACTS.filter((artifact) => (artifact.minThreatLevel ?? 0) <= threatLevel);
+}
 
 /** Карточка выданного артефакта: за какую волну и что именно досталось. */
 export interface LegacyAward {
@@ -138,9 +178,9 @@ export function artifactById(id: string | null): LegacyArtifact | null {
   return LEGACY_ARTIFACTS.find((artifact) => artifact.id === id) ?? null;
 }
 
-/** Шанс артефакта в процентах (для документации и отладки). */
-export function artifactChance(artifact: LegacyArtifact): number {
-  const total = LEGACY_ARTIFACTS.reduce(
+/** Шанс артефакта в процентах среди доступных на TL. */
+export function artifactChance(artifact: LegacyArtifact, threatLevel = 0): number {
+  const total = availableArtifacts(threatLevel).reduce(
     (sum, entry) => sum + LEGACY_RARITY_WEIGHTS[entry.rarity],
     0,
   );
@@ -154,17 +194,15 @@ export function artifactChance(artifact: LegacyArtifact): number {
  * выпадают реже, но никогда не исключены полностью. Источник случайности —
  * поток мира, поэтому запись и симуляция воспроизводятся один в один.
  */
-export function pickLegacyArtifact(rng: Rng): LegacyArtifact | null {
-  const total = LEGACY_ARTIFACTS.reduce(
-    (sum, artifact) => sum + LEGACY_RARITY_WEIGHTS[artifact.rarity],
-    0,
-  );
+export function pickLegacyArtifact(rng: Rng, threatLevel = 0): LegacyArtifact | null {
+  const pool = availableArtifacts(threatLevel);
+  const total = pool.reduce((sum, artifact) => sum + LEGACY_RARITY_WEIGHTS[artifact.rarity], 0);
   if (total <= 0) return null;
   let roll = rng.next() * total;
-  for (const artifact of LEGACY_ARTIFACTS) {
+  for (const artifact of pool) {
     roll -= LEGACY_RARITY_WEIGHTS[artifact.rarity];
     if (roll < 0) return artifact;
   }
   // Попадание ровно в верхнюю границу: последний элемент забирает остаток.
-  return LEGACY_ARTIFACTS[LEGACY_ARTIFACTS.length - 1] ?? null;
+  return pool[pool.length - 1] ?? null;
 }

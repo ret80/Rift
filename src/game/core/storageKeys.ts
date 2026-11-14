@@ -13,7 +13,10 @@ export const STORAGE_KEYS = {
   metaTree: "rift9_meta_tree",
   doctrine: "rift9_doctrine",
   legacy: "rift9_legacy",
+  /** Старый выбор уровня угрозы числом: только для чтения наследия. */
   threatLevel: "rift9_threat_level",
+  /** Набор модификаторов Асценсии (JSON-массив id). */
+  ascension: "rift9_ascension",
   lang: "rift9_lang",
   volumes: "rift9_volumes",
   menuTrack: "rift9_menu_track",
