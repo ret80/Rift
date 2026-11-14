@@ -40,6 +40,14 @@ const GROUP_SPEED_PER_MEMBER = 0.05;
 const GROUP_SPEED_MIN = 0.8;
 /** Верхняя граница множителя: строй не разгоняется до нечитаемого вихря. */
 const GROUP_SPEED_MAX = 2.2;
+/**
+ * Скорость кольца в момент, когда группа только вышла на патруль.
+ * Свежий рой заходит медленно и разгоняется на глазах: по скорости кольца
+ * игрок читает, сколько времени группа уже кружит.
+ */
+const PATROL_START_SPEED_MULT = 0.55;
+/** За сколько секунд патруля группа выходит на полную скорость. */
+const PATROL_RAMP_TIME = 8;
 /** Дальность отделения: не меньше 220 px и не меньше 0.35R. */
 const DETACH_MIN_RANGE = 220;
 const DETACH_RANGE_R = 0.35;
@@ -76,6 +84,8 @@ interface DroneGroup {
   cooldown: number;
   /** Текущая угловая скорость кольца, рад/с: зависит от числа участников. */
   omega: number;
+  /** Сколько секунд группа уже патрулирует: задаёт разгон. */
+  age: number;
 }
 
 export interface SwarmTarget {
@@ -165,7 +175,7 @@ export class DroneSwarm {
     const tangentSpeed = group.omega * radial;
     out.vx = -Math.sin(angle) * group.dir * tangentSpeed;
     out.vy = Math.cos(angle) * group.dir * tangentSpeed;
-    out.speedMult = this.speedMultFor(count);
+    out.speedMult = this.speedMultFor(count, group.age);
     return true;
   }
 
@@ -249,7 +259,8 @@ export class DroneSwarm {
       members: new Set(),
       slots: new Set(),
       cooldown: 0,
-      omega: PATROL_OMEGA * GROUP_SPEED_MIN,
+      omega: PATROL_OMEGA * GROUP_SPEED_MIN * PATROL_START_SPEED_MULT,
+      age: 0,
     };
     this.groups.set(group.id, group);
     return group;
@@ -313,19 +324,25 @@ export class DroneSwarm {
 
   private updateGroups(dt: number): void {
     for (const group of this.groups.values()) {
-      group.omega = PATROL_OMEGA * this.speedMultFor(group.members.size);
+      group.age += dt;
+      group.omega = PATROL_OMEGA * this.speedMultFor(group.members.size, group.age);
       group.phase += group.dir * group.omega * dt;
       group.cooldown = Math.max(0, group.cooldown - dt);
     }
   }
 
   /**
-   * Множитель скорости кольца по размеру группы.
-   * Линейный рост с потолком: большой рой быстрее, но не бесконечно.
+   * Множитель скорости кольца.
+   *
+   * Линейный рост по числу участников с потолком (большой рой быстрее, но не
+   * бесконечно) и разгон по возрасту группы: только что собранная группа
+   * идёт на PATROL_START_SPEED_MULT и за PATROL_RAMP_TIME выходит на полную.
    */
-  private speedMultFor(memberCount: number): number {
+  private speedMultFor(memberCount: number, age: number): number {
     const raw = GROUP_SPEED_MIN + GROUP_SPEED_PER_MEMBER * memberCount;
-    return Math.max(GROUP_SPEED_MIN, Math.min(GROUP_SPEED_MAX, raw));
+    const size = Math.max(GROUP_SPEED_MIN, Math.min(GROUP_SPEED_MAX, raw));
+    const ramp = Math.min(1, age / PATROL_RAMP_TIME);
+    return size * (PATROL_START_SPEED_MULT + (1 - PATROL_START_SPEED_MULT) * ramp);
   }
 
   /**
