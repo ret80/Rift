@@ -86,13 +86,17 @@ function renderPlayerBullet(R: IRenderer, b: BulletRenderState): void {
     R.circle(b.x, b.y, b.r * 0.6, rgba(C.white, 0.35), 8);
     return;
   }
-  const l = 7;
+  // Болт игрока: трассер с ярким ядром. Раньше был одиночный штрих 7 px и
+  // терялся на фоне частиц; теперь 10 px и ядро r = 2.4 — крупнее прежнего,
+  // но мельче тяжёлого снаряда (3.4) и крейсерского (5.5).
+  const l = 10;
   const d = Math.hypot(b.vx, b.vy) || 1;
   R.pushLine(
     b.x - (b.vx / d) * l, b.y - (b.vy / d) * l,
     b.x, b.y,
     rgba(C.bullet, 0.95)
   );
+  R.circle(b.x, b.y, 2.4, rgba(C.bullet, 0.9), 8);
 }
 
 /**
@@ -125,12 +129,16 @@ function renderEnemyBullet(R: IRenderer, b: EBulletRenderState): void {
   } else if (b.heavy) {
     R.circle(b.x, b.y, 3.4, rgba(C.enemyBullet, 0.95), 10);
   } else {
-    const l = 6;
+    // Обычный болт: трассер с ярким ядром. Раньше был одинокий штрих 6 px —
+    // на фоне частиц и астероидов он терялся. Ядро светит ровно по хитбоксу
+    // (r = 2.5) и остаётся заметно мельче тяжёлого (3.4) и крейсерского (5.5).
+    const l = 8;
     const d = Math.hypot(b.vx, b.vy) || 1;
     R.pushLine(
       b.x - (b.vx / d) * l, b.y - (b.vy / d) * l,
       b.x, b.y,
       rgba(C.enemyBullet, 0.9)
     );
+    R.circle(b.x, b.y, 2.5, rgba(C.enemyBullet, 0.95), 8);
   }
 }

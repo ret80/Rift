@@ -13,6 +13,7 @@ import {
   ASTEROID_CONTACT_BASE,
   ASTEROID_CONTACT_CAP_FRACTION,
   ENEMY_CONTACT_CAP_FRACTION,
+  EnemyKind,
   dmgScale,
   impactFactor,
   massForRadius,
@@ -100,7 +101,12 @@ export class EnemyCollisionSystem extends PhasedSystem {
         // Урон игроку — не более одного раза за кадр и только не в неуязвимости.
         // Урон = контакт (роль) × dmgScale(wave) × множитель скорости удара.
         // Масса остаётся физике, contact определяет боевой характер врага.
-        if (!playerHit && player.marker.invuln <= 0 && player.life.remaining > 0) {
+        // Мина — не таран: её урон приходит кольцом взрыва (см. GameWorld
+        // detonateMine). Контакт только подрывает заряд, поэтому прямая
+        // вспышка урона здесь пропускается — иначе кадры неуязвимости
+        // съели бы весь урон зоны поражения.
+        const isMine = e.marker.kind === EnemyKind.Mine;
+        if (!isMine && !playerHit && player.marker.invuln <= 0 && player.life.remaining > 0) {
           const contact = e.marker.contact;
           const dmg = Math.min(
             contact * dmgScale(wave) * impactFactor(speed),

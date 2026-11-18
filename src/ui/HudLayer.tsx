@@ -76,7 +76,12 @@ export function HudLayer(props: {
                   aria-label={t("upgrade.partsLabel")}
                 >
                   <Icon kind="parts" size={11} />{" "}
-                  <span>{data?.partsInfinite ? "∞" : data?.parts ?? 0}</span>
+                  {data?.partsInfinite ? (
+                    // Знак бесконечности крупнее цифр: при 9–10 px глиф сливается.
+                    <span className="text-[13px] leading-none">∞</span>
+                  ) : (
+                    <span>{data?.parts ?? 0}</span>
+                  )}
                 </div>
               </div>
               <div className="text-[8px] tracking-[0.14em] text-[#6f86a8] sm:text-[9px]">

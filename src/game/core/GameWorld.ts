@@ -29,6 +29,10 @@ import {
   GRAZE_PARTS_PER_COIN,
   GRAZE_PARTS_WAVE_CAP,
   JAMMER_RADIUS,
+  MINE_BLAST_DAMAGE_FRACTION,
+  MINE_BLAST_RADIUS,
+  MINE_BLAST_RING_LIFE,
+  MINE_BLAST_RING_SPEED,
   isBossWave,
   PLAYER_HITBOX_RADIUS,
   PLAYER_MAX_SPEED,
@@ -67,6 +71,7 @@ import { ScoringSystem } from "../ecs/systems/ScoringSystem";
 import { ShieldSystem } from "../ecs/systems/ShieldSystem";
 import { SpawnSystem, type SpawnDependencies } from "../ecs/systems/SpawnSystem";
 import { UpgradeSystem, type RunSeed } from "../systems/UpgradeSystem";
+import { loadSelectedShip } from "../ships/ShipStorage";
 import { loadInfiniteCredits, loadInfiniteParts } from "../economy/infinite";
 import { WaveFlowSystem } from "../ecs/systems/WaveFlowSystem";
 import { WaveOrchestrator } from "../waves/WaveOrchestrator";
@@ -318,6 +323,8 @@ export class GameWorld {
 
     this.scoringSystem = new ScoringSystem({}, this.ports.storage);
     this.upgradeSystem = UpgradeSystem.create();
+    // Ангар должен показывать слоты выбранного корабля ещё до первого забега.
+    this.upgradeSystem.setShip(loadSelectedShip(this.ports.storage));
     this.metaTree = MetaTree.load(this.ports.storage);
     this.doctrineSystem = DoctrineSystem.load(this.ports.storage);
     // Наследие выдаётся забегом после первой зачищенной волны, поэтому
@@ -823,6 +830,8 @@ export class GameWorld {
       ? new AscensionSystem(this.ascensionOverride)
       : AscensionSystem.load(this.ports.storage);
     this.unlocks = UnlockSystem.load(this.ports.storage);
+    // Корабль — постоянный выбор ангара; seed сценария/реплея главнее.
+    this.upgradeSystem.setShip(this.runSeed?.shipId ?? loadSelectedShip(this.ports.storage));
     this.upgradeSystem.setMetaBonuses(this.activeMetaBonuses());
     this.applyUnlocks();
     this.upgradeSystem.resetRun(this.runSeed);
@@ -1131,8 +1140,15 @@ export class GameWorld {
    */
   private spawnAnchorReinforcement(anchor: Anchor): void {
     const wave = this.waveOrchestrator.wave;
-    const pool = [EnemyKind.Drone, EnemyKind.Hunter, EnemyKind.Fighter];
-    const kind = wave < 6 ? EnemyKind.Drone : pool[anchor.spawned % pool.length];
+    // Подкрепления якоря уважают отладочный список врагов: в тесте с одними
+    // дронами якорь не должен присылать хантеров и истребителей.
+    const pool = [EnemyKind.Drone, EnemyKind.Hunter, EnemyKind.Fighter].filter(
+      (kind) => this.spawnSystem.isEnemyEnabled(kind),
+    );
+    if (pool.length === 0) return;
+    const kind = wave < 6 && pool.includes(EnemyKind.Drone)
+      ? EnemyKind.Drone
+      : pool[anchor.spawned % pool.length];
     const player = this.getPlayerPosition();
     const zone = this.waveOrchestrator.zoneState;
     const mirror = (x: number, y: number): { x: number; y: number } => {
@@ -1165,6 +1181,33 @@ export class GameWorld {
         ? mirror(anchor.x, anchor.y)
         : { x: anchor.x, y: anchor.y });
     this.spawnEnemy(kind, entry.x, entry.y, null);
+  }
+
+  /**
+   * Взрыв мины: тонкое кольцо-зона поражения.
+   *
+   * Мина накрывает площадь, а не точку: урон падает линейно от эпицентра к
+   * краю радиуса, поэтому стоять рядом с миной дешевле, чем в центре.
+   * Подрыв происходит на любую гибель мины — контакт, выстрел или истечение
+   * срока жизни (таймер ведёт EnemySystem).
+   */
+  private detonateMine(x: number, y: number): void {
+    this.fx.ring(x, y, 6, MINE_BLAST_RING_SPEED, MINE_BLAST_RING_LIFE, "#ff8c42");
+    if (this.godMode) return;
+
+    const player = this.getPlayerPosition();
+    const dist = Math.hypot(player.x - x, player.y - y);
+    if (dist >= MINE_BLAST_RADIUS) return;
+
+    // Урон — доля максимального корпуса: взрыв не должен ваншотить с полным
+    // здоровьем, но в центре ощущается как серьёзный удар.
+    const maxHp = this.playerSystem.getPlayerRef()?.life.max ?? this.params.player.baseHp;
+    const falloff = 1 - dist / MINE_BLAST_RADIUS;
+    this.eventBus.publish("player_damaged", {
+      dmg: maxHp * MINE_BLAST_DAMAGE_FRACTION * falloff,
+      source: "mine",
+      angle: Math.atan2(player.y - y, player.x - x),
+    });
   }
 
   /**
@@ -1591,6 +1634,9 @@ export class GameWorld {
     this.unsubscribers.push(
       bus.subscribe("enemy_killed", (event) => {
         if (event.payload.kind === EnemyKind.Boss) this.bossKills++;
+        if (event.payload.kind === EnemyKind.Mine) {
+          this.detonateMine(event.payload.x, event.payload.y);
+        }
         this.waveFlowSystem.checkWaveClear();
         if (this.waveOrchestrator.waveState === "cleared") {
           this.ports.audio.setCombat(false);

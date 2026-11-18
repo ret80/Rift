@@ -69,6 +69,8 @@ import { RecordingControls } from "./RecordingControls";
 import { SessionRecorder } from "./SessionRecorder";
 import { recordToJsonl, type SessionRecordV1 } from "./SessionRecord";
 import { PresentationFrame } from "./PresentationFrame";
+import { saveSelectedShip } from "../ships/ShipStorage";
+import type { ShipDef, ShipId } from "../ships/ShipCatalog";
 import { SimulationClock } from "./SimulationClock";
 import type { GameStateMachine } from "./StateMachine";
 import type { WorldFrame } from "./WorldFrame";
@@ -573,10 +575,10 @@ export class GameContext {
   }
 
   /**
-   * Открыть ангар между волнами.
+   * Открыть мастерскую между волнами.
    * Мир замирает на паузе: игрок тратит детали и продолжает забег.
    */
-  openHangar(): void {
+  openWorkshop(): void {
     if (!this.fsm.is("playing", "active")) return;
     this.setPaused(true);
     this.hooks.onPause(true);
@@ -608,8 +610,8 @@ export class GameContext {
     this.world.dismissLegacyAward();
   }
 
-  /** Закрыть ангар: забег продолжается со следующей волны. */
-  closeHangar(): void {
+  /** Закрыть мастерскую: забег продолжается со следующей волны. */
+  closeWorkshop(): void {
     this.setPaused(false);
     this.hooks.onPause(false);
     this.audio.setSuspended(false);
@@ -784,6 +786,22 @@ export class GameContext {
     this.world.setParamProfile(profileId);
   }
 
+  /** Текущий корабль: характеристики и силуэт для ангара и рендера. */
+  getSelectedShip(): ShipDef {
+    return this.world.upgradeSystem.ship;
+  }
+
+  /**
+   * Выбрать корабль в ангаре. Выбор постоянный: он сохраняется и сразу
+   * пересчитывает корпус, скорость и слоты, чтобы следующий забег начался
+   * именно на нём.
+   */
+  selectShip(id: ShipId): void {
+    saveSelectedShip(this.storage, id);
+    this.world.upgradeSystem.setShip(id);
+    this.world.applyUpgrades(false);
+  }
+
   startTestLevel(wave: number, enemies: EnemyKind[]): void {
     this.world.startWave = Math.max(1, Math.floor(wave));
     this.world.testMode = true;
@@ -826,22 +844,22 @@ export class GameContext {
   }
 
   /**
-   * Открыть тестовый ангар: правим сохранённый набор покупок вне забега.
+   * Открыть тестовую мастерскую: правим сохранённый набор покупок вне забега.
    *
    * Детали соответствуют оценке реального забега до выбранной волны —
    * так собранный корабль похож на тот, с которым игрок дошёл бы сюда сам.
    */
-  openTestHangar(wave: number): void {
+  openTestWorkshop(wave: number): void {
     const profile = loadTestProfile(this.storage);
     this.world.upgradeSystem.applyProfile(profile ?? {});
     this.world.setDebugUnlocks(true);
-    // Ангар — песочница: покупки идут за детали. Бесконечный режим главнее.
+    // Мастерская — песочница: покупки идут за детали. Бесконечный режим главнее.
     this.world.upgradeSystem.partsWallet.set(estimateRunParts(wave));
     this.world.applyUpgrades(false);
   }
 
-  /** Закрыть тестовый ангар: запоминаем покупки для тестовой волны. */
-  closeTestHangar(): void {
+  /** Закрыть тестовую мастерскую: запоминаем покупки для тестовой волны. */
+  closeTestWorkshop(): void {
     saveTestProfile(this.storage, this.world.upgradeSystem.captureProfile());
     this.world.setDebugUnlocks(false);
   }

@@ -37,6 +37,13 @@ export const C = {
 /* --------------------------- player & limits --------------------------- */
 
 export const PLAYER_RADIUS = DEFAULT_PARAMS.player.radius;
+/**
+ * Длина корпуса игрока от носа до кормы, px.
+ *
+ * Совпадает с полигоном корабля в `presentation/Renderers/PlayerRenderer.ts`
+ * ([[16, 0], [-11, 10], [-6, 0], [-11, -10]]): 16 px вперёд + 11 px назад.
+ */
+export const PLAYER_SHIP_LENGTH = 27;
 /** Базовый запас корпуса без апгрейдов. */
 export const PLAYER_BASE_HP = DEFAULT_PARAMS.player.baseHp;
 /**

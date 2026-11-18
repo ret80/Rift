@@ -10,6 +10,7 @@
 import type { PlayerUpgrades, UpgradeKey, WeaponStatKey } from "../upgrades";
 import type { WeaponId } from "../weapons/Weapon";
 import type { DroneId, DroneStatKey } from "../drones/Drone";
+import type { ShipDef, ShipId } from "../ships/ShipCatalog";
 import type { GameContext } from "./GameContext";
 
 export class GameUpgrades {
@@ -33,6 +34,21 @@ export class GameUpgrades {
   /** Get persistent player upgrades. */
   get(): PlayerUpgrades {
     return this.ctx.upgradeSystem.playerUpgrades;
+  }
+
+  /** Текущий корабль забега: характеристики и силуэт. */
+  getShip(): ShipDef {
+    return this.ctx.upgradeSystem.ship;
+  }
+
+  /** Максимальный уровень линии для текущего корабля. */
+  getUpgradeMaxLevel(key: UpgradeKey): number {
+    return this.ctx.upgradeSystem.maxLevelFor(key);
+  }
+
+  /** Выбрать корабль в ангаре и пересчитать его характеристики. */
+  selectShip(id: ShipId): void {
+    this.ctx.selectShip(id);
   }
 
   /** Купить оружие в арсенале. */

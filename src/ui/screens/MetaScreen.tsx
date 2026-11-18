@@ -182,7 +182,8 @@ export default function MetaScreen(props: {
             title={t("meta.title")}
             aside={
               <div className="text-sm text-[#ffb84d]">
-                {t("meta.credits")}: {infiniteCredits ? "∞" : credits}
+                {t("meta.credits")}:{" "}
+                {infiniteCredits ? <span className="text-base leading-none">∞</span> : credits}
               </div>
             }
           />

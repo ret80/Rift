@@ -171,7 +171,7 @@ export default function HelpScreen(props: {
               <p className="text-[13px] leading-5 text-[#9db4d6]">{t("help.objectiveWaves")}</p>
               <p className="text-[13px] leading-5 text-[#c79bff]">{t("help.objectiveAnchors")}</p>
               <p className="text-[13px] leading-5 text-[#9db4d6]">{t("help.objectiveStorm")}</p>
-              <p className="text-[13px] leading-5 text-[#9db4d6]">{t("help.objectiveHangar")}</p>
+              <p className="text-[13px] leading-5 text-[#9db4d6]">{t("help.objectiveWorkshop")}</p>
             </div>
 
             <Section title={t("help.boostTitle")} />
@@ -214,8 +214,14 @@ export default function HelpScreen(props: {
               ))}
             </div>
 
-            <Section title={t("help.hangarTitle")} />
-            <p className="mb-2 text-[13px] leading-5 text-[#9db4d6]">{t("help.hangarBody")}</p>
+            <Section title={t("help.shipsTitle")} />
+            <div className="space-y-2">
+              <p className="text-[13px] leading-5 text-[#9db4d6]">{t("help.shipsBody")}</p>
+              <p className="text-[13px] leading-5 text-[#5ef2ff]">{t("help.shipsNumbers")}</p>
+            </div>
+
+            <Section title={t("help.workshopTitle")} />
+            <p className="mb-2 text-[13px] leading-5 text-[#9db4d6]">{t("help.workshopBody")}</p>
           </div>
 
           {/* fixed footer — always visible, no scrolling needed to exit */}

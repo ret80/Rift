@@ -4,6 +4,7 @@
 
 export const ru = {
   play: "ИГРАТЬ",
+  hangar: "АНГАР",
   settings: "НАСТРОЙКИ",
   help: "ПОМОЩЬ",
   debug: "ОТЛАДКА",
@@ -12,6 +13,7 @@ export const ru = {
 
 export const en: typeof ru = {
   play: "PLAY",
+  hangar: "HANGAR",
   settings: "SETTINGS",
   help: "HELP",
   debug: "DEBUG",

@@ -11,6 +11,7 @@ import type { MetaBonuses } from "./meta/types";
 import { noMetaBonuses } from "./meta/types";
 import { PLAYER_AIM_BASE_CHANCE } from "./balance/accuracy";
 import { DEFAULT_PARAMS, type PlayerParams } from "./balance/params/GameParams";
+import { SHIP_CATALOG, type ShipDef } from "./ships/ShipCatalog";
 import {
   BASE_WEAPON_MODEL,
   type WeaponId,
@@ -180,14 +181,15 @@ export function defaultUpgrades(): PlayerUpgrades {
 /* ======================== Slot caps ======================== */
 
 /**
- * Максимум слотов оружия на корабле.
+ * Максимум слотов оружия базового корабля.
  *
- * Арсенал шире (7 орудий), но корабль несёт не больше 5 стволов: выбор
- * сборки важнее, чем «поставить всё сразу».
+ * Арсенал шире (7 орудий), но «Авангард» несёт не больше 5 стволов:
+ * выбор сборки важнее, чем «поставить всё сразу». Фрегат расширяет
+ * потолок до 6 — свои пределы живут в `ships/ShipCatalog`.
  */
 export const MAX_WEAPON_SLOTS = 5;
 
-/** Максимум слотов под дроны на корабле. */
+/** Максимум слотов под дроны базового корабля (фрегат — 5). */
 export const MAX_DRONE_SLOTS = 4;
 
 /* ======================== Tier definitions ======================== */
@@ -288,9 +290,9 @@ export interface AppliedUpgrades {
   healRateMult: number;
   /** Множитель скорости: 1.0 база + 0.05 за уровень. */
   speedMult: number;
-  /** Число слотов оружия корабля: 1 база + уровень, макс MAX_WEAPON_SLOTS. */
+  /** Число слотов оружия: стартовые слоты корабля + уровень, не выше потолка. */
   weaponSlots: number;
-  /** Число слотов под дроны корабля: 1 база + уровень, макс MAX_DRONE_SLOTS. */
+  /** Число слотов под дроны: стартовые слоты корабля + уровень, не выше потолка. */
   droneSlots: number;
   /** Щит куплен — без него блокировка урона и HUD-полоса не работают. */
   shieldOwned: boolean;
@@ -307,15 +309,17 @@ export interface AppliedUpgrades {
 /**
  * Пересчитать боевые значения из прокачки забега и бонусов меты.
  * Мета применяется поверх забега, поэтому один и тот же забег на разных
- * уровнях Эха Разлома ощущается по-разному.
+ * уровнях Эха Разлома ощущается по-разному. Постоянные характеристики
+ * корабля — ещё один слой: они сдвигают корпус, скорость и потолок слотов.
  */
 export function applyUpgrades(
   upgrades: PlayerUpgrades,
   meta: MetaBonuses = noMetaBonuses(),
   player: PlayerParams = DEFAULT_PARAMS.player,
+  ship: ShipDef = SHIP_CATALOG.vanguard,
 ): AppliedUpgrades {
-  // hp: базовый запас + 20 за уровень корпуса, затем множитель меты
-  const baseHp = Math.round((player.baseHp + upgrades.hull * 20) * meta.hpMult);
+  // hp: базовый запас + 20 за уровень корпуса, затем множители меты и корабля
+  const baseHp = Math.round((player.baseHp + upgrades.hull * 20) * meta.hpMult * ship.hullMult);
 
   // fire rate: 1.0 base + 0.08 per level
   const fireRateMult = (1.0 + upgrades.fireRate * 0.08) * meta.fireRateMult;
@@ -329,14 +333,20 @@ export function applyUpgrades(
   // heal bonus rate: 1.0 base + 0.2 per level
   const healRateMult = 1.0 + upgrades.healRate * 0.2;
 
-  // speed: 1.0 base + 0.05 per level
-  const speedMult = (1.0 + upgrades.speed * 0.05) * meta.speedMult;
+  // speed: 1.0 base + 0.05 per level, затем множители меты и корабля
+  const speedMult = (1.0 + upgrades.speed * 0.05) * meta.speedMult * ship.speedMult;
 
-  // weapon slots: base 1 + level + мета, но не больше MAX_WEAPON_SLOTS
-  const weaponSlots = Math.min(1 + upgrades.guns + meta.weaponSlots, MAX_WEAPON_SLOTS);
+  // weapon slots: стартовые слоты корабля + уровень + мета, не выше потолка
+  const weaponSlots = Math.min(
+    ship.weaponSlotsBase + upgrades.guns + meta.weaponSlots,
+    ship.weaponSlotsMax,
+  );
 
-  // drone slots: base 1 + level + мета, capped at MAX_DRONE_SLOTS
-  const droneSlots = Math.min(1 + upgrades.drones + meta.droneSlots, MAX_DRONE_SLOTS);
+  // drone slots: стартовые слоты корабля + уровень + мета, не выше потолка
+  const droneSlots = Math.min(
+    ship.droneSlotsBase + upgrades.drones + meta.droneSlots,
+    ship.droneSlotsMax,
+  );
 
   // Щит: покупается один раз, после покупки работают под-линии.
   const shieldOwned = Math.max(0, upgrades.shield) > 0;

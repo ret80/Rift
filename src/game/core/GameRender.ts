@@ -28,6 +28,7 @@ export class GameRender {
       wave: ctx.waveOrchestrator.wave,
       score: ctx.scoringSystem.score,
       player: world.player,
+      ship: ctx.upgradeSystem.shipId,
       aim: ctx.weaponManager.getAimAngle(),
       guns: ctx.weaponManager.getInstanceCount("cannon"),
       shield: ctx.shieldSystem.getSnapshot(),

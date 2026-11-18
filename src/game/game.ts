@@ -18,6 +18,7 @@ import type { PhysicsEngineId } from "./physics";
 import type { WaveCompositionOverride } from "./balance/waves";
 import type { ParamProfileId } from "./balance/params/profiles";
 import type { DroneOrder } from "./ecs/components/AllyDroneComponent";
+import type { ShipDef, ShipId } from "./ships/ShipCatalog";
 import type { DoctrineOffer } from "./meta/doctrines";
 import type { LegacyAward } from "./meta/legacy";
 
@@ -147,14 +148,14 @@ export class Game {
     this.ctx.setCreditsInfinite(on);
   }
 
-  /** Открыть ангар тестового профиля из меню отладки на выбранной волне. */
-  openTestHangar(wave: number): void {
-    this.ctx.openTestHangar(wave);
+  /** Открыть мастерскую тестового профиля из меню отладки на выбранной волне. */
+  openTestWorkshop(wave: number): void {
+    this.ctx.openTestWorkshop(wave);
   }
 
-  /** Закрыть ангар тестового профиля: покупки запоминаются. */
-  closeTestHangar(): void {
-    this.ctx.closeTestHangar();
+  /** Закрыть мастерскую тестового профиля: покупки запоминаются. */
+  closeTestWorkshop(): void {
+    this.ctx.closeTestWorkshop();
   }
 
   /** Сбросить тестовый профиль к базовому кораблю. */
@@ -190,6 +191,21 @@ export class Game {
   /** Персистентный арсенал игрока. */
   getWeaponLoadout() {
     return this.ctx.upgrades.getLoadout();
+  }
+
+  /** Текущий корабль забега (характеристики и силуэт). */
+  getSelectedShip(): ShipDef {
+    return this.ctx.getSelectedShip();
+  }
+
+  /** Выбрать корабль в ангаре: выбор сохраняется и применяется сразу. */
+  selectShip(id: ShipId): void {
+    this.ctx.selectShip(id);
+  }
+
+  /** Максимальный уровень линии прокачки для текущего корабля. */
+  getUpgradeMaxLevel(key: UpgradeKey): number {
+    return this.ctx.upgrades.getUpgradeMaxLevel(key);
   }
 
   /** Число слотов оружия у текущего корабля. */
@@ -251,14 +267,14 @@ export class Game {
     this.ctx.dismissLegacyAward();
   }
 
-  /** Открыть ангар между волнами (мир замирает). */
-  openHangar(): void {
-    this.ctx.openHangar();
+  /** Открыть мастерскую между волнами (мир замирает). */
+  openWorkshop(): void {
+    this.ctx.openWorkshop();
   }
 
-  /** Закрыть ангар и продолжить забег со следующей волны. */
-  closeHangar(): void {
-    this.ctx.closeHangar();
+  /** Закрыть мастерскую и продолжить забег со следующей волны. */
+  closeWorkshop(): void {
+    this.ctx.closeWorkshop();
   }
 
   toMenu(): void {

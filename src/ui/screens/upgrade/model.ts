@@ -40,6 +40,7 @@ import {
   type DroneLoadout,
   type DroneStatKey,
 } from "../../../game/drones/Drone";
+import { shipUpgradeMaxLevel, type ShipDef } from "../../../game/ships/ShipCatalog";
 import type { TKey } from "../../../i18n";
 import { t } from "../../../i18n";
 import type { CSSProperties } from "react";
@@ -133,13 +134,15 @@ export function getUpgradeValue(
   }
 }
 
+/** Максимальный уровень линии для конкретного корабля. */
+export function upgradeMaxLevel(key: UpgradeKey, ship: ShipDef): number {
+  if (key === "guns" || key === "drones") return shipUpgradeMaxLevel(key, ship);
+  return UPGRADE_TIERS[key].maxLevel;
+}
+
 /** Текст эффекта «текущее / максимум» для строки корабля. */
-export function getEffectText(
-  key: UpgradeKey,
-  level: number,
-  tier: { baseCost: number; costStep: number; maxLevel: number },
-): string {
-  return `${getUpgradeValue(key, level)} / ${getUpgradeValue(key, tier.maxLevel)}`;
+export function getEffectText(key: UpgradeKey, level: number, maxLevel: number): string {
+  return `${getUpgradeValue(key, level)} / ${getUpgradeValue(key, maxLevel)}`;
 }
 
 /** Текущее значение линии оружия в процентах. */

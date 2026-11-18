@@ -1,5 +1,5 @@
 /**
- * Экран помощи: управление, задача волны, форсаж, враги, бонусы, ангар.
+ * Экран помощи: управление, задача волны, форсаж, враги, бонусы, мастерская.
  *
  * Тексты описывают текущую реализацию, а не план: при изменении механик
  * (форсаж, якоря, ангар) правки обязаны попадать и сюда.
@@ -26,9 +26,9 @@ export const ru = {
   objectiveStorm:
     "С 3-й волны кромка зоны бьёт бурей: после короткого телеграфа вспыхивают одна-три зоны " +
     "секторов. Щит гасит урон бури.",
-  objectiveHangar:
-    "Во время отсчёта перед волной внизу появляется кнопка «АНГАР»: только она открывает прокачку " +
-    "между волнами. Корпус восстанавливается сам за время отсчёта.",
+  objectiveWorkshop:
+    "Во время отсчёта перед волной внизу появляется кнопка «МАСТЕРСКАЯ»: только она открывает " +
+    "прокачку между волнами. Корпус восстанавливается сам за время отсчёта.",
   boostTitle: "ФОРСАЖ",
   boostBody:
     "Кнопка серая и не работает, пока не набран заряд. Каждое убийство врага добавляет энергию — " +
@@ -50,7 +50,7 @@ export const ru = {
     "хватает на три секунды. Разряженный щит уходит в перезагрузку на 3 секунды.",
   dronesTitle: "ДРОНЫ",
   dronesBody:
-    "Дроны-помощники покупаются в ангаре и занимают слоты «ДРОНЫ». Пока у корабля есть хотя бы один " +
+    "Дроны-помощники покупаются в мастерской и занимают слоты «ДРОНЫ». Пока у корабля есть хотя бы один " +
     "дрон, справа в бою видны три кнопки приказа: ЭСКОРТ — держаться у корабля, ШТУРМ — сами идут " +
     "к ближайшим врагам, ФОКУС — бьют цель под прицелом. Приказ меняется и в тактическом режиме (T).",
   enemies: "ЦЕЛИ",
@@ -79,12 +79,21 @@ export const ru = {
   weapon: "оружие — ракеты, лазер или другое орудие сразу в арсенал",
   swap: "подмена — способность телепорта к ближайшему врагу со взрывом",
   asteroid: "астероиды — расстреливай скалы: крупные раскалываются на мелкие",
-  hangarTitle: "АНГАР",
-  hangarBody:
-    "Ангар тратит детали и живёт между волнами. Вкладки: «КОРАБЛЬ» — корпус, скорость, слоты орудий " +
-    "и дронов; «АРСЕНАЛ» — покупка оружия и линии перезарядки, урона, точности; «ДРОНЫ» — роли " +
-    "помощников и их пушки; «БОНУСЫ» — щит, темп огня, лечение. «ПРОДОЛЖИТЬ ЗАБЕГ» закрывает ангар " +
-    "и запускает отсчёт следующей волны.",
+  shipsTitle: "КОРАБЛИ И АНГАР",
+  shipsBody:
+    "Перед забегом открой «АНГАР» в главном меню и выбери корабль. Выбор сохраняется " +
+    "до следующей смены и ничего не стоит; внутри забега корабль не меняется.",
+  shipsNumbers:
+    "«АВАНГАРД» — 120 корпуса, 480 px/с, до 5 слотов оружия и 4 дронов. " +
+    "«ФРЕГАТ» — 96 корпуса (−20 %), 408 px/с (−15 %), зато до 6 слотов оружия и 5 дронов, " +
+    "а лазер уже куплен на старте. Потолок слотов — свойство корабля: линия «Орудия» " +
+    "даёт 4 уровня у «Авангарда» и 5 у «Фрегата».",
+  workshopTitle: "МАСТЕРСКАЯ",
+  workshopBody:
+    "Мастерская тратит детали и живёт между волнами. Вкладки: «КОРАБЛЬ» — корпус, скорость, слоты " +
+    "орудий и дронов; «АРСЕНАЛ» — покупка оружия и линии перезарядки, урона, точности; «ДРОНЫ» — " +
+    "роли помощников и их пушки; «БОНУСЫ» — щит, темп огня, лечение. «ПРОДОЛЖИТЬ ЗАБЕГ» закрывает " +
+    "мастерскую и запускает отсчёт следующей волны.",
   back: "НАЗАД",
 };
 
@@ -109,8 +118,8 @@ export const en: typeof ru = {
   objectiveStorm:
     "From wave 3 the zone rim carries a storm: after a short telegraph one to three zones of " +
     "sectors flare up. The shield absorbs storm damage.",
-  objectiveHangar:
-    "During the countdown before a wave a HANGAR button appears at the bottom: only it opens " +
+  objectiveWorkshop:
+    "During the countdown before a wave a WORKSHOP button appears at the bottom: only it opens " +
     "upgrades between waves. The hull restores itself during the countdown.",
   boostTitle: "BOOST",
   boostBody:
@@ -133,7 +142,7 @@ export const en: typeof ru = {
     "lasts three seconds. A fully drained shield overloads for 3 seconds.",
   dronesTitle: "DRONES",
   dronesBody:
-    "Ally drones are bought in the hangar and take DRONE slots. While the ship has at least one drone, " +
+    "Ally drones are bought in the workshop and take DRONE slots. While the ship has at least one drone, " +
     "three order buttons appear on the right in combat: ESCORT — stay near the ship, ASSAULT — push to " +
     "the nearest enemies, FOCUS — hit the target under your aim. Orders can also change in tactical " +
     "mode (T).",
@@ -163,10 +172,19 @@ export const en: typeof ru = {
   weapon: "weapon — missiles, a laser or another gun straight into the armory",
   swap: "swap — an ability that teleports you to the nearest enemy with a blast",
   asteroid: "asteroids — shoot the rocks: large ones split into smaller",
-  hangarTitle: "HANGAR",
-  hangarBody:
-    "The hangar spends parts and lives between waves. Tabs: SHIP — hull, speed, gun and drone slots; " +
+  shipsTitle: "SHIPS AND HANGAR",
+  shipsBody:
+    "Before a run open HANGAR in the main menu and pick a ship. The choice is saved until " +
+    "you change it and costs nothing; it cannot change during a run.",
+  shipsNumbers:
+    "VANGUARD — 120 hull, 480 px/s, up to 5 weapon slots and 4 drones. " +
+    "FRIGATE — 96 hull (−20%), 408 px/s (−15%), but up to 6 weapon slots and 5 drones, " +
+    "and a laser is already bought at the start. Slot caps belong to the ship: the GUNS line " +
+    "has 4 levels on the Vanguard and 5 on the Frigate.",
+  workshopTitle: "WORKSHOP",
+  workshopBody:
+    "The workshop spends parts and lives between waves. Tabs: SHIP — hull, speed, gun and drone slots; " +
     "ARMORY — weapon purchases and reload, damage, accuracy lines; DRONES — ally roles and their guns; " +
-    "BONUSES — shield, fire rate, repair. CONTINUE RUN closes the hangar and starts the next countdown.",
+    "BONUSES — shield, fire rate, repair. CONTINUE RUN closes the workshop and starts the next countdown.",
   back: "BACK",
 };

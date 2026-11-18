@@ -77,7 +77,7 @@ export default function App() {
       },
       onPause: (p) => dispatch({ type: "SET_PAUSED", paused: p }),
       onTactical: (active) => dispatch({ type: "SET_TACTICAL", tactical: active }),
-      // Награды за волну начисляет мир; ангар открывается по кнопке во время отсчёта.
+      // Награды за волну начисляет мир; мастерская открывается по кнопке во время отсчёта.
       onWaveCleared: () => {},
       onDoctrineOffer: (offer) => dispatch({ type: "SET_DOCTRINE_OFFER", offer }),
       onLegacyAward: (award) => dispatch({ type: "SET_LEGACY_AWARD", award }),
@@ -136,14 +136,17 @@ export default function App() {
       case "settings":
       case "help":
       case "debug":
-      case "debugHangar":
-      case "hangar":
+      case "debugWorkshop":
+      case "workshop":
+      case "ships":
         if (screen === "settings") {
           act.closeSettings();
-        } else if (screen === "hangar") {
-          act.closeHangar();
-        } else if (screen === "debugHangar") {
-          act.closeTestHangar();
+        } else if (screen === "workshop") {
+          act.closeWorkshop();
+        } else if (screen === "debugWorkshop") {
+          act.closeTestWorkshop();
+        } else if (screen === "ships") {
+          act.closeShipHangar();
         } else {
           act.openMenu();
         }
@@ -177,14 +180,17 @@ export default function App() {
       case "settings":
       case "help":
       case "debug":
-      case "debugHangar":
-      case "hangar":
+      case "debugWorkshop":
+      case "workshop":
+      case "ships":
         if (screen === "settings") {
           act.closeSettings();
-        } else if (screen === "hangar") {
-          act.closeHangar();
-        } else if (screen === "debugHangar") {
-          act.closeTestHangar();
+        } else if (screen === "workshop") {
+          act.closeWorkshop();
+        } else if (screen === "debugWorkshop") {
+          act.closeTestWorkshop();
+        } else if (screen === "ships") {
+          act.closeShipHangar();
         } else {
           act.openMenu();
         }
@@ -258,7 +264,7 @@ export default function App() {
         onMenu={actions.toMenu}
         onRetry={actions.startGame}
         onMeta={() => actions.openMeta()}
-        onOpenHangar={actions.openHangar}
+        onOpenWorkshop={actions.openWorkshop}
         onVector={(active, x, y) => gameRef.current?.setTouch(active, x, y)}
         onPause={() => gameRef.current?.togglePause()}
         onBoost={() => gameRef.current?.requestBoost()}

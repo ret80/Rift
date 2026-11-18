@@ -44,8 +44,8 @@ export interface GameOverlaysProps {
   onMenu: () => void;
   onRetry: () => void;
   onMeta: () => void;
-  /** Открыть ангар во время отсчёта между волнами. */
-  onOpenHangar?: () => void;
+  /** Открыть мастерскую во время отсчёта между волнами. */
+  onOpenWorkshop?: () => void;
   onVector: (active: boolean, x: number, y: number) => void;
   onPause: () => void;
   /** Форсаж с тач-кнопки. */
@@ -95,21 +95,21 @@ export function GameOverlays(props: GameOverlaysProps) {
               {countdown.value}
             </div>
           </div>
-          {props.onOpenHangar && (
+          {props.onOpenWorkshop && (
             <div
               className="pointer-events-auto absolute bottom-10 left-1/2 -translate-x-1/2 sm:bottom-12"
               style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
             >
               <button
                 type="button"
-                onClick={props.onOpenHangar}
+                onClick={props.onOpenWorkshop}
                 className={
                   "border border-[#5ef2ff]/50 bg-[#071019]/80 px-6 py-2 font-display " +
                   "text-xs tracking-[0.28em] text-[#eaffff] shadow-[0_0_18px_rgba(94,242,255,0.18)] " +
                   "transition hover:border-[#5ef2ff] hover:bg-[#0b1a28]/90 sm:text-sm"
                 }
               >
-                {t("upgrade.hangarTitle")}
+                {t("upgrade.workshopTitle")}
               </button>
             </div>
           )}

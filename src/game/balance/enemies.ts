@@ -9,6 +9,7 @@ import {
     FIGHTER_BASE_SPEED,
     HUNTER_SPEED,
     MINER_BASE_SPEED,
+    PLAYER_SHIP_LENGTH,
     SPLITTER_BASE_SPEED,
 } from "./player";
 import { EnemyKind } from "./enemyKinds";
@@ -248,6 +249,19 @@ export const MINER_RETREAT_TIME = 3;
 export const MINE_LIFETIME = 18;
 /** Предел одновременных мин в мире: защита от заполнения арены. */
 export const MINE_MAX_ALIVE = 6;
+/**
+ * Радиус поражения взрыва мины: две длины корпуса игрока (54 px).
+ *
+ * Мина — точечная угроза, а не «пол-арены»: такой радиус всё ещё можно
+ * перепрыгнуть манёвром, но стоять рядом с миной уже невыгодно.
+ */
+export const MINE_BLAST_RADIUS = PLAYER_SHIP_LENGTH * 2;
+/** Урон в эпицентре взрыва, доля максимального корпуса игрока. */
+export const MINE_BLAST_DAMAGE_FRACTION = 0.3;
+/** Время жизни кольца взрыва, секунды. */
+export const MINE_BLAST_RING_LIFE = 0.45;
+/** Скорость расширения кольца: за время жизни добирается до радиуса взрыва. */
+export const MINE_BLAST_RING_SPEED = MINE_BLAST_RADIUS / MINE_BLAST_RING_LIFE;
 
 /* ------------------------------ tractor ------------------------------ */
 

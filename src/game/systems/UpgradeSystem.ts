@@ -33,12 +33,21 @@ import { defaultDroneLoadout } from "../drones/DroneSystem";
 import { DRONE_STAT_MAX_LEVEL, droneCost, droneUpgradeCost } from "../drones/Drone";
 import { Wallet } from "../economy/Wallet";
 import { copyDroneLoadout, copyWeaponLoadout } from "../loadout/snapshots";
+import {
+  SHIP_CATALOG,
+  grantStartingWeapons,
+  shipUpgradeMaxLevel,
+  type ShipDef,
+  type ShipId,
+} from "../ships/ShipCatalog";
 
 /** Начальное состояние забега: используется симуляцией и реплеем. */
 export interface RunSeed {
   upgrades?: Partial<PlayerUpgrades>;
   weaponLoadout?: WeaponLoadout;
   droneLoadout?: DroneLoadout;
+  /** Выбранный корабль; без него остаётся текущий. */
+  shipId?: ShipId;
 }
 import type { MetaBonuses } from "../meta/types";
 import { noMetaBonuses } from "../meta/types";
@@ -48,7 +57,7 @@ export class UpgradeSystem {
   private _playerUpgrades: PlayerUpgrades = defaultUpgrades();
   private _loadout: WeaponLoadout = defaultWeaponLoadout();
   private readonly _droneSystem = new DroneSystem();
-  private _appliedUpgrades: AppliedUpgrades;
+  private _appliedUpgrades!: AppliedUpgrades;
   /** Бонусы мета-талантов, применяемые поверх прокачки забега. */
   private _metaBonuses: MetaBonuses = noMetaBonuses();
   /**
@@ -59,11 +68,23 @@ export class UpgradeSystem {
   private _unlockedDrones: ReadonlySet<string> | null = null;
   /** Параметры корабля: базовый корпус задаётся профилем мира. */
   private _playerParams: PlayerParams = DEFAULT_PARAMS.player;
+  /** Корабль забега: постоянные характеристики и стартовый арсенал. */
+  private _ship: ShipDef = SHIP_CATALOG.vanguard;
   /** Детали забега: покупки идут только через кошелёк. */
   private readonly _parts = new Wallet();
 
   private constructor() {
-    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses, this._playerParams);
+    this.recompute();
+  }
+
+  /** Пересчитать боевые значения из прокачки, меты, профиля и корабля. */
+  private recompute(): void {
+    this._appliedUpgrades = applyUpgradesRaw(
+      this._playerUpgrades,
+      this._metaBonuses,
+      this._playerParams,
+      this._ship,
+    );
   }
 
   static create(): UpgradeSystem {
@@ -77,11 +98,12 @@ export class UpgradeSystem {
    * `seed` задаёт стартовое состояние (сценарии симуляции и реплей).
    */
   resetRun(seed?: RunSeed): void {
+    if (seed?.shipId) this._ship = SHIP_CATALOG[seed.shipId];
     this._playerUpgrades = { ...defaultUpgrades(), ...(seed?.upgrades ?? {}) };
-    this._loadout = seed?.weaponLoadout ?? defaultWeaponLoadout();
+    this._loadout = this.applyStartingWeapons(seed?.weaponLoadout);
     this._droneSystem.setLoadout(seed?.droneLoadout ?? defaultDroneLoadout());
     this._parts.set(0);
-    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses, this._playerParams);
+    this.recompute();
   }
 
   /**
@@ -89,14 +111,13 @@ export class UpgradeSystem {
    * Кошелёк не трогается: тестовая волна отдельно выдаёт запас деталей.
    */
   applyProfile(seed: RunSeed): void {
+    if (seed.shipId) this._ship = SHIP_CATALOG[seed.shipId];
     this._playerUpgrades = { ...defaultUpgrades(), ...(seed.upgrades ?? {}) };
-    this._loadout = seed.weaponLoadout
-      ? copyWeaponLoadout(seed.weaponLoadout)
-      : defaultWeaponLoadout();
+    this._loadout = this.applyStartingWeapons(seed.weaponLoadout);
     this._droneSystem.setLoadout(
       seed.droneLoadout ? copyDroneLoadout(seed.droneLoadout) : defaultDroneLoadout(),
     );
-    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses, this._playerParams);
+    this.recompute();
   }
 
   /** Снимок текущих покупок для тестового профиля (без деталей). */
@@ -105,7 +126,17 @@ export class UpgradeSystem {
       upgrades: { ...this._playerUpgrades },
       weaponLoadout: copyWeaponLoadout(this._loadout),
       droneLoadout: copyDroneLoadout(this._droneSystem.loadout),
+      shipId: this._ship.id,
     };
+  }
+
+  /**
+   * Арсенал на старте забега: копия seed'а (или базовый набор) плюс
+   * стартовое оружие корабля.
+   */
+  private applyStartingWeapons(seed?: WeaponLoadout): WeaponLoadout {
+    const loadout = seed ? copyWeaponLoadout(seed) : defaultWeaponLoadout();
+    return grantStartingWeapons(loadout, this._ship);
   }
 
   /** Задать открытые достижениями виды оружия; null — все доступны. */
@@ -131,17 +162,42 @@ export class UpgradeSystem {
   /** Задать параметры корабля из профиля мира. */
   setPlayerParams(params: PlayerParams): void {
     this._playerParams = params;
-    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses, this._playerParams);
+    this.recompute();
   }
 
   /** Применить бонусы Эха Разлома к текущему забегу. */
   setMetaBonuses(bonuses: MetaBonuses): void {
     this._metaBonuses = bonuses;
-    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses, this._playerParams);
+    this.recompute();
+  }
+
+  /**
+   * Выбрать корабль. Стартовое оружие выдаётся сразу, потолок слотов
+   * пересчитывается: смена корабля не должна оставлять чужие лимиты.
+   */
+  setShip(id: ShipId): void {
+    this._ship = SHIP_CATALOG[id];
+    grantStartingWeapons(this._loadout, this._ship);
+    this.recompute();
   }
 
   get playerUpgrades(): PlayerUpgrades {
     return this._playerUpgrades;
+  }
+
+  /** Текущий корабль забега. */
+  get ship(): ShipDef {
+    return this._ship;
+  }
+
+  get shipId(): ShipId {
+    return this._ship.id;
+  }
+
+  /** Максимальный уровень линии для текущего корабля (слоты упираются в его потолок). */
+  maxLevelFor(key: UpgradeKey): number {
+    if (key === "guns" || key === "drones") return shipUpgradeMaxLevel(key, this._ship);
+    return UPGRADE_TIERS[key].maxLevel;
   }
 
   /** Арсенал забега: купленные виды оружия и их модели. */
@@ -201,7 +257,7 @@ export class UpgradeSystem {
 
   /** Пересчитать применённые значения (после покупки). */
   refresh(): void {
-    this._appliedUpgrades = applyUpgradesRaw(this._playerUpgrades, this._metaBonuses, this._playerParams);
+    this.recompute();
   }
 
   /* ======================== Purchase ======================== */
@@ -217,7 +273,7 @@ export class UpgradeSystem {
   /** Купить уровень линии корабля/бонуса за детали. */
   purchaseUpgrade(key: UpgradeKey): boolean {
     const level = this._playerUpgrades[key];
-    if (level >= UPGRADE_TIERS[key].maxLevel) return false;
+    if (level >= this.maxLevelFor(key)) return false;
     if (!this._parts.spend(upgradeCost(key, level))) return false;
     (this._playerUpgrades[key] as number) = level + 1;
     this.refresh();

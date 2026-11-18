@@ -73,7 +73,7 @@ export class RendererSystem {
     const {
       renderer: R,
       state, time,
-      player, aim, guns, shield,
+      player, ship, aim, guns, shield,
       enemies, bullets, enemyBullets: ebullets, pickups, allyDrones: drones, beams,
       zone: zoneState, storm, camera, view, lockedTargetId,
     } = scene;
@@ -84,7 +84,7 @@ export class RendererSystem {
           player.position.x, player.position.y, player.marker.angle,
           player.life.remaining, player.life.max, player.marker.invuln,
           player.marker.thrusting, player.velocity.vx, player.velocity.vy,
-          aim, guns, shield
+          aim, guns, shield, ship
         )
       : null;
 

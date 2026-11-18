@@ -17,6 +17,8 @@ export const STORAGE_KEYS = {
   threatLevel: "rift9_threat_level",
   /** Набор модификаторов Асценсии (JSON-массив id). */
   ascension: "rift9_ascension",
+  /** Выбранный корабль игрока (id из ShipCatalog). */
+  ship: "rift9_ship",
   lang: "rift9_lang",
   volumes: "rift9_volumes",
   menuTrack: "rift9_menu_track",

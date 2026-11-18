@@ -12,6 +12,7 @@ import type { GameActions } from "../hooks/useGameActions";
 import type { PersistentSettings } from "../hooks/usePersistentSettings";
 import type { DebugTab, Screen } from "./appState";
 import DebugScreen from "./screens/DebugScreen";
+import HangarScreen from "./screens/HangarScreen";
 import HelpScreen from "./screens/HelpScreen";
 import MainMenu from "./screens/MainMenu";
 import MetaScreen from "./screens/MetaScreen";
@@ -74,6 +75,7 @@ export function ScreenRouter(props: ScreenRouterProps) {
         <MainMenu
           best={best}
           onPlay={actions.startGame}
+          onHangar={actions.openShipHangar}
           onSettings={() => actions.openSettings("menu")}
           onHelp={actions.openHelp}
           onDebug={actions.openDebug}
@@ -132,7 +134,7 @@ export function ScreenRouter(props: ScreenRouterProps) {
           onChangeWave={actions.changeDebugWave}
           onToggleInfiniteParts={actions.toggleDebugInfiniteParts}
           onToggleInfiniteCredits={actions.toggleDebugInfiniteCredits}
-          onOpenTestHangar={actions.openTestHangar}
+          onOpenTestWorkshop={actions.openTestWorkshop}
           onResetTestProfile={actions.resetTestProfile}
           onTestLevel={actions.startTestLevel}
           recordingArmed={gameRef.current?.getTestRecordingState().armed ?? false}
@@ -144,25 +146,35 @@ export function ScreenRouter(props: ScreenRouterProps) {
         />
       );
 
-    case "debugHangar":
+    case "debugWorkshop":
       return (
         <UpgradeScreen
           game={gameRef.current}
-          onBack={actions.closeTestHangar}
+          onBack={actions.closeTestWorkshop}
           isGamepad={isGamepad}
           gamepadNavRef={gamepadNavRef}
-          variant="hangar"
+          variant="workshop"
         />
       );
 
-    case "hangar":
+    case "workshop":
       return (
         <UpgradeScreen
           game={gameRef.current}
-          onBack={actions.closeHangar}
+          onBack={actions.closeWorkshop}
           isGamepad={isGamepad}
           gamepadNavRef={gamepadNavRef}
-          variant="hangar"
+          variant="workshop"
+        />
+      );
+
+    case "ships":
+      return (
+        <HangarScreen
+          game={gameRef.current}
+          onBack={actions.closeShipHangar}
+          isGamepad={isGamepad}
+          gamepadNavRef={gamepadNavRef}
         />
       );
 

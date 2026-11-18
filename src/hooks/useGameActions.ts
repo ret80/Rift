@@ -50,14 +50,18 @@ export interface GameActions {
   openDebug(): void;
   openSettings(from: "menu" | "pause"): void;
   closeSettings(): void;
-  /** Открыть ангар между волнами (игрок сейчас в забеге). */
-  openHangar(): void;
-  /** Закрыть ангар и продолжить забег. */
-  closeHangar(): void;
-  /** Открыть ангар тестового профиля из меню отладки. */
-  openTestHangar(): void;
-  /** Закрыть тестовый ангар: покупки станут стартовым набором теста. */
-  closeTestHangar(): void;
+  /** Открыть ангар выбора корабля из главного меню. */
+  openShipHangar(): void;
+  /** Закрыть ангар выбора корабля. */
+  closeShipHangar(): void;
+  /** Открыть мастерскую между волнами (игрок сейчас в забеге). */
+  openWorkshop(): void;
+  /** Закрыть мастерскую и продолжить забег. */
+  closeWorkshop(): void;
+  /** Открыть мастерскую тестового профиля из меню отладки. */
+  openTestWorkshop(): void;
+  /** Закрыть тестовую мастерскую: покупки станут стартовым набором теста. */
+  closeTestWorkshop(): void;
   /** Сбросить тестовый профиль к базовому кораблю. */
   resetTestProfile(): void;
   openMeta(): void;
@@ -91,25 +95,33 @@ export function useGameActions(options: GameActionsOptions): GameActions {
     screen: settingsFromRef.current === "pause" ? "game" : "menu",
   });
 
-  const openHangar = useCallback(() => {
-    gameRef.current?.openHangar();
-    dispatch({ type: "SET_SCREEN", screen: "hangar" });
+  const openShipHangar = useCallback(() => {
+    dispatch({ type: "SET_SCREEN", screen: "ships" });
+  }, [dispatch]);
+
+  const closeShipHangar = useCallback(() => {
+    dispatch({ type: "SET_SCREEN", screen: "menu" });
+  }, [dispatch]);
+
+  const openWorkshop = useCallback(() => {
+    gameRef.current?.openWorkshop();
+    dispatch({ type: "SET_SCREEN", screen: "workshop" });
   }, [gameRef, dispatch]);
 
-  const closeHangar = useCallback(() => {
-    gameRef.current?.closeHangar();
+  const closeWorkshop = useCallback(() => {
+    gameRef.current?.closeWorkshop();
     dispatch({ type: "SET_SCREEN", screen: "game" });
   }, [gameRef, dispatch]);
 
-  const openTestHangar = useCallback(() => {
-    // Детали в ангаре — оценка реального забега до выбранной волны.
-    gameRef.current?.openTestHangar(settings.debugWave);
-    dispatch({ type: "SET_SCREEN", screen: "debugHangar" });
+  const openTestWorkshop = useCallback(() => {
+    // Детали в мастерской — оценка реального забега до выбранной волны.
+    gameRef.current?.openTestWorkshop(settings.debugWave);
+    dispatch({ type: "SET_SCREEN", screen: "debugWorkshop" });
   }, [gameRef, dispatch, settings.debugWave]);
 
-  const closeTestHangar = useCallback(() => {
-    gameRef.current?.closeTestHangar();
-    // После ангара игрок продолжает настройку теста — показываем «ТЕСТ».
+  const closeTestWorkshop = useCallback(() => {
+    gameRef.current?.closeTestWorkshop();
+    // После мастерской игрок продолжает настройку теста — показываем «ТЕСТ».
     dispatch({ type: "SET_DEBUG_TAB", tab: "test" });
     dispatch({ type: "SET_SCREEN", screen: "debug" });
   }, [gameRef, dispatch]);
@@ -187,7 +199,8 @@ export function useGameActions(options: GameActionsOptions): GameActions {
   useEffect(() => {
     const isMenuWithBack =
       screen === "settings" || screen === "help" || screen === "debug" ||
-      screen === "debugHangar" || screen === "meta" || screen === "hangar";
+      screen === "debugWorkshop" || screen === "meta" || screen === "workshop" ||
+      screen === "ships";
     if (!isMenuWithBack) return;
 
     const handler = (e: KeyboardEvent) => {
@@ -198,19 +211,19 @@ export function useGameActions(options: GameActionsOptions): GameActions {
           type: "SET_SCREEN",
           screen: settingsFromRef.current === "pause" ? "game" : "menu",
         });
-      } else if (screen === "hangar") {
-        // Esc в ангаре = «продолжить»: забег не прерывается.
-        closeHangar();
-      } else if (screen === "debugHangar") {
-        // Esc закрывает тестовый ангар так же, как кнопка: покупки сохраняются.
-        closeTestHangar();
+      } else if (screen === "workshop") {
+        // Esc в мастерской = «продолжить»: забег не прерывается.
+        closeWorkshop();
+      } else if (screen === "debugWorkshop") {
+        // Esc закрывает тестовую мастерскую так же, как кнопка: покупки сохраняются.
+        closeTestWorkshop();
       } else {
         dispatch({ type: "SET_SCREEN", screen: "menu" });
       }
     };
     window.addEventListener("keydown", handler, { capture: true });
     return () => window.removeEventListener("keydown", handler, { capture: true });
-  }, [screen, dispatch, closeHangar, closeTestHangar]);
+  }, [screen, dispatch, closeWorkshop, closeTestWorkshop]);
 
   return {
     startGame,
@@ -263,10 +276,12 @@ export function useGameActions(options: GameActionsOptions): GameActions {
       dispatch({ type: "SET_SCREEN", screen: "settings" });
     },
     closeSettings,
-    openHangar,
-    closeHangar,
-    openTestHangar,
-    closeTestHangar,
+    openShipHangar,
+    closeShipHangar,
+    openWorkshop,
+    closeWorkshop,
+    openTestWorkshop,
+    closeTestWorkshop,
     resetTestProfile,
     openMeta: () => dispatch({ type: "SET_SCREEN", screen: "meta" }),
     closeMeta: () => {

@@ -357,8 +357,8 @@ export default function DebugScreen(props: {
   /** Отладочный режим бесконечных кредитов. */
   infiniteCredits: boolean;
   onToggleInfiniteCredits: () => void;
-  /** Ангар тестового профиля: собрать набор покупок для теста. */
-  onOpenTestHangar: () => void;
+  /** Мастерская тестового профиля: собрать набор покупок для теста. */
+  onOpenTestWorkshop: () => void;
   /** Сброс тестового профиля к базовому кораблю. */
   onResetTestProfile: () => void;
   physicsEngine: PhysicsEngineId;
@@ -572,8 +572,8 @@ export default function DebugScreen(props: {
               {t("debug.testProfileDesc")}
             </div>
             <div className="mt-3 flex gap-2">
-              <GameButton onClick={props.onOpenTestHangar} variant="cyan" small className=" flex-1">
-                {t("debug.testHangar")}
+              <GameButton onClick={props.onOpenTestWorkshop} variant="cyan" small className=" flex-1">
+                {t("debug.testWorkshop")}
               </GameButton>
               <GameButton onClick={props.onResetTestProfile} variant="amber" small className=" flex-1">
                 {t("debug.testProfileReset")}

@@ -7,12 +7,15 @@ import { C } from "../../balance";
 import { clamp, rgba } from "../../math";
 import type { IRenderer } from "../../render/index";
 import { CANNON_BARREL_OFFSETS } from "../../weapons/CannonWeapon";
+import { SHIP_CATALOG, type ShipId } from "../../ships/ShipCatalog";
 import { drawShipPoly } from "./ShipRenderer";
 
 export interface PlayerRenderState {
   x: number;
   y: number;
   angle: number;
+  /** Корабль игрока: силуэт корпуса берётся из каталога. */
+  ship: ShipId;
   aimA: number | null;
   hp: number;
   maxHp: number;
@@ -63,10 +66,11 @@ export function buildPlayerState(
   pvy: number,
   aimA: number | null,
   guns: number,
-  shield: PlayerShieldSnapshot
+  shield: PlayerShieldSnapshot,
+  ship: ShipId
 ): PlayerRenderState {
   return {
-    x, y, angle, aimA,
+    x, y, angle, ship, aimA,
     hp, maxHp, invuln,
     guns,
     thrusting,
@@ -107,7 +111,7 @@ export function renderPlayer(
   // hull
   drawShipPoly(
     R, player.x, player.y, player.angle,
-    [[16, 0], [-11, 10], [-6, 0], [-11, -10]],
+    SHIP_CATALOG[player.ship].hull,
     rgba(C.player, blink)
   );
 

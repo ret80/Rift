@@ -36,6 +36,7 @@ import {
   type WeaponStatKey,
 } from "../../../game/upgrades";
 import type { WeaponId, WeaponLoadout } from "../../../game/weapons/Weapon";
+import { SHIP_CATALOG, type ShipDef } from "../../../game/ships/ShipCatalog";
 import { useGamepadFocus } from "../../../hooks/useGamepadFocus";
 import { useT } from "../../../i18n";
 import { Icon } from "../../components/Icon";
@@ -52,6 +53,7 @@ import {
   SHIP_KEYS,
   UPGRADE_TIERS,
   WEAPON_STATS,
+  upgradeMaxLevel,
 } from "./model";
 import { ShipTab } from "./ShipTab";
 import { TabButton } from "./TabButton";
@@ -68,10 +70,10 @@ type UpgradeAction =
   | { id: string; kind: "droneStat"; droneId: DroneId; stat: DroneStatKey };
 
 /** Все доступные покупки на вкладке «Корабль». */
-function shipActions(upgrades: PlayerUpgrades): UpgradeAction[] {
+function shipActions(upgrades: PlayerUpgrades, ship: ShipDef): UpgradeAction[] {
   const list: UpgradeAction[] = [];
   for (const key of SHIP_KEYS) {
-    if (upgrades[key] < UPGRADE_TIERS[key].maxLevel) {
+    if (upgrades[key] < upgradeMaxLevel(key, ship)) {
       list.push({ id: `ship:${key}`, kind: "upgrade", key });
     }
   }
@@ -149,11 +151,11 @@ export function UpgradeScreen(props: {
   onBack: () => void;
   isGamepad: boolean;
   gamepadNavRef: MutableRefObject<GamepadNavHandlers>;
-  /** `hangar` — экран между волнами забега. */
-  variant?: "hangar";
+  /** `workshop` — экран между волнами забега. */
+  variant?: "workshop";
 }) {
   const t = useT();
-  const isHangar = props.variant === "hangar";
+  const isWorkshop = props.variant === "workshop";
   const [tab, setTab] = useState<TabId>("ship");
   const [upgrades, setUpgrades] = useState<PlayerUpgrades>({
     hull: 0, speed: 0, guns: 0, drones: 0,
@@ -169,6 +171,8 @@ export function UpgradeScreen(props: {
   const [usedWeaponSlots, setUsedWeaponSlots] = useState(1);
   const [droneSlots, setDroneSlots] = useState(1);
   const [usedDroneSlots, setUsedDroneSlots] = useState(1);
+  /** Корабль забега: его потолок слотов ограничивает прокачку. */
+  const [ship, setShip] = useState<ShipDef>(() => props.game?.getSelectedShip() ?? SHIP_CATALOG.vanguard);
   /** Закрытые достижениями виды — кнопка покупки неактивна до условия. */
   const [lockedWeapons, setLockedWeapons] = useState<ReadonlySet<string>>(new Set());
   const [lockedDrones, setLockedDrones] = useState<ReadonlySet<string>>(new Set());
@@ -180,6 +184,7 @@ export function UpgradeScreen(props: {
     const game = props.game;
     if (!game) return;
     setUpgrades({ ...game.getPlayerUpgrades() });
+    setShip(game.getSelectedShip());
     setParts(game.getParts());
     setPartsInfinite(game.isPartsInfinite());
     setLoadout(copyWeaponLoadout(game.getWeaponLoadout()));
@@ -229,7 +234,7 @@ export function UpgradeScreen(props: {
   const actions = useMemo<UpgradeAction[]>(() => {
     switch (tab) {
       case "ship":
-        return shipActions(upgrades);
+        return shipActions(upgrades, ship);
       case "armory":
         return armoryActions(loadout);
       case "drones":
@@ -237,7 +242,7 @@ export function UpgradeScreen(props: {
       case "bonuses":
         return bonusActions(upgrades);
     }
-  }, [tab, upgrades, loadout, droneLoadout]);
+  }, [tab, upgrades, loadout, droneLoadout, ship]);
 
   const { focusIndex, setFocusIndex, onNavUp, onNavDown } = useGamepadFocus({
     count: actions.length,
@@ -326,13 +331,13 @@ export function UpgradeScreen(props: {
       className="anim-overlay absolute inset-0 z-20 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={isHangar ? t("upgrade.hangarTitle") : t("upgrade.title")}
+      aria-label={isWorkshop ? t("upgrade.workshopTitle") : t("upgrade.title")}
     >
       <div className="anim-fade-up flex h-[min(640px,90vh)] w-[min(620px,96vw)] flex-col">
         <div className="hud-panel flex min-h-0 flex-1 flex-col p-5 sm:p-7">
           {/* Header */}
           <ScreenHeader
-            title={isHangar ? t("upgrade.hangarTitle") : t("upgrade.title")}
+            title={isWorkshop ? t("upgrade.workshopTitle") : t("upgrade.title")}
             className="-mx-5 -mt-5 mb-5 sm:-mx-7 sm:-mt-7"
             aside={
               <div
@@ -341,7 +346,7 @@ export function UpgradeScreen(props: {
               >
                 <Icon kind="parts" size={14} />
                 <span className="font-mono font-bold tracking-[0.15em]">
-                  {partsInfinite ? "∞" : parts}
+                  {partsInfinite ? <span className="text-[15px] leading-none">∞</span> : parts}
                 </span>
                 <span className="text-[10px] text-[#6f86a8]">{t("upgrade.partsLabel")}</span>
               </div>
@@ -393,6 +398,7 @@ export function UpgradeScreen(props: {
               infinite={partsInfinite}
               onPurchase={handlePurchase}
               focusedId={focusedId}
+              ship={ship}
             />
           )}
 
@@ -437,7 +443,7 @@ export function UpgradeScreen(props: {
           {/* Footer */}
           <div className="mt-5 shrink-0 border-t border-[#5ef2ff]/15 pt-4 text-center">
             <GameButton onClick={props.onBack} variant="amber">
-              {isHangar ? t("upgrade.close") : t("upgrade.back")}
+              {isWorkshop ? t("upgrade.close") : t("upgrade.back")}
             </GameButton>
           </div>
         </div>

@@ -27,6 +27,7 @@ import type { PickupRenderState } from "../presentation/Renderers/PickupRenderer
 import type { AllyDroneRenderState } from "../presentation/Renderers/DroneRenderer";
 import type { ZoneRenderState } from "../presentation/Renderers/ZoneRenderer";
 import type { ZoneStormState } from "../waves/ZoneStorm";
+import type { ShipId } from "../ships/ShipCatalog";
 
 /** Снимок щита для рендера. */
 export interface ShieldRenderState {
@@ -59,6 +60,8 @@ export interface RenderScene {
   wave: number;
   score: number;
   player: PlayerRef | null;
+  /** Корабль игрока: определяет силуэт корпуса в бою. */
+  ship: ShipId;
   aim: number | null;
   guns: number;
   shield: ShieldRenderState;

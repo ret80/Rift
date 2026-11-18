@@ -4,7 +4,7 @@
 
 export const ru = {
   title: "ПРОКАЧКА",
-  hangarTitle: "АНГАР",
+  workshopTitle: "МАСТЕРСКАЯ",
   close: "ЗАКРЫТЬ",
   back: "НАЗАД",
   partsLabel: "ДЕТАЛИ",
@@ -89,7 +89,7 @@ export const ru = {
 
 export const en: typeof ru = {
   title: "UPGRADES",
-  hangarTitle: "HANGAR",
+  workshopTitle: "WORKSHOP",
   close: "CLOSE",
   back: "BACK",
   partsLabel: "PARTS",

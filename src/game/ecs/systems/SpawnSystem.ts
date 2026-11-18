@@ -111,6 +111,18 @@ export class SpawnSystem extends PhasedSystem {
   }
 
   /**
+   * Можно ли спавнить этот вид.
+   *
+   * Пустой список и `null` означают «все виды разрешены» — так же, как их
+   * понимает выбор весов в `buildWaveQueue`.
+   */
+  isEnemyEnabled(kind: EnemyKind): boolean {
+    const list = this.enabledEnemies;
+    if (!list || list.length === 0) return true;
+    return list.includes(kind);
+  }
+
+  /**
    * Задать точный состав волны (тестовый режим, `?test=...`).
    * Состав действует на каждую волну, пока не будет сброшен.
    */
@@ -191,9 +203,11 @@ export class SpawnSystem extends PhasedSystem {
   private initWave(deps: SpawnDependencies): void {
     const override = this.composition ? this.expandComposition(this.composition) : null;
     // Босс — отдельная цель события: он входит в total, но не в случайный
-    // состав и не размазывается по подкреплениям. Явный список врагов
-    // (тест уровня) босса не отменяет: волна 10 остаётся волной Стража.
-    const bossWave = isBossWave(deps.wave, deps.bossInterval);
+    // состав и не размазывается по подкреплениям. Отладочный список врагов
+    // босса отменяет: если в тесте оставлены только дроны, волна 10 не должна
+    // приносить Стража.
+    const bossWave =
+      isBossWave(deps.wave, deps.bossInterval) && this.isEnemyEnabled(EnemyKind.Boss);
     this.total = override
       ? override.length + (bossWave ? 1 : 0)
       : waveTotal(deps.wave, deps.bossInterval);

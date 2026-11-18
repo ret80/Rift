@@ -15,6 +15,7 @@ import type { GamepadNavHandlers } from "../ScreenRouter";
 export default function MainMenu(props: {
   best: number;
   onPlay: () => void;
+  onHangar: () => void;
   onSettings: () => void;
   onHelp: () => void;
   onDebug: () => void;
@@ -25,8 +26,8 @@ export default function MainMenu(props: {
 }) {
   const t = useT();
 
-  // Список кнопок меню (play, meta, settings, help).
-  const buttonCount = 4;
+  // Список кнопок меню (play, hangar, meta, settings, help).
+  const buttonCount = 5;
 
   const { focusIndex, onNavUp, onNavDown, onNavLeft, onNavRight } = useGamepadFocus({
     count: buttonCount,
@@ -36,6 +37,7 @@ export default function MainMenu(props: {
   // Маппинг индекса на действие.
   const actions = [
     props.onPlay,
+    props.onHangar,
     props.onMeta,
     props.onSettings,
     props.onHelp,
@@ -64,6 +66,7 @@ export default function MainMenu(props: {
   // Строгие ключи локализации.
   const actionKeys: TKey[] = [
     "menu.play",
+    "menu.hangar",
     "menu.meta",
     "menu.settings",
     "menu.help",

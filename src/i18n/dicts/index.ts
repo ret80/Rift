@@ -20,6 +20,7 @@ import * as meta from "./meta.ts";
 import * as pause from "./pause.ts";
 import * as toast from "./toast.ts";
 import * as common from "./common.ts";
+import * as ships from "./ships.ts";
 
 export const ruNested = {
   app: app.ru,
@@ -36,6 +37,7 @@ export const ruNested = {
   pause: pause.ru,
   toast: toast.ru,
   common: common.ru,
+  ships: ships.ru,
 };
 
 export const enNested: typeof ruNested = {
@@ -53,4 +55,5 @@ export const enNested: typeof ruNested = {
   pause: pause.en,
   toast: toast.en,
   common: common.en,
+  ships: ships.en,
 };

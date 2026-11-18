@@ -10,6 +10,7 @@ import {
   type UpgradeKey,
 } from "../../../game/upgrades";
 import { shieldBlockPercent, shieldRegenPerSecond } from "../../../game/balance/player";
+import type { ShipDef } from "../../../game/ships/ShipCatalog";
 import { useT, type TKey } from "../../../i18n";
 import { Icon } from "../../components/Icon";
 import {
@@ -18,6 +19,7 @@ import {
   gamepadFocusStyle,
   getEffectText,
   getUpgradeValue,
+  upgradeMaxLevel,
 } from "./model";
 
 /* ======================== Ship upgrade row ======================== */
@@ -30,16 +32,18 @@ interface UpgradeRowProps {
   /** Бесконечные детали: покупка доступна всегда. */
   infinite: boolean;
   onPurchase: (key: UpgradeKey) => void;
+  /** Корабль: его потолок слотов ограничивает линии «Орудия» и «Дроны». */
+  ship: ShipDef;
   focused?: boolean;
 }
 
 function UpgradeRow(props: UpgradeRowProps) {
   const t = useT();
-  const { upgradeKey, upgrades, parts, infinite, onPurchase, focused } = props;
+  const { upgradeKey, upgrades, parts, infinite, onPurchase, ship, focused } = props;
 
   const level = upgrades[upgradeKey];
-  const tier = UPGRADE_TIERS[upgradeKey];
-  const maxed = level >= tier.maxLevel;
+  const maxLevel = upgradeMaxLevel(upgradeKey, ship);
+  const maxed = level >= maxLevel;
   const cost = upgradeCost(upgradeKey, level);
   const affordable = maxed ? false : infinite || parts >= cost;
 
@@ -48,7 +52,7 @@ function UpgradeRow(props: UpgradeRowProps) {
 
   const label = t(labelKey);
   const desc = t(descKey);
-  const effectText = getEffectText(upgradeKey, level, tier);
+  const effectText = getEffectText(upgradeKey, level, maxLevel);
 
   return (
     <div
@@ -231,6 +235,7 @@ export function ShipTab(props: {
   infinite: boolean;
   onPurchase: (key: UpgradeKey) => void;
   focusedId?: string | null;
+  ship: ShipDef;
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
@@ -242,6 +247,7 @@ export function ShipTab(props: {
           upgradeKey={upgradeKey}
           upgrades={props.upgrades}
           onPurchase={props.onPurchase}
+          ship={props.ship}
           focused={props.focusedId === `ship:${upgradeKey}`}
         />
       ))}
