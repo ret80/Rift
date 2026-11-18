@@ -182,10 +182,13 @@ export class SpawnSystem extends PhasedSystem {
    */
   private initWave(deps: SpawnDependencies): void {
     const override = this.composition ? this.expandComposition(this.composition) : null;
-    this.total = override ? override.length : waveTotal(deps.wave, deps.bossInterval);
     // Босс — отдельная цель события: он входит в total, но не в случайный
-    // состав и не размазывается по подкреплениям.
-    const bossWave = !override && isBossWave(deps.wave, deps.bossInterval);
+    // состав и не размазывается по подкреплениям. Явный список врагов
+    // (тест уровня) босса не отменяет: волна 10 остаётся волной Стража.
+    const bossWave = isBossWave(deps.wave, deps.bossInterval);
+    this.total = override
+      ? override.length + (bossWave ? 1 : 0)
+      : waveTotal(deps.wave, deps.bossInterval);
     const normalTotal = this.total - (bossWave ? 1 : 0);
     this.spawned = 0;
     this.killed = 0;

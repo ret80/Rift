@@ -79,9 +79,16 @@ export const BOSS_COLOSSUS_RAM_COOLDOWN = 7;
 /** Скорость тарана относительно базовой скорости босса. */
 export const BOSS_COLOSSUS_RAM_SPEED_MULT = 2.4;
 /** Радиус гравитационной воронки, px. */
-export const BOSS_COLOSSUS_GRAVITY_RADIUS = 520;
-/** Ускорение притяжения игрока к Колоссу, px/с². */
-export const BOSS_COLOSSUS_GRAVITY_ACCEL = 320;
+export const BOSS_COLOSSUS_GRAVITY_RADIUS = 600;
+/**
+ * Ускорение притяжения игрока к Колоссу, px/с².
+ *
+ * Замер: за первую секунду воронка разгоняет неподвижный корабль до
+ * ≈170 px/с (35 % предела скорости). Ускорение игрока вдвое выше тяги,
+ * поэтому вылет наружу всегда возможен — воронка требует работы, а не
+ * отнимает управление.
+ */
+export const BOSS_COLOSSUS_GRAVITY_ACCEL = 620;
 /** Сколько крейсеров вызывает Колосс во второй фазе. */
 export const BOSS_COLOSSUS_SUMMON_CRUISERS = 2;
 
@@ -92,14 +99,14 @@ export const BOSS_HIVE_SPAWN_INTERVAL = 2.4;
 /** Размер выводка дронов. */
 export const BOSS_HIVE_SPAWN_BATCH = 2;
 /** Потолок живых врагов: рой не должен заполнять арену целиком. */
-export const BOSS_HIVE_FIELD_CAP = 90;
+export const BOSS_HIVE_FIELD_CAP = 70;
 /** Сколько маток-ульев отделяется во второй фазе. */
 export const BOSS_HIVE_SPLIT_COUNT = 2;
 /** Длительность роя-шторма, секунды. */
 export const BOSS_HIVE_STORM_TIME = 10;
 /** Пауза между выводками во время шторма, секунды. */
-export const BOSS_HIVE_STORM_INTERVAL = 0.4;
+export const BOSS_HIVE_STORM_INTERVAL = 0.5;
 /** Размер выводка во время шторма. */
-export const BOSS_HIVE_STORM_BATCH = 4;
+export const BOSS_HIVE_STORM_BATCH = 3;
 /** Пауза после роя-шторма, секунды. */
 export const BOSS_HIVE_STORM_COOLDOWN = 6;
