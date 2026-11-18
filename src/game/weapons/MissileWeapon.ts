@@ -5,9 +5,10 @@
  * пикапом (работает ограниченное время). Ракеты вылетают поочерёдно
  * с левого и правого борта корабля и наносят урон при попадании.
  *
- * Ракета отцепляется от корабля и первые доли секунды летит строго по
- * направлению движения игрока — увернуться от собственного пуска она не
- * может. Только после этой задержки включается самонаведение.
+ * Ракета отцепляется от корабля и первые доли секунды летит строго вперёд
+ * по носу — увернуться от собственного пуска она не может. Только после
+ * этой задержки включается самонаведение; для цели за кормой прямой
+ * отрезок длиннее, чтобы ракета сперва ушла вперёд, а потом развернулась.
  *
  * Если цель погибла до подлёта, ракета перенаводится на ближайшего
  * живого врага; когда время жизни ракеты истекает, она исчезает
@@ -31,20 +32,24 @@ import { WEAPON_CATALOG } from "./WeaponCatalog";
  */
 const MISSILE_SPEED_MULT = 1.2;
 /**
- * Свободный полёт до включения самонаведения, секунды. Всё это время
- * ракета летит строго по курсу игрока и не доворачивает.
+ * Базовый свободный полёт до включения самонаведения, секунды. Всё это
+ * время ракета летит строго вперёд по носу корабля и не доворачивает.
  */
 const MISSILE_HOMING_DELAY = 0.25;
-/** Минимальная скорость игрока, при которой у него есть «направление». */
-const MISSILE_LAUNCH_MIN_SPEED = 20;
+/**
+ * Добавка к свободному полёту за цель позади, секунды. Ракета сначала
+ * уходит вперёд и только потом разворачивается, поэтому цель за кормой
+ * требует более длинного прямого отрезка.
+ */
+const MISSILE_HOMING_DELAY_REAR = 0.25;
 /** Время жизни ракеты: 3.5с минус 15% запаса хода. */
 const MISSILE_LIFE = 3.5 * 0.85;
 /** Урон ракеты. */
 const MISSILE_DMG = 55;
 /** Скорость поворота ракеты, рад/сек. */
 const MISSILE_TURN_RATE = 3.0;
-/** Интервал между пусками ракет, секунды. */
-const MISSILE_LAUNCH_INTERVAL = 1.05;
+/** Интервал между пусками ракет, секунды: ракетница ведёт редкий огонь. */
+const MISSILE_LAUNCH_INTERVAL = 1.7;
 /** Время работы ракетомёта после подбора, секунды. */
 const MISSILE_DURATION = 30;
 /** Отступ бортового пускового устройства от центра корабля. */
@@ -56,7 +61,7 @@ const MISSILE_ALT_SALVO = 3;
 /** Множитель урона ракеты в залпе. */
 const MISSILE_ALT_DAMAGE = 0.6;
 /** Перезарядка залпа, секунды. */
-const MISSILE_ALT_CD = 1.6;
+const MISSILE_ALT_CD = 2.4;
 
 export class MissileWeapon implements Weapon {
   readonly id: WeaponId = "missile";
@@ -239,9 +244,10 @@ export class MissileWeapon implements Weapon {
     damageMult = 1,
     notify = true,
   ): void {
-    // Ракета отцепляется от корабля и первый отрезок идёт по его курсу:
+    // Ракета отцепляется от корабля и первый отрезок идёт вперёд по носу:
     // доворачивать она начнёт только после задержки самонаведения.
     const angle = this.launchAngle(ctx);
+    const delay = this.homingDelay(ctx, angle, target ? target.position : anchor);
     const speed = Math.max(1, ctx.player.maxSpeed) * MISSILE_SPEED_MULT;
 
     // Борт пуска: поперёк курса, поэтому ракеты вылетают то слева, то справа.
@@ -262,13 +268,13 @@ export class MissileWeapon implements Weapon {
             target,
             turnRate: MISSILE_TURN_RATE,
             lockRange: MISSILE_LOCK_RANGE,
-            delay: MISSILE_HOMING_DELAY,
+            delay,
           }
         : {
             target: null,
             turnRate: MISSILE_TURN_RATE,
             lockRange: 0,
-            delay: MISSILE_HOMING_DELAY,
+            delay,
             anchor: anchor ?? undefined,
           },
     });
@@ -277,17 +283,32 @@ export class MissileWeapon implements Weapon {
   }
 
   /**
-   * Направление пуска — строго курс корабля.
+   * Направление пуска — строго туда, куда смотрит нос корабля.
    *
-   * Направление есть всегда: при движении это вектор скорости, на месте —
-   * куда повёрнут нос. Поэтому даже неподвижный игрок выпускает ракету по
-   * курсу, а не сразу в сторону цели; наведение включается после задержки.
+   * Нос, а не вектор скорости: корпус доворачивает к новой скорости с
+   * задержкой, и пуск по скорости выглядел бы вылетом из кормы в сторону
+   * цели. Ракета всегда покидает корабль вперёд, а к цели доворачивает
+   * уже после свободного полёта.
    */
   private launchAngle(ctx: WeaponContext): number {
-    const speed = Math.hypot(ctx.player.vx, ctx.player.vy);
-    if (speed > MISSILE_LAUNCH_MIN_SPEED) {
-      return Math.atan2(ctx.player.vy, ctx.player.vx);
-    }
     return ctx.player.angle;
+  }
+
+  /**
+   * Свободный полёт до включения наведения, секунды.
+   *
+   * Чем дальше цель от носа, тем дольше ракета идёт прямо: цель за кормой
+   * получает полный прямой отрезок и разворачивается только после него.
+   */
+  private homingDelay(
+    ctx: WeaponContext,
+    angle: number,
+    point: { x: number; y: number } | null,
+  ): number {
+    if (!point) return MISSILE_HOMING_DELAY;
+    const toTarget = Math.atan2(point.y - ctx.player.y, point.x - ctx.player.x);
+    // Разница углов в диапазоне (-PI, PI].
+    const diff = Math.atan2(Math.sin(toTarget - angle), Math.cos(toTarget - angle));
+    return MISSILE_HOMING_DELAY + MISSILE_HOMING_DELAY_REAR * (Math.abs(diff) / Math.PI);
   }
 }
