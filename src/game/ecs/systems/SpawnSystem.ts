@@ -24,7 +24,7 @@ import {
   waveTotal,
   zoneRadius,
 } from "../../waves/WaveComposition";
-import { MIN_RIFT_DIST, placeRiftPoints } from "../../waves/RiftPlacement";
+import { MIN_RIFT_DIST, placePincerPoints, placeRiftPoints } from "../../waves/RiftPlacement";
 import { WaveAnnouncements } from "../../waves/WaveAnnouncements";
 
 /** Dependencies injected to avoid tight coupling with Game. */
@@ -43,8 +43,13 @@ export interface SpawnDependencies {
   killedWave: number;
   playerX: number;
   playerY: number;
+  /** Скорость игрока: задаёт направление обхода для клещей. */
+  playerVx?: number;
+  playerVy?: number;
   /** Интервал волн босса: 10 — базовый, 5 — модификатор Асценсии. */
   bossInterval?: number;
+  /** Асценсия «Клещи»: каждое второе подкрепление — пара впереди игрока. */
+  pincer?: boolean;
 }
 
 /** Источник зависимостей спавна (из GameContext) для engine.run(dt). */
@@ -73,6 +78,8 @@ export class SpawnSystem extends PhasedSystem {
   private lastTriggeredKills = 0;
   /** Количество стартовых разломов для текущей волны */
   private startRifts = 0;
+  /** Сколько подкреплений уже открыто на текущей волне (для чётности клещей) */
+  private reinforcements = 0;
 
   get allocated(): number {
     return this.spawned;
@@ -140,6 +147,7 @@ export class SpawnSystem extends PhasedSystem {
     this.nextThreshold = 0;
     this.lastTriggeredKills = 0;
     this.startRifts = 0;
+    this.reinforcements = 0;
     this.compositionLeft = [];
   }
 
@@ -194,6 +202,7 @@ export class SpawnSystem extends PhasedSystem {
     this.killed = 0;
     this.nextThreshold = killThreshold(this.total);
     this.lastTriggeredKills = 0;
+    this.reinforcements = 0;
     this.startRifts = isPincerWave(deps.wave) ? 2 : riftCountFor(deps.wave, this.random);
 
     const zone = deps.zoneState;
@@ -239,7 +248,10 @@ export class SpawnSystem extends PhasedSystem {
 
   /**
    * Проверка необходимости создания подкрепления.
-   * Создаёт разлом при достижении порога убитых, разведённый от существующих.
+   *
+   * Обычно разлом открывается с дальней от игрока стороны. При Асценсии
+   * «Клещи» каждое второе подкрепление приходит парой с двух сторон — на
+   * дуге впереди игрока по направлению обхода (GDD §13.3).
    */
   private trySpawnReinforcements(killed: number, deps: SpawnDependencies): void {
     if (this.total <= 0) return;
@@ -258,22 +270,47 @@ export class SpawnSystem extends PhasedSystem {
     const zoneY = zone?.y ?? 0;
     const zoneR = zone?.radius ?? zoneRadius(deps.wave);
 
-    // Точка подкрепления разводится от существующих разломов и игрока
-    const points = placeRiftPoints(
-      1,
-      zoneX,
-      zoneY,
-      zoneR,
-      deps.playerX,
-      deps.playerY,
-      this.existingRiftPoints(),
-      MIN_RIFT_DIST,
-    );
-
     const queue = this.composition
       ? this.compositionLeft.splice(0, count)
       : buildWaveQueue(count, deps.wave, this.enabledEnemies, this.random);
-    this.spawnRiftAt(deps, queue, points[0]);
+
+    // Клещи: пара точек впереди по курсу, очередь делится между разломами —
+    // состав волны остаётся неизменным.
+    const pincerPair = deps.pincer === true && this.reinforcements % 2 === 1;
+    const pincerPoints = pincerPair
+      ? placePincerPoints(
+          Math.min(2, queue.length),
+          zoneX,
+          zoneY,
+          zoneR,
+          deps.playerX,
+          deps.playerY,
+          deps.playerVx ?? 0,
+          deps.playerVy ?? 0,
+        )
+      : null;
+
+    if (pincerPoints) {
+      const split = Math.ceil(queue.length / pincerPoints.length);
+      for (let i = 0; i < pincerPoints.length; i++) {
+        const part = queue.slice(i * split, (i + 1) * split);
+        if (part.length > 0) this.spawnRiftAt(deps, part, pincerPoints[i]!);
+      }
+    } else {
+      // Точка подкрепления разводится от существующих разломов и игрока
+      const points = placeRiftPoints(
+        1,
+        zoneX,
+        zoneY,
+        zoneR,
+        deps.playerX,
+        deps.playerY,
+        this.existingRiftPoints(),
+        MIN_RIFT_DIST,
+      );
+      this.spawnRiftAt(deps, queue, points[0]);
+    }
+    this.reinforcements++;
     this.spawned += count;
 
     this.lastTriggeredKills = killed;

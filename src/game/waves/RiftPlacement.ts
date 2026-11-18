@@ -19,6 +19,14 @@ const RIFT_ANGLE_PROBES = 7;
 const RIFT_ANGLE_STEP = 0.4;
 /** Количество проб по радиусу. */
 const RIFT_RADIUS_PROBES = 4;
+/** Дуга клещей: половина углового раствора впереди игрока, рад. */
+const PINCER_SPREAD = 0.6;
+/** Радиус дуги клещей в долях радиуса зоны. */
+const PINCER_RADIUS_FRAC = 0.8;
+/** Минимальное расстояние от игрока для точки клещей. */
+const PINCER_MIN_PLAYER_DIST = 260;
+/** Ниже этой скорости игрока направление обхода не определено, px/с. */
+const PINCER_MIN_SPEED = 40;
 
 /** Точка в мировых координатах. */
 export interface RiftPoint {
@@ -104,6 +112,62 @@ export function placeRiftPoints(
   }
 
   return placed;
+}
+
+/**
+ * Точки клещей: пара на дуге впереди игрока по направлению обхода.
+ *
+ * Точка лежит на окружности радиуса 0.8R вокруг центра зоны и ровно в
+ * направлении курса игрока ±0.6 рад (GDD §13.3). Курс берётся из скорости:
+ * стоящий игрок направления обхода не имеет, и тогда возвращается null —
+ * вызывающий ставит обычный разлом с дальней стороны. Если 0.8R на этом
+ * луче ближе 260 px к игроку, точка отводится по лучу до минимума; сторона
+ * пропускается, только если так она выходит за край зоны. Пустой массив
+ * не возвращается.
+ */
+export function placePincerPoints(
+  count: number,
+  zoneX: number,
+  zoneY: number,
+  zoneRadius: number,
+  playerX: number,
+  playerY: number,
+  velocityX: number,
+  velocityY: number,
+): RiftPoint[] | null {
+  if (Math.hypot(velocityX, velocityY) < PINCER_MIN_SPEED) return null;
+
+  const heading = Math.atan2(velocityY, velocityX);
+  const ringRadius = Math.min(
+    Math.max(60, zoneRadius - MIN_EDGE_DIST),
+    zoneRadius * PINCER_RADIUS_FRAC,
+  );
+  const px = playerX - zoneX;
+  const py = playerY - zoneY;
+  const playerRadiusSq = px * px + py * py;
+  const placed: RiftPoint[] = [];
+
+  for (let i = 0; i < count; i++) {
+    // Одна точка — прямо по курсу, пара — симметрично по краям дуги.
+    const offset = count === 1 ? 0 : -PINCER_SPREAD + (2 * PINCER_SPREAD * i) / (count - 1);
+    const ux = Math.cos(heading + offset);
+    const uy = Math.sin(heading + offset);
+
+    // Пересечение луча «игрок → курс ± offset» с кольцом 0.8R.
+    const along = px * ux + py * uy;
+    const disc = ringRadius * ringRadius - playerRadiusSq + along * along;
+    if (disc <= 0) continue;
+    // Игрок у края зоны: внутренняя сторона пары на 0.8R ближе минимума —
+    // отводим её по тому же лучу до 260 px от игрока.
+    const distance = Math.max(-along + Math.sqrt(disc), PINCER_MIN_PLAYER_DIST);
+    const x = playerX + ux * distance;
+    const y = playerY + uy * distance;
+    if (zoneRadius - Math.hypot(x - zoneX, y - zoneY) < MIN_EDGE_DIST) continue;
+
+    placed.push({ x, y });
+  }
+
+  return placed.length > 0 ? placed : null;
 }
 
 /** Запасная точка: максимально далеко от игрока и края, игнорируя occupied. */

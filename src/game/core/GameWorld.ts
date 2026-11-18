@@ -54,6 +54,7 @@ import { BonusManager } from "../loadout/bonuses/BonusManager";
 import type { PhysicsEngineId } from "../physics/index";
 import { createPhysicsEngine, PhysicsSystem } from "../physics/index";
 import { RiftField } from "../rifts";
+import { placePincerPoints } from "../waves/RiftPlacement";
 import { CollisionSystem } from "../ecs/systems/CollisionSystem";
 import { CountdownSystem } from "../ecs/systems/CountdownSystem";
 import { DeathSystem } from "../systems/DeathSystem";
@@ -1124,7 +1125,9 @@ export class GameWorld {
    *
    * Модификаторы Асценсии меняют точку входа, а не состав: «зеркальный мир»
    * проводит врага зеркально относительно игрока, «клещи» — каждое второе
-   * подкрепление парой с противоположной стороны.
+   * подкрепление выводит на дугу впереди игрока той же геометрией, что у
+   * подкреплений волны (±0.6 рад, 0.8R). Враг остаётся один: зеркальная
+   * пара его больше не удваивает.
    */
   private spawnAnchorReinforcement(anchor: Anchor): void {
     const wave = this.waveOrchestrator.wave;
@@ -1141,15 +1144,27 @@ export class GameWorld {
       return { x: zone.x + (dx - zone.x) * scale, y: zone.y + (dy - zone.y) * scale };
     };
 
-    const entry = this.params.ascension.mirrorWorld
-      ? mirror(anchor.x, anchor.y)
-      : { x: anchor.x, y: anchor.y };
-    this.spawnEnemy(kind, entry.x, entry.y, null);
+    // Клещи важнее зеркала: точка уже выбрана впереди по курсу.
+    const pincerPoint =
+      this.params.ascension.pincer && anchor.spawned % 2 === 1
+        ? placePincerPoints(
+            1,
+            zone.x,
+            zone.y,
+            zone.radius,
+            player.x,
+            player.y,
+            player.vx,
+            player.vy,
+          )?.[0]
+        : undefined;
 
-    const pincer = this.params.ascension.pincer && anchor.spawned % 2 === 1;
-    if (!pincer) return;
-    const opposite = mirror(entry.x, entry.y);
-    this.spawnEnemy(kind, opposite.x, opposite.y, null);
+    const entry =
+      pincerPoint ??
+      (this.params.ascension.mirrorWorld
+        ? mirror(anchor.x, anchor.y)
+        : { x: anchor.x, y: anchor.y });
+    this.spawnEnemy(kind, entry.x, entry.y, null);
   }
 
   /**
@@ -1455,7 +1470,11 @@ export class GameWorld {
       killedWave: this.scoringSystem.killedWave,
       playerX: player.position.x,
       playerY: player.position.y,
+      // Курс игрока — направление обхода для клещей.
+      playerVx: player.velocity.vx,
+      playerVy: player.velocity.vy,
       bossInterval: this.params.ascension.bossInterval,
+      pincer: this.params.ascension.pincer,
     };
   }
 
