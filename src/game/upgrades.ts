@@ -70,7 +70,7 @@ export type WeaponStatKey = keyof WeaponModelUpgrades;
 
 /** Пустая запись арсенала (оружие не куплено, всё на нуле). */
 function emptyWeaponEntry(): WeaponLoadoutEntry {
-  return { owned: false, model: { reload: 0, damage: 0, accuracy: 0 } };
+  return { owned: false, model: { ...BASE_WEAPON_MODEL } };
 }
 
 /** Арсенал по умолчанию: куплена только пушка. */
@@ -131,6 +131,21 @@ export function weaponHitChance(id: WeaponId, model: WeaponModelUpgrades): numbe
 /** Стоимость уровня линии оружия (идёт после текущего уровня). */
 export function weaponUpgradeCost(level: number): number {
   return 180 + 140 * Math.max(0, level);
+}
+
+/**
+ * Стоимость уровня линии крита: 150 + 120×level (GDD §6.7).
+ *
+ * Крит дешевле урона: в среднем он даёт меньше DPS и работает только
+ * на состоявшихся попаданиях.
+ */
+export function weaponCritUpgradeCost(level: number): number {
+  return 150 + 120 * Math.max(0, level);
+}
+
+/** Стоимость уровня любой линии оружия в арсенале. */
+export function weaponStatUpgradeCost(stat: WeaponStatKey, level: number): number {
+  return stat === "crit" ? weaponCritUpgradeCost(level) : weaponUpgradeCost(level);
 }
 
 /**

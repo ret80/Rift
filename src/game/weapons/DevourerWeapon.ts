@@ -185,6 +185,12 @@ export class DevourerWeapon implements Weapon {
       if (dist > NOVA_RADIUS) continue;
       ctx.damageEnemy(e, dmg);
     }
+    // Выброс накрывает и якоря-разломы в том же радиусе.
+    for (const a of ctx.anchors) {
+      if (!a.alive) continue;
+      if (Math.hypot(a.x - ctx.player.x, a.y - ctx.player.y) > NOVA_RADIUS) continue;
+      ctx.damageAnchor(a.id, dmg);
+    }
 
     ctx.onFired(this.id);
   }

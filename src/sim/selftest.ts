@@ -1700,7 +1700,7 @@ check("Альтернативный огонь: интент агента и з�
   const bullets: BulletSpawn[] = [];
   const manager = new WeaponManager(
     {
-      getPlayer: () => ({ x: 0, y: 0, vx: 0, vy: 0, hp: 100, maxHp: 100 }),
+      getPlayer: () => ({ x: 0, y: 0, vx: 0, vy: 0, hp: 100, maxHp: 100, maxSpeed: 480, angle: 0 }),
       getEnemies: () => [],
       addBullet: (b) => bullets.push(b),
       getDrones: () => [],

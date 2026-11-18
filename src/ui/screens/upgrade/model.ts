@@ -24,6 +24,7 @@ import {
   HEAL_BASE,
 } from "../../../game/balance/player";
 import type { WeaponId, WeaponLoadout } from "../../../game/weapons/Weapon";
+import { weaponCritChance } from "../../../game/weapons/Crit";
 import {
   WEAPON_CATALOG,
   WEAPON_IDS,
@@ -72,6 +73,7 @@ export const WEAPON_STATS: Array<{ stat: WeaponStatKey; valueKey: TKey; descKey:
   { stat: "reload", valueKey: "upgrade.weapon.reload", descKey: "upgrade.weapon.reloadDesc" },
   { stat: "damage", valueKey: "upgrade.weapon.damage", descKey: "upgrade.weapon.damageDesc" },
   { stat: "accuracy", valueKey: "upgrade.weapon.accuracy", descKey: "upgrade.weapon.accuracyDesc" },
+  { stat: "crit", valueKey: "upgrade.weapon.crit", descKey: "upgrade.weapon.critDesc" },
 ];
 
 /** Виды оружия, доступные в арсенале. */
@@ -92,11 +94,13 @@ export const ARMORY_WEAPONS: Array<{
     color: entry.color,
     titleKey,
     descKey,
-    // У оружия с самонаведением или постоянным сцеплением линии
-    // точности нет: шанс попадания там ни на что не влияет.
-    stats: id === "missile" || id === "tether" || id === "devourer"
-      ? WEAPON_STATS.filter((row) => row.stat !== "accuracy")
-      : undefined,
+    // У оружия с самонаведением, сцеплением и площадным «плевком» линий
+    // точности и крита нет: шанс попадания и крит там ни на что не влияют.
+    stats: id === "tether" || id === "devourer"
+      ? WEAPON_STATS.filter((row) => row.stat !== "accuracy" && row.stat !== "crit")
+      : id === "missile"
+        ? WEAPON_STATS.filter((row) => row.stat !== "accuracy")
+        : undefined,
   };
 });
 
@@ -141,6 +145,7 @@ export function getEffectText(
 /** Текущее значение линии оружия в процентах. */
 export function weaponStatValue(
   stat: WeaponStatKey,
+  id: WeaponId,
   model: WeaponLoadout[WeaponId]["model"],
 ): string {
   if (stat === "reload") {
@@ -148,6 +153,9 @@ export function weaponStatValue(
   }
   if (stat === "damage") {
     return `+${Math.round((weaponDamageMult(model) - 1) * 100)}%`;
+  }
+  if (stat === "crit") {
+    return `${Math.round(weaponCritChance(id, model) * 100)}%`;
   }
   const level = Math.max(0, Math.min(WEAPON_STAT_MAX_LEVEL, model.accuracy));
   return `+${Math.round(level * WEAPON_ACCURACY_PER_LEVEL * 100)}%`;

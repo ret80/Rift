@@ -21,6 +21,7 @@ import type {
   WeaponSlotState,
 } from "./Weapon";
 import { WEAPON_CATALOG } from "./WeaponCatalog";
+import { rollCrit } from "./Crit";
 
 /** Время зарядки выстрела, секунды. */
 const RAIL_CHARGE_TIME = 0.8;
@@ -68,6 +69,10 @@ export class RailgunWeapon implements Weapon {
   private damageMult = 1;
   /** Персональная точность из арсенала (null — общий апгрейд). */
   private personalAccuracy: number | null = null;
+  /** Шанс критического попадания (арсенал). */
+  private critChance = 0;
+  /** Множитель критического попадания. */
+  private critMult = 1;
 
   reset(): void {
     this.owned = false;
@@ -77,6 +82,8 @@ export class RailgunWeapon implements Weapon {
     this.reloadMult = 1;
     this.damageMult = 1;
     this.personalAccuracy = null;
+    this.critChance = 0;
+    this.critMult = 1;
   }
 
   isAvailable(): boolean {
@@ -148,6 +155,8 @@ export class RailgunWeapon implements Weapon {
     if (mods.reloadMult != null) this.reloadMult = mods.reloadMult;
     if (mods.damageMult != null) this.damageMult = mods.damageMult;
     if (mods.accuracy != null) this.personalAccuracy = mods.accuracy;
+    if (mods.critChance != null) this.critChance = mods.critChance;
+    if (mods.critMult != null) this.critMult = mods.critMult;
   }
 
   /** Точность рельсы: персональная из арсенала или общий апгрейд. */
@@ -201,7 +210,15 @@ export class RailgunWeapon implements Weapon {
       );
       if (dist == null) continue;
       // Пробитие: цель не останавливает луч и получает полный урон.
-      ctx.damageEnemy(e, dmg);
+      ctx.damageEnemy(e, dmg * rollCrit(ctx.rng, this.critChance, this.critMult));
+      if (dist > end) end = dist;
+    }
+    // Якоря стоят на линии луча так же, как враги: рельса пробивает и их.
+    for (const a of ctx.anchors) {
+      if (!a.alive) continue;
+      const dist = rayCircleEntryDistance(muzzleX, muzzleY, dx, dy, a.x, a.y, a.radius);
+      if (dist == null) continue;
+      ctx.damageAnchor(a.id, dmg * rollCrit(ctx.rng, this.critChance, this.critMult));
       if (dist > end) end = dist;
     }
 

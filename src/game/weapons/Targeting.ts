@@ -10,7 +10,10 @@
  */
 
 import type { EnemyRef } from "../ecs";
-import type { PlayerSnapshot } from "./Weapon";
+import type { AnchorTarget, PlayerSnapshot } from "./Weapon";
+
+// Якорь описан в контракте оружия; реэкспорт сохраняет прежние импорты.
+export type { AnchorTarget } from "./Weapon";
 
 /** Дальность автонаведения по умолчанию (базовая для пушки). */
 export const DEFAULT_TARGET_RANGE = 420;
@@ -18,13 +21,6 @@ export const DEFAULT_TARGET_RANGE = 420;
 export const ANCHOR_AIM_RANGE = 620;
 /** Ближняя угроза, которую автонаведение не игнорирует ради якоря. */
 export const ANCHOR_THREAT_RADIUS = 240;
-
-/** Цель-якорь: позиция и состояние. */
-export interface AnchorTarget {
-  x: number;
-  y: number;
-  alive: boolean;
-}
 
 export class Targeting {
   /** Ручной прицел (мышь/тач); null — прицел не задан. */
@@ -43,6 +39,8 @@ export class Targeting {
   private isJammed?: (x: number, y: number) => boolean;
   /** Цель, взятая игроком в лок (Tab). Имеет приоритет над автоцелью. */
   private locked: EnemyRef | null = null;
+  /** Якорь, выбранный целью, когда врагов в радиусе орудия нет. */
+  private anchorTarget: AnchorTarget | null = null;
 
   constructor(private range: number) {}
 
@@ -75,12 +73,13 @@ export class Targeting {
    * Обновить автоцель.
    *
    * Правило приоритетов:
-   *   1. ближняя угроза (враг в ANCHOR_THREAT_RADIUS) — сначала выжить;
-   *   2. якорь-разлом в радиусе ANCHOR_AIM_RANGE — цель волны;
-   *   3. ближайший враг в радиусе оружия.
+   *   1. лок игрока;
+   *   2. ближняя угроза (враг в ANCHOR_THREAT_RADIUS) — сначала выжить;
+   *   3. ближайший враг в радиусе оружия;
+   *   4. якорь-разлом в радиусе ANCHOR_AIM_RANGE — цель волны.
    *
-   * Якорь добавлен потому, что иначе автонаведение никогда не стреляло по
-   * целям-якорям: они не являются врагами и остаются вне выбора оружия.
+   * Якорь — только запасная цель: пока в радиусе орудия есть враги,
+   * арсенал стреляет по ним, а разлом ждёт своей очереди.
    */
   update(
     player: PlayerSnapshot,
@@ -95,6 +94,7 @@ export class Targeting {
         ? Math.atan2(manual.position.y - player.y, manual.position.x - player.x)
         : null;
       this.anchorAngle = null;
+      this.anchorTarget = null;
       return;
     }
 
@@ -128,14 +128,17 @@ export class Targeting {
     }
 
     // Лок — явный выбор игрока: он важнее ближней угрозы и якоря.
+    // Враги в радиусе орудия всегда приоритетнее разлома; якорь берётся,
+    // только когда стрелять больше не в кого.
     const locked = this.locked && !this.locked.marker.dead ? this.locked : null;
-    const aimEnemy = locked ?? threat ?? (anchor ? null : nearest);
+    const aimEnemy = locked ?? threat ?? nearest;
     this.target = aimEnemy;
     this.autoAngle = aimEnemy
       ? Math.atan2(aimEnemy.position.y - player.y, aimEnemy.position.x - player.x)
       : null;
-    this.anchorAngle = !aimEnemy && anchor
-      ? Math.atan2(anchor.y - player.y, anchor.x - player.x)
+    this.anchorTarget = !aimEnemy && anchor ? anchor : null;
+    this.anchorAngle = this.anchorTarget
+      ? Math.atan2(this.anchorTarget.y - player.y, this.anchorTarget.x - player.x)
       : null;
   }
 
@@ -162,5 +165,10 @@ export class Targeting {
   /** Цель в локе, если она ещё жива. */
   get lockedTarget(): EnemyRef | null {
     return this.locked && !this.locked.marker.dead ? this.locked : null;
+  }
+
+  /** Якорь-разлом, выбранный целью (null — врагов в радиусе нет, якоря тоже). */
+  get currentAnchor(): AnchorTarget | null {
+    return this.anchorTarget;
   }
 }

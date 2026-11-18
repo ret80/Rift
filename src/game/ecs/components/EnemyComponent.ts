@@ -9,7 +9,7 @@
  */
 
 import type { Component } from "@trixt0r/ecs";
-import type { EnemyKind } from "../../balance";
+import { BossVariant, type EnemyKind } from "../../balance";
 import type { AffixId } from "../../balance/affixes";
 
 /** Состояние орбитального/атакующего дрона (стратегия Carrier). */
@@ -87,6 +87,18 @@ export class EnemyComponent implements Component {
   lockAngle = 0;
   mode = 0;
   modeT = 0;
+  /**
+   * Вид босса. Имеет смысл только у EnemyKind.Boss: набор фаз и атак
+   * задаётся этим полем, а не общим «боссом».
+   */
+  bossVariant: BossVariant = BossVariant.Warden;
+  /**
+   * Шаг боссовой атаки внутри фазы: 0 — покой, 1 — подготовка,
+   * 2 — исполнение. Используется тараном Колосса и роем-штормом Улья.
+   */
+  bossState = 0;
+  /** Таймер боссовой атаки (подготовка/исполнение/пауза), секунды. */
+  bossTimer = 0;
   strafeDir = 1;
   seed = 0;
   spawnCd = 0;

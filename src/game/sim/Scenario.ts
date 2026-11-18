@@ -61,6 +61,7 @@ export interface ScenarioWeapon {
   reload?: number;
   damage?: number;
   accuracy?: number;
+  crit?: number;
 }
 
 /** Сценарий как он лежит в JSON. */
@@ -233,7 +234,7 @@ export function parseScenario(raw: unknown): Scenario {
   const weapons: Partial<Record<WeaponId, ScenarioWeapon>> = {};
   if (data.weapons !== undefined) {
     if (typeof data.weapons !== "object" || data.weapons === null) {
-      issues.push("weapons: ожидается объект { <weapon>: { owned, reload?, damage?, accuracy? } }");
+      issues.push("weapons: ожидается объект { <weapon>: { owned, reload?, damage?, accuracy?, crit? } }");
     } else {
       for (const [id, raw] of Object.entries(data.weapons as Record<string, unknown>)) {
         if (!(WEAPON_IDS as readonly string[]).includes(id)) {
@@ -251,7 +252,7 @@ export function parseScenario(raw: unknown): Scenario {
         }
         const levels: ScenarioWeapon = { owned: entry.owned };
         let valid = true;
-        for (const stat of ["reload", "damage", "accuracy"] as const) {
+        for (const stat of ["reload", "damage", "accuracy", "crit"] as const) {
           const value = entry[stat];
           if (value === undefined) continue;
           if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > WEAPON_STAT_MAX_LEVEL) {

@@ -512,6 +512,8 @@ export class GameWorld {
         getEnemies: () => this.ecs.enemies(),
         // Якоря — цель волны: автонаведение должно уметь в них стрелять.
         getAnchors: () => this.anchorSystem.getAnchors(),
+        // Мгновенные орудия (луч, рельса, цепь, выброс) бьют якорь напрямую.
+        damageAnchor: (anchorId, dmg) => this.damageAnchor(anchorId, dmg),
         // Все выстрелы игрока проходят здесь — одна точка учёта для метрик.
         addBullet: (b) => {
           this.ecs.addBullet(b);
@@ -538,6 +540,8 @@ export class GameWorld {
       getRateMult: () => this.bonusManager.getRateMult(),
       getHitChance: () => this.weaponManager.getHitChance(),
       getEnemies: () => this.ecs.enemies(),
+      // Дроны добивают якоря, когда врагов в их радиусе уже нет.
+      getAnchors: () => this.anchorSystem.getAnchors(),
       addBullet: (b) => this.ecs.addBullet(b),
       onDroneFired: () => this.onWeaponFired("drone"),
       getRng: () => this.rng("combat"),
@@ -595,18 +599,8 @@ export class GameWorld {
       this.ecs,
       () => this.buildWorld(),
       this.anchorSystem,
-      (anchor) => {
-        // Снятый якорь закрывает разлом и сразу отдаёт детали: цель
-        // должна ощущаться выгодной до конца волны, а не только на финише.
-        if (!this.testMode) this.addParts(anchor.reward);
-        // Якорь — часть условия зачистки objective-волны. Проверка зачистки
-        // обычно приходит из enemy_killed, но игрок может убить всех врагов
-        // раньше якорей — тогда последний якорь обязан закрыть волну сам.
-        this.waveFlowSystem.checkWaveClear();
-        if (this.waveOrchestrator.waveState === "cleared") {
-          this.ports.audio.setCombat(false);
-        }
-      },
+      (anchor) => this.handleAnchorDestroyed(anchor),
+      this.rng("combat"),
     );
 
     this.enemyCollisionSystem = new EnemyCollisionSystem(
@@ -1300,8 +1294,35 @@ export class GameWorld {
           vy: ref.velocity.vy,
           hp: ref.life.remaining,
           maxHp: ref.life.max,
+          maxSpeed: this.playerSystem.getMaxSpeed(),
+          angle: ref.marker.angle,
         }
-      : { x: 0, y: 0, vx: 0, vy: 0, hp: 0, maxHp: 0 };
+      : { x: 0, y: 0, vx: 0, vy: 0, hp: 0, maxHp: 0, maxSpeed: 0, angle: 0 };
+  }
+
+  /**
+   * Нанести урон якорю-разлому из оружия.
+   * Снаряды бьют якоря в CollisionSystem, мгновенные орудия — здесь:
+   * оба пути ведут к одному обработчику уничтожения.
+   */
+  damageAnchor(anchorId: string, dmg: number): void {
+    const anchor = this.anchorSystem.getAnchors().find((a) => a.id === anchorId);
+    if (!anchor || !anchor.alive) return;
+    if (this.anchorSystem.damage(anchorId, dmg)) this.handleAnchorDestroyed(anchor);
+  }
+
+  /** Снятый якорь: награда, закрытие разлома и проверка зачистки волны. */
+  private handleAnchorDestroyed(anchor: Anchor): void {
+    // Снятый якорь закрывает разлом и сразу отдаёт детали: цель
+    // должна ощущаться выгодной до конца волны, а не только на финише.
+    if (!this.testMode) this.addParts(anchor.reward);
+    // Якорь — часть условия зачистки objective-волны. Проверка зачистки
+    // обычно приходит из enemy_killed, но игрок может убить всех врагов
+    // раньше якорей — тогда последний якорь обязан закрыть волну сам.
+    this.waveFlowSystem.checkWaveClear();
+    if (this.waveOrchestrator.waveState === "cleared") {
+      this.ports.audio.setCombat(false);
+    }
   }
 
   /** Живая связка компонентов игрока. */

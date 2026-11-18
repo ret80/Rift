@@ -32,7 +32,9 @@ export class BulletDomain {
   /** Зарегистрировать снаряд игрока как ECS-сущность из чистых данных. */
   addBullet(bullet: BulletSpawn): void {
     const entity = new GameEntity();
-    entity.components.add(new BulletComponent(bullet.dmg));
+    entity.components.add(
+      new BulletComponent(bullet.dmg, bullet.crit?.chance ?? 0, bullet.crit?.mult ?? 1),
+    );
     entity.components.add(new PositionComponent(bullet.x, bullet.y));
     entity.components.add(new VelocityComponent(bullet.vx, bullet.vy));
     // Ракеты приходят со своим life; обычные выстрелы — с дальностью.
@@ -44,6 +46,9 @@ export class BulletDomain {
         this.entityIdForEnemy(bullet.homing.target),
         bullet.homing.turnRate,
         bullet.homing.lockRange,
+        bullet.homing.delay ?? 0,
+        bullet.homing.anchor?.x ?? null,
+        bullet.homing.anchor?.y ?? null,
       ));
     }
     this.ecs.add(entity);

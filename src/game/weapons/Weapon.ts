@@ -29,6 +29,28 @@ export interface PlayerSnapshot {
   vy: number;
   hp: number;
   maxHp: number;
+  /** Текущий предел скорости корабля, px/с (с прокачкой и форсажем). */
+  maxSpeed: number;
+  /**
+   * Куда смотрит нос корабля, радианы. Направление есть всегда, даже когда
+   * игрок стоит на месте: по нему уходят ракеты до включения наведения.
+   */
+  angle: number;
+}
+
+/**
+ * Цель-якорь: позиция и состояние разлома.
+ * Живёт в контракте оружия, потому что якорь — такая же цель автонаведения,
+ * как и враг, хотя и не является ECS-сущностью.
+ */
+export interface AnchorTarget {
+  /** Идентификатор якоря в AnchorSystem. */
+  id: string;
+  x: number;
+  y: number;
+  /** Радиус якоря, px: по нему считаются попадания лучей. */
+  radius: number;
+  alive: boolean;
 }
 
 /** Состояние наведения оружия. */
@@ -49,6 +71,8 @@ export interface AimState {
   target: EnemyRef | null;
   /** Цель, взятая игроком в лок; ракеты бьют её первой. */
   locked: EnemyRef | null;
+  /** Якорь-разлом — цель, когда врагов в радиусе орудия нет. */
+  anchor: AnchorTarget | null;
   /** Шанс попадания автонаведения (0..1, всегда < 1). */
   hitChance: number;
 }
@@ -63,10 +87,14 @@ export interface WeaponContext extends EnemyDamagePort {
   readonly aim: AimState;
   /** Враги — цели для наведения. */
   readonly enemies: readonly EnemyRef[];
+  /** Якоря-разломы — цели волны: по ним стреляет весь арсенал. */
+  readonly anchors: readonly AnchorTarget[];
   /** Вражеские снаряды: их поглощает оружие вроде пожирателя. */
   readonly enemyBullets: readonly EnemyBulletRef[];
   /** Удалить вражеский снаряд (поглощение, не урон игроку). */
   removeEnemyBullet(bullet: EnemyBulletRef): void;
+  /** Нанести урон якорю-разлому (мгновенные орудия вроде луча и цепи). */
+  damageAnchor(anchorId: string, dmg: number): void;
   /** Зарегистрировать новый снаряд игрока в ECS-мире. */
   addBullet(bullet: BulletSpawn): void;
   /** Пул дронов-компаньонов (живые связки компонентов). */
@@ -98,9 +126,9 @@ export interface WeaponSlotState {
 }
 
 /** Модель оружия, расширяемая апгрейдом в меню «Арсенал». */
-export type WeaponStatKey = "reload" | "damage" | "accuracy";
+export type WeaponStatKey = "reload" | "damage" | "accuracy" | "crit";
 
-/** Модель оружия в арсенале: база + уровни трёх линий. */
+/** Модель оружия в арсенале: база + уровни линий. */
 export interface WeaponModelUpgrades {
   /** Уровень ускорения перезарядки. */
   reload: number;
@@ -108,6 +136,8 @@ export interface WeaponModelUpgrades {
   damage: number;
   /** Уровень повышения точности. */
   accuracy: number;
+  /** Уровень повышения шанса критического попадания. */
+  crit: number;
 }
 
 /** Шаблон «нулевой» модели оружия. */
@@ -115,6 +145,7 @@ export const BASE_WEAPON_MODEL: WeaponModelUpgrades = {
   reload: 0,
   damage: 0,
   accuracy: 0,
+  crit: 0,
 };
 
 /** Запись арсенала: куплено ли оружие и уровни его линий. */
@@ -141,6 +172,10 @@ export interface WeaponModifiers {
   reloadMult?: number;
   /** Персональный множитель урона оружия (арсенал). */
   damageMult?: number;
+  /** Шанс критического попадания оружия (арсенал). */
+  critChance?: number;
+  /** Множитель критического попадания оружия. */
+  critMult?: number;
   /** Персональная модель оружия (уровни линий арсенала). */
   model?: WeaponModelUpgrades;
   /** Снимок флота купленных дронов (для DroneWeapon). */

@@ -99,6 +99,7 @@ function scenarioWeapons(record: SessionRecordV1): Scenario["weapons"] {
       reload: entry.model.reload,
       damage: entry.model.damage,
       accuracy: entry.model.accuracy,
+      crit: entry.model.crit ?? 0,
     };
   }
   return Object.keys(weapons).length > 0 ? weapons : undefined;

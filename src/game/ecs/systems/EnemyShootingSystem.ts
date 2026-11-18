@@ -23,6 +23,10 @@
 import { Aspect, type Engine } from "@trixt0r/ecs";
 import { aimAtTarget, solveLead, spreadForChance } from "../../aiming/AimSolver";
 import {
+    BOSS_COLOSSUS_TURRETS,
+    BOSS_COLOSSUS_TURRET_RATE,
+    BOSS_COLOSSUS_TURRET_SPREAD,
+    BossVariant,
     CRUISER_BOLT_LEAD_TIME,
     CRUISER_BULLET_SPEED,
     CRUISER_FIRE_RANGE_R,
@@ -241,10 +245,30 @@ export class EnemyShootingSystem extends PhasedSystem {
   }
 
   /**
-   * Босс: чередует круговой залп и прицельный тяжёлый выстрел.
+   * Босс: набор атак зависит от вида (marker.bossVariant).
    * Фаза 0/1/2 приходит из BossStrategy через marker.mode.
    */
   private fireBoss(
+    e: EnemyComponent,
+    position: PositionComponent,
+    player: PlayerMotion,
+    dt: number,
+  ): void {
+    switch (e.bossVariant) {
+      case BossVariant.Colossus:
+        this.fireColossus(e, position, player, dt);
+        return;
+      case BossVariant.Hive:
+        this.fireHiveBoss(e, position, player, dt);
+        return;
+      default:
+        this.fireWarden(e, position, player, dt);
+        return;
+    }
+  }
+
+  /** Страж Периметра: круговой залп в шахматном порядке + прицельный болт. */
+  private fireWarden(
     e: EnemyComponent,
     position: PositionComponent,
     player: PlayerMotion,
@@ -300,6 +324,96 @@ export class EnemyShootingSystem extends PhasedSystem {
       this.fire(e, position.x, position.y, player, weapon, enemyHitChance(this.wave, e.kind, e.accuracyMult));
       this.audio.playHeavyShoot();
     }
+  }
+
+  /**
+   * Колосс: секторные залпы турелей и прицельный тяжёлый болт.
+   * Число стволов и темп растут с фазой; таран и воронку ведёт BossStrategy.
+   */
+  private fireColossus(
+    e: EnemyComponent,
+    position: PositionComponent,
+    player: PlayerMotion,
+    dt: number,
+  ): void {
+    const phase = Math.max(0, Math.min(2, Math.floor(e.mode)));
+    const turrets = BOSS_COLOSSUS_TURRETS[phase] ?? BOSS_COLOSSUS_TURRETS[0];
+    const rate = BOSS_COLOSSUS_TURRET_RATE[phase] ?? BOSS_COLOSSUS_TURRET_RATE[0];
+
+    // Телеграф сектора: оранжевый конус показывает, куда придётся залп.
+    if (e.telegraphActive) {
+      e.telegraphTimer -= dt;
+      if (e.telegraphTimer <= 0) e.telegraphActive = false;
+    }
+
+    e.tCd1 = (e.tCd1 ?? 1.2) - dt;
+    if (e.tCd1 <= 0) {
+      e.tCd1 = rate;
+      e.telegraphActive = true;
+      e.telegraphTimer = 0.3;
+      e.telegraphType = "cone";
+      e.telegraphAngle = e.turretAngle;
+
+      // Веер болтов из сектора: игрок уходит в сторону от оси турели.
+      const base = e.turretAngle;
+      for (let i = 0; i < turrets; i++) {
+        const t = turrets > 1 ? i / (turrets - 1) - 0.5 : 0;
+        const angle = base + t * 2 * BOSS_COLOSSUS_TURRET_SPREAD;
+        this.spawnBolt({
+          sx: position.x + Math.cos(angle) * BOSS_MUZZLE_OFFSET,
+          sy: position.y + Math.sin(angle) * BOSS_MUZZLE_OFFSET,
+          angle,
+          boltDmg: e.boltDmg * 0.7,
+          heavy: true,
+          cruiser: false,
+          boltSpeed: BOSS_RADIAL_SPEED + phase * 30,
+        });
+      }
+      this.audio.playHeavyShoot();
+    }
+
+    // Прицельный болт: наказывает стояние на месте между залпами.
+    e.tCd2 = (e.tCd2 ?? 0.9) - dt;
+    const inRange =
+      Math.hypot(player.x - position.x, player.y - position.y) <
+      this.getZoneRadius() * BOSS_AIMED_RANGE_R;
+    if (e.tCd2 <= 0 && inRange) {
+      e.tCd2 = Math.max(1.1, 2.2 - phase * 0.4);
+      const weapon: EnemyWeapon = {
+        boltSpeed: BOSS_AIMED_SPEED + phase * 35,
+        leadTime: 1.5,
+        heavy: true,
+      };
+      this.fire(e, position.x, position.y, player, weapon, enemyHitChance(this.wave, e.kind, e.accuracyMult));
+      this.audio.playHeavyShoot();
+    }
+  }
+
+  /**
+   * Улей: медленные тяжёлые болты. Основной давление создаёт рой,
+   * который выпускает BossStrategy, поэтому темпа хватает скромного.
+   */
+  private fireHiveBoss(
+    e: EnemyComponent,
+    position: PositionComponent,
+    player: PlayerMotion,
+    dt: number,
+  ): void {
+    const phase = Math.max(0, Math.min(2, Math.floor(e.mode)));
+    e.tCd2 = (e.tCd2 ?? 1) - dt;
+    if (e.tCd2 > 0) return;
+
+    const dist = Math.hypot(player.x - position.x, player.y - position.y) || 1;
+    if (dist >= ENEMY_SHOOT_RANGE) return;
+
+    e.tCd2 = Math.max(0.8, HIVE_FIRE_CD * (1 - phase * 0.15));
+    const weapon: EnemyWeapon = {
+      boltSpeed: HIVE_BOLT_SPEED + phase * 40,
+      leadTime: 1.2,
+      heavy: true,
+    };
+    this.fire(e, position.x, position.y, player, weapon, enemyHitChance(this.wave, e.kind, e.accuracyMult));
+    this.audio.playHeavyShoot();
   }
 
   /**

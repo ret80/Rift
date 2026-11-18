@@ -69,7 +69,7 @@ function scenarioRunSeed(scenario: Scenario): RunSeed {
     const target = weaponLoadout[id as WeaponId];
     if (!target) continue;
     target.owned = entry.owned;
-    for (const stat of ["reload", "damage", "accuracy"] as const) {
+    for (const stat of ["reload", "damage", "accuracy", "crit"] as const) {
       const value = entry[stat];
       if (value !== undefined) target.model[stat] = value;
     }

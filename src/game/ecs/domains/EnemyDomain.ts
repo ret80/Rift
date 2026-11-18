@@ -166,6 +166,8 @@ export class EnemyDomain {
       ecsId: entity.id,
       parentId: enemy.parentId ?? null,
       kind: enemy.kind,
+      // Вид босса выбирается при спавне (номер босс-волны) и живёт в маркере.
+      ...(enemy.bossVariant !== undefined ? { bossVariant: enemy.bossVariant } : {}),
       affix: enemy.affix,
       shieldHp: enemy.shieldHp,
       maxShieldHp: enemy.maxShieldHp,

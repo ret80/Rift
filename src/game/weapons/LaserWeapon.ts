@@ -13,6 +13,7 @@ import { aimAtTarget } from "../aiming/AimSolver";
 import { rayCircleEntryDistance } from "./raycast";
 import type { EnemyRef } from "../ecs";
 import type {
+  AnchorTarget,
   Weapon,
   WeaponContext,
   WeaponId,
@@ -20,6 +21,7 @@ import type {
   WeaponSlotState,
 } from "./Weapon";
 import { WEAPON_CATALOG } from "./WeaponCatalog";
+import { rollCrit } from "./Crit";
 
 /** Базовый урон лазера. */
 const LASER_DMG = 20;
@@ -65,6 +67,10 @@ export class LaserWeapon implements Weapon {
   private damageMult = 1;
   /** Персональная точность из арсенала (null — общий апгрейд). */
   private personalAccuracy: number | null = null;
+  /** Шанс критического попадания (арсенал). */
+  private critChance = 0;
+  /** Множитель критического попадания. */
+  private critMult = 1;
 
   reset(): void {
     this.owned = false;
@@ -74,6 +80,8 @@ export class LaserWeapon implements Weapon {
     this.reloadMult = 1;
     this.damageMult = 1;
     this.personalAccuracy = null;
+    this.critChance = 0;
+    this.critMult = 1;
   }
 
   isAvailable(): boolean {
@@ -115,9 +123,11 @@ export class LaserWeapon implements Weapon {
     if (!ctx.aim.firing || ctx.aim.angle === null) return;
 
     const target = this.findFreeTarget(ctx);
-    if (!target) return;
+    // Врагов в радиусе нет — луч бьёт по якорю-разлому.
+    const anchor = target ? null : ctx.aim.anchor;
+    if (!target && !anchor) return;
 
-    this.fire(ctx, target);
+    this.fire(ctx, target, anchor);
     this.fireCd = (LASER_FIRE_CD * this.reloadMult) / ctx.bonuses.rateMult;
   }
 
@@ -152,6 +162,8 @@ export class LaserWeapon implements Weapon {
     if (mods.reloadMult != null) this.reloadMult = mods.reloadMult;
     if (mods.damageMult != null) this.damageMult = mods.damageMult;
     if (mods.accuracy != null) this.personalAccuracy = mods.accuracy;
+    if (mods.critChance != null) this.critChance = mods.critChance;
+    if (mods.critMult != null) this.critMult = mods.critMult;
   }
 
   /** Ближайший живой враг, не занятый другим лучом. */
@@ -178,15 +190,28 @@ export class LaserWeapon implements Weapon {
   }
 
   /** Выстрел: упреждающий угол, луч обрывается на первой преграде. */
-  private fire(ctx: WeaponContext, target: EnemyRef): void {
+  private fire(
+    ctx: WeaponContext,
+    target: EnemyRef | null,
+    anchor: AnchorTarget | null,
+  ): void {
     // Точность как у обычного орудия: упреждение + конус рассеивания.
-    const aimTarget = {
-      x: target.position.x,
-      y: target.position.y,
-      vx: target.velocity.vx,
-      vy: target.velocity.vy,
-      r: target.radius.r,
-    };
+    // Якорь неподвижен, поэтому упреждение для него нулевое.
+    const aimTarget = target
+      ? {
+          x: target.position.x,
+          y: target.position.y,
+          vx: target.velocity.vx,
+          vy: target.velocity.vy,
+          r: target.radius.r,
+        }
+      : {
+          x: anchor?.x ?? 0,
+          y: anchor?.y ?? 0,
+          vx: 0,
+          vy: 0,
+          r: anchor?.radius ?? 0,
+        };
     const angle = aimAtTarget(
       {
         sx: ctx.player.x,
@@ -196,7 +221,7 @@ export class LaserWeapon implements Weapon {
         maxFlightTime: 0.85,
       },
       this.getHitChance(ctx),
-      target.radius.r,
+      aimTarget.r,
       ctx.rng,
     );
 
@@ -217,8 +242,24 @@ export class LaserWeapon implements Weapon {
       hitDist = dist;
       hitEnemy = e;
     }
+    // Якорь — такая же преграда, как враг: луч обрывается и на нём.
+    let hitAnchor: AnchorTarget | null = null;
+    if (anchor) {
+      const dist = rayCircleEntryDistance(muzzleX, muzzleY, dx, dy, anchor.x, anchor.y, anchor.radius);
+      if (dist != null && dist <= hitDist) {
+        hitDist = dist;
+        hitEnemy = null;
+        hitAnchor = anchor;
+      }
+    }
 
-    if (hitEnemy) ctx.damageEnemy(hitEnemy, LASER_DMG * this.damageMult);
+    // Крит бросается на состоявшееся попадание луча.
+    const crit = rollCrit(ctx.rng, this.critChance, this.critMult);
+    if (hitEnemy) {
+      ctx.damageEnemy(hitEnemy, LASER_DMG * this.damageMult * crit);
+    } else if (hitAnchor) {
+      ctx.damageAnchor(hitAnchor.id, LASER_DMG * this.damageMult * crit);
+    }
 
     ctx.addBeam({
       x1: muzzleX,
@@ -229,7 +270,7 @@ export class LaserWeapon implements Weapon {
       maxLife: LASER_BEAM_LIFE,
       seed: ctx.rngFx.next() * 100,
       // Не занята ли цель, видно по живым лучам: своя цель — «занята».
-      targetId: target.marker.ecsId ?? null,
+      targetId: target?.marker.ecsId ?? null,
     });
 
     ctx.onFired(this.id);
@@ -252,7 +293,18 @@ export class LaserWeapon implements Weapon {
       const toEnemy = Math.atan2(e.position.y - muzzleY, e.position.x - muzzleX);
       const diff = Math.atan2(Math.sin(toEnemy - angle), Math.cos(toEnemy - angle));
       if (Math.abs(diff) > LASER_ALT_SPREAD) continue;
-      ctx.damageEnemy(e, dmg);
+      ctx.damageEnemy(e, dmg * rollCrit(ctx.rng, this.critChance, this.critMult));
+      if (dist > end) end = dist;
+    }
+    // Широкий луч накрывает и якоря в том же конусе.
+    for (const a of ctx.anchors) {
+      if (!a.alive) continue;
+      const dist = Math.hypot(a.x - muzzleX, a.y - muzzleY);
+      if (dist > LASER_ALT_RANGE) continue;
+      const toAnchor = Math.atan2(a.y - muzzleY, a.x - muzzleX);
+      const diff = Math.atan2(Math.sin(toAnchor - angle), Math.cos(toAnchor - angle));
+      if (Math.abs(diff) > LASER_ALT_SPREAD) continue;
+      ctx.damageAnchor(a.id, dmg * rollCrit(ctx.rng, this.critChance, this.critMult));
       if (dist > end) end = dist;
     }
 

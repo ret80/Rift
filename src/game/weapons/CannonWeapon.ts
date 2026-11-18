@@ -78,6 +78,10 @@ export class CannonWeapon implements Weapon {
   private damageMult = 1;
   /** Персональная точность из арсенала. */
   private personalAccuracy: number | null = null;
+  /** Шанс критического попадания (арсенал). */
+  private critChance = 0;
+  /** Множитель критического попадания. */
+  private critMult = 1;
 
   reset(): void {
     this.owned = true;
@@ -86,6 +90,8 @@ export class CannonWeapon implements Weapon {
     this.reloadMult = 1;
     this.damageMult = 1;
     this.personalAccuracy = null;
+    this.critChance = 0;
+    this.critMult = 1;
   }
 
   isAvailable(): boolean {
@@ -133,6 +139,8 @@ export class CannonWeapon implements Weapon {
     if (mods.damageMult != null) this.damageMult = mods.damageMult;
     if (mods.reloadMult != null) this.reloadMult = mods.reloadMult;
     if (mods.accuracy != null) this.personalAccuracy = mods.accuracy;
+    if (mods.critChance != null) this.critChance = mods.critChance;
+    if (mods.critMult != null) this.critMult = mods.critMult;
   }
 
   /** Полная перезарядка пушки при текущем темпе стрельбы. */
@@ -193,6 +201,7 @@ export class CannonWeapon implements Weapon {
         vy: Math.sin(barrelAngle) * CANNON_BULLET_SPEED,
         life: CANNON_BULLET_LIFE,
         dmg: CANNON_BULLET_DMG * this.damageMult,
+        crit: { chance: this.critChance, mult: this.critMult },
       });
     }
 
@@ -216,6 +225,7 @@ export class CannonWeapon implements Weapon {
         vy: dy * CANNON_ALT_SPEED,
         life: CANNON_ALT_LIFE,
         dmg,
+        crit: { chance: this.critChance, mult: this.critMult },
       });
     }
 

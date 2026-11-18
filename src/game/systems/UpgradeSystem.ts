@@ -14,7 +14,7 @@ import {
   defaultWeaponLoadout,
   upgradeCost,
   weaponCost,
-  weaponUpgradeCost,
+  weaponStatUpgradeCost,
   UPGRADE_TIERS,
   WEAPON_STAT_MAX_LEVEL,
   type PlayerUpgrades,
@@ -257,7 +257,7 @@ export class UpgradeSystem {
     if (!entry || !entry.owned) return false;
     const level = entry.model[stat];
     if (level >= WEAPON_STAT_MAX_LEVEL) return false;
-    if (!this._parts.spend(weaponUpgradeCost(level))) return false;
+    if (!this._parts.spend(weaponStatUpgradeCost(stat, level))) return false;
     entry.model[stat] = level + 1;
     this.refresh();
     return true;

@@ -275,6 +275,11 @@ export class PlayerSystem extends PhasedSystem {
     this.speedMult = mult;
   }
 
+  /** Текущий предел скорости корабля с учётом прокачки и форсажа, px/с. */
+  getMaxSpeed(): number {
+    return this.params.maxSpeed * this.speedMult * (this.boostOn ? BOOST_SPEED_MULT : 1);
+  }
+
   /** Параметры корабля (скорость, ускорение, трение) из профиля мира. */
   setPlayerParams(params: PlayerParams): void {
     this.params = params;

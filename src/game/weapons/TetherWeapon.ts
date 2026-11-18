@@ -97,9 +97,14 @@ export class TetherWeapon implements Weapon {
     }
 
     this.links = this.buildChain(ctx);
-    if (this.links.length === 0 || this.pulseT > 0) return;
+    if (this.pulseT > 0) return;
 
     this.pulseT = TETHER_PULSE;
+    // Врагов в дальности цепи нет — цепь цепляется за якорь-разлом.
+    if (this.links.length === 0) {
+      this.pulseAnchor(ctx);
+      return;
+    }
     this.pulse(ctx);
   }
 
@@ -174,6 +179,27 @@ export class TetherWeapon implements Weapon {
       dmg *= TETHER_CHAIN_FALLOFF;
     }
 
+    ctx.onFired(this.id);
+  }
+
+  /** Импульс в якорь-разлом: первый луч от корабля до разлома. */
+  private pulseAnchor(ctx: WeaponContext): void {
+    const anchor = ctx.aim.anchor;
+    if (!anchor) return;
+    // Цепь достаёт только в своей дальности: далёкий разлом — не её цель.
+    const dist = Math.hypot(anchor.x - ctx.player.x, anchor.y - ctx.player.y);
+    if (dist > TETHER_RANGE) return;
+    ctx.damageAnchor(anchor.id, TETHER_PULSE_DAMAGE * this.damageMult);
+    ctx.addBeam({
+      x1: ctx.player.x,
+      y1: ctx.player.y,
+      x2: anchor.x,
+      y2: anchor.y,
+      life: TETHER_BEAM_LIFE,
+      maxLife: TETHER_BEAM_LIFE,
+      seed: ctx.rngFx.next() * 100,
+      targetId: null,
+    });
     ctx.onFired(this.id);
   }
 

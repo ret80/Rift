@@ -35,6 +35,7 @@ import {
     EnemyKind,
     MINE_LIFETIME,
     MINE_MAX_ALIVE,
+    bossVariantForWave,
     enemyDefFor,
     massForRadius
 } from "../../balance";
@@ -238,8 +239,17 @@ export class EnemySystem extends PhasedSystem {
     const carrierSpawns = this.context.carrierSpawns || [];
     let orbitSpawnIndex = 0;
     for (const spawn of carrierSpawns) {
-      const droneDef = this.getEnemyDef(EnemyKind.Drone);
-      const drone = this.createEnemy(EnemyKind.Drone, spawn.x, spawn.y, droneDef, playerPos, null, 0, false);
+      // Боссы вызывают не только дронов: Улей — маток, Колосс — крейсеров.
+      const kind = spawn.kind ?? EnemyKind.Drone;
+      const def = this.getEnemyDef(kind);
+      const summon = this.createEnemy(kind, spawn.x, spawn.y, def, playerPos, null, 0, false);
+      // Вызов босса может быть быстрее обычного вида (ускоренные истребители).
+      if (spawn.speedMult) summon.speed *= spawn.speedMult;
+      if (kind !== EnemyKind.Drone) {
+        this.ecs.addEnemy(summon);
+        continue;
+      }
+      const drone = summon;
       // Дроны Матери-улья не привязаны к носителю: иначе ближайший Carrier
       // забирал бы их на свою орбиту.
       const carrier = spawn.hive ? null : this.findCarrierForDrone(enemyRefs, spawn);
@@ -342,6 +352,11 @@ export class EnemySystem extends PhasedSystem {
     return {
       parentId: parent?.marker.ecsId ?? null,
       kind, affix, shieldHp, maxShieldHp: shieldHp,
+      // Вид босса выбирается по номеру босс-волны: 1-я — Страж,
+      // 2-я — Колосс, 3-я — Улей, дальше по кругу.
+      ...(kind === EnemyKind.Boss
+        ? { bossVariant: bossVariantForWave(this.wave, ascension.bossInterval) }
+        : {}),
       accuracyMult: (affixDef?.accuracyMult ?? 1) * ascension.enemyAccuracyMult,
       fireRateMult: affixDef?.fireRateMult ?? 1,
       x, y, vx: 0, vy: 0, angle, turretAngle,

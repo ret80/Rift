@@ -15,6 +15,7 @@ import { BULLET_RANGE_PLAYER } from "../../balance";
 import { aimAtTarget } from "../../aiming/AimSolver";
 import type { Rng } from "../../core/rng";
 import type { EnemyRef, PlayerRef } from "../../ecs";
+import type { AnchorTarget } from "../../weapons/Weapon";
 import { AllyDroneComponent, type DroneOrder } from "../components/AllyDroneComponent";
 import { LifeComponent } from "../components/LifeComponent";
 import { PositionComponent } from "../components/PositionComponent";
@@ -44,6 +45,8 @@ export interface AllyDroneHooks {
   getHitChance(): number;
   /** Живые враги — цели дронов. */
   getEnemies(): readonly EnemyRef[];
+  /** Якоря-разломы — запасные цели, когда врагов рядом нет. */
+  getAnchors(): readonly AnchorTarget[];
   /** Добавить снаряд игрока в ECS-мир. */
   addBullet(bullet: BulletSpawn): void;
   /** Колбэк, когда какой-то дрон выстрелил. */
@@ -178,11 +181,29 @@ export class AllyDroneSystem extends PhasedSystem {
         this.updateOrbit(drone, position, player, dt, role.orbitRadius, slotAngle);
       }
 
-      if (!target) continue;
+      // Врагов в радиусе нет — дрон переключается на якорь-разлом.
+      // Снаряд дрона — обычная пуля игрока, её якорь ловит в CollisionSystem.
+      const anchor = target
+        ? null
+        : this.findAnchor(position.x, position.y, this.h.getAnchors(), range);
+      if (!target && !anchor) continue;
 
-      const dx = target.position.x - position.x;
-      const dy = target.position.y - position.y;
-      if (Math.hypot(dx, dy) > range) continue;
+      const aimPoint = target
+        ? {
+            x: target.position.x,
+            y: target.position.y,
+            vx: target.velocity.vx,
+            vy: target.velocity.vy,
+            r: target.radius.r,
+          }
+        : {
+            x: anchor?.x ?? 0,
+            y: anchor?.y ?? 0,
+            vx: 0,
+            vy: 0,
+            r: anchor?.radius ?? 0,
+          };
+      if (Math.hypot(aimPoint.x - position.x, aimPoint.y - position.y) > range) continue;
       if (drone.fireCd > 0) continue;
 
       const combat = drone.combat;
@@ -192,26 +213,22 @@ export class AllyDroneSystem extends PhasedSystem {
         {
           sx: position.x,
           sy: position.y,
-          target: {
-            x: target.position.x,
-            y: target.position.y,
-            vx: target.velocity.vx,
-            vy: target.velocity.vy,
-            r: target.radius.r,
-          },
+          target: aimPoint,
           bulletSpeed: combat.bulletSpeed,
           maxFlightTime: combat.leadTime,
         },
         this.h.getHitChance(),
-        target.radius.r,
+        aimPoint.r,
         this.h.getRng(),
       );
 
       const rateMult = Math.max(0.01, this.h.getRateMult());
       drone.fireCd = combat.reloadTime / rateMult;
       // Роль задаёт свой урон; по фокусу и локу он ещё выше.
-      const focused = (this.order === "focus" && this.focusTargetId === target.marker.ecsId)
-        || this.lockedTargetId === target.marker.ecsId;
+      const focused = target !== null && (
+        (this.order === "focus" && this.focusTargetId === target.marker.ecsId)
+        || this.lockedTargetId === target.marker.ecsId
+      );
       const damage = droneShotDamage(drone.kind, combat.damage, focused);
       drone.flash = DRONE_FLASH_TIME;
       drone.angle = angle;
@@ -290,6 +307,26 @@ export class AllyDroneSystem extends PhasedSystem {
     position.x += (dx / dist) * step;
     position.y += (dy / dist) * step;
     drone.angle = Math.atan2(target.position.y - position.y, target.position.x - position.x);
+  }
+
+  /** Ближайший живой якорь-разлом в зоне захвата дрона. */
+  private findAnchor(
+    x: number,
+    y: number,
+    anchors: readonly AnchorTarget[],
+    range: number,
+  ): AnchorTarget | null {
+    let nearest: AnchorTarget | null = null;
+    let nearestDist = range;
+    for (const anchor of anchors) {
+      if (!anchor.alive) continue;
+      const dist = Math.hypot(anchor.x - x, anchor.y - y);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = anchor;
+      }
+    }
+    return nearest;
   }
 
   /** Ближайший живой враг в зоне захвата дрона. */

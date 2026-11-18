@@ -20,5 +20,9 @@ export class BulletComponent implements Component {
   constructor(
     /** Урон снаряда при попадании. */
     public dmg = 0,
+    /** Шанс критического попадания (0 — крита нет). */
+    public critChance = 0,
+    /** Множитель критического попадания (1 — крита нет). */
+    public critMult = 1,
   ) {}
 }

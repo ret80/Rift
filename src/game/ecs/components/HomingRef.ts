@@ -20,5 +20,16 @@ export class HomingRef implements Component {
     public turnRate = 0,
     /** Радиус захвата новой цели, px. */
     public lockRange = 0,
+    /**
+     * Секунды свободного полёта до включения самонаведения: ракета сначала
+     * отцепляется от корабля и идёт по его курсу, потом доворачивает.
+     */
+    public delay = 0,
+    /**
+     * Неподвижная точка наведения (якорь-разлом). Используется, когда
+     * targetId пуст: якорь не ECS-сущность и не может быть целью-врагом.
+     */
+    public pointX: number | null = null,
+    public pointY: number | null = null,
   ) {}
 }

@@ -6,7 +6,7 @@
  * Спецификация нужна только на входе фабрик доменов.
  */
 
-import type { EnemyKind } from "../balance";
+import type { BossVariant, EnemyKind } from "../balance";
 import type { AffixId } from "../balance/affixes";
 import type { EnemyRef } from "./refs";
 
@@ -43,6 +43,8 @@ export interface EnemySpawn {
   fireCd: number;
   mode: number;
   modeT: number;
+  /** Вид босса (только для EnemyKind.Boss). */
+  bossVariant?: BossVariant;
   strafeDir: number;
   seed: number;
   spawnCd: number;
@@ -88,8 +90,24 @@ export interface BulletSpawn {
    */
   life?: number;
   dmg: number;
-  /** Самонаведение: цель — живая ссылка на врага. */
-  homing?: { target: EnemyRef | null; turnRate: number; lockRange: number };
+  /**
+   * Крит снаряда: шанс и множитель. Бросок делается в момент попадания,
+   * поэтому промах критом быть не может.
+   */
+  crit?: { chance: number; mult: number };
+  /**
+   * Самонаведение: цель — живая ссылка на врага либо неподвижная точка
+   * (якорь-разлом). `delay` — сколько секунд снаряд летит по прямой,
+   * прежде чем начнёт доворачивать.
+   */
+  homing?: {
+    target: EnemyRef | null;
+    turnRate: number;
+    lockRange: number;
+    delay?: number;
+    /** Неподвижная точка наведения, если цели-врага нет. */
+    anchor?: { x: number; y: number };
+  };
 }
 
 /** Данные для создания вражеского снаряда. */

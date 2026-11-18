@@ -13,7 +13,9 @@ import {
   PLAYER_BULLET_HIT_OFFSET,
 } from '../../balance/player';
 import type { EventBus } from '../../core/EventBus';
+import type { Rng } from '../../core/rng';
 import type { WorldFrame } from '../../core/WorldFrame';
+import { rollCrit } from '../../weapons/Crit';
 
 import {
   checkBulletCollisions,
@@ -39,6 +41,8 @@ export class CollisionSystem extends PhasedSystem {
     getWorld: WorldSource,
     anchorSystem: AnchorSystem | null = null,
     onAnchorDestroyed: (anchor: Anchor) => void = () => {},
+    /** Боевой поток случайности: бросок крита на состоявшееся попадание. */
+    private readonly rng: Rng,
   ) {
     super(Phase.Collisions);
     this.eventBus = eventBus;
@@ -72,7 +76,11 @@ export class CollisionSystem extends PhasedSystem {
       bulletToRemove.add(hit.bulletIndex);
       if (hit.enemyId !== null) {
         const b = bullets[hit.bulletIndex];
-        if (b) this.ecs.damageEnemy(hit.enemyId, b.bullet.dmg);
+        // Крит — второй бросок уже за состоявшееся попадание.
+        if (b) {
+          const { dmg, critChance, critMult } = b.bullet;
+          this.ecs.damageEnemy(hit.enemyId, dmg * rollCrit(this.rng, critChance, critMult));
+        }
       }
     }
     // Удаляем снаряды по объектной идентичности через ECS-мир.
@@ -88,7 +96,11 @@ export class CollisionSystem extends PhasedSystem {
         if (!b) continue;
         const anchor = this.anchorSystem.findAt(b.position.x, b.position.y, 4);
         if (!anchor) continue;
-        const destroyed = this.anchorSystem.damage(anchor.id, b.bullet.dmg);
+        const { dmg, critChance, critMult } = b.bullet;
+        const destroyed = this.anchorSystem.damage(
+          anchor.id,
+          dmg * rollCrit(this.rng, critChance, critMult),
+        );
         anchorToRemove.add(i);
         if (destroyed) this.onAnchorDestroyed(anchor);
       }

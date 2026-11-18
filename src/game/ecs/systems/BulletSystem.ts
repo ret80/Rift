@@ -122,18 +122,32 @@ export class BulletSystem extends PhasedSystem {
     const homing = entity.components.get(HomingRef);
     if (!homing) return;
 
+    // Свободный полёт: ракета отцепляется от корабля и летит строго по его
+    // курсу, пока не истечёт задержка включения самонаведения.
+    if (homing.delay > 0) {
+      homing.delay = Math.max(0, homing.delay - dt);
+      return;
+    }
+
     const position = entity.components.get(PositionComponent);
     const velocity = entity.components.get(VelocityComponent);
     if (!position || !velocity) return;
 
+    // Неподвижная точка важнее поиска врага: так ракета идёт в якорь-разлом,
+    // который не является ECS-сущностью.
     const targetEntity = homing.targetId !== null && homing.targetId !== undefined
       ? this.engine?.entities.get(homing.targetId)
       : undefined;
-    // Цель жива, только если сущность существует и враг ещё не погиб.
-    let target = this.enemyFromEntity(targetEntity);
-    if (!target || target.dead) {
-      target = this.findNearest(position.x, position.y, homing.lockRange);
-      homing.targetId = target ? target.id : null;
+    let target: EnemyTarget | null;
+    if (homing.pointX !== null && homing.pointY !== null) {
+      target = { id: "anchor", x: homing.pointX, y: homing.pointY, dead: false };
+    } else {
+      // Цель жива, только если сущность существует и враг ещё не погиб.
+      target = this.enemyFromEntity(targetEntity);
+      if (!target || target.dead) {
+        target = this.findNearest(position.x, position.y, homing.lockRange);
+        homing.targetId = target ? target.id : null;
+      }
     }
     if (!target) return;
 

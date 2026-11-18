@@ -4,7 +4,7 @@
 
 import {
   weaponCost,
-  weaponUpgradeCost,
+  weaponStatUpgradeCost,
   WEAPON_STAT_MAX_LEVEL,
   type WeaponStatKey,
 } from "../../../game/upgrades";
@@ -129,7 +129,7 @@ export function ArmoryTab(props: {
                   {(weapon.stats ?? WEAPON_STATS).map((row) => {
                     const level = entry!.model[row.stat];
                     const maxed = level >= WEAPON_STAT_MAX_LEVEL;
-                    const cost = weaponUpgradeCost(level);
+                    const cost = weaponStatUpgradeCost(row.stat, level);
                     const affordable = maxed ? false : infinite || parts >= cost;
                     const statFocused = !maxed && props.focusedId === `weapon:${weapon.id}:${row.stat}`;
                     return (
@@ -151,7 +151,7 @@ export function ArmoryTab(props: {
                           <div className="text-[9px] text-[#6f86a8]">
                             {t(row.descKey)} ·{" "}
                             <span className="text-[#5ef2ff]">
-                              {weaponStatValue(row.stat, entry!.model)}
+                              {weaponStatValue(row.stat, weapon.id, entry!.model)}
                             </span>
                           </div>
                         </div>

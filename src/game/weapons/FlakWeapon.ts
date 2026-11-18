@@ -69,6 +69,10 @@ export class FlakWeapon implements Weapon {
   private damageMult = 1;
   /** Персональная точность из арсенала (null — общий апгрейд). */
   private personalAccuracy: number | null = null;
+  /** Шанс критического попадания (арсенал). */
+  private critChance = 0;
+  /** Множитель критического попадания. */
+  private critMult = 1;
 
   reset(): void {
     this.owned = false;
@@ -77,6 +81,8 @@ export class FlakWeapon implements Weapon {
     this.reloadMult = 1;
     this.damageMult = 1;
     this.personalAccuracy = null;
+    this.critChance = 0;
+    this.critMult = 1;
   }
 
   isAvailable(): boolean {
@@ -126,6 +132,8 @@ export class FlakWeapon implements Weapon {
     if (mods.reloadMult != null) this.reloadMult = mods.reloadMult;
     if (mods.damageMult != null) this.damageMult = mods.damageMult;
     if (mods.accuracy != null) this.personalAccuracy = mods.accuracy;
+    if (mods.critChance != null) this.critChance = mods.critChance;
+    if (mods.critMult != null) this.critMult = mods.critMult;
   }
 
   /** Точность картечи: персональная из арсенала или общий апгрейд. */
@@ -176,6 +184,7 @@ export class FlakWeapon implements Weapon {
         vy: dy * FLAK_SPEED,
         life: FLAK_LIFE,
         dmg,
+        crit: { chance: this.critChance, mult: this.critMult },
       });
     }
 
@@ -194,6 +203,7 @@ export class FlakWeapon implements Weapon {
       vy: dy * FLAK_ALT_SPEED,
       life: FLAK_ALT_LIFE,
       dmg: FLAK_ALT_DAMAGE * this.damageMult,
+      crit: { chance: this.critChance, mult: this.critMult },
     });
     ctx.onFired(this.id);
   }

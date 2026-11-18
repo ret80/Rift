@@ -4,6 +4,9 @@
  */
 
 import {
+  BOSS_COLOSSUS_GRAVITY_RADIUS,
+  BOSS_WARDEN_LASER_RADIUS,
+  BossVariant,
   C,
   EnemyKind,
   JAMMER_RADIUS,
@@ -44,6 +47,10 @@ export interface EnemyRenderState {
   fireCd: number;
   mode: number;
   modeT: number;
+  /** Вид босса: рисунок фаз и атак. */
+  bossVariant: BossVariant;
+  /** Шаг боссовой атаки (подготовка/исполнение). */
+  bossState: number;
   strafeDir: number;
   seed: number;
   spawnCd: number;
@@ -94,6 +101,8 @@ export function buildEnemyState(
     fireCd: e.marker.fireCd,
     mode: e.marker.mode,
     modeT: e.marker.modeT,
+    bossVariant: e.marker.bossVariant,
+    bossState: e.marker.bossState,
     strafeDir: e.marker.strafeDir,
     seed: e.marker.seed,
     spawnCd: e.marker.spawnCd,
@@ -209,6 +218,48 @@ export function renderEnemies(
         R.circle(e.x, e.y, 17, rgba(base, 0.55), 24);
         R.dashedCircle(e.x, e.y, 30 + e.mode * 4, rgba(base, 0.4), 10, _time * (0.7 + e.mode * 0.25));
         R.circle(e.x, e.y, 5 + e.mode * 1.5, rgba(C.white, 0.8), 12);
+
+        // Механика фазы читается по рисунку: лучи Стража, турели и
+        // воронка Колосса, кольцо роя Улья.
+        if (e.bossVariant === BossVariant.Warden) {
+          for (let i = 0; i < 2; i++) {
+            const arm = e.lockAngle + (i / 2) * TAU;
+            R.pushLine(
+              e.x, e.y,
+              e.x + Math.cos(arm) * BOSS_WARDEN_LASER_RADIUS,
+              e.y + Math.sin(arm) * BOSS_WARDEN_LASER_RADIUS,
+              rgba(base, 0.28),
+            );
+          }
+        } else if (e.bossVariant === BossVariant.Colossus) {
+          for (let i = 0; i < 4; i++) {
+            const spoke = e.turretAngle + (i / 4) * TAU;
+            R.pushLine(
+              e.x + Math.cos(spoke) * 18,
+              e.y + Math.sin(spoke) * 18,
+              e.x + Math.cos(spoke) * 34,
+              e.y + Math.sin(spoke) * 34,
+              rgba(base, 0.8),
+            );
+          }
+          if (e.mode === 2) {
+            R.dashedCircle(
+              e.x, e.y, BOSS_COLOSSUS_GRAVITY_RADIUS,
+              rgba(base, 0.16), 28, -_time * 0.4,
+            );
+          }
+          if (e.bossState === 1) {
+            // Подготовка тарана: красная линия курса.
+            R.pushLine(
+              e.x, e.y,
+              e.x + Math.cos(e.lockAngle) * 420,
+              e.y + Math.sin(e.lockAngle) * 420,
+              rgba(C.boss, 0.45),
+            );
+          }
+        } else {
+          R.dashedCircle(e.x, e.y, 90, rgba(base, 0.2), 20, _time * 0.9);
+        }
         // Дуга остатка прочности: читается без отдельного HUD-бара.
         const arc = clamp(e.hp / Math.max(1, e.maxHp), 0, 1) * TAU;
         const segments = Math.max(2, Math.round(36 * (arc / TAU)));

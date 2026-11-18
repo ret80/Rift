@@ -5,6 +5,7 @@
 
 import type { Rng } from '../core/rng';
 import type { AsteroidRef, EnemyRef } from '../ecs';
+import type { EnemyKind } from '../balance';
 import type { DroneSwarm } from './DroneSwarm';
 
 /** Данные для синхронизации контекста (объектный параметр вместо 12 positional args). */
@@ -61,8 +62,18 @@ export class GameContext {
    */
   public rng!: Rng;
 
-  /** Выходной буфер CarrierStrategy/HiveMother — спавн дронов. */
-  public carrierSpawns: Array<{ x: number; y: number; hive?: boolean }> = [];
+  /**
+   * Выходной буфер CarrierStrategy/HiveMother/BossStrategy — спавн роя.
+   * `kind` позволяет боссу вызывать не только дронов (матки, крейсеры).
+   */
+  public carrierSpawns: Array<{
+    x: number;
+    y: number;
+    hive?: boolean;
+    kind?: EnemyKind;
+    /** Множитель скорости вызванного врага (ускоренные истребители). */
+    speedMult?: number;
+  }> = [];
 
   /** Выходной буфер MinerStrategy — постановка мин. */
   public mineSpawns: Array<{ x: number; y: number }> = [];

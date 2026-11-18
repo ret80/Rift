@@ -13,11 +13,13 @@
 import { PhasedSystem, Phase } from "../ecs/SystemSchedule";
 import { PLAYER_AIM_BASE_CHANCE } from "../balance";
 import { weaponDamageMult, weaponReloadMult, weaponHitChance } from "../upgrades";
+import { weaponCritChance, weaponCritMult } from "./Crit";
 import type { Rng } from "../core/rng";
 import type { LoadoutSlotData } from "../loadout/LoadoutTypes";
 import type { PlayerBonuses } from "../loadout/bonuses/Bonus";
 import type { BeamSpawn, BulletSpawn } from "../ecs/spawn";
-import { Targeting, DEFAULT_TARGET_RANGE, type AnchorTarget } from "./Targeting";
+import { Targeting, DEFAULT_TARGET_RANGE } from "./Targeting";
+import type { AnchorTarget } from "./Weapon";
 import type { DroneFleetSpec } from "../drones/Drone";
 import type { AllyDroneSpawn, BeamRef, DroneRef, EnemyBulletRef, EnemyRef } from "../ecs";
 import type { EnemyDamagePort } from "../ecs/EnemyLifecycle";
@@ -41,6 +43,8 @@ export interface WeaponWorld extends EnemyDamagePort {
   getEnemies(): readonly EnemyRef[];
   /** Якоря-разломы — цель волны (вне ECS-врагов). */
   getAnchors?(): readonly AnchorTarget[];
+  /** Нанести урон якорю (мгновенные орудия: луч, рельса, цепь, выброс). */
+  damageAnchor?(anchorId: string, dmg: number): void;
   /** Вражеские снаряды — для оружия, которое их поглощает. */
   getEnemyBullets?(): EnemyBulletRef[];
   /** Удалить вражеский снаряд (поглощение). */
@@ -140,6 +144,8 @@ export class WeaponManager extends PhasedSystem {
         mods.model = { ...entry.model };
         mods.reloadMult = weaponReloadMult(entry.model);
         mods.damageMult = weaponDamageMult(entry.model);
+        mods.critChance = weaponCritChance(weapon.id, entry.model);
+        mods.critMult = weaponCritMult(weapon.id);
         if (weapon.usesPersonalAccuracy) {
           mods.accuracy = weaponHitChance(weapon.id, entry.model);
         }
@@ -227,6 +233,7 @@ export class WeaponManager extends PhasedSystem {
       altFiring: this.targeting.altFiring,
       target: this.targeting.currentTarget,
       locked: this.targeting.lockedTarget,
+      anchor: this.targeting.currentAnchor,
       hitChance: this.hitChance,
     };
     const bonuses = this.world.getBonuses();
@@ -240,11 +247,13 @@ export class WeaponManager extends PhasedSystem {
       },
       aim,
       enemies: this.world.getEnemies(),
+      anchors: this.world.getAnchors?.() ?? [],
       // Лениво: вражеские снаряды нужны только поглощающему оружию.
       get enemyBullets() {
         return world.getEnemyBullets?.() ?? [];
       },
       removeEnemyBullet: (bullet) => world.removeEnemyBullet?.(bullet),
+      damageAnchor: (anchorId, dmg) => world.damageAnchor?.(anchorId, dmg),
       addBullet: (bullet) => this.world.addBullet(bullet),
       drones: this.world.getDrones(),
       addAllyDrone: (drone) => this.world.addAllyDrone(drone),

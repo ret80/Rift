@@ -29,3 +29,6 @@ export * from "./balance/accuracy";
 
 // Урон от столкновений: зависимость от скорости сближения
 export * from "./balance/impact";
+
+// Виды боссов и числа их боевых фаз
+export * from "./balance/bosses";
