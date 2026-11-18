@@ -1,6 +1,7 @@
 import React from "react";
 import { useT } from "../i18n";
 import type { DroneOrder } from "../game/ecs/components/AllyDroneComponent";
+import { Icon } from "./components/Icon";
 import { LoadoutBar } from "./components/LoadoutBar";
 import { RecordButton } from "./components/RecordButton";
 import { useHudData, type HudStore } from "./hud/HudStore";
@@ -11,16 +12,6 @@ function hullColor(fraction: number): string {
   if (fraction > 0.5) return "#5ef2ff";
   if (fraction > 0.25) return "#ffb84d";
   return "#ff3b52";
-}
-
-function PartsGlyph() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="#ffb84d" strokeWidth="1.2">
-      <polygon points="6,1 11,4 10,10 2,10 1,4" />
-      <line x1="6" y1="1" x2="6" y2="10" strokeOpacity="0.5" />
-      <line x1="2" y1="10" x2="10" y2="10" strokeOpacity="0.5" />
-    </svg>
-  );
 }
 
 /**
@@ -84,7 +75,8 @@ export function HudLayer(props: {
                   }
                   aria-label={t("upgrade.partsLabel")}
                 >
-                  <PartsGlyph /> <span>{data?.partsInfinite ? "∞" : data?.parts ?? 0}</span>
+                  <Icon kind="parts" size={11} />{" "}
+                  <span>{data?.partsInfinite ? "∞" : data?.parts ?? 0}</span>
                 </div>
               </div>
               <div className="text-[8px] tracking-[0.14em] text-[#6f86a8] sm:text-[9px]">

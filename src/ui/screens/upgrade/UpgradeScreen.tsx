@@ -38,6 +38,7 @@ import {
 import type { WeaponId, WeaponLoadout } from "../../../game/weapons/Weapon";
 import { useGamepadFocus } from "../../../hooks/useGamepadFocus";
 import { useT } from "../../../i18n";
+import { Icon } from "../../components/Icon";
 import GameButton from "../../components/GameButton";
 import ScreenHeader from "../../components/ScreenHeader";
 import type { GamepadNavHandlers } from "../../ScreenRouter";
@@ -338,33 +339,7 @@ export function UpgradeScreen(props: {
                 className="flex items-center gap-2 text-[12px] text-[#ffb84d]"
                 aria-label={`Parts: ${partsInfinite ? "∞" : parts}`}
               >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#ffb84d"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                >
-                  <path
-                    d={
-                      "M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25" +
-                      "a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38" +
-                      "a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51" +
-                      "a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38" +
-                      "a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25" +
-                      "a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2" +
-                      "v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08" +
-                      "a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73" +
-                      "l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74" +
-                      "l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73" +
-                      "l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4" +
-                      "a2 2 0 0 0-2-2z"
-                    }
-                  />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
+                <Icon kind="parts" size={14} />
                 <span className="font-mono font-bold tracking-[0.15em]">
                   {partsInfinite ? "∞" : parts}
                 </span>

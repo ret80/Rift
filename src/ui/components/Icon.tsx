@@ -35,6 +35,8 @@ export type IconKind =
   | "drone-sentry"
   /* HUD actions */
   | "tactical"
+  /* счётчики ресурсов */
+  | "parts"
   /* HUD loadout row */
   | LoadoutIcon;
 
@@ -56,6 +58,11 @@ const PICKUP_COLORS: Record<string, string> = {
   "pickup-shield": "#66e0ff",
   "ability-quantum-swap": "#7cf3ff",
   tactical: "#7dff9e",
+};
+
+/** Счётчики ресурсов: янтарный — общий цвет деталей в HUD и ангаре. */
+const CURRENCY_COLORS: Record<string, string> = {
+  parts: "#ffb84d",
 };
 
 const WEAPON_COLORS: Record<string, string> = {
@@ -91,6 +98,7 @@ function getIconColor(kind: IconKind): string {
   return (
     ENEMY_COLORS[kind] ??
     PICKUP_COLORS[kind] ??
+    CURRENCY_COLORS[kind] ??
     WEAPON_COLORS[kind] ??
     UPGRADE_COLORS[kind] ??
     DRONE_COLORS[kind] ??
@@ -239,6 +247,16 @@ function getIconPaths(kind: IconKind): React.ReactNode {
           <line x1="12" y1="19" x2="12" y2="23" />
           <line x1="1" y1="12" x2="5" y2="12" />
           <line x1="19" y1="12" x2="23" y2="12" />
+        </>
+      );
+
+    /* Счётчики ресурсов */
+    case "parts":
+      return (
+        <>
+          <polygon points="12,2 22,8 20,20 4,20 2,8" />
+          <line x1="12" y1="2" x2="12" y2="20" strokeOpacity="0.5" />
+          <line x1="4" y1="20" x2="20" y2="20" strokeOpacity="0.5" />
         </>
       );
 
