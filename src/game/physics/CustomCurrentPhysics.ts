@@ -13,6 +13,9 @@ import type {
   PhysicsContact,
 } from "./IPhysics.ts";
 
+/** Состояние для отсутствующего тела: общий неизменяемый объект. */
+const ZERO_STATE: PhysicsBodyState = { x: 0, y: 0, angle: 0, vx: 0, vy: 0, spin: 0 };
+
 /** Внутреннее представление тела: хранит форму и последнее состояние. */
 interface BodyEntry {
   userData: unknown;
@@ -26,6 +29,8 @@ export class CustomCurrentPhysics implements IPhysics {
 
   private entries = new Map<unknown, BodyEntry>();
   private _contacts: PhysicsContact[] = [];
+  /** Переиспользуемый список тел: попарный проход не аллоцирует массив. */
+  private entryList: BodyEntry[] = [];
 
   get contacts(): PhysicsContact[] {
     return this._contacts;
@@ -58,6 +63,7 @@ export class CustomCurrentPhysics implements IPhysics {
   clear(): void {
     this.entries.clear();
     this._contacts = [];
+    this.entryList.length = 0;
   }
 
   syncBody(userData: unknown, state: PhysicsBodyState): void {
@@ -67,7 +73,7 @@ export class CustomCurrentPhysics implements IPhysics {
   }
 
   beginFrame(): void {
-    this._contacts = [];
+    this._contacts.length = 0;
   }
 
   step(dt: number): void {
@@ -82,8 +88,12 @@ export class CustomCurrentPhysics implements IPhysics {
   }
 
   endFrame(): void {
-    const list = Array.from(this.entries.values());
-    const found: PhysicsContact[] = [];
+    const list = this.entryList;
+    list.length = 0;
+    for (const entry of this.entries.values()) list.push(entry);
+
+    const found = this._contacts;
+    found.length = 0;
     for (let i = 0; i < list.length; i++) {
       const a = list[i];
       const as = a.lastState;
@@ -92,19 +102,27 @@ export class CustomCurrentPhysics implements IPhysics {
         const bs = b.lastState;
         const dx = bs.x - as.x;
         const dy = bs.y - as.y;
-        const dist = Math.hypot(dx, dy);
         const minDist = a.def.radius + b.def.radius;
+        // Квадрат дистанции с запасом 0.1 % отсекает заведомо далёкие пары:
+        // точное расстояние всё равно считается через hypot, поэтому
+        // результат контакта остаётся бит-в-бит прежним.
+        const reach = minDist * 1.001;
+        if (dx * dx + dy * dy >= reach * reach) continue;
+        const dist = Math.hypot(dx, dy);
         if (dist < minDist && dist > 0.01) {
           found.push({ a: a.userData, b: b.userData });
         }
       }
     }
-    this._contacts = found;
   }
 
+  /**
+   * Состояние тела. Возвращается живой объект бэкенда: вызывающий код
+   * только читает его, поэтому копия на каждый запрос не нужна.
+   */
   getState(userData: unknown): PhysicsBodyState {
     const e = this.entries.get(userData);
-    if (!e) return { x: 0, y: 0, angle: 0, vx: 0, vy: 0, spin: 0 };
-    return { ...e.lastState };
+    if (!e) return ZERO_STATE;
+    return e.lastState;
   }
 }

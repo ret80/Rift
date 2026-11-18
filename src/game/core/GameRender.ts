@@ -80,9 +80,15 @@ export class GameRender {
     });
   }
 
-  /** Делегировать debug-оверлей в DebugSystem. */
+  /**
+   * Делегировать debug-оверлей в DebugSystem.
+   *
+   * Снимки для оверлея (число врагов, роя, камней) стоят полных обходов
+   * коллекций, поэтому без включённого оверлея они не собираются вовсе.
+   */
   renderDebug(): void {
     const ctx = this.ctx;
+    if (!ctx.debugSystem.isDebugEnabled) return;
     const swarm = ctx.ecs.swarmMetrics();
     ctx.debugSystem.renderDebug({
       canvas: ctx.renderer.canvas,

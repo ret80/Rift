@@ -21,6 +21,8 @@ const DRAG = 2.5;
 
 export class ParticleSystem extends PhasedSystem {
   private aspect: Aspect | null = null;
+  /** Переиспользуемый список на удаление: тик не аллоцирует массив. */
+  private readonly expired: GameEntity[] = [];
 
   constructor() {
     super(Phase.Enemies);
@@ -34,9 +36,10 @@ export class ParticleSystem extends PhasedSystem {
     const aspect = this.aspect;
     if (!aspect) return;
 
-    const toRemove: GameEntity[] = [];
+    const toRemove = this.expired;
+    toRemove.length = 0;
 
-    for (const entity of [...aspect.entities]) {
+    for (const entity of aspect.entities) {
       const position = entity.components.get(PositionComponent);
       const velocity = entity.components.get(VelocityComponent);
       const life = entity.components.get(LifeComponent);

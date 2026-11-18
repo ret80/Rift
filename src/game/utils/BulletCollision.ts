@@ -12,13 +12,6 @@ import {
   type PlayerHitbox,
 } from './GrazeCollision';
 
-/** A collidable target with position and radius. */
-interface Collidable {
-  x: number;
-  y: number;
-  r: number;
-}
-
 /** Результат проверки вражеских снарядов против дронов. */
 export interface DroneHit {
   /** Индекс снаряда в пуле вражеских снарядов. */
@@ -29,12 +22,16 @@ export interface DroneHit {
 
 /**
  * Check if a bullet hits a collidable target.
+ *
+ * Квадрат дистанции с запасом 0.1 % отсекает промахи без sqrt; для близких
+ * целей решение принимает hypot, как и раньше — поведение не меняется.
  */
-function bulletHits(bx: number, by: number, target: Collidable): boolean {
-  const dx = bx - target.x;
-  const dy = by - target.y;
-  const dist = Math.hypot(dx, dy);
-  return dist < target.r;
+function bulletHits(bx: number, by: number, tx: number, ty: number, tr: number): boolean {
+  const dx = bx - tx;
+  const dy = by - ty;
+  const reach = tr * 1.001;
+  if (dx * dx + dy * dy >= reach * reach) return false;
+  return Math.hypot(dx, dy) < tr;
 }
 
 /**
@@ -65,7 +62,7 @@ export function checkBulletCollisions(
     for (const e of enemies) {
       if (e.marker.dead) continue;
 
-      if (bulletHits(b.position.x, b.position.y, { x: e.position.x, y: e.position.y, r: e.radius.r })) {
+      if (bulletHits(b.position.x, b.position.y, e.position.x, e.position.y, e.radius.r)) {
         hits.push({ bulletIndex: i, enemyId: e.marker.ecsId ?? null });
         bulletHit = true;
         break;
@@ -77,7 +74,7 @@ export function checkBulletCollisions(
       for (let ai = 0; ai < asteroids.length; ai++) {
         const a = asteroids[ai];
         if (a.marker.dead) continue;
-        if (bulletHits(b.position.x, b.position.y, { x: a.position.x, y: a.position.y, r: a.radius.r })) {
+        if (bulletHits(b.position.x, b.position.y, a.position.x, a.position.y, a.radius.r)) {
           bulletHit = true;
           hits.push({ bulletIndex: i, enemyId: null });
           damageAsteroidFn(ai, b.bullet.dmg, b.velocity.vx, b.velocity.vy, a.position.x, a.position.y);
@@ -151,7 +148,7 @@ export function checkEnemyBulletVsDrones(
     if (!b) continue;
     for (let j = drones.length - 1; j >= 0; j--) {
       const d = drones[j];
-      if (!bulletHits(b.position.x, b.position.y, { x: d.position.x, y: d.position.y, r: d.radius.r })) continue;
+      if (!bulletHits(b.position.x, b.position.y, d.position.x, d.position.y, d.radius.r)) continue;
 
       hits.push({ bulletIndex: i, droneIndex: j });
       break;

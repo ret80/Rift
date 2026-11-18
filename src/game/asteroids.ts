@@ -122,7 +122,11 @@ export class AsteroidField {
   /** Затравки загруженных чанков по ключу астероида. */
   private seedByKey = new Map<string, AstSeed>();
   private gone = new Set<string>();
-  private boundsKey = "";
+  /**
+   * Целочисленные границы прошлого кадра. Сравниваются напрямую: строка
+   * ключа строилась каждый тик вхолостую, пока камера стояла в тех же чанках.
+   */
+  private bounds = { x0: NaN, x1: NaN, y0: NaN, y1: NaN };
   private fragSeq = 0;
   /** Первичное заполнение выполнено: дальше спавн в кадре запрещён. */
   private primed = false;
@@ -200,10 +204,16 @@ export class AsteroidField {
     const x1 = Math.floor((env.camX + env.viewW / 2) / CHUNK) + 1;
     const y0 = Math.floor((env.camY - env.viewH / 2) / CHUNK) - 1;
     const y1 = Math.floor((env.camY + env.viewH / 2) / CHUNK) + 1;
-    const key = `${x0},${x1},${y0},${y1}`;
+    const bounds = this.bounds;
+    const boundsChanged =
+      bounds.x0 !== x0 || bounds.x1 !== x1 ||
+      bounds.y0 !== y0 || bounds.y1 !== y1;
 
-    if (key !== this.boundsKey) {
-      this.boundsKey = key;
+    if (boundsChanged) {
+      bounds.x0 = x0;
+      bounds.x1 = x1;
+      bounds.y0 = y0;
+      bounds.y1 = y1;
       const keep = new Set<string>();
       for (let cx = x0; cx <= x1; cx++) {
         for (let cy = y0; cy <= y1; cy++) {
@@ -228,9 +238,13 @@ export class AsteroidField {
       }
     }
 
+    // Живой состав пояса берётся один раз за тик: каждый запрос списка —
+    // полный скан домена с пересборкой связок.
+    const list = this.asteroidList;
+
     // spawn any seeded asteroids that are not alive or destroyed
     const alive = new Map<string, AsteroidRef>();
-    for (const a of this.asteroidList) alive.set(a.marker.key, a);
+    for (const a of list) alive.set(a.marker.key, a);
     for (const chunk of this.chunks.values()) {
       for (const seedAst of chunk) {
         if (alive.has(seedAst.key) || this.gone.has(seedAst.key)) continue;
@@ -266,7 +280,7 @@ export class AsteroidField {
     const cullDist = Math.max(CULL_DIST, viewRadius + CULL_MARGIN);
 
     // integrate pos if custom physics; cull far rocks; shove out of the zone
-    const asteroids = this.asteroidList;
+    const asteroids = list;
     for (let i = asteroids.length - 1; i >= 0; i--) {
       const a = asteroids[i];
       const { marker, position, velocity, radius } = a;
@@ -317,17 +331,25 @@ export class AsteroidField {
     // Asteroid-asteroid collisions (soft body physics with mass)
     // В режиме Planck контакты астероидов решает физический движок (тела
     // зарегистрированы в PhysicsSystem), поэтому дублирование убираем.
+    // Свежий снимок после удалений: камни, убранные на этом тике, не должны
+    // участвовать в столкновениях и в отсечении по CAP.
     const astList = this.asteroidList;
     if (!env.physicsResolves) {
       const astCount = astList.length;
       for (let i = 0; i < astCount; i++) {
         const a1 = astList[i];
+        if (a1.marker.dead) continue;
         for (let j = i + 1; j < astCount; j++) {
           const a2 = astList[j];
+          if (a2.marker.dead) continue;
           const dx = a2.position.x - a1.position.x;
           const dy = a2.position.y - a1.position.y;
-          const dist = Math.hypot(dx, dy);
           const minDist = a1.radius.r + a2.radius.r;
+          // Запас в 0.1 %: далёкие пары отсекаются без hypot, близкие
+          // считаются ровно тем же выражением, что и раньше.
+          const reach = minDist * 1.001;
+          if (dx * dx + dy * dy >= reach * reach) continue;
+          const dist = Math.hypot(dx, dy);
 
           if (dist < minDist && dist > 0.01) {
             const result = softResolveCollision(
@@ -506,7 +528,7 @@ export class AsteroidField {
     this.chunks.clear();
     this.seedByKey.clear();
     this.gone.clear();
-    this.boundsKey = "";
+    this.bounds = { x0: NaN, x1: NaN, y0: NaN, y1: NaN };
     this.fragSeq = 0;
     this.primed = false;
   }

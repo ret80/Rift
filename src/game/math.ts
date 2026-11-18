@@ -42,13 +42,28 @@ export function easeOutCubic(x: number) {
 
 /**
  * Parse hex color (#RRGGBB) to RGBA array.
- * Note: no caching — call sites should memoize if called per-frame.
+ *
+ * Рендер зовёт эту функцию на каждый примитив кадра (тысячи раз), поэтому
+ * результат кэшируется по цвету и альфе с шагом 0.01: разбор hex больше не
+ * повторяется, а мелкая квантованная альфа не заметна глазу.
+ * Возвращаемый массив общий — мутировать его нельзя.
  */
+const rgbaCache = new Map<string, RGBA>();
+
 export function rgba(hex: string, a: number): RGBA {
-  const r = parseInt(hex.slice(1, 3), 16) / 255;
-  const g = parseInt(hex.slice(3, 5), 16) / 255;
-  const b = parseInt(hex.slice(5, 7), 16) / 255;
-  return [r, g, b, a];
+  const key = hex + ((a * 100) | 0);
+  const cached = rgbaCache.get(key);
+  if (cached) return cached;
+  // Кэш ограничен: палитра игры фиксирована, но пульсирующая альфа добавляет ключи.
+  if (rgbaCache.size > 4096) rgbaCache.clear();
+  const color: RGBA = [
+    parseInt(hex.slice(1, 3), 16) / 255,
+    parseInt(hex.slice(3, 5), 16) / 255,
+    parseInt(hex.slice(5, 7), 16) / 255,
+    a,
+  ];
+  rgbaCache.set(key, color);
+  return color;
 }
 
 /** Deterministic seeded PRNG (chunked star/asteroid fields). */

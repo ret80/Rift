@@ -18,14 +18,18 @@ export class Fx {
   shakeX = 0;
   shakeY = 0;
 
+  /** Буферы снапшотов: рендер читает их каждый кадр без аллокаций. */
+  private readonly particleOut: Particle[] = [];
+  private readonly ringOut: Ring[] = [];
+
   /** Производное чтиво частиц из ECS-мира. */
   get particles(): Particle[] {
-    return this.ecs.particles();
+    return this.ecs.particles(this.particleOut);
   }
 
   /** Производное чтиво колец из ECS-мира. */
   get rings(): Ring[] {
-    return this.ecs.rings();
+    return this.ecs.rings(this.ringOut);
   }
 
   constructor(ecs: EcsWorld, private readonly rng?: Rng) {
@@ -84,7 +88,7 @@ export class Fx {
   }
 
   draw(R: IRenderer) {
-    for (const p of this.ecs.particles()) {
+    for (const p of this.particles) {
       const f = clamp(p.life / p.maxLife, 0, 1);
       const l = p.size * f;
       const d = Math.hypot(p.vx, p.vy) || 1;
@@ -96,7 +100,7 @@ export class Fx {
         [p.c[0], p.c[1], p.c[2], p.c[3] * f]
       );
     }
-    for (const r of this.ecs.rings()) {
+    for (const r of this.rings) {
       const f = clamp(r.life / r.maxLife, 0, 1);
       R.circle(r.x, r.y, r.r, [r.c[0], r.c[1], r.c[2], r.c[3] * f], 40);
     }

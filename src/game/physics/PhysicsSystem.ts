@@ -25,11 +25,24 @@ import type {
 /** Источник тел текущего кадра (collectPhysicsBodies + астероиды). */
 export type PhysicsEntitySource = () => PhysicsEntity[];
 
+/** Определение тела в последней регистрации: сравнивается без строковых ключей. */
+interface RegisteredBody {
+  entity: PhysicsEntity;
+  radius: number;
+  density: number;
+  fixedRotation: boolean;
+  kinematic: boolean;
+  sensor: boolean;
+}
+
 export class PhysicsSystem extends PhasedSystem {
-  /** Реестр зарегистрированных сущностей (userData -> адаптер и ключ дефа). */
-  private registered = new Map<unknown, { entity: PhysicsEntity; defKey: string }>();
+  /** Реестр зарегистрированных сущностей (userData -> адаптер и его деф). */
+  private registered = new Map<unknown, RegisteredBody>();
   /** Скорости тел до шага физики: нужны для урона от скорости удара. */
   private preStepVelocity = new Map<unknown, { vx: number; vy: number }>();
+  /** Переиспользуемые буферы тика: набор живых тел и список на удаление. */
+  private readonly seen = new Set<unknown>();
+  private readonly gone: unknown[] = [];
 
   constructor(
     private backend: IPhysics,
@@ -132,12 +145,19 @@ export class PhysicsSystem extends PhasedSystem {
     this.backend.clear();
   }
 
-  /** Ключ определения тела: при изменении тело пересоздаётся. */
-  private defKey(e: PhysicsEntity): string {
-    return [
-      e.kind, e.radius, e.density,
-      e.fixedRotation ?? false, e.kinematic ?? false, e.sensor ?? false,
-    ].join("|");
+  /**
+   * Изменилось ли определение тела: тогда его нужно пересоздать в бэкенде.
+   * Сравниваем поля напрямую — строковый ключ на каждое тело каждый тик
+   * давал лишние аллокации в горячем пути.
+   */
+  private definitionChanged(prev: RegisteredBody, entity: PhysicsEntity): boolean {
+    return (
+      prev.radius !== entity.radius ||
+      prev.density !== entity.density ||
+      prev.fixedRotation !== (entity.fixedRotation ?? false) ||
+      prev.kinematic !== (entity.kinematic ?? false) ||
+      prev.sensor !== (entity.sensor ?? false)
+    );
   }
 
   /**
@@ -146,14 +166,17 @@ export class PhysicsSystem extends PhasedSystem {
    * о типах игры, только читает/пишет состояния.
    */
   update(dt: number, entities: PhysicsEntity[]): void {
-    const seen = new Set<unknown>();
+    const seen = this.seen;
+    seen.clear();
 
     // 1. Регистрация новых тел; пересоздание при изменении определения.
     for (const entity of entities) {
       seen.add(entity.userData);
-      const key = this.defKey(entity);
       const prev = this.registered.get(entity.userData);
-      if (prev && prev.defKey === key) continue;
+      if (prev && !this.definitionChanged(prev, entity)) {
+        prev.entity = entity;
+        continue;
+      }
       if (prev) this.backend.removeBody(entity.userData);
       const s = entity.getState();
       this.backend.addBody(entity.userData, {
@@ -169,23 +192,40 @@ export class PhysicsSystem extends PhasedSystem {
         kinematic: entity.kinematic ?? false,
         sensor: entity.sensor ?? false,
       });
-      this.registered.set(entity.userData, { entity, defKey: key });
+      this.registered.set(entity.userData, {
+        entity,
+        radius: entity.radius,
+        density: entity.density,
+        fixedRotation: entity.fixedRotation ?? false,
+        kinematic: entity.kinematic ?? false,
+        sensor: entity.sensor ?? false,
+      });
     }
 
     // 2. Удаление тел сущностей, которые исчезли из мира.
-    for (const userData of Array.from(this.registered.keys())) {
-      if (!seen.has(userData)) {
-        this.registered.delete(userData);
-        this.backend.removeBody(userData);
-      }
+    const gone = this.gone;
+    gone.length = 0;
+    for (const userData of this.registered.keys()) {
+      if (!seen.has(userData)) gone.push(userData);
+    }
+    for (const userData of gone) {
+      this.registered.delete(userData);
+      this.preStepVelocity.delete(userData);
+      this.backend.removeBody(userData);
     }
 
     // 3. Синхронизация тел с игровым состоянием (позиция + скорости).
     this.beginFrame();
-    this.preStepVelocity.clear();
     for (const { entity } of this.registered.values()) {
       const state = entity.getState();
-      this.preStepVelocity.set(entity.userData, { vx: state.vx, vy: state.vy });
+      // Запись переиспользуется: снимок скорости берётся до шага физики.
+      const pre = this.preStepVelocity.get(entity.userData);
+      if (pre) {
+        pre.vx = state.vx;
+        pre.vy = state.vy;
+      } else {
+        this.preStepVelocity.set(entity.userData, { vx: state.vx, vy: state.vy });
+      }
       this.backend.syncBody(entity.userData, state);
     }
 

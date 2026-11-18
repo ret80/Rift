@@ -53,7 +53,7 @@ export class AsteroidAvoidance {
       const ey = enemy.position.y;
       const evx = enemy.velocity.vx;
       const evy = enemy.velocity.vy;
-      if (Math.hypot(evx, evy) < 20) continue;
+      if (evx * evx + evy * evy < 400) continue;
 
       let bestScore = 0;
       let bestTime = 0;
@@ -64,8 +64,9 @@ export class AsteroidAvoidance {
       for (const rock of asteroids) {
         if (rock.marker.dead || rock.marker.towed) continue;
 
-        const rockSpeed = Math.hypot(rock.velocity.vx, rock.velocity.vy);
-        if (rockSpeed < MIN_ASTEROID_SPEED) continue;
+        // Большинство камней медленные: квадрат скорости отсекает их без sqrt.
+        const rockSpeedSq = rock.velocity.vx * rock.velocity.vx + rock.velocity.vy * rock.velocity.vy;
+        if (rockSpeedSq < MIN_ASTEROID_SPEED * MIN_ASTEROID_SPEED) continue;
 
         const rx = rock.position.x - ex;
         const ry = rock.position.y - ey;

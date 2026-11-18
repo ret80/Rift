@@ -89,6 +89,8 @@ export class EnemySystem extends PhasedSystem {
   private threatDirector = new ThreatDirector();
   /** Последний срез врагов — только для диагностики роя. */
   private lastEnemyRefs: EnemyRef[] = [];
+  /** Переиспользуемый буфер живых врагов тика. */
+  private readonly enemyRefBuffer: EnemyRef[] = [];
 
   private wave = 1;
   /** Гарантированный элитный пак на текущей волне уже выдан. */
@@ -157,8 +159,8 @@ export class EnemySystem extends PhasedSystem {
   }
 
   process(dt: number): void {
-    const entities = this.collectEnemyEntities();
-    if (!entities.length) return;
+    const enemyRefs = this.collectEnemyRefs(this.enemyRefBuffer);
+    if (!enemyRefs.length) return;
 
     const playerPos = this.getPlayer();
     const zoneBounds = this.getZoneBounds();
@@ -189,7 +191,6 @@ export class EnemySystem extends PhasedSystem {
     });
 
     // AI movement via strategy pattern (стратегии мутируют базовые компоненты).
-    const enemyRefs = entities.map((e) => e.ref);
     this.lastEnemyRefs = enemyRefs;
     this.context.enemies = enemyRefs;
     this.context.asteroids = this.getAsteroids();
@@ -201,8 +202,8 @@ export class EnemySystem extends PhasedSystem {
     this.ai.updateAI(enemyRefs, this.context, dt);
 
     // Apply velocity and update state
-    for (let i = 0; i < entities.length; i++) {
-      const { ref } = entities[i];
+    for (let i = 0; i < enemyRefs.length; i++) {
+      const ref = enemyRefs[i];
       const marker = ref.marker;
       if (marker.dead) continue;
 
@@ -293,15 +294,18 @@ export class EnemySystem extends PhasedSystem {
     this.asteroidAvoidance.solve(enemyRefs, this.context.asteroids, dt);
   }
 
-  /** Собрать сущности с EnemyComponent. */
-  private collectEnemyEntities(): Array<{ entity: GameEntity; ref: EnemyRef }> {
-    if (!this.aspect) return [];
-    const result: Array<{ entity: GameEntity; ref: EnemyRef }> = [];
-    for (const entity of [...this.aspect.entities]) {
+  /**
+   * Собрать живые связки врагов в переиспользуемый буфер.
+   * Обёртки «сущность + ref» не нужны: остальному коду тика нужен только ref.
+   */
+  private collectEnemyRefs(out: EnemyRef[]): EnemyRef[] {
+    out.length = 0;
+    if (!this.aspect) return out;
+    for (const entity of this.aspect.entities) {
       const ref = this.ecs.enemyRefByEntity(entity);
-      if (ref) result.push({ entity, ref });
+      if (ref) out.push(ref);
     }
-    return result;
+    return out;
   }
 
   /** Factory для создания врага с общими полями */

@@ -31,6 +31,13 @@ export type EnemyCollisionWorldSource = () => WorldFrame;
 export type EnemyCollisionWaveSource = () => number;
 
 export class EnemyCollisionSystem extends PhasedSystem {
+  /** Живые враги текущего тика: проверка «свой ли это враг» без O(n) на контакт. */
+  private readonly liveEnemies = new Set<EnemyRef>();
+  /** Индекс астероида в пуле кадра: событие asteroid_hit ждёт номер. */
+  private readonly asteroidIndex = new Map<AsteroidRef, number>();
+  /** Враги, уже получившие урон от тарана в этом кадре. */
+  private readonly rammed = new Set<EnemyRef>();
+
   constructor(
     private readonly eventBus: EventBus,
     private readonly physics: PhysicsSystem,
@@ -58,8 +65,17 @@ export class EnemyCollisionSystem extends PhasedSystem {
     const asteroids = world.asteroids;
     const softImpulse = !this.physics.resolvesVelocity;
     let playerHit = false;
-    /** Враги, уже получившие урон от тарана в этом кадре. */
-    const rammed = new Set<EnemyRef>();
+    const rammed = this.rammed;
+    rammed.clear();
+
+    // Таблицы живых тел строятся один раз за тик: линейные includes на
+    // каждый контакт дорожали вместе с числом врагов.
+    const liveEnemies = this.liveEnemies;
+    liveEnemies.clear();
+    for (const enemy of enemies) liveEnemies.add(enemy);
+    const asteroidIndex = this.asteroidIndex;
+    asteroidIndex.clear();
+    for (let i = 0; i < asteroids.length; i++) asteroidIndex.set(asteroids[i], i);
 
     for (const contact of this.physics.contacts) {
       const a = contact.a;
@@ -110,7 +126,7 @@ export class EnemyCollisionSystem extends PhasedSystem {
         // остаётся живым, чтобы таран не был мгновенным убийством босса.
         // Ограничение по hitCd не даёт снимать HP каждый кадр при удержании
         // контакта.
-        if (!e.marker.dead && enemies.includes(e) && !rammed.has(e)) {
+        if (!e.marker.dead && liveEnemies.has(e) && !rammed.has(e)) {
           rammed.add(e);
           if (e.marker.hitCd <= 0) {
             const playerMass = player.marker.mass || massForRadius(player.radius.r);
@@ -134,7 +150,7 @@ export class EnemyCollisionSystem extends PhasedSystem {
       ) {
         const ast = kindA === "asteroid" ? a : b;
         const rock = ast as AsteroidRef;
-        const rockIndex = asteroids.indexOf(rock);
+        const rockIndex = asteroidIndex.get(rock) ?? -1;
         if (rockIndex >= 0 && !rock.marker.dead) {
           const playerMass = player.marker.mass || massForRadius(player.radius.r);
           const dgS = dmgScale(wave);
@@ -191,8 +207,8 @@ export class EnemyCollisionSystem extends PhasedSystem {
         const ast = kindA === "asteroid" ? a : b;
         const e = enemy as EnemyRef;
         const rock = ast as AsteroidRef;
-        if (e.marker.dead || !enemies.includes(e)) continue;
-        if (rock.marker.dead || !asteroids.includes(rock)) continue;
+        if (e.marker.dead || !liveEnemies.has(e)) continue;
+        if (rock.marker.dead || !asteroidIndex.has(rock)) continue;
         const { position, velocity, marker } = rock;
 
         if (softImpulse) {

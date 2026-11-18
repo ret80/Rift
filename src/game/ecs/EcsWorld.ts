@@ -58,6 +58,8 @@ export class EcsWorld {
   private readonly effectDomain = new EffectDomain(this.core);
   private readonly riftDomain = new RiftDomain(this.core);
   private readonly enemyDomain: EnemyDomain;
+  /** Переиспользуемый буфер тел физики. */
+  private readonly physicsBodyOut: PhysicsEntity[] = [];
   /** ECS-системы мира в порядке регистрации (фазы заданы SystemSchedule). */
   readonly systems: readonly PhasedSystem[];
 
@@ -87,8 +89,12 @@ export class EcsWorld {
 
   addSystem(system: System): void { this.core.engine.systems.add(system); }
   update(dt: number): void { this.core.update(dt); }
+  /** Тела кадра в переиспользуемом буфере: физика запрашивает их каждый тик. */
   physicsBodies(): PhysicsEntity[] {
-    return collectPhysicsBodies(this.core, this.playerDomain, this.enemyDomain, this.asteroidDomain);
+    this.physicsBodyOut.length = 0;
+    return collectPhysicsBodies(
+      this.core, this.playerDomain, this.enemyDomain, this.asteroidDomain, this.physicsBodyOut,
+    );
   }
   /** Метрики роя дронов для debug-оверлея. */
   swarmMetrics(): { groups: number; detached: number; directions: string } {
@@ -162,10 +168,12 @@ export class EcsWorld {
   clearBeams(): void { this.beamDomain.clear(); }
 
   addParticle(particle: Particle): void { this.effectDomain.addParticle(particle); }
-  particles(): Particle[] { return this.effectDomain.particles(); }
+  /** Снапшоты частиц в переиспользуемый буфер: рендер не аллоцирует массив. */
+  particles(out?: Particle[]): Particle[] { return this.effectDomain.particles(out); }
   clearParticles(): void { this.effectDomain.clearParticles(); }
   addRing(ring: Ring): void { this.effectDomain.addRing(ring); }
-  rings(): Ring[] { return this.effectDomain.rings(); }
+  /** Снапшоты колец в переиспользуемый буфер. */
+  rings(out?: Ring[]): Ring[] { return this.effectDomain.rings(out); }
   clearRings(): void { this.effectDomain.clearRings(); }
 
   addRift(rift: Rift): void { this.riftDomain.add(rift); }

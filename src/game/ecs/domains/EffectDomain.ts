@@ -27,9 +27,10 @@ export class EffectDomain {
     this.ecs.add(entity);
   }
 
-  /** Снапшоты частиц для рендера. */
-  particles(): Particle[] {
-    const result: Particle[] = [];
+  /** Снапшоты частиц для рендера (в переиспользуемый буфер). */
+  particles(out: Particle[] = []): Particle[] {
+    const result = out;
+    result.length = 0;
     for (const entity of this.ecs.entitiesWith(ParticleComponent)) {
       const particle = entity.components.get(ParticleComponent);
       if (!particle) continue;
@@ -66,9 +67,10 @@ export class EffectDomain {
     this.ecs.add(entity);
   }
 
-  /** Снапшоты колец для рендера. */
-  rings(): Ring[] {
-    const result: Ring[] = [];
+  /** Снапшоты колец для рендера (в переиспользуемый буфер). */
+  rings(out: Ring[] = []): Ring[] {
+    const result = out;
+    result.length = 0;
     for (const entity of this.ecs.entitiesWith(RingComponent)) {
       const ring = entity.components.get(RingComponent);
       if (!ring) continue;

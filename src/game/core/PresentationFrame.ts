@@ -8,7 +8,13 @@
 
 import type { GameContext } from "./GameContext";
 
+/** Период отправки HUD-снимка, секунды: тот же, что у публикации HudStore. */
+const HUD_PERIOD = 1 / 15;
+
 export class PresentationFrame {
+  /** Накопитель времени до следующего HUD-снимка. */
+  private hudAccum = 0;
+
   constructor(private readonly ctx: GameContext) {}
 
   /** Кадр меню: анимация сцены без игровых систем. */
@@ -37,11 +43,20 @@ export class PresentationFrame {
     this.ctx.fx.update(dt, dt);
   }
 
-  /** Отрисовка сцены, debug-слоя и отправка HUD. */
+  /**
+   * Отрисовка сцены, debug-слоя и отправка HUD.
+   *
+   * HUD-снимок собирается с частотой публикации HudStore: строить его на
+   * каждом кадре значило бы выделять объекты, которые никто не отрисует.
+   */
   render(dt: number): void {
     const ctx = this.ctx;
     ctx.render.renderScene(dt, ctx.buildWorld());
     ctx.render.renderDebug();
-    ctx.render.updateHud();
+    this.hudAccum += dt;
+    if (this.hudAccum >= HUD_PERIOD) {
+      this.hudAccum = 0;
+      ctx.render.updateHud();
+    }
   }
 }
